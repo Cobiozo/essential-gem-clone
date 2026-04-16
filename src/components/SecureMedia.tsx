@@ -161,6 +161,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const forceHideBufferingRef = useRef(false); // FIX A: Ref synced with state for stable closure access
   const processingUrlRef = useRef<string | null>(null); // FIX D: Guard against duplicate token generation
   
+  // iOS background recovery refs
+  const resumeCheckpointRef = useRef<number>(initialTime); // Last known good playback time
+  const wasBackgroundedRef = useRef<boolean>(false); // Whether app was backgrounded
+  const resumeIntentRef = useRef<boolean>(false); // Whether user was playing before background
+  
   // Callback ref to ensure event listeners are attached when element mounts
   const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
     videoRef.current = node;
@@ -1470,8 +1475,35 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Sync isTabHidden ref
   useEffect(() => { isTabHiddenRef.current = isTabHidden; }, [isTabHidden]);
 
-  // Visibility API - pause video when tab is hidden (for ALL video types)
-  // CHANGE 1: Disable window.blur on mobile (too aggressive), add window.focus
+  // Update resumeCheckpoint during normal playback
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement) return;
+    const video = videoElement;
+    
+    const updateCheckpoint = () => {
+      if (!video.paused && video.currentTime > 0 && isFinite(video.currentTime)) {
+        resumeCheckpointRef.current = video.currentTime;
+      }
+    };
+    
+    // Update checkpoint every second during playback
+    const interval = setInterval(updateCheckpoint, 1000);
+    
+    // Also update on pause
+    const onPause = () => {
+      if (video.currentTime > 0 && isFinite(video.currentTime)) {
+        resumeCheckpointRef.current = video.currentTime;
+      }
+    };
+    video.addEventListener('pause', onPause);
+    
+    return () => {
+      clearInterval(interval);
+      video.removeEventListener('pause', onPause);
+    };
+  }, [mediaType, videoElement]);
+
+  // Visibility API - pause video when tab is hidden, recover on return
   useEffect(() => {
     if (mediaType !== 'video') return;
 
@@ -1480,27 +1512,64 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        // GOING TO BACKGROUND: save checkpoint
+        if (videoRef.current) {
+          const video = videoRef.current;
+          resumeIntentRef.current = !video.paused; // Was user playing?
+          if (video.currentTime > 0 && isFinite(video.currentTime)) {
+            resumeCheckpointRef.current = video.currentTime;
+            lastValidTimeRef.current = video.currentTime;
+          }
+          if (!video.paused) {
+            video.pause();
+          }
+        }
+        wasBackgroundedRef.current = true;
         setIsTabHidden(true);
         isTabHiddenRef.current = true;
-        if (videoRef.current && !videoRef.current.paused) {
-          videoRef.current.pause();
-        }
       } else {
+        // RETURNING FROM BACKGROUND
         setIsTabHidden(false);
         isTabHiddenRef.current = false;
         
-        if (videoRef.current) {
+        if (videoRef.current && wasBackgroundedRef.current) {
           canplayGuardRef.current = false;
           const video = videoRef.current;
+          const checkpoint = resumeCheckpointRef.current;
+          
+          console.log('[SecureMedia] Returning from background:', {
+            checkpoint: checkpoint.toFixed(2),
+            readyState: video.readyState,
+            resumeIntent: resumeIntentRef.current,
+            isIOS
+          });
           
           if (isIOS) {
-            // iOS: Don't auto-play — show tap-to-resume overlay instead
-            console.log('[SecureMedia] iOS visibility recovery — showing tap-to-resume');
-            setShowTapToResume(true);
+            // iOS: Check if video pipeline is still alive
+            if (video.readyState >= 2 && resumeIntentRef.current) {
+              // Pipeline alive — restore position and show tap-to-resume
+              if (checkpoint > 0 && isFinite(checkpoint)) {
+                video.currentTime = checkpoint;
+              }
+              setShowTapToResume(true);
+            } else if (video.readyState < 2) {
+              // Pipeline dead — show tap-to-resume, recoverPlayback will handle reload
+              console.log('[SecureMedia] iOS: pipeline dead after background, will recover on tap');
+              setShowTapToResume(true);
+            } else {
+              // Was paused before background — just restore position
+              if (checkpoint > 0 && isFinite(checkpoint)) {
+                video.currentTime = checkpoint;
+              }
+              wasBackgroundedRef.current = false;
+            }
           } else if (isMobileDevice) {
             // Android mobile: try auto-play with fallback
+            if (checkpoint > 0 && isFinite(checkpoint)) {
+              video.currentTime = checkpoint;
+            }
             setTimeout(() => {
-              if (video && video.paused && !document.hidden) {
+              if (video && video.paused && !document.hidden && resumeIntentRef.current) {
                 console.log('[SecureMedia] Android visibility recovery — attempting play');
                 video.play().catch(() => {
                   console.log('[SecureMedia] Auto-play blocked, showing tap-to-resume');
@@ -1508,21 +1577,33 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
                 });
               }
             }, 500);
+            wasBackgroundedRef.current = false;
+          } else {
+            // Desktop — just restore
+            if (checkpoint > 0 && isFinite(checkpoint)) {
+              video.currentTime = checkpoint;
+            }
+            wasBackgroundedRef.current = false;
           }
         }
       }
     };
 
-    // CHANGE 1: Only register blur on desktop - on mobile blur fires too often
+    // Only register blur on desktop - on mobile blur fires too often
     const handleWindowBlur = () => {
       if (videoRef.current && !videoRef.current.paused) {
+        resumeIntentRef.current = true;
+        if (videoRef.current.currentTime > 0) {
+          resumeCheckpointRef.current = videoRef.current.currentTime;
+        }
         videoRef.current.pause();
         setIsTabHidden(true);
         isTabHiddenRef.current = true;
+        wasBackgroundedRef.current = true;
       }
     };
 
-    // CHANGE 1: Focus handler resets isTabHidden on ALL devices
+    // Focus handler resets isTabHidden on ALL devices
     const handleWindowFocus = () => {
       if (!document.hidden) {
         setIsTabHidden(false);
@@ -1531,26 +1612,39 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
 
     const handlePageHide = () => {
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-        setIsTabHidden(true);
-        isTabHiddenRef.current = true;
+      if (videoRef.current) {
+        const video = videoRef.current;
+        resumeIntentRef.current = !video.paused;
+        if (video.currentTime > 0 && isFinite(video.currentTime)) {
+          resumeCheckpointRef.current = video.currentTime;
+          lastValidTimeRef.current = video.currentTime;
+        }
+        if (!video.paused) {
+          video.pause();
+        }
       }
+      wasBackgroundedRef.current = true;
+      setIsTabHidden(true);
+      isTabHiddenRef.current = true;
     };
 
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        setIsTabHidden(true);
-        isTabHiddenRef.current = true;
+      if (e.persisted && videoRef.current) {
+        // bfcache restore — iOS needs full recovery
+        console.log('[SecureMedia] pageshow (bfcache) — initiating recovery');
+        setIsTabHidden(false);
+        isTabHiddenRef.current = false;
+        wasBackgroundedRef.current = true;
+        setShowTapToResume(true);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus); // CHANGE 1: Always register focus
+    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow as EventListener);
     
-    // CHANGE 1: Only register blur on desktop
+    // Only register blur on desktop
     if (!isMobileDevice) {
       window.addEventListener('blur', handleWindowBlur);
     }
@@ -1566,51 +1660,117 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType]);
 
-  const handleTapToResume = useCallback(() => {
-    setShowTapToResume(false);
-    if (videoRef.current && videoRef.current.paused) {
-      videoRef.current.play().catch(console.error);
-    }
-  }, []);
-
-  const handlePlayPause = useCallback(() => {
-    if (!videoRef.current) return;
-    setShowTapToResume(false); // Clear tap-to-resume on any play/pause action
-    
-    if (videoRef.current.paused) {
-      videoRef.current.play().catch(console.error);
-    } else {
-      videoRef.current.pause();
-    }
-  }, []);
-
-  // CHANGE 3: Manual retry - try without video.load() first, preserve buffer
-  const handleRetry = useCallback(() => {
+  // Unified recovery function for iOS background return, retry, tap-to-resume
+  const recoverPlayback = useCallback((source: string = 'unknown') => {
     const video = videoRef.current;
     if (!video) return;
     
-    console.log('[SecureMedia] Manual retry triggered');
-    const currentPos = lastValidTimeRef.current;
+    const checkpoint = resumeCheckpointRef.current || lastValidTimeRef.current || 0;
+    console.log(`[SecureMedia] recoverPlayback (${source}):`, {
+      checkpoint: checkpoint.toFixed(2),
+      readyState: video.readyState,
+      networkState: video.networkState,
+      paused: video.paused,
+      src: video.src ? 'set' : 'empty'
+    });
     
-    // Reset states
+    // 1. Clear ALL blocking flags
     setIsBuffering(false);
     setIsSmartBuffering(false);
-    isBufferingRef.current = false;
-    wasPlayingBeforeBufferRef.current = false;
-    setBufferProgress(0);
+    setIsInitialBuffering(false);
     setShowBufferingSpinner(false);
+    setShowTapToResume(false);
+    setIsTabHidden(false);
+    isTabHiddenRef.current = false;
+    isBufferingRef.current = false;
+    isSmartBufferingRef.current = false;
+    isSeekingRef.current = false;
+    wasPlayingBeforeBufferRef.current = false;
     canplayGuardRef.current = false;
+    setBufferProgress(0);
     
-    // CHANGE 3: Try to resume without destroying buffer first
-    // Only use video.load() if simple resume doesn't work
-    video.currentTime = currentPos;
-    video.play().catch((err) => {
-      console.warn('[SecureMedia] Resume failed, falling back to full reload:', err);
+    // Clear pending timeouts
+    if (spinnerTimeoutRef.current) { clearTimeout(spinnerTimeoutRef.current); spinnerTimeoutRef.current = undefined; }
+    if (bufferingTimeoutRef.current) { clearTimeout(bufferingTimeoutRef.current); bufferingTimeoutRef.current = undefined; }
+    if (stalledTimeoutRef.current) { clearTimeout(stalledTimeoutRef.current); stalledTimeoutRef.current = undefined; }
+    if (smartBufferingTimeoutRef.current) { clearTimeout(smartBufferingTimeoutRef.current); smartBufferingTimeoutRef.current = undefined; }
+    
+    // 2. Evaluate video element state and recover
+    const needsReload = video.readyState < 1 || video.networkState === 3 || !video.src;
+    
+    if (needsReload) {
+      console.log(`[SecureMedia] recoverPlayback: needs reload (readyState=${video.readyState}, networkState=${video.networkState})`);
+      
+      // Wait for metadata before seeking
+      const onMetadataLoaded = () => {
+        video.removeEventListener('loadedmetadata', onMetadataLoaded);
+        if (checkpoint > 0 && isFinite(checkpoint)) {
+          video.currentTime = checkpoint;
+          lastValidTimeRef.current = checkpoint;
+        }
+        setVideoReady(true);
+        video.play().catch((err) => {
+          console.log('[SecureMedia] recoverPlayback: auto-play blocked after reload:', err);
+          setShowTapToResume(true);
+        });
+      };
+      video.addEventListener('loadedmetadata', onMetadataLoaded);
       video.load();
-      video.currentTime = currentPos;
-      video.play().catch(console.error);
-    });
+    } else {
+      // Video has enough data - just seek and play
+      if (checkpoint > 0 && isFinite(checkpoint)) {
+        video.currentTime = checkpoint;
+        lastValidTimeRef.current = checkpoint;
+      }
+      setVideoReady(true);
+      video.play().catch((err) => {
+        console.log('[SecureMedia] recoverPlayback: play failed, trying reload:', err);
+        // Fallback: full reload
+        const onMeta = () => {
+          video.removeEventListener('loadedmetadata', onMeta);
+          if (checkpoint > 0 && isFinite(checkpoint)) {
+            video.currentTime = checkpoint;
+            lastValidTimeRef.current = checkpoint;
+          }
+          video.play().catch(() => {
+            setShowTapToResume(true);
+          });
+        };
+        video.addEventListener('loadedmetadata', onMeta);
+        video.load();
+      });
+    }
+    
+    wasBackgroundedRef.current = false;
   }, []);
+
+  const handleTapToResume = useCallback(() => {
+    recoverPlayback('tap-to-resume');
+  }, [recoverPlayback]);
+
+  const handlePlayPause = useCallback(() => {
+    if (!videoRef.current) return;
+    setShowTapToResume(false);
+    
+    // If stuck in loading/buffering state, use recovery instead of simple play
+    const video = videoRef.current;
+    if (video.paused) {
+      // Check if video is actually stuck (readyState too low or was backgrounded)
+      if (wasBackgroundedRef.current || video.readyState < 2) {
+        recoverPlayback('play-pause-recovery');
+      } else {
+        video.play().catch(() => recoverPlayback('play-pause-fallback'));
+      }
+    } else {
+      video.pause();
+    }
+  }, [recoverPlayback]);
+
+  // Manual retry - uses unified recovery
+  const handleRetry = useCallback(() => {
+    console.log('[SecureMedia] Manual retry triggered');
+    recoverPlayback('manual-retry');
+  }, [recoverPlayback]);
 
   // NEW: Auto-recovery for stuck playback detection
   useEffect(() => {
