@@ -65,26 +65,16 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   
   return (
     <div className="bg-card border rounded-lg p-3 space-y-3">
-      {/* Buffering message with progress */}
-      {isBuffering && (
+      {/* Buffering message — only during active playback stalls, not initial load */}
+      {isBuffering && !isInitialLoad && (
         <div className="flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-md text-sm">
           <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
           <div className="flex-1">
             <span>
-              {isInitialLoad 
-                ? "Przygotowuję wideo do odtwarzania..." 
-                : networkQuality === 'slow' || networkQuality === 'offline'
-                  ? "Słaby zasięg sieci - ładowanie wideo..."
-                  : "Buforowanie wideo..."}
+              {networkQuality === 'slow' || networkQuality === 'offline'
+                ? "Słaby zasięg sieci - ładowanie wideo..."
+                : "Buforowanie wideo..."}
             </span>
-            {bufferProgress !== undefined && bufferProgress > 0 && bufferProgress < 100 && (
-              <div className="mt-1">
-                <Progress value={Math.max(0, bufferProgress)} className="h-1" />
-                <span className="text-xs mt-0.5 block text-blue-500 dark:text-blue-400">
-                  Buforowanie: {Math.round(Math.max(0, bufferProgress))}%
-                </span>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -115,7 +105,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             size="sm"
             onClick={onPlayPause}
             className="flex items-center gap-2 min-h-[48px]"
-            disabled={isBuffering && !isIOSDevice()}
+            style={{ touchAction: 'manipulation' }}
           >
             {isPlaying ? (
               <>
@@ -136,6 +126,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               size="sm"
               onClick={onRewind}
               className="flex items-center gap-1 min-h-[44px]"
+              style={{ touchAction: 'manipulation' }}
               disabled={isBuffering || currentTime < 1}
               title="Cofnij 10 sekund"
             >
