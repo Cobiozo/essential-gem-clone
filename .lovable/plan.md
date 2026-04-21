@@ -1,74 +1,74 @@
 
-# Fix duplikatów konwersacji + EQID jako disambiguator
+# Status: logo NIE zostało dodane — wymaga ponownej implementacji
 
-## Główna naprawa (jak poprzednio)
-1. **`useAdminConversations.ts`** — filtrować `fetchConversations` do moich rozmów (`.or(admin_user_id.eq.${user.id},target_user_id.eq.${user.id})`), poprawnie mapować drugiego rozmówcę, deduplikować po `userId`.
-2. **`useAdminConversations.ts`** — `openConversation`: blokada self-chat + dwukierunkowy lookup istniejącej rozmowy.
-3. **Migracja DB** — usunąć self-conversation Dawid→Dawid, dodać `CHECK (admin_user_id <> target_user_id)`.
-4. **`MessagesSidebar.tsx`** — defensywna deduplikacja po `userId` przed renderem.
+## Co sprawdziłem
+- `src/pages/EventGuestRegistration.tsx`, linie 703–717 (`CardHeader`): **brak importu i brak renderu logo**. Kod nadal wygląda dokładnie tak jak przed planem.
+- `src/assets/`: **brak pliku** `eqology-ibp-logo.png` (ani żadnego z „eqology"/„ibp" w nazwie).
+- Zmienne `isAutoWebinar` (linia 457) i `autoWebinarCategory` (linia 247) **istnieją** i są gotowe do użycia w warunku.
+- W poprzedniej turze faktycznie zmieniony został tylko `.lovable/plan.md` i `bun.lock` — sam komponent rejestracji nie został tknięty, a plik obrazu nigdy nie trafił do `src/assets/`.
 
-## Nowy element: EQID jako disambiguator dla identycznych nazwisk
+## Wniosek
+**Logo nie wyświetla się w oknie rejestracji** ani dla Business Opportunity, ani dla Health Conversation. Trzeba wykonać implementację od nowa.
 
-### Cel
-Gdy w bazie istnieje dwóch różnych użytkowników o tym samym imieniu i nazwisku (np. dwóch "Dawid Kowalczyk"), pokazać ich EQID drobnym fontem pod nazwą — żeby dało się ich rozróżnić. Dla użytkowników bez kolizji EQID nie musi być pokazywane (lub może być pokazywane zawsze, dla spójności).
+## Plan naprawy
 
-### Co zmienić
+### 1. Dodanie pliku logo
+Skopiować przesłany wcześniej obraz (`Zrzut_ekranu_2025-12-11_173311.png` z „EQOLOGY Independent Business Partner") do:
+```
+src/assets/eqology-ibp-logo.png
+```
 
-**`useAdminConversations.ts`**
-- W zapytaniu o profile dobrać kolumnę `eq_id`:
-  ```ts
-  .select('user_id, first_name, last_name, role, email, avatar_url, eq_id')
-  ```
-- Dodać pole `eqId: string | null` do interfejsu `AdminConversationUser` i mapowania.
+### 2. `src/pages/EventGuestRegistration.tsx` — import
+Dodać przy pozostałych importach:
+```tsx
+import eqologyIbpLogo from '@/assets/eqology-ibp-logo.png';
+```
 
-**`src/components/messages/AdminConversationItem.tsx`** (lub komponent renderujący wpis konwersacji admina — sprawdzę dokładną nazwę)
-- Pod nazwą użytkownika dodać linię:
-  ```tsx
-  {eqId && (
-    <span className="text-[10px] text-muted-foreground/70 font-mono">
-      {eqId}
-    </span>
-  )}
-  ```
-- Stylowanie: bardzo małe (`text-[10px]` lub `text-xs`), wyciszone (`text-muted-foreground/70`), monospace dla czytelności kodu.
+### 3. `src/pages/EventGuestRegistration.tsx` — `CardHeader` (linie 703–717)
+Zamienić obecny układ na flexbox z tytułem po lewej i logo po prawej (warunek BO **lub** HC):
+```tsx
+<CardHeader>
+  <div className="flex items-center gap-2 mb-2">
+    <Badge variant="outline">
+      <Video className="h-3 w-3 mr-1" />
+      {labels.webinarBadge}
+    </Badge>
+  </div>
+  <div className="flex items-start justify-between gap-4">
+    <div className="flex-1 min-w-0">
+      <CardTitle className="text-2xl">{displayTitle}</CardTitle>
+      {event.description && (
+        <CardDescription
+          className="text-base mt-2"
+          dangerouslySetInnerHTML={{ __html: event.description }}
+        />
+      )}
+    </div>
+    {isAutoWebinar &&
+      (autoWebinarCategory === 'business_opportunity' ||
+       autoWebinarCategory === 'health_conversation') && (
+      <img
+        src={eqologyIbpLogo}
+        alt="Eqology Independent Business Partner"
+        className="h-12 md:h-14 w-auto shrink-0 object-contain"
+      />
+    )}
+  </div>
+</CardHeader>
+```
 
-**`TeamMemberItem.tsx`** — już pokazuje `member.eqId` po kropce w roli, więc jest spójnie. Można ujednolicić styl (drobna kursywa pod nazwą zamiast po roli) — ale tylko jeśli chcesz wymusić spójność wszędzie.
-
-### Opcjonalne ulepszenie (do decyzji)
-Pokazywać EQID **tylko gdy występuje konflikt nazwy** na liście (czyli gdy 2+ osoby mają identyczne `firstName + lastName`). Zaleta: czystszy UI dla unikalnych nazwisk. Wada: dodatkowa logika obliczania duplikatów w komponencie.
-
-**Rekomendacja**: pokazywać EQID **zawsze** (drobnym fontem) — prościej, spójniej, użytkownik szybciej uczy się rozpoznawać po EQID.
-
-## Dodatkowa notatka: Logo dla HC (Health Conversation)
-
-W kontekście logo **EQology Independent Business Partner** obok tytułu w oknie rejestracji gości:
-- Dla **Business Opportunity (BO)** — logo wyświetla się obok tytułu "Business Opportunity"
-- Dla **Health Conversation (HC)** — to samo logo ma się wyświetlać obok tytułu "Health Conversation" (analogicznie jak dla BO)
-
-Zmiana w `src/pages/EventGuestRegistration.tsx`:
-- Rozszerzyć warunek wyświetlania logo z:
-  ```tsx
-  {isAutoWebinar && autoWebinarCategory === 'business_opportunity' && (...)}
-  ```
-  na:
-  ```tsx
-  {isAutoWebinar && (autoWebinarCategory === 'business_opportunity' || autoWebinarCategory === 'health_conversation') && (...)}
-  ```
-- Alternatywnie: wyświetlać logo dla wszystkich auto-webinarów (jeśli Eqology IBP dotyczy wszystkich kategorii).
+### 4. Weryfikacja po wdrożeniu
+Sprawdzić że logo pojawia się w obu przypadkach:
+- `/events/register/:id?slot=...` dla auto-webinaru kategorii **Business Opportunity**
+- `/events/register/:id?slot=...` dla auto-webinaru kategorii **Health Conversation**
+- NIE pojawia się dla zwykłych wydarzeń (`event_type !== 'auto_webinar'`)
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useAdminConversations.ts` | Filtr moich rozmów + dedup + self-guard + dwukierunkowy lookup + dobranie `eq_id` |
-| `src/components/messages/MessagesSidebar.tsx` (i AdminConversationItem) | Defensywna dedup + render EQID drobnym fontem |
-| `src/types` (interfejs `AdminConversationUser`) | Dodać `eqId` |
-| Migracja SQL | DELETE self-conversation + CHECK constraint |
-| `src/pages/EventGuestRegistration.tsx` | Rozszerzyć warunek logo na HC (opcjonalnie, jeśli wymagane) |
+| `src/assets/eqology-ibp-logo.png` | Nowy plik (kopia uploadu) |
+| `src/pages/EventGuestRegistration.tsx` | Import logo + warunkowy render w `CardHeader` (BO + HC) |
 
 ## Efekt
-- Każdy użytkownik **dokładnie raz** na liście
-- Dwóch "Dawid Kowalczyk" rozróżnialnych po EQID widocznym drobnym fontem pod nazwą
-- Brak self-konwersacji (technicznie zablokowane)
-- Brak cudzych konwersacji w panelu
-- Logo EQology IBP widoczne dla BO i HC w rejestracji gości
+W oknie rejestracji gościa na auto-webinar (BO i HC) po prawej stronie tytułu pojawi się logo „EQOLOGY Independent Business Partner". Dla pozostałych typów wydarzeń logo nie będzie renderowane.
