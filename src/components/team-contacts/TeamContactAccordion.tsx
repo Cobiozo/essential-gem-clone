@@ -91,6 +91,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
     }
     
     const statusLabels: Record<string, { label: string; className: string }> = {
+      to_contact: { label: 'W kolejce - Do skontaktowania', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' },
       observation: { label: 'Czynny obserwujący', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
       potential_client: { label: 'Potencjalny klient', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
       potential_partner: { label: 'Potencjalny partner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },

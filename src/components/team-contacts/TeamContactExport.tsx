@@ -14,6 +14,7 @@ interface TeamContactExportProps {
 
 const getRelationshipLabel = (status: string | null) => {
   switch (status) {
+    case 'to_contact': return 'W kolejce - Do skontaktowania';
     case 'observation': return 'Czynny obserwujący';
     case 'potential_client': return 'Potencjalny klient';
     case 'potential_partner': return 'Potencjalny partner';
