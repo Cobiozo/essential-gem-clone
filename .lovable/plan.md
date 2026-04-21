@@ -39,6 +39,23 @@ Pokazywać EQID **tylko gdy występuje konflikt nazwy** na liście (czyli gdy 2+
 
 **Rekomendacja**: pokazywać EQID **zawsze** (drobnym fontem) — prościej, spójniej, użytkownik szybciej uczy się rozpoznawać po EQID.
 
+## Dodatkowa notatka: Logo dla HC (Health Conversation)
+
+W kontekście logo **EQology Independent Business Partner** obok tytułu w oknie rejestracji gości:
+- Dla **Business Opportunity (BO)** — logo wyświetla się obok tytułu "Business Opportunity"
+- Dla **Health Conversation (HC)** — to samo logo ma się wyświetlać obok tytułu "Health Conversation" (analogicznie jak dla BO)
+
+Zmiana w `src/pages/EventGuestRegistration.tsx`:
+- Rozszerzyć warunek wyświetlania logo z:
+  ```tsx
+  {isAutoWebinar && autoWebinarCategory === 'business_opportunity' && (...)}
+  ```
+  na:
+  ```tsx
+  {isAutoWebinar && (autoWebinarCategory === 'business_opportunity' || autoWebinarCategory === 'health_conversation') && (...)}
+  ```
+- Alternatywnie: wyświetlać logo dla wszystkich auto-webinarów (jeśli Eqology IBP dotyczy wszystkich kategorii).
+
 ## Pliki do zmiany
 
 | Plik | Zmiana |
@@ -47,9 +64,11 @@ Pokazywać EQID **tylko gdy występuje konflikt nazwy** na liście (czyli gdy 2+
 | `src/components/messages/MessagesSidebar.tsx` (i AdminConversationItem) | Defensywna dedup + render EQID drobnym fontem |
 | `src/types` (interfejs `AdminConversationUser`) | Dodać `eqId` |
 | Migracja SQL | DELETE self-conversation + CHECK constraint |
+| `src/pages/EventGuestRegistration.tsx` | Rozszerzyć warunek logo na HC (opcjonalnie, jeśli wymagane) |
 
 ## Efekt
 - Każdy użytkownik **dokładnie raz** na liście
 - Dwóch "Dawid Kowalczyk" rozróżnialnych po EQID widocznym drobnym fontem pod nazwą
 - Brak self-konwersacji (technicznie zablokowane)
 - Brak cudzych konwersacji w panelu
+- Logo EQology IBP widoczne dla BO i HC w rejestracji gości
