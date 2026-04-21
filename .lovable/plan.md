@@ -1,74 +1,52 @@
 
-# Status: logo NIE zostało dodane — wymaga ponownej implementacji
+# Diagnoza: dlaczego logo EQology IBP nie wyświetla się na podanym URL-u
 
-## Co sprawdziłem
-- `src/pages/EventGuestRegistration.tsx`, linie 703–717 (`CardHeader`): **brak importu i brak renderu logo**. Kod nadal wygląda dokładnie tak jak przed planem.
-- `src/assets/`: **brak pliku** `eqology-ibp-logo.png` (ani żadnego z „eqology"/„ibp" w nazwie).
-- Zmienne `isAutoWebinar` (linia 457) i `autoWebinarCategory` (linia 247) **istnieją** i są gotowe do użycia w warunku.
-- W poprzedniej turze faktycznie zmieniony został tylko `.lovable/plan.md` i `bun.lock` — sam komponent rejestracji nie został tknięty, a plik obrazu nigdy nie trafił do `src/assets/`.
+## Co przeanalizowałem
 
-## Wniosek
-**Logo nie wyświetla się w oknie rejestracji** ani dla Business Opportunity, ani dla Health Conversation. Trzeba wykonać implementację od nowa.
+URL: `https://purelife.info.pl/e/bussines-opportunity-hci9?ref=1234567890&slot=2026-04-21_16:00`
 
-## Plan naprawy
+Ścieżka `/e/:slug` trafia do `EventRegistrationBySlug.tsx` (resolver), który po sprawdzeniu slug-a i ref-a **przekierowuje** na `/events/register/:eventId?...` — czyli na `EventGuestRegistration.tsx`, gdzie logo zostało dodane.
 
-### 1. Dodanie pliku logo
-Skopiować przesłany wcześniej obraz (`Zrzut_ekranu_2025-12-11_173311.png` z „EQOLOGY Independent Business Partner") do:
+## Najbardziej prawdopodobne przyczyny braku logo
+
+1. **Plik logo jest pusty / uszkodzony.** Z ostatniego diff-u widać, że `src/assets/eqology-ibp-logo.png` został „utworzony", ale poprzednia wersja była pustym plikiem, a nowa to `<binary>` bez potwierdzonego rozmiaru. Jeśli plik jest 0-bajtowy lub uszkodzony, Vite buduje URL, ale `<img>` nie pokaże nic (lub pokaże pustą ikonę „broken image"), co użytkownik interpretuje jako „brak logo".
+2. **Cache produkcyjny / PWA.** `purelife.info.pl` to środowisko produkcyjne. Service Worker i cache assetów (1 rok) mogą serwować starą wersję strony, w której logo jeszcze nie istnieje.
+3. **Warunek renderu nie jest spełniony.** `autoWebinarCategory` jest pobierane z `auto_webinar_config.category` dla danego eventu. Jeśli ten event w bazie nie ma kategorii ustawionej dokładnie na `'business_opportunity'` (np. ma `null`, inny string, lub w ogóle brak rekordu w `auto_webinar_config`), warunek `isAutoWebinar && autoWebinarCategory === 'business_opportunity'` zwraca `false` i logo się nie pokazuje.
+
+## Plan naprawy (3 kroki, atomowe)
+
+### Krok 1 — Weryfikacja pliku assetu
+Sprawdzić rozmiar `src/assets/eqology-ibp-logo.png`:
+- jeśli `0 B` lub niepoprawny PNG → ponownie skopiować upload `Zrzut_ekranu_2025-12-11_173311.png` do `src/assets/eqology-ibp-logo.png` (binarnie, jako prawdziwy PNG).
+- potwierdzić `file src/assets/eqology-ibp-logo.png` zwraca `PNG image data, ... x ..., 8-bit/color RGBA`.
+
+### Krok 2 — Weryfikacja danych w bazie
+Zapytaniem SQL sprawdzić dla slug-a `bussines-opportunity-hci9`:
+```sql
+SELECT e.id, e.slug, e.event_type, awc.category, awc.is_enabled
+FROM events e
+LEFT JOIN auto_webinar_config awc ON awc.event_id = e.id
+WHERE e.slug = 'bussines-opportunity-hci9';
 ```
-src/assets/eqology-ibp-logo.png
-```
+Oczekiwane: `event_type = 'auto_webinar'`, `category = 'business_opportunity'`, `is_enabled = true`.
+- Jeśli `category` jest `null` lub inna → poprawić rekord w `auto_webinar_config` (`UPDATE ... SET category = 'business_opportunity'`).
+- Jeśli brak rekordu w `auto_webinar_config` → uzupełnić go (wówczas też logo nigdy by się nie pokazało, niezależnie od kodu).
 
-### 2. `src/pages/EventGuestRegistration.tsx` — import
-Dodać przy pozostałych importach:
-```tsx
-import eqologyIbpLogo from '@/assets/eqology-ibp-logo.png';
-```
+### Krok 3 — Wymuszenie odświeżenia produkcji
+Po naprawie pliku assetu i danych:
+- przebudować front (cache-bust SPA dzięki istniejącej polityce deployment governance — `index.html` nie cache-uje się, assety mają hash w nazwie),
+- na produkcji `purelife.info.pl` zrobić twarde odświeżenie (Ctrl+Shift+R) lub poczekać aż SW pobierze nową wersję (`SWUpdateBanner`).
 
-### 3. `src/pages/EventGuestRegistration.tsx` — `CardHeader` (linie 703–717)
-Zamienić obecny układ na flexbox z tytułem po lewej i logo po prawej (warunek BO **lub** HC):
-```tsx
-<CardHeader>
-  <div className="flex items-center gap-2 mb-2">
-    <Badge variant="outline">
-      <Video className="h-3 w-3 mr-1" />
-      {labels.webinarBadge}
-    </Badge>
-  </div>
-  <div className="flex items-start justify-between gap-4">
-    <div className="flex-1 min-w-0">
-      <CardTitle className="text-2xl">{displayTitle}</CardTitle>
-      {event.description && (
-        <CardDescription
-          className="text-base mt-2"
-          dangerouslySetInnerHTML={{ __html: event.description }}
-        />
-      )}
-    </div>
-    {isAutoWebinar &&
-      (autoWebinarCategory === 'business_opportunity' ||
-       autoWebinarCategory === 'health_conversation') && (
-      <img
-        src={eqologyIbpLogo}
-        alt="Eqology Independent Business Partner"
-        className="h-12 md:h-14 w-auto shrink-0 object-contain"
-      />
-    )}
-  </div>
-</CardHeader>
-```
+## Zmiany w kodzie
 
-### 4. Weryfikacja po wdrożeniu
-Sprawdzić że logo pojawia się w obu przypadkach:
-- `/events/register/:id?slot=...` dla auto-webinaru kategorii **Business Opportunity**
-- `/events/register/:id?slot=...` dla auto-webinaru kategorii **Health Conversation**
-- NIE pojawia się dla zwykłych wydarzeń (`event_type !== 'auto_webinar'`)
+Brak — kod w `EventGuestRegistration.tsx` jest poprawny. Problem leży w **assecie** i/lub **danych w bazie**, nie w logice.
 
-## Pliki do zmiany
+## Pliki/zasoby do zmiany (warunkowo)
 
-| Plik | Zmiana |
-|------|--------|
-| `src/assets/eqology-ibp-logo.png` | Nowy plik (kopia uploadu) |
-| `src/pages/EventGuestRegistration.tsx` | Import logo + warunkowy render w `CardHeader` (BO + HC) |
+| Element | Akcja | Warunek |
+|---------|-------|---------|
+| `src/assets/eqology-ibp-logo.png` | Ponowne skopiowanie z uploadu jako prawdziwy PNG | gdy aktualny plik jest pusty/uszkodzony |
+| `auto_webinar_config` (SQL UPDATE) | Ustawić `category = 'business_opportunity'` dla eventu o slugu `bussines-opportunity-hci9` | gdy zapytanie z Kroku 2 pokaże złą/brakującą kategorię |
 
 ## Efekt
-W oknie rejestracji gościa na auto-webinar (BO i HC) po prawej stronie tytułu pojawi się logo „EQOLOGY Independent Business Partner". Dla pozostałych typów wydarzeń logo nie będzie renderowane.
+Po naprawie pliku logo i potwierdzeniu, że event w bazie ma `category = 'business_opportunity'`, logo „EQOLOGY Independent Business Partner" pojawi się po prawej stronie tytułu na `/e/bussines-opportunity-hci9?...` (po przekierowaniu na `/events/register/:id`). Analogicznie zadziała dla wszystkich auto-webinarów BO i HC.
