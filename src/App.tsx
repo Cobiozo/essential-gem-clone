@@ -194,9 +194,10 @@ const ChatWidgetsWrapper = () => {
   const isPartnerPage = path !== '/' && !knownPrefixes.some(p => path.startsWith(p));
 
   const isAutoWebinarPage = path.startsWith('/auto-webinar') || path.startsWith('/a-w');
+  const isEventRegistrationPage = path.startsWith('/events/register/') || path.startsWith('/e/');
 
-  // Hide chat widgets on InfoLink, Meeting, Auto-Webinar, and partner pages
-  if (!user || isInfoLinkPage || isMeetingPage || isAutoWebinarPage || isPartnerPage) return null;
+  // Hide chat widgets on InfoLink, Meeting, Auto-Webinar, event registration, and partner pages
+  if (!user || isInfoLinkPage || isMeetingPage || isAutoWebinarPage || isEventRegistrationPage || isPartnerPage) return null;
 
   return (
     <Suspense fallback={null}>
