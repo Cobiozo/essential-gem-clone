@@ -79,6 +79,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
     
     if (contact.relationship_status) {
       const statusLabels: Record<string, { label: string; className: string }> = {
+        to_contact: { label: 'W kolejce - Do skontaktowania', className: 'bg-amber-100 text-amber-800' },
         observation: { label: 'Czynny obserwujący', className: 'bg-purple-100 text-purple-800' },
         potential_client: { label: 'Potencjalny klient', className: 'bg-green-100 text-green-800' },
         potential_partner: { label: 'Potencjalny partner', className: 'bg-blue-100 text-blue-800' },

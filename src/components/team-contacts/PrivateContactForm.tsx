@@ -236,6 +236,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="to_contact">{tf('teamContacts.toContact', 'W kolejce - Do skontaktowania')}</SelectItem>
                <SelectItem value="observation">{tf('teamContacts.observation', 'Czynny obserwujący')}</SelectItem>
               <SelectItem value="potential_client">{tf('teamContacts.potentialClient', 'Potencjalny klient')}</SelectItem>
               <SelectItem value="potential_partner">{tf('teamContacts.potentialPartner', 'Potencjalny partner')}</SelectItem>
