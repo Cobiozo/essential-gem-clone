@@ -16,6 +16,7 @@ import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video, Check, X } from 'lucide-react';
 import { getRegistrationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import eqologyIbpLogo from '@/assets/eqology-ibp-logo.png';
 
 interface AutoWebinarSlotConfig {
   start_hour: number;
@@ -707,13 +708,26 @@ const EventGuestRegistration: React.FC = () => {
                 {labels.webinarBadge}
               </Badge>
             </div>
-            <CardTitle className="text-2xl">{displayTitle}</CardTitle>
-            {event.description && (
-              <CardDescription 
-                className="text-base"
-                dangerouslySetInnerHTML={{ __html: event.description }}
-              />
-            )}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-2xl">{displayTitle}</CardTitle>
+                {event.description && (
+                  <CardDescription
+                    className="text-base mt-2"
+                    dangerouslySetInnerHTML={{ __html: event.description }}
+                  />
+                )}
+              </div>
+              {isAutoWebinar &&
+                (autoWebinarCategory === 'business_opportunity' ||
+                  autoWebinarCategory === 'health_conversation') && (
+                  <img
+                    src={eqologyIbpLogo}
+                    alt="Eqology Independent Business Partner"
+                    className="h-12 md:h-14 w-auto shrink-0 object-contain"
+                  />
+                )}
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-6">
