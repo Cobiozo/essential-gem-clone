@@ -263,3 +263,18 @@ verify_jwt = false
 
 [functions.send-post-event-thank-you]
 verify_jwt = false
+
+[functions.public-api]
+verify_jwt = false
+
+[functions.admin-create-api-key]
+verify_jwt = true
+
+[functions.admin-revoke-api-key]
+verify_jwt = true
+
+[functions.outbound-proxy]
+verify_jwt = true
+
+[functions.admin-test-outbound-integration]
+verify_jwt = true
