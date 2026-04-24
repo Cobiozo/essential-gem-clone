@@ -14,6 +14,7 @@ import { PaidEventSidebar } from '@/components/paid-events/public/PaidEventSideb
 import { PaidEventSpeakers } from '@/components/paid-events/public/PaidEventSpeakers';
 import { PaidEventSchedule } from '@/components/paid-events/public/PaidEventSchedule';
 import { PurchaseDrawer } from '@/components/paid-events/public/PurchaseDrawer';
+import { MyEventFormLinks } from '@/components/paid-events/MyEventFormLinks';
 
 interface ContentSection {
   id: string;
@@ -293,6 +294,11 @@ const PaidEventPage: React.FC = () => {
 
             {/* Schedule Section - placeholder for future DB integration */}
             {/* <PaidEventSchedule items={[]} /> */}
+
+            {/* Partner tools: personal ref link to the registration form for this event */}
+            <div className="mt-10">
+              <MyEventFormLinks eventId={event.id} />
+            </div>
           </div>
 
           {/* Sidebar Column */}

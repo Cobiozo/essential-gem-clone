@@ -9,26 +9,38 @@ import { Input } from '@/components/ui/input';
 import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+interface MyEventFormLinksProps {
+  /** Optional: scope panel to a single paid event (event detail page). */
+  eventId?: string;
+  /** Optional: hide the section header (useful when embedded under another title). */
+  compact?: boolean;
+}
+
 /**
  * Personal partner-link panel for active event registration forms.
- * Shown on /paid-events. Each partner can generate their own ref link
- * that tracks clicks + submissions per form.
+ * - Without `eventId`: shows all active forms (used on /paid-events listing).
+ * - With `eventId`: shows only the form(s) for that specific paid event
+ *   (used on /event/:slug detail page so partners can grab their ref link in context).
+ * Each partner can generate their own ref link tracking clicks + submissions per form.
  */
-export const MyEventFormLinks: React.FC = () => {
-  const { user } = useAuth();
+export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, compact }) => {
+  const { user, isPartner, isAdmin } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // List of active forms with embedded paid_event data
   const { data: forms = [] } = useQuery({
-    queryKey: ['active-event-forms-public'],
+    queryKey: ['active-event-forms-public', eventId ?? 'all'],
+    enabled: !!user && (isPartner || isAdmin),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('event_registration_forms')
         .select('id, slug, title, event_id, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, is_published)')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+      if (eventId) q = q.eq('event_id', eventId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []).filter((f: any) => f.paid_events?.is_published);
     },
@@ -102,17 +114,26 @@ export const MyEventFormLinks: React.FC = () => {
     }
   };
 
-  if (!user || forms.length === 0) return null;
+  if (!user || (!isPartner && !isAdmin) || forms.length === 0) return null;
+
+  const headerTitle = eventId
+    ? 'Twój link partnerski do formularza rejestracyjnego'
+    : 'Moje linki partnerskie do formularzy rejestracyjnych';
+  const headerDesc = eventId
+    ? 'Udostępniaj swój link, aby zapraszać gości na to wydarzenie. Statystyki (kliknięcia, zapisani) liczone są indywidualnie.'
+    : 'Udostępniaj poniższe linki, aby zapraszać gości na wydarzenia. Statystyki zaproszeń (kliknięcia, zapisani) liczone są indywidualnie dla każdego linku.';
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <Link2 className="h-5 w-5 text-primary" />
-        Moje linki partnerskie do formularzy rejestracyjnych
-      </h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Udostępniaj poniższe linki, aby zapraszać gości na wydarzenia. Statystyki zaproszeń (kliknięcia, zapisani) liczone są indywidualnie dla każdego linku.
-      </p>
+      {!compact && (
+        <>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-primary" />
+            {headerTitle}
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">{headerDesc}</p>
+        </>
+      )}
 
       <div className="space-y-3">
         {forms.map((form: any) => {
