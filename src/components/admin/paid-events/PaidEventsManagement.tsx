@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ticket, Settings, Users, QrCode } from 'lucide-react';
+import { Ticket, Settings, Users, QrCode, FileText } from 'lucide-react';
 import { PaidEventsList } from './PaidEventsList';
 import { PaidEventsSettings } from './PaidEventsSettings';
 import { PaidEventsOrders } from './PaidEventsOrders';
 import { TicketVerification } from './TicketVerification';
+import { EventFormsList } from './event-forms/EventFormsList';
 
 export const PaidEventsManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('events');
@@ -15,18 +16,22 @@ export const PaidEventsManagement: React.FC = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Ticket className="w-5 h-5" />
-          Płatne wydarzenia (Ticket Shop)
+          Eventy
         </CardTitle>
         <CardDescription>
-          Zarządzaj płatnymi wydarzeniami, biletami i zamówieniami
+          Zarządzaj wydarzeniami, formularzami rejestracyjnymi, biletami i zamówieniami
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="events" className="flex items-center gap-2">
               <Ticket className="w-4 h-4" />
               <span className="hidden sm:inline">Wydarzenia</span>
+            </TabsTrigger>
+            <TabsTrigger value="forms" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Formularze</span>
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
@@ -44,6 +49,10 @@ export const PaidEventsManagement: React.FC = () => {
 
           <TabsContent value="events">
             <PaidEventsList />
+          </TabsContent>
+
+          <TabsContent value="forms">
+            <EventFormsList />
           </TabsContent>
 
           <TabsContent value="orders">
