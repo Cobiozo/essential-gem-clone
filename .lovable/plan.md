@@ -1,47 +1,44 @@
-## Co robimy
+## Diagnoza
 
-1. **Sidebar**: zmieniamy etykietę pozycji menu z „Eventy płatne" na „Eventy".
-2. **Pure-Kontakty → Kontakty prywatne**: dodajemy nową zakładkę **„Z zaproszeń na Eventy"**, w której partner widzi gości zapisanych przez jego link partnerski do formularza rejestracyjnego płatnego eventu.
+Sprawdziłem bazę i logi:
 
-## Skąd biorą się te kontakty
+**Gość:** Jan Testujący (byk1023@wp.pl) jest zarejestrowany na "TEST - KRAKÓW" — submission istnieje. Ale:
+- `partner_user_id = NULL` — gość NIE wszedł przez link partnerski (`?ref=...`), tylko przez „goły" URL formularza. Dlatego nie pojawił się ani w „Z zaproszeń na Eventy" w Pure-Kontaktach, ani nikt nie został powiązany.
+- `email_status = 'pending'` — email się **nie wysłał**, bo edge function zawiódł.
 
-Każde zgłoszenie wysłane z linku partnera (RPC `submit_event_form` → tabela `event_form_submissions` z `partner_user_id`) automatycznie tworzy wpis w `team_contacts` partnera z:
-- `contact_type = 'guest'`
-- `contact_source = 'event_invite'`
-- `contact_reason = 'Zapisany przez Twój link na: <tytuł eventu>'`
+**Przyczyna braku emaila** (logi edge function):
+```
+Submission not found: Could not find a relationship between
+'event_form_submissions' and 'paid_events' in the schema cache
+```
+Funkcja `send-event-form-confirmation` używa PostgREST embed
+`paid_events!event_form_submissions_event_id_fkey(...)`, ale w bazie nie ma żadnego FK na `event_form_submissions` → embed pada → cały handler rzuca 500 → email nigdy nie wychodzi.
 
-Czyli źródło danych już istnieje — wystarczy je odfiltrować i pokazać w nowej pod-zakładce.
+## Co naprawiam
 
-## Zmiany w kodzie
+### 1. `supabase/functions/send-event-form-confirmation/index.ts`
+Zamieniam embed PostgREST na trzy oddzielne, ręczne zapytania (bez polegania na FK / schema cache):
+- `event_form_submissions` po `id` (bez joinów)
+- `event_registration_forms` po `submission.form_id`
+- `paid_events` po `submission.event_id`
 
-### 1. `src/components/dashboard/DashboardSidebar.tsx`
-- Linia 144: `'dashboard.menu.paidEvents': 'Eventy płatne'` → `'Eventy'`.
-- (Tooltip „Płatne szkolenia i wydarzenia z biletami" zostawiamy — to opis, nie nazwa.)
+To pełna kompatybilność z aktualnym schema (brak FK) i odporne na zmiany w cache.
+Po zapisie redeploy edge function automatycznie zachodzi.
 
-### 2. `src/components/team-contacts/TeamContactsTab.tsx`
-- Rozszerzamy typ `privateSubTab` o wartość `'event-invites'`.
-- Liczymy nową grupę:
-  ```
-  const paidEventInviteContacts = privateContacts.filter(
-    c => c.contact_source === 'event_invite' && !(c as any).moved_to_own_list
-  );
-  ```
-- W `ownContacts` dokładamy wykluczenie `c.contact_source === 'event_invite'` (analogicznie do „Strona partnerska"), żeby goście z eventów nie dublowali się na „Mojej liście kontaktów".
-- W pasku pod-zakładek dodajemy nowy przycisk obok „Z zaproszeń na webinary ogólne":
-  ```
-  Z zaproszeń na Eventy  [N]
-  ```
-  z ikoną `Ticket` (już importowaną w projekcie).
-- W bloku renderującym dodajemy gałąź: gdy `privateSubTab === 'event-invites'`, używamy istniejącego `TeamContactAccordion` (lub `TeamContactsTable` zależnie od `viewMode`) z `contacts={paidEventInviteContacts}`, bez grupowania po wydarzeniu (każdy wpis ma już w `contact_reason` tytuł eventu).
+### 2. Ponowna wysyłka emaila do Jana
+Po naprawie funkcji wywołuję ją ręcznie dla submission `64aed010-5584-4601-8ef3-c8fde6f0cc74`, żeby gość dostał potwierdzenie. Status `email_status` zaktualizuje się do `sent`.
 
-### 3. (opcjonalnie, jeśli zajdzie potrzeba) Brak — istniejące polityki RLS na `team_contacts` już zapewniają, że partner widzi tylko swoje wpisy (`user_id = auth.uid()`).
+### 3. Wyjaśnienie sytuacji „brak gościa w Twoich kontaktach"
+Gość nie wszedł przez Twój link partnerski (URL zawierał slug formularza, ale bez `?ref=<twój-ref-code>`), więc system nie ma jak go do Ciebie przypisać. Aby kontakty wpadały do Pure-Kontakty → „Z zaproszeń na Eventy", musisz wysyłać gościom dokładnie ten link, który widzisz w „Moje linki partnerskie" na stronie eventu (zawiera `?ref=...`). Jako admin nadal widzisz wszystkich zarejestrowanych w panelu admina (Eventy → Formularze → lista zgłoszeń).
+
+Opcjonalnie (do potwierdzenia, jeśli chcesz): mogę dodać w panelu admina opcję „przypisz tę rejestrację do partnera" — administrator wybiera partnera z listy, a system tworzy mu kontakt w CRM. Daj znać, czy chcesz tę opcję dodać teraz.
 
 ## Pliki
 
-**Edytowane (2):**
-- `src/components/dashboard/DashboardSidebar.tsx` — zmiana etykiety.
-- `src/components/team-contacts/TeamContactsTab.tsx` — nowy sub-tab „Z zaproszeń na Eventy".
+**Edytowane (1):**
+- `supabase/functions/send-event-form-confirmation/index.ts` — odporne na brak FK, trzy oddzielne SELECT-y zamiast embedu.
 
-Brak migracji DB ani nowych komponentów — używamy istniejących list (`TeamContactAccordion` / `TeamContactsTable`).
+**Akcja runtime (1):**
+- Wywołanie `send-event-form-confirmation` dla submission Jana po deployu, aby email dotarł.
 
-Po Twojej akceptacji wprowadzam zmiany.
+Brak migracji DB.
