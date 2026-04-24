@@ -294,6 +294,11 @@ const PaidEventPage: React.FC = () => {
 
             {/* Schedule Section - placeholder for future DB integration */}
             {/* <PaidEventSchedule items={[]} /> */}
+
+            {/* Partner tools: personal ref link to the registration form for this event */}
+            <div className="mt-10">
+              <MyEventFormLinks eventId={event.id} />
+            </div>
           </div>
 
           {/* Sidebar Column */}
