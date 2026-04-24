@@ -20,7 +20,7 @@ export interface AdminAuthFail {
   response: Response;
 }
 
-export async function verifyAdmin(req: Request): Promise<AdminAuthOk | AdminAuthFail> {
+export async function verifyAdmin(req: Request): Promise<any> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return {
