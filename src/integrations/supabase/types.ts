@@ -2829,7 +2829,7 @@ export type Database = {
             foreignKeyName: "event_form_submissions_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "paid_events"
             referencedColumns: ["id"]
           },
           {
@@ -2975,7 +2975,7 @@ export type Database = {
             foreignKeyName: "event_registration_forms_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "paid_events"
             referencedColumns: ["id"]
           },
         ]
@@ -6132,7 +6132,7 @@ export type Database = {
             foreignKeyName: "paid_event_partner_links_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "paid_events"
             referencedColumns: ["id"]
           },
           {
