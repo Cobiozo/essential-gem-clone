@@ -98,9 +98,38 @@ export const ImageUploadInput: React.FC<Props> = ({
     setCropSrc(URL.createObjectURL(file));
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    setSelectedShape('h16_9');
+    setSelectedShape(initialShape);
+    setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
   };
+
+  // Live preview: regenerate cropped thumbnail when crop area changes
+  React.useEffect(() => {
+    if (!showEventBannerPreview || !cropSrc || !croppedAreaPixels) return;
+    let cancelled = false;
+    let lastUrl: string | null = null;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const blob = await getCroppedImg(cropSrc, croppedAreaPixels, 'rect');
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        lastUrl = url;
+        setPreviewUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } catch {
+        // ignore preview errors
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (lastUrl) {
+        // url ownership transferred to state; do not revoke here
+      }
+    };
+  }, [cropSrc, croppedAreaPixels, showEventBannerPreview]);
 
   const handleCropConfirm = async () => {
     if (!cropSrc || !croppedAreaPixels || !selectedFile) return;
