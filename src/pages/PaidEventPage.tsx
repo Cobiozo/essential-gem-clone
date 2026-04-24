@@ -421,13 +421,8 @@ const PaidEventPage: React.FC = () => {
             {/* Schedule Section - placeholder for future DB integration */}
             {/* <PaidEventSchedule items={[]} /> */}
 
-            {/* Partner tools: personal ref link to the registration form for this event.
-                Only visible to authenticated partners/admins (component itself requires auth). */}
-            {user && (
-              <div className="mt-10">
-                <MyEventFormLinks eventId={event.id} />
-              </div>
-            )}
+            {/* Partnerski link do formularza został usunięty z publicznej strony eventu.
+                Partnerzy zarządzają swoimi linkami w /paid-events. */}
           </div>
 
           {/* Sidebar Column — hidden for guests if admin disabled tickets visibility */}
