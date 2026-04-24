@@ -104,6 +104,7 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
         section_type: data.section_type || 'custom',
         content: data.content || null,
         is_active: data.is_active ?? true,
+        visible_to_guests: data.visible_to_guests ?? true,
         background_color: data.background_color || null,
         text_color: data.text_color || null,
         icon_name: data.icon_name === 'none' ? null : (data.icon_name || null),
