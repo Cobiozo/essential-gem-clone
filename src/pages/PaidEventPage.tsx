@@ -372,6 +372,16 @@ const PaidEventPage: React.FC = () => {
               maxTickets={event.max_tickets}
               ticketsSold={event.tickets_sold}
               onPurchase={handlePurchase}
+              formUrl={
+                registrationForm
+                  ? `/event-form/${registrationForm.slug}${myRefCode ? `?ref=${myRefCode}` : ''}`
+                  : null
+              }
+              helperText={
+                user && (isPartner || isAdmin) && registrationForm && tickets.length === 0
+                  ? 'Twoja rejestracja zostanie automatycznie przypisana do Ciebie.'
+                  : null
+              }
             />
           </div>
         </div>
