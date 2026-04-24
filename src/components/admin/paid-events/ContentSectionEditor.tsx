@@ -60,6 +60,7 @@ const defaultSection: Partial<ContentSection> = {
   title: '',
   content: '',
   is_active: true,
+  visible_to_guests: true,
   background_color: null,
   text_color: null,
   icon_name: null,
