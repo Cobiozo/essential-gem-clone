@@ -231,23 +231,38 @@ const PaidEventPage: React.FC = () => {
     return false;
   }, [event, isAdmin, isPartner, isClient, isSpecjalista]);
 
-  // Build navigation items from content sections
+  // Guest view (not logged in) — admin can hide selected elements
+  const isGuest = !user;
+
+  // Filter CMS sections per guest visibility
+  const visibleSections = useMemo(() => {
+    if (!isGuest) return contentSections;
+    return contentSections.filter((s) => s.visible_to_guests !== false);
+  }, [contentSections, isGuest]);
+
+  // Per-element guest visibility flags
+  const showDescription = !isGuest || (event?.guests_show_description ?? true);
+  const showSpeakers = !isGuest || (event?.guests_show_speakers ?? true);
+  const showTickets = !isGuest || (event?.guests_show_tickets ?? true);
+  // const showSchedule = !isGuest || (event?.guests_show_schedule ?? true);
+
+  // Build navigation items from visible content sections
   const navigationItems = useMemo(() => {
     const items: { id: string; label: string }[] = [];
-    
-    contentSections.forEach((section) => {
+
+    visibleSections.forEach((section) => {
       items.push({
         id: section.section_type === 'custom' ? `section-${section.id}` : section.section_type,
         label: section.title,
       });
     });
 
-    if (speakers.length > 0) {
+    if (speakers.length > 0 && showSpeakers) {
       items.push({ id: 'speakers', label: 'Prelegenci' });
     }
 
     return items;
-  }, [contentSections, speakers]);
+  }, [visibleSections, speakers, showSpeakers]);
 
   // Handle scroll navigation
   const handleNavigate = useCallback((sectionId: string) => {
