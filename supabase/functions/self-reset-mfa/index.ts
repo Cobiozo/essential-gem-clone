@@ -130,7 +130,7 @@ serve(async (req) => {
 
     // Log structure for debugging
     console.log('[self-reset-mfa] factorsData keys:', Object.keys(factorsData || {}));
-    console.log('[self-reset-mfa] factorsData.totp:', JSON.stringify(factorsData?.totp));
+    console.log('[self-reset-mfa] factorsData.totp:', JSON.stringify((factorsData as any)?.totp));
     console.log('[self-reset-mfa] factorsData.factors:', JSON.stringify((factorsData as any)?.factors));
 
     // Handle both SDK response formats: .totp[] and .factors[]
