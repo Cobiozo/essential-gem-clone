@@ -62,6 +62,10 @@ interface PaidEvent {
   visible_to_clients: boolean | null;
   visible_to_specjalista: boolean | null;
   visible_to_everyone: boolean | null;
+  guests_show_description: boolean | null;
+  guests_show_speakers: boolean | null;
+  guests_show_tickets: boolean | null;
+  guests_show_schedule: boolean | null;
   updated_at?: string | null;
 }
 
