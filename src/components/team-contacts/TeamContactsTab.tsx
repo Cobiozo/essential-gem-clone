@@ -480,6 +480,15 @@ export const TeamContactsTab: React.FC = () => {
                    <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
                  </Button>
                  <Button
+                   variant={privateSubTab === 'event-invites' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('event-invites')}
+                 >
+                   <Ticket className="w-3.5 h-3.5 mr-1" />
+                   {tf('teamContacts.fromEventInvites', 'Z zaproszeń na Eventy')}
+                   <Badge variant="secondary" className="ml-2">{paidEventInviteContacts.length}</Badge>
+                 </Button>
+                 <Button
                    variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                    size="sm"
                    onClick={() => setPrivateSubTab('partner-page')}
