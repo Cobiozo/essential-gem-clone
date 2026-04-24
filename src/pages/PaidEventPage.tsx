@@ -114,17 +114,70 @@ const PaidEventPage: React.FC = () => {
         .select('*')
         .eq('event_id', event!.id)
         .eq('is_active', true)
-        .order('price', { ascending: true });
+        .order('price_pln', { ascending: true });
 
       if (error) throw error;
-      
-      // Parse benefits from JSONB
+
+      // Map DB columns to UI shape
       return (data || []).map((ticket: any) => ({
-        ...ticket,
+        id: ticket.id,
+        name: ticket.name,
+        description: ticket.description ?? null,
+        price: Number(ticket.price_pln) || 0,
         benefits: Array.isArray(ticket.benefits) ? ticket.benefits : [],
+        highlight_text: ticket.highlight_text ?? null,
+        is_featured: ticket.is_featured ?? false,
+        available_quantity: ticket.quantity_available ?? null,
+        max_per_order: null,
+        is_active: ticket.is_active ?? true,
       })) as Ticket[];
     },
     enabled: !!event?.id,
+  });
+
+  // Fetch active registration form for this event (for "Zapisz się" without tickets flow)
+  const { data: registrationForm } = useQuery({
+    queryKey: ['paid-event-registration-form', event?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_registration_forms')
+        .select('id, slug, is_active')
+        .eq('event_id', event!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; slug: string; is_active: boolean } | null;
+    },
+    enabled: !!event?.id,
+  });
+
+  // Fetch / lazily-create the partner ref code so the CTA auto-attaches it
+  const { data: myRefCode } = useQuery({
+    queryKey: ['my-ref-code-for-form', registrationForm?.id, user?.id],
+    enabled: !!user?.id && !!registrationForm?.id && (isPartner || isAdmin),
+    queryFn: async () => {
+      const { data: existing } = await supabase
+        .from('paid_event_partner_links')
+        .select('ref_code')
+        .eq('partner_user_id', user!.id)
+        .eq('form_id', registrationForm!.id)
+        .maybeSingle();
+      if (existing?.ref_code) return existing.ref_code as string;
+      // Auto-generate so partner is always attributed when registering themselves
+      const refCode = `${user!.id.slice(0, 8)}-${Math.random().toString(36).slice(2, 8)}`;
+      const { data: created, error: insErr } = await supabase
+        .from('paid_event_partner_links')
+        .insert({
+          partner_user_id: user!.id,
+          form_id: registrationForm!.id,
+          event_id: event!.id,
+          ref_code: refCode,
+        })
+        .select('ref_code')
+        .single();
+      if (insErr) return null;
+      return created?.ref_code ?? null;
+    },
   });
 
   // Check access permissions
