@@ -2745,6 +2745,109 @@ export type Database = {
         }
         Relationships: []
       }
+      event_form_submissions: {
+        Row: {
+          admin_notes: string | null
+          cancellation_token: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          confirmation_token: string
+          created_at: string
+          email: string
+          email_confirmed_at: string | null
+          email_sent_at: string | null
+          email_status: string
+          event_id: string
+          first_name: string | null
+          form_id: string
+          id: string
+          last_name: string | null
+          partner_link_id: string | null
+          partner_user_id: string | null
+          payment_marked_at: string | null
+          payment_marked_by: string | null
+          payment_status: string
+          phone: string | null
+          status: string
+          submitted_data: Json
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          cancellation_token?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          confirmation_token?: string
+          created_at?: string
+          email: string
+          email_confirmed_at?: string | null
+          email_sent_at?: string | null
+          email_status?: string
+          event_id: string
+          first_name?: string | null
+          form_id: string
+          id?: string
+          last_name?: string | null
+          partner_link_id?: string | null
+          partner_user_id?: string | null
+          payment_marked_at?: string | null
+          payment_marked_by?: string | null
+          payment_status?: string
+          phone?: string | null
+          status?: string
+          submitted_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          cancellation_token?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          confirmation_token?: string
+          created_at?: string
+          email?: string
+          email_confirmed_at?: string | null
+          email_sent_at?: string | null
+          email_status?: string
+          event_id?: string
+          first_name?: string | null
+          form_id?: string
+          id?: string
+          last_name?: string | null
+          partner_link_id?: string | null
+          partner_user_id?: string | null
+          payment_marked_at?: string | null
+          payment_marked_by?: string | null
+          payment_status?: string
+          phone?: string | null
+          status?: string
+          submitted_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_form_submissions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_form_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "event_registration_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_form_submissions_partner_link_id_fkey"
+            columns: ["partner_link_id"]
+            isOneToOne: false
+            referencedRelation: "paid_event_partner_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_google_sync: {
         Row: {
           event_id: string
@@ -2808,6 +2911,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_push_reminders_sent_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_registration_forms: {
+        Row: {
+          banner_url: string | null
+          created_at: string
+          created_by: string | null
+          cta_label: string
+          description: string | null
+          email_body: string | null
+          email_subject: string
+          event_id: string
+          fields_config: Json
+          id: string
+          is_active: boolean
+          payment_details: Json
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string
+          description?: string | null
+          email_body?: string | null
+          email_subject?: string
+          event_id: string
+          fields_config?: Json
+          id?: string
+          is_active?: boolean
+          payment_details?: Json
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string
+          description?: string | null
+          email_body?: string | null
+          email_subject?: string
+          event_id?: string
+          fields_config?: Json
+          id?: string
+          is_active?: boolean
+          payment_details?: Json
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registration_forms_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
@@ -5921,6 +6086,60 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "paid_event_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paid_event_partner_links: {
+        Row: {
+          click_count: number
+          created_at: string
+          event_id: string
+          form_id: string
+          id: string
+          is_active: boolean
+          partner_user_id: string
+          ref_code: string
+          submission_count: number
+          updated_at: string
+        }
+        Insert: {
+          click_count?: number
+          created_at?: string
+          event_id: string
+          form_id: string
+          id?: string
+          is_active?: boolean
+          partner_user_id: string
+          ref_code: string
+          submission_count?: number
+          updated_at?: string
+        }
+        Update: {
+          click_count?: number
+          created_at?: string
+          event_id?: string
+          form_id?: string
+          id?: string
+          is_active?: boolean
+          partner_user_id?: string
+          ref_code?: string
+          submission_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_partner_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_event_partner_links_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "event_registration_forms"
             referencedColumns: ["id"]
           },
         ]
@@ -9130,6 +9349,7 @@ export type Database = {
         Args: { sender_role: string; target_role: string }
         Returns: boolean
       }
+      cancel_event_form_submission: { Args: { _token: string }; Returns: Json }
       check_event_conflicts: {
         Args: {
           p_end_time: string
@@ -9156,6 +9376,7 @@ export type Database = {
       cleanup_expired_media_tokens: { Args: never; Returns: number }
       cleanup_old_meeting_chat: { Args: never; Returns: number }
       cleanup_stale_meeting_participants: { Args: never; Returns: number }
+      confirm_event_form_email: { Args: { _token: string }; Returns: Json }
       debug_user_access: {
         Args: never
         Returns: {
@@ -9471,6 +9692,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_partner_link_click: {
+        Args: { _ref_code: string }
+        Returns: Json
       }
       increment_reflink_click: {
         Args: { reflink_id_param: string }
