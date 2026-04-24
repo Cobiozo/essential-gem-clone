@@ -287,17 +287,21 @@ export const TeamContactsTab: React.FC = () => {
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
   // Partner page contacts that haven't been moved to own list
   const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska' && !(c as any).moved_to_own_list);
+  // Paid event registrations referred via partner's event form link
+  const paidEventInviteContacts = privateContacts.filter(c => c.contact_source === 'event_invite' && !(c as any).moved_to_own_list);
   
   // Own list: exclude event contacts (unless moved) AND exclude partner page contacts (unless moved)
   const ownContacts = privateContacts.filter(c => {
     const isEventContact = eventContactIds.has(c.id);
     const isPartnerPage = c.contact_source === 'Strona partnerska';
+    const isPaidEventInvite = c.contact_source === 'event_invite';
     const movedToOwn = (c as any).moved_to_own_list;
     
-    // Show in own list if: (not from events AND not from partner page) OR explicitly moved
+    // Show in own list if: (not from events AND not from partner page AND not from paid event invite) OR explicitly moved
     if (movedToOwn) return true;
     if (isEventContact) return false;
     if (isPartnerPage) return false;
+    if (isPaidEventInvite) return false;
     return true;
   });
   const eventContactsBO = privateContacts.filter(c => eventContactIdsBO.has(c.id) && !(c as any).moved_to_own_list);
@@ -309,6 +313,7 @@ export const TeamContactsTab: React.FC = () => {
       if (privateSubTab === 'events-bo') return eventContactsBO;
       if (privateSubTab === 'events-hc') return eventContactsHC;
       if (privateSubTab === 'events-general') return eventContactsGeneral;
+      if (privateSubTab === 'event-invites') return paidEventInviteContacts;
       if (privateSubTab === 'partner-page') return partnerPageContacts;
       return ownContacts;
     }
