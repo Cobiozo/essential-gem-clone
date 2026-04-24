@@ -61,6 +61,7 @@ import {
   UsersRound,
   Shield,
   Search,
+  Plug,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -212,6 +213,7 @@ const navCategories: NavCategory[] = [
       { value: 'ai-provider', labelKey: 'aiProvider', icon: Sparkles },
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
       { value: 'security', labelKey: 'security', icon: Shield },
+      { value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug },
     ],
   },
 ];
@@ -262,6 +264,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     activityLog: 'Dziennik działań',
     purebox: 'PureBox',
     aiProvider: 'Dostawca AI',
+    apiIntegrations: 'API / Integracje',
   };
 
   const getLabel = (key: string): string => {
