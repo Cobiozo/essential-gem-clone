@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 import { PaidEventHero } from '@/components/paid-events/public/PaidEventHero';
 import { PaidEventNavigation } from '@/components/paid-events/public/PaidEventNavigation';
@@ -23,6 +24,7 @@ interface ContentSection {
   content: string | null;
   position: number;
   is_active: boolean;
+  visible_to_guests: boolean;
   background_color: string | null;
   text_color: string | null;
   icon_name: string | null;
@@ -61,6 +63,10 @@ interface PaidEvent {
   visible_to_clients: boolean | null;
   visible_to_specjalista: boolean | null;
   visible_to_everyone: boolean | null;
+  guests_show_description: boolean | null;
+  guests_show_speakers: boolean | null;
+  guests_show_tickets: boolean | null;
+  guests_show_schedule: boolean | null;
   updated_at?: string | null;
 }
 
@@ -226,23 +232,38 @@ const PaidEventPage: React.FC = () => {
     return false;
   }, [event, isAdmin, isPartner, isClient, isSpecjalista]);
 
-  // Build navigation items from content sections
+  // Guest view (not logged in) — admin can hide selected elements
+  const isGuest = !user;
+
+  // Filter CMS sections per guest visibility
+  const visibleSections = useMemo(() => {
+    if (!isGuest) return contentSections;
+    return contentSections.filter((s) => s.visible_to_guests !== false);
+  }, [contentSections, isGuest]);
+
+  // Per-element guest visibility flags
+  const showDescription = !isGuest || (event?.guests_show_description ?? true);
+  const showSpeakers = !isGuest || (event?.guests_show_speakers ?? true);
+  const showTickets = !isGuest || (event?.guests_show_tickets ?? true);
+  // const showSchedule = !isGuest || (event?.guests_show_schedule ?? true);
+
+  // Build navigation items from visible content sections
   const navigationItems = useMemo(() => {
     const items: { id: string; label: string }[] = [];
-    
-    contentSections.forEach((section) => {
+
+    visibleSections.forEach((section) => {
       items.push({
         id: section.section_type === 'custom' ? `section-${section.id}` : section.section_type,
         label: section.title,
       });
     });
 
-    if (speakers.length > 0) {
+    if (speakers.length > 0 && showSpeakers) {
       items.push({ id: 'speakers', label: 'Prelegenci' });
     }
 
     return items;
-  }, [contentSections, speakers]);
+  }, [visibleSections, speakers, showSpeakers]);
 
   // Handle scroll navigation
   const handleNavigate = useCallback((sectionId: string) => {
@@ -339,19 +360,22 @@ const PaidEventPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className={cn(
+          'flex flex-col gap-8',
+          showTickets && 'lg:flex-row'
+        )}>
           {/* Content Column */}
           <div className="flex-1 min-w-0">
             {/* Description (default if no sections) */}
-            {contentSections.length === 0 && event.description && (
+            {contentSections.length === 0 && event.description && showDescription && (
               <div 
                 className="prose prose-lg max-w-none dark:prose-invert mb-8"
                 dangerouslySetInnerHTML={{ __html: event.description }}
               />
             )}
 
-            {/* CMS Sections */}
-            {contentSections.map((section) => (
+            {/* CMS Sections (filtered by guest visibility) */}
+            {visibleSections.map((section) => (
               <PaidEventSection
                 key={section.id}
                 id={section.section_type === 'custom' ? `section-${section.id}` : section.section_type}
@@ -368,7 +392,7 @@ const PaidEventPage: React.FC = () => {
             ))}
 
             {/* Speakers Section */}
-            {speakers.length > 0 && (
+            {speakers.length > 0 && showSpeakers && (
               <PaidEventSpeakers
                 speakers={speakers.map((s) => ({
                   id: s.id,
@@ -384,42 +408,47 @@ const PaidEventPage: React.FC = () => {
             {/* Schedule Section - placeholder for future DB integration */}
             {/* <PaidEventSchedule items={[]} /> */}
 
-            {/* Partner tools: personal ref link to the registration form for this event */}
-            <div className="mt-10">
-              <MyEventFormLinks eventId={event.id} />
-            </div>
+            {/* Partner tools: personal ref link to the registration form for this event.
+                Only visible to authenticated partners/admins (component itself requires auth). */}
+            {user && (
+              <div className="mt-10">
+                <MyEventFormLinks eventId={event.id} />
+              </div>
+            )}
           </div>
 
-          {/* Sidebar Column */}
-          <div className="w-full lg:w-[380px] flex-shrink-0">
-            <PaidEventSidebar
-              tickets={tickets.map(t => ({
-                id: t.id,
-                name: t.name,
-                price: t.price,
-                description: t.description,
-                benefits: t.benefits || [],
-                highlightText: t.highlight_text,
-                isFeatured: t.is_featured || false,
-                available: t.available_quantity,
-                maxPerOrder: t.max_per_order || undefined,
-              }))}
-              eventDate={event.event_date}
-              maxTickets={event.max_tickets}
-              ticketsSold={event.tickets_sold}
-              onPurchase={handlePurchase}
-              formUrl={
-                registrationForm
-                  ? `/event-form/${registrationForm.slug}${myRefCode ? `?ref=${myRefCode}` : ''}`
-                  : null
-              }
-              helperText={
-                user && (isPartner || isAdmin) && registrationForm && tickets.length === 0
-                  ? 'Twoja rejestracja zostanie automatycznie przypisana do Ciebie.'
-                  : null
-              }
-            />
-          </div>
+          {/* Sidebar Column — hidden for guests if admin disabled tickets visibility */}
+          {showTickets && (
+            <div className="w-full lg:w-[380px] flex-shrink-0">
+              <PaidEventSidebar
+                tickets={tickets.map(t => ({
+                  id: t.id,
+                  name: t.name,
+                  price: t.price,
+                  description: t.description,
+                  benefits: t.benefits || [],
+                  highlightText: t.highlight_text,
+                  isFeatured: t.is_featured || false,
+                  available: t.available_quantity,
+                  maxPerOrder: t.max_per_order || undefined,
+                }))}
+                eventDate={event.event_date}
+                maxTickets={event.max_tickets}
+                ticketsSold={event.tickets_sold}
+                onPurchase={handlePurchase}
+                formUrl={
+                  registrationForm
+                    ? `/event-form/${registrationForm.slug}${myRefCode ? `?ref=${myRefCode}` : ''}`
+                    : null
+                }
+                helperText={
+                  user && (isPartner || isAdmin) && registrationForm && tickets.length === 0
+                    ? 'Twoja rejestracja zostanie automatycznie przypisana do Ciebie.'
+                    : null
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
 

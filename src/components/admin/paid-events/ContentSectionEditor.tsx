@@ -20,6 +20,7 @@ interface ContentSection {
   content: string | null;
   position: number;
   is_active: boolean;
+  visible_to_guests: boolean;
   background_color: string | null;
   text_color: string | null;
   icon_name: string | null;
@@ -59,6 +60,7 @@ const defaultSection: Partial<ContentSection> = {
   title: '',
   content: '',
   is_active: true,
+  visible_to_guests: true,
   background_color: null,
   text_color: null,
   icon_name: null,
@@ -102,6 +104,7 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
         section_type: data.section_type || 'custom',
         content: data.content || null,
         is_active: data.is_active ?? true,
+        visible_to_guests: data.visible_to_guests ?? true,
         background_color: data.background_color || null,
         text_color: data.text_color || null,
         icon_name: data.icon_name === 'none' ? null : (data.icon_name || null),
@@ -395,12 +398,24 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.is_active ?? true}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label>Sekcja aktywna (widoczna)</Label>
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.is_active ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label>Sekcja aktywna (widoczna)</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.visible_to_guests ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, visible_to_guests: checked })}
+                />
+                <Label>Widoczne dla niezalogowanych gości</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Gdy wyłączone, tę sekcję widzą tylko zalogowani użytkownicy.
+              </p>
             </div>
           </div>
 

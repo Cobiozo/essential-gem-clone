@@ -5962,6 +5962,7 @@ export type Database = {
           text_color: string | null
           title: string
           updated_at: string | null
+          visible_to_guests: boolean
         }
         Insert: {
           background_color?: string | null
@@ -5977,6 +5978,7 @@ export type Database = {
           text_color?: string | null
           title: string
           updated_at?: string | null
+          visible_to_guests?: boolean
         }
         Update: {
           background_color?: string | null
@@ -5992,6 +5994,7 @@ export type Database = {
           text_color?: string | null
           title?: string
           updated_at?: string | null
+          visible_to_guests?: boolean
         }
         Relationships: [
           {
@@ -6312,6 +6315,10 @@ export type Database = {
           description: string | null
           event_date: string
           event_end_date: string | null
+          guests_show_description: boolean
+          guests_show_schedule: boolean
+          guests_show_speakers: boolean
+          guests_show_tickets: boolean
           id: string
           is_active: boolean | null
           is_online: boolean | null
@@ -6339,6 +6346,10 @@ export type Database = {
           description?: string | null
           event_date: string
           event_end_date?: string | null
+          guests_show_description?: boolean
+          guests_show_schedule?: boolean
+          guests_show_speakers?: boolean
+          guests_show_tickets?: boolean
           id?: string
           is_active?: boolean | null
           is_online?: boolean | null
@@ -6366,6 +6377,10 @@ export type Database = {
           description?: string | null
           event_date?: string
           event_end_date?: string | null
+          guests_show_description?: boolean
+          guests_show_schedule?: boolean
+          guests_show_speakers?: boolean
+          guests_show_tickets?: boolean
           id?: string
           is_active?: boolean | null
           is_online?: boolean | null
