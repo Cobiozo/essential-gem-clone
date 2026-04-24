@@ -240,7 +240,12 @@ serve(async (req) => {
     }
 
     try {
-      await sendSmtp(smtp as SmtpSettings, sub.email, subject, html);
+      // DB column is `smtp_encryption`; sendSmtp expects `encryption_type`. Normalize here.
+      const smtpNormalized: SmtpSettings = {
+        ...(smtp as any),
+        encryption_type: ((smtp as any).encryption_type ?? (smtp as any).smtp_encryption ?? "ssl").toString().toLowerCase(),
+      };
+      await sendSmtp(smtpNormalized, sub.email, subject, html);
       await supabase.from("event_form_submissions")
         .update({ email_status: "sent", email_sent_at: new Date().toISOString() })
         .eq("id", submissionId);
