@@ -191,6 +191,20 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
                     <Link2 className="w-4 h-4 mr-1" /> Wygeneruj mój link
                   </Button>
                 )}
+
+                {link && subs > 0 && (
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-xs h-7 px-2 -ml-2 group">
+                        <ChevronDown className="h-3 w-3 mr-1 transition-transform group-data-[state=open]:rotate-180" />
+                        Pokaż zapisanych ({subs})
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <MyEventFormReferrals formId={form.id} />
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </CardContent>
             </Card>
           );
