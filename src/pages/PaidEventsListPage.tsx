@@ -130,6 +130,8 @@ const PaidEventsListPage: React.FC = () => {
             </div>
           </section>
         )}
+
+        <MyEventFormLinks />
       </div>
     </DashboardLayout>
   );
