@@ -61,6 +61,7 @@ interface PaidEvent {
   visible_to_clients: boolean | null;
   visible_to_specjalista: boolean | null;
   visible_to_everyone: boolean | null;
+  updated_at?: string | null;
 }
 
 const PaidEventPage: React.FC = () => {
@@ -301,6 +302,7 @@ const PaidEventPage: React.FC = () => {
         eventEndDate={event.event_end_date}
         location={event.location}
         isOnline={event.is_online}
+        cacheKey={event.updated_at ?? null}
       />
 
       {/* Navigation */}

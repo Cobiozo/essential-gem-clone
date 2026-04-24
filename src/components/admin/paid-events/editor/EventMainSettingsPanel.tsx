@@ -65,6 +65,8 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-preview', eventId] });
+      // Invalidate public page queries (keyed by slug) so changes appear immediately.
+      queryClient.invalidateQueries({ queryKey: ['paid-event'] });
       toast({ title: 'Zapisano zmiany' });
       onDataChange();
     },
