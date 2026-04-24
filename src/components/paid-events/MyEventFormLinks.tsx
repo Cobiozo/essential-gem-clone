@@ -114,17 +114,26 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
     }
   };
 
-  if (!user || forms.length === 0) return null;
+  if (!user || (!isPartner && !isAdmin) || forms.length === 0) return null;
+
+  const headerTitle = eventId
+    ? 'Twój link partnerski do formularza rejestracyjnego'
+    : 'Moje linki partnerskie do formularzy rejestracyjnych';
+  const headerDesc = eventId
+    ? 'Udostępniaj swój link, aby zapraszać gości na to wydarzenie. Statystyki (kliknięcia, zapisani) liczone są indywidualnie.'
+    : 'Udostępniaj poniższe linki, aby zapraszać gości na wydarzenia. Statystyki zaproszeń (kliknięcia, zapisani) liczone są indywidualnie dla każdego linku.';
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <Link2 className="h-5 w-5 text-primary" />
-        Moje linki partnerskie do formularzy rejestracyjnych
-      </h2>
-      <p className="text-sm text-muted-foreground mb-4">
-        Udostępniaj poniższe linki, aby zapraszać gości na wydarzenia. Statystyki zaproszeń (kliknięcia, zapisani) liczone są indywidualnie dla każdego linku.
-      </p>
+      {!compact && (
+        <>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-primary" />
+            {headerTitle}
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">{headerDesc}</p>
+        </>
+      )}
 
       <div className="space-y-3">
         {forms.map((form: any) => {
