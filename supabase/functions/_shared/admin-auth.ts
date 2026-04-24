@@ -10,15 +10,14 @@ export const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 };
 
-export interface AdminAuthOk {
-  ok: true;
-  userId: string;
-  supabaseAdmin: SupabaseClient;
+export interface AdminAuthResult {
+  ok: boolean;
+  userId?: string;
+  supabaseAdmin?: SupabaseClient;
+  response?: Response;
 }
-export interface AdminAuthFail {
-  ok: false;
-  response: Response;
-}
+export type AdminAuthOk = AdminAuthResult;
+export type AdminAuthFail = AdminAuthResult;
 
 export async function verifyAdmin(req: Request): Promise<AdminAuthOk | AdminAuthFail> {
   const authHeader = req.headers.get("Authorization");
