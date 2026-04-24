@@ -102,11 +102,12 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
     );
   }
 
-  // Banner present: deterministic aspect ratio + bottom overlay
-  // Same composition regardless of container width → admin preview === public page.
+  // Banner present: responsive aspect ratio (no min-h, so the image is never
+  // artificially stretched and its composition stays intact at every width).
+  // Same proportions in admin preview and on the public page.
   return (
     <section className="relative w-full">
-      <div className="relative w-full aspect-[21/9] min-h-[320px] md:min-h-[420px] max-h-[520px] overflow-hidden bg-muted">
+      <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] lg:aspect-[21/9] max-h-[560px] overflow-hidden bg-muted">
         {/* Banner image */}
         <img
           src={resolvedBannerUrl}
@@ -114,8 +115,9 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
 
-        {/* Bottom-up gradient for text legibility (lighter so banner stays visible) */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-transparent" />
+        {/* Bottom-only gradient (covers ~2/3) — keeps top of the image fully visible
+            while ensuring text legibility over the bottom portion. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background/90 via-background/55 to-transparent" />
 
         {/* Top back-button overlay */}
         <div className="absolute top-0 left-0 right-0 z-10">
@@ -133,7 +135,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
         </div>
 
         {/* Bottom content overlay */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 md:pb-8">
+        <div className="absolute bottom-0 left-0 right-0 z-10 pb-5 sm:pb-6 md:pb-8">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl">
               {isOnline && (
