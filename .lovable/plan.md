@@ -1,39 +1,59 @@
-## Problem 1 — żółty "Czytaj więcej" na hover
+## Diagnoza
 
-Przycisk "Czytaj więcej" / "Zwiń" w `src/components/paid-events/public/PaidEventSpeakers.tsx` używa `Button variant="ghost"`. Wariant ghost ma globalnie ustawione `hover:bg-accent hover:text-accent-foreground` — w tym motywie kolor `accent` jest żółty (primary), przez co cały przycisk staje się żółty na żółtym tekście i tekst znika.
+**Problem 1 — "Dowolny" nie pozwala na ustawienie kadru**
 
-**Fix:** Nadpisać tło hover na neutralne i utrzymać kolor primary dla tekstu.
+Komponent kropujący (`react-easy-crop` w `src/components/partner-page/ImageUploadInput.tsx`) ma fundamentalne ograniczenie: gdy `aspect={undefined}` (tryb "Dowolny"), biblioteka **nie pokazuje przesuwalnej/skalowalnej ramki kadrowania** — pokazuje tylko cały obraz, a użytkownik może jedynie zoomować i przesuwać. Stąd wrażenie, że "nic nie da się ustawić". `react-easy-crop` z założenia nie obsługuje free-form drag-resize ramki.
 
-W `PaidEventSpeakers.tsx` na przycisku zmienić klasy:
-- z: `mt-2 h-8 text-primary hover:text-primary`
-- na: `mt-2 h-8 text-primary hover:text-primary hover:bg-primary/10`
+**Problem 2 — Brak podglądu jak banner będzie wyglądał na stronie**
 
-Dzięki temu na hover pojawi się delikatne żółte podświetlenie (10% opacity), tekst pozostanie czytelny (primary), a nie zostanie nadpisany przez `accent-foreground`.
+Banner wydarzenia w `src/components/paid-events/public/PaidEventHero.tsx` (linia 109) jest renderowany z **wymuszonym aspektem 21:9** (`aspect-[21/9] max-h-[520px]`) plus `object-cover object-center`. Niezależnie od tego, co użytkownik wykadruje, finalna prezentacja zawsze przycina obraz do 21:9. To dlatego tryb "Dowolny" jest mylący — nawet jak coś ustawi, strona i tak go przytnie.
 
-## Problem 2 — link do strony wydarzenia z formularza rejestracji
+## Plan naprawczy
 
-Strona `/events/:slug` (PaidEventPage) jest **publiczna** — niezalogowani widzą ją bez problemu. Wystarczy z formularza rejestracji (`src/pages/EventGuestRegistration.tsx`) dodać przycisk linkujący do tej strony.
+### A. Usunąć tryb "Dowolny" dla bannera wydarzenia (źródło frustracji)
 
-Dane są już dostępne: pobierany rekord eventu zawiera pole `slug` (linia 274). 
+Tryb "Dowolny" działa technicznie tylko dla awatarów / okrągłych zdjęć. Dla bannera wydarzenia nie ma sensu — strona zawsze wymusza 21:9.
 
-**Fix:** Pod głównym przyciskiem submit (linia ~992, `<Button type="submit">`) dodać warunkowo dodatkowy outline button:
+W `src/components/partner-page/ImageUploadInput.tsx`:
+1. Dodać prop `allowedShapes?: string[]` (whitelist ID presetów). Gdy podany — filtrujemy `SHAPE_PRESETS`.
+2. Dodać prop `defaultShape?: string` aby ustawić sensowny preset domyślny.
 
+W `src/components/admin/paid-events/editor/EventGeneralPanel.tsx` (gdzie wybierany jest banner) przekazać:
 ```tsx
-{event.slug && (
-  <Button
-    type="button"
-    variant="outline"
-    className="w-full"
-    onClick={() => window.open(`/events/${event.slug}`, '_blank')}
-  >
-    Dowiedz się więcej na temat wydarzenia
-  </Button>
-)}
+<ImageUploadInput 
+  ... 
+  allowedShapes={['h21_9', 'h16_9']} 
+  defaultShape="h21_9"
+/>
 ```
 
-Otwarcie w nowej karcie zachowuje stan formularza rejestracji.
+Dodać nowy preset `h21_9` (21:9) do `SHAPE_PRESETS`, bo banner publicznej strony używa właśnie tego stosunku — dzięki temu kadr w edytorze 1:1 odpowiada finalnemu wyglądowi.
+
+### B. Dodać podgląd "Tak będzie wyglądać banner na stronie"
+
+Pod kropperem dodać miniaturę renderowaną w aspekcie 21:9 z aktualnie kadrowanym wycinkiem (na żywo). Użyć tego samego CSS co publiczna strona (`aspect-[21/9] object-cover`) — co WIDAĆ to BĘDZIE.
+
+Implementacja:
+- Wykorzystać `croppedAreaPixels` aby na żywo generować preview przez `<canvas>` lub po prostu pokazać oryginalny obraz w masce 21:9 z translate/scale opartym na `crop` i `zoom` (lżejsze, bez canvasa).
+- Najprostsze: pod kropperem dodać sekcję "Podgląd na stronie wydarzenia" — kontener `aspect-[21/9]` z gradientem na dole (jak w `PaidEventHero`) i tekstem zastępczym tytułu, żeby admin widział kompozycję końcową.
+
+### C. Drobne usprawnienie UX dla pozostawionych presetów
+
+Pozostawić tryb "Dowolny" tylko dla kontekstów innych niż banner (np. zdjęcia prelegentów, gdzie kadr nie jest finalnie wymuszany). 
 
 ## Pliki do edycji
 
-1. `src/components/paid-events/public/PaidEventSpeakers.tsx` — naprawa hover na "Czytaj więcej" / "Zwiń".
-2. `src/pages/EventGuestRegistration.tsx` — dodanie przycisku "Dowiedz się więcej na temat wydarzenia" pod przyciskiem rejestracji (otwiera `/events/{slug}` w nowej karcie, widoczne tylko gdy event ma slug).
+1. `src/components/partner-page/ImageUploadInput.tsx`
+   - Dodać preset `h21_9` (21:9 banner).
+   - Dodać propsy `allowedShapes?: string[]` i `defaultShape?: string`.
+   - Filtrować presety wg `allowedShapes`.
+   - Dodać sekcję "Podgląd na stronie wydarzenia" (aspect 21:9) gdy aktywny preset to `h21_9` lub `h16_9` — pokazuje wykadrowany obraz z gradientem dolnym i przykładowym tytułem.
+
+2. `src/components/admin/paid-events/editor/EventGeneralPanel.tsx`
+   - Przy `ImageUploadInput` dla bannera dodać `allowedShapes={['h21_9', 'h16_9']}` oraz `defaultShape="h21_9"`.
+
+## Efekt końcowy
+
+- Admin wybierający banner widzi tylko sensowne presety (21:9 i 16:9), bez mylącego "Dowolny".
+- Pod kropperem live-podgląd dokładnie tak jak na publicznej stronie wydarzenia (aspect 21:9 z gradientem).
+- Przyciski "Zatwierdź" i "Anuluj" zachowują obecne położenie.
