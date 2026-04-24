@@ -1,44 +1,68 @@
-## Diagnoza
+## Co zostanie zrobione
 
-Sprawdziłem bazę i logi:
+### 1. Admin → Eventy → Formularze → Zgłoszenia: ręczne przypisanie partnera + lepszy status emaila
 
-**Gość:** Jan Testujący (byk1023@wp.pl) jest zarejestrowany na "TEST - KRAKÓW" — submission istnieje. Ale:
-- `partner_user_id = NULL` — gość NIE wszedł przez link partnerski (`?ref=...`), tylko przez „goły" URL formularza. Dlatego nie pojawił się ani w „Z zaproszeń na Eventy" w Pure-Kontaktach, ani nikt nie został powiązany.
-- `email_status = 'pending'` — email się **nie wysłał**, bo edge function zawiódł.
+W tabeli zgłoszeń (`EventFormSubmissions.tsx`):
 
-**Przyczyna braku emaila** (logi edge function):
+- **Kolumna „Partner"** — zamiast tylko badge „Partner / —" pokażemy **imię, nazwisko i email partnera** (jeśli przypisany) oraz przycisk **„Przypisz partnera"** / **„Zmień"**. Po kliknięciu otwiera się dialog z wyszukiwarką (po imieniu/nazwisku/emailu) listującą partnerów z `profiles` (rola `partner`). Wybór partnera:
+  - aktualizuje `event_form_submissions.partner_user_id`,
+  - tworzy/aktualizuje wpis CRM partnera (`event_invite_contacts`) — żeby gość natychmiast pojawił się u partnera w „Kontakty prywatne → Z zaproszeń na Eventy",
+  - loguje akcję w `admin_activity_log`.
+  Można też **odpiąć** partnera (ustawia `partner_user_id = NULL`).
+
+- **Kolumna „Email"** — rozszerzona o trzy jednoznaczne stany z ikonami i kolorami:
+  - **Wysłany** (`email_status = 'sent'`, brak potwierdzenia) — szary
+  - **Potwierdzony** (`email_confirmed_at` istnieje) — zielony „✔ Potwierdził"
+  - **Anulowany przez gościa** (`cancelled_at` + `cancelled_by = 'guest'`) — czerwony „✖ Anulował"
+  - **Anulowany przez admina** (`cancelled_by = 'admin'`) — pomarańczowy „Anulowane (admin)"
+  - Dodatkowo data potwierdzenia/anulowania w tooltipie.
+
+- **Eksport CSV** — dorzucone kolumny: „Partner imię", „Partner nazwisko", „Partner email", „Anulowany przez", „Data anulowania", „Data potwierdzenia emaila".
+
+### 2. Backend: nowa funkcja `admin-assign-submission-partner`
+
+Edge function (admin-only, weryfikacja roli przez `verifyAdmin`):
+- Wejście: `{ submissionId, partnerUserId | null }`
+- Aktualizuje `event_form_submissions.partner_user_id`
+- Jeśli `partnerUserId` nie-null: upsert do `event_invite_contacts` (partner widzi gościa w prywatnych kontaktach z odpowiednim źródłem „event_form")
+- Wpis do `admin_activity_log` (action_type: `event_form_partner_assigned`)
+
+### 3. Naprawa „Zapisz się" na stronie eventu (PaidEventPage)
+
+Aktualnie przycisk w sidebarze jest podpięty do `PurchaseDrawer` (zakup biletu PayU) i wymaga wybranego biletu. Event „TEST – KRAKÓW" **nie ma żadnych biletów** (`paid_event_tickets` puste), więc partner nie ma jak się zarejestrować.
+
+Zmiana: jeśli dla wydarzenia istnieje aktywny **formularz rejestracyjny** (`event_registration_forms.is_active = true`):
+- Przycisk „Zapisz się" przekierowuje do `/event-form/{form.slug}` (z dołączonym `?ref={własny_kod_partnera}` jeśli zalogowany partner ma kod w `partner_links`).
+- Jeśli zalogowany jest partner — pokazujemy obok małą informację „Twoja rejestracja zostanie przypisana do Ciebie" + dane formularza pre-wypełnione z profilu.
+- W `EventFormPublicPage` dodajemy auto-fill imię/nazwisko/email/telefon z `useAuth().user` przy załadowaniu, jeśli użytkownik zalogowany.
+
+Jeśli wydarzenie **ma bilety** — flow zostaje obecny (PayU drawer), z dołożeniem `?ref` partnera w metadanych zamówienia (już zaimplementowane w `payu-create-order` — bez zmian).
+
+Logika ustalania docelowej akcji przycisku:
 ```
-Submission not found: Could not find a relationship between
-'event_form_submissions' and 'paid_events' in the schema cache
+if (form && tickets.length === 0) → link do /event-form/{slug}
+else if (tickets.length > 0)      → PurchaseDrawer (jak teraz)
+else                               → przycisk wyłączony „Rejestracja niedostępna"
 ```
-Funkcja `send-event-form-confirmation` używa PostgREST embed
-`paid_events!event_form_submissions_event_id_fkey(...)`, ale w bazie nie ma żadnego FK na `event_form_submissions` → embed pada → cały handler rzuca 500 → email nigdy nie wychodzi.
 
-## Co naprawiam
+### 4. Migracja DB (opcjonalna, drobna)
 
-### 1. `supabase/functions/send-event-form-confirmation/index.ts`
-Zamieniam embed PostgREST na trzy oddzielne, ręczne zapytania (bez polegania na FK / schema cache):
-- `event_form_submissions` po `id` (bez joinów)
-- `event_registration_forms` po `submission.form_id`
-- `paid_events` po `submission.event_id`
+Indeks pomocniczy: `CREATE INDEX IF NOT EXISTS idx_event_form_submissions_partner ON event_form_submissions(partner_user_id);` — przyspiesza listy partnera.
 
-To pełna kompatybilność z aktualnym schema (brak FK) i odporne na zmiany w cache.
-Po zapisie redeploy edge function automatycznie zachodzi.
+Brak nowych tabel/kolumn — wszystkie potrzebne pola już istnieją (`partner_user_id`, `email_confirmed_at`, `cancelled_at`, `cancelled_by`).
 
-### 2. Ponowna wysyłka emaila do Jana
-Po naprawie funkcji wywołuję ją ręcznie dla submission `64aed010-5584-4601-8ef3-c8fde6f0cc74`, żeby gość dostał potwierdzenie. Status `email_status` zaktualizuje się do `sent`.
+## Pliki do zmiany
 
-### 3. Wyjaśnienie sytuacji „brak gościa w Twoich kontaktach"
-Gość nie wszedł przez Twój link partnerski (URL zawierał slug formularza, ale bez `?ref=<twój-ref-code>`), więc system nie ma jak go do Ciebie przypisać. Aby kontakty wpadały do Pure-Kontakty → „Z zaproszeń na Eventy", musisz wysyłać gościom dokładnie ten link, który widzisz w „Moje linki partnerskie" na stronie eventu (zawiera `?ref=...`). Jako admin nadal widzisz wszystkich zarejestrowanych w panelu admina (Eventy → Formularze → lista zgłoszeń).
+- `supabase/functions/admin-assign-submission-partner/index.ts` *(nowy)*
+- `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx` — kolumny, dialog przypisania, eksport CSV
+- `src/components/admin/paid-events/event-forms/AssignPartnerDialog.tsx` *(nowy)* — wyszukiwarka partnerów
+- `src/pages/PaidEventPage.tsx` — logika przycisku „Zapisz się" przy braku biletów
+- `src/components/paid-events/public/PaidEventSidebar.tsx` — wsparcie trybu „link do formularza" (nowy prop `formUrl`)
+- `src/pages/EventFormPublicPage.tsx` — auto-fill danych zalogowanego użytkownika + auto-`ref` jeśli partner
+- migracja: indeks na `partner_user_id`
 
-Opcjonalnie (do potwierdzenia, jeśli chcesz): mogę dodać w panelu admina opcję „przypisz tę rejestrację do partnera" — administrator wybiera partnera z listy, a system tworzy mu kontakt w CRM. Daj znać, czy chcesz tę opcję dodać teraz.
+## Co użytkownik zyska
 
-## Pliki
-
-**Edytowane (1):**
-- `supabase/functions/send-event-form-confirmation/index.ts` — odporne na brak FK, trzy oddzielne SELECT-y zamiast embedu.
-
-**Akcja runtime (1):**
-- Wywołanie `send-event-form-confirmation` dla submission Jana po deployu, aby email dotarł.
-
-Brak migracji DB.
+- Admin widzi w jednej tabeli kto potwierdził, kto anulował (i kto anulował: gość czy admin), i kto jest partnerem zapraszającym.
+- Admin może w kilka sekund przypisać partnera do dowolnej rejestracji — gość natychmiast pojawi się u partnera w „Kontakty prywatne → Z zaproszeń na Eventy".
+- Każdy partner może wejść na stronę swojego eventu i zarejestrować się jednym kliknięciem (formularz pre-wypełniony, automatyczne `ref` = on sam).
