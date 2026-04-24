@@ -1,58 +1,67 @@
+## Problem
 
+Formularze rejestracyjne tworzone w zakładce **Eventy → Formularze** powinny dotyczyć wydarzeń z zakładki **Eventy → Wydarzenia** (TEST, Kompleksowe szkolenie itd. — tabela `paid_events`), a nie wydarzeń online/webinarów (tabela `events`). 
 
-# Finalizacja: podpięcie zakładki „API / Integracje" do panelu admina
+Aktualnie:
+- Wszystkie 3 nowe tabele (`event_registration_forms`, `event_form_submissions`, `paid_event_partner_links`) mają `event_id` z FK do `events`
+- `EventFormEditor` zaciąga listę z `events`
+- Lista we Form Editor pokazuje webinary online — niezgodnie z intencją
 
-## Stan obecny
-Cała infrastruktura backendowa i komponenty UI są gotowe (migracja DB, 5 edge functions, 4 komponenty React). Brakuje jedynie **podpięcia** nowej zakładki do `AdminSidebar` i `Admin.tsx`, żeby admin mógł do niej wejść z menu.
+## Rozwiązanie
 
-## Zmiany
+### Krok 1 — Migracja DB (przepięcie FK na `paid_events`)
 
-### 1. `src/components/admin/AdminSidebar.tsx`
-- Dodanie nowego elementu menu w sekcji `system` (lub na końcu sekcji `communication` — proponuję `system`, bo to narzędzie integratorskie/techniczne).
-- Wpis: `{ value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug }` (lub `Webhook` z `lucide-react`).
-- Import ikony.
+Ponieważ tabele są nowe i puste (formularze nie były jeszcze tworzone), bezpiecznie:
 
-### 2. `src/pages/Admin.tsx`
-- Dodanie `<TabsContent value="api-integrations">` renderującego `<ApiIntegrationsPanel />`.
-- Import komponentu `ApiIntegrationsPanel` z `@/components/admin/ApiIntegrationsPanel`.
-- Dodanie obsługi w bloku autoryzacji/lazy-loadingu (`if (activeTab === 'api-integrations' && isAdmin) ...`) — analogicznie do innych admin-only zakładek (np. `users`, `pages`).
+```sql
+-- Drop existing FKs and recreate to paid_events
+ALTER TABLE public.event_registration_forms 
+  DROP CONSTRAINT event_registration_forms_event_id_fkey,
+  ADD CONSTRAINT event_registration_forms_event_id_fkey 
+    FOREIGN KEY (event_id) REFERENCES public.paid_events(id) ON DELETE CASCADE;
 
-### 3. Tłumaczenia (`labelKey: 'apiIntegrations'`)
-- Sprawdzę gdzie trzymane są klucze sidebara (najpewniej `src/i18n/...` lub plik tłumaczeń sekcji `admin.sidebar`) i dodam wpis `apiIntegrations` w 8 językach (PL, EN, DE, NO, IT, ES, FR, PT) zgodnie z `mem://infrastructure/i18n-global-governance`:
-  - PL: „API / Integracje"
-  - EN: „API / Integrations"
-  - DE: „API / Integrationen"
-  - NO: „API / Integrasjoner"
-  - IT: „API / Integrazioni"
-  - ES: „API / Integraciones"
-  - FR: „API / Intégrations"
-  - PT: „API / Integrações"
+ALTER TABLE public.event_form_submissions 
+  DROP CONSTRAINT event_form_submissions_event_id_fkey,
+  ADD CONSTRAINT event_form_submissions_event_id_fkey 
+    FOREIGN KEY (event_id) REFERENCES public.paid_events(id) ON DELETE CASCADE;
 
-### 4. (opcjonalnie) Zapis w pamięci `mem://features/admin/api-integrations-governance`
-Krótki wpis dokumentujący:
-- Lokalizacja zakładki: `/admin?tab=api-integrations`
-- Inbound: SHA-256 hash klucza, scope-y, klucz pokazany 1×
-- Outbound: sekrety w Lovable Cloud (`OUTBOUND_<SLUG>_API_KEY`), proxy admin-only
-- Logi w `api_key_usage_log` / `outbound_call_log`, retencja 90 dni (do dodania w `data_cleanup_config` gdy tabela powstanie)
+ALTER TABLE public.paid_event_partner_links 
+  DROP CONSTRAINT paid_event_partner_links_event_id_fkey,
+  ADD CONSTRAINT paid_event_partner_links_event_id_fkey 
+    FOREIGN KEY (event_id) REFERENCES public.paid_events(id) ON DELETE CASCADE;
+```
 
-## Pliki do edycji
+(Funkcje RPC nie wymagają zmian — operują tylko na własnych kolumnach `event_id`, niezależnie od FK.)
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/AdminSidebar.tsx` | +1 wpis menu w sekcji `system`, import ikony `Plug` |
-| `src/pages/Admin.tsx` | Import `ApiIntegrationsPanel` + nowy `<TabsContent value="api-integrations">` + lazy-load gating |
-| Plik z tłumaczeniami sidebara | Klucz `apiIntegrations` w 8 językach |
-| `mem://features/admin/api-integrations-governance` | Nowy wpis (opcjonalnie) |
+### Krok 2 — Zmiana selektu wydarzenia w `EventFormEditor.tsx`
 
-## Efekt
-Admin wchodzi w `/admin`, w lewym menu (sekcja **System**) widzi nową pozycję **„API / Integracje"** z ikoną wtyczki. Klik otwiera panel z dwoma pod-zakładkami (Klucze API przychodzące / Integracje wychodzące / Dokumentacja) — wszystko już gotowe i podpięte do działającego backendu.
+Zamienić query:
+- `from('events').select('id, title, start_time')` 
+- → `from('paid_events').select('id, title, event_date, location').eq('status','published')`
 
-## Co zrobię po zatwierdzeniu
-1. Dodam wpis do `AdminSidebar.tsx`.
-2. Podepnę `<TabsContent>` w `Admin.tsx`.
-3. Uzupełnię 8 tłumaczeń.
-4. Zapiszę memory `api-integrations-governance`.
-5. Zwrócę linki do dashboardu Supabase (Edge Functions, sekrety) na koniec wiadomości.
+Wyświetlanie w opcji: `{ev.title} — {ev.location} ({data})`. Sortowanie po `event_date` malejąco.
 
-Daj znać czy ruszam.
+### Krok 3 — Spójność w pozostałych miejscach
 
+Sprawdzić i ewentualnie zaktualizować odwołania do `event_id` w:
+- `src/pages/EventRegistrationBySlug.tsx` (publiczna strona formularza) — pobiera dane wydarzenia → musi czytać z `paid_events`
+- `EventFormSubmissions.tsx` — kolumna „Wydarzenie" w eksporcie/UI
+- Edge function `send-event-form-confirmation` — jeśli czyta nazwę wydarzenia, źródłem ma być `paid_events`
+- Komponent linku partnera w `/paid-events` (dashboard) — odwołania do paid_events.id (już docelowo właściwe)
+
+### Krok 4 — Kontynuacja pozostałych etapów planu (z poprzedniej iteracji)
+
+Po naprawie powyższego, dokończyć:
+1. **Strony publiczne**: `/event-form/:slug`, `/event-form/confirm/:token`, `/event-form/cancel/:token` (wykorzystując `paid_events` do wyświetlenia daty/lokalizacji wydarzenia)
+2. **Linki partnera**: przycisk „Mój link partnera" w dashboard `/paid-events` przy każdym formularzu
+3. **CRM**: zapisywanie zgłoszeń przez link partnera do `team_contacts` ze źródłem `event_invite` (tag z nazwą wydarzenia z `paid_events`)
+4. **Memory**: zapisanie reguły w `mem://features/admin/event-forms-governance` — formularze rejestracyjne **zawsze** odnoszą się do `paid_events` (Eventy), nigdy do tabeli `events` (online/webinary)
+
+## Zakres techniczny (krótko)
+
+- 1 migracja SQL (3× ALTER FK)
+- 1 zmiana w `EventFormEditor.tsx` (query + opcje selecta)
+- Drobne uściślenia w `EventRegistrationBySlug.tsx`, `EventFormSubmissions.tsx`, edge function `send-event-form-confirmation`
+- Realizacja pozostałych kroków planu z poprzedniej iteracji (publiczne strony, linki partnerskie, CRM, memory)
+
+Po Twojej akceptacji uruchamiam migrację (wymaga osobnego zatwierdzenia) i kontynuuję realizację.
