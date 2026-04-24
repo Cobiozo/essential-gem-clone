@@ -16,7 +16,8 @@ import { useAdminActivityLog } from '@/hooks/useAdminActivityLog';
 interface EventOption {
   id: string;
   title: string;
-  start_time: string;
+  event_date: string;
+  location: string | null;
 }
 
 interface FormRecord {
@@ -72,12 +73,12 @@ export const EventFormEditor: React.FC<Props> = ({ open, onClose, initial }) => 
   const [data, setData] = useState<FormRecord>(empty(''));
 
   const { data: events = [] } = useQuery({
-    queryKey: ['events-for-forms'],
+    queryKey: ['paid-events-for-forms'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('events')
-        .select('id, title, start_time')
-        .order('start_time', { ascending: false })
+        .from('paid_events')
+        .select('id, title, event_date, location')
+        .order('event_date', { ascending: false })
         .limit(200);
       if (error) throw error;
       return data as EventOption[];
@@ -175,7 +176,7 @@ export const EventFormEditor: React.FC<Props> = ({ open, onClose, initial }) => 
                 <option value="">— wybierz —</option>
                 {events.map(ev => (
                   <option key={ev.id} value={ev.id}>
-                    {ev.title} ({new Date(ev.start_time).toLocaleDateString('pl-PL')})
+                    {ev.title}{ev.location ? ` — ${ev.location}` : ''} ({new Date(ev.event_date).toLocaleDateString('pl-PL')})
                   </option>
                 ))}
               </select>
