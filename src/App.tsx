@@ -198,9 +198,13 @@ const ChatWidgetsWrapper = () => {
 
   const isAutoWebinarPage = path.startsWith('/auto-webinar') || path.startsWith('/a-w');
   const isEventRegistrationPage = path.startsWith('/events/register/') || path.startsWith('/e/');
+  // Public paid event page: /events/{slug} (exact one segment after /events/)
+  // Excludes /events/webinars, /events/team-meetings, /events/individual-meetings, /events/register/...
+  const isPaidEventPage = /^\/events\/[^/]+\/?$/.test(path)
+    && !['/events/webinars', '/events/team-meetings', '/events/individual-meetings'].some(p => path === p || path === p + '/');
 
-  // Hide chat widgets on InfoLink, Meeting, Auto-Webinar, event registration, and partner pages
-  if (!user || isInfoLinkPage || isMeetingPage || isAutoWebinarPage || isEventRegistrationPage || isPartnerPage) return null;
+  // Hide chat widgets on InfoLink, Meeting, Auto-Webinar, event registration, paid event, and partner pages
+  if (!user || isInfoLinkPage || isMeetingPage || isAutoWebinarPage || isEventRegistrationPage || isPaidEventPage || isPartnerPage) return null;
 
   return (
     <Suspense fallback={null}>
