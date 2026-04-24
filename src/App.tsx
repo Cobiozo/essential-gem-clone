@@ -128,6 +128,9 @@ const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKn
 const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
+const EventFormPublicPage = lazyWithRetry(() => import("./pages/EventFormPublicPage"));
+const EventFormConfirmPage = lazyWithRetry(() => import("./pages/EventFormConfirmPage"));
+const EventFormCancelPage = lazyWithRetry(() => import("./pages/EventFormCancelPage"));
 const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
@@ -406,6 +409,9 @@ const AppContent = () => {
                 <Route path="/messages" element={<MessagesPage />} />
                 <Route path="/paid-events" element={<PaidEventsListPage />} />
                 <Route path="/events/:slug" element={<PaidEventPage />} />
+                <Route path="/event-form/:slug" element={<EventFormPublicPage />} />
+                <Route path="/event-form/confirm/:token" element={<EventFormConfirmPage />} />
+                <Route path="/event-form/cancel/:token" element={<EventFormCancelPage />} />
                 <Route path="/install" element={<InstallPage />} />
                 <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
                 <Route path="/leader" element={<LeaderPanel />} />
