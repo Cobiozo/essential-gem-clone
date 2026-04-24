@@ -1000,6 +1000,17 @@ const EventGuestRegistration: React.FC = () => {
                         )}
                       </Button>
 
+                      {event.slug && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
+                        >
+                          Dowiedz się więcej na temat wydarzenia
+                        </Button>
+                      )}
+
                       <p className="text-xs text-muted-foreground text-center">
                         {labels.consent}
                       </p>
