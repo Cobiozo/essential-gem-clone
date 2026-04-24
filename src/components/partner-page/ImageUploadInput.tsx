@@ -201,7 +201,7 @@ export const ImageUploadInput: React.FC<Props> = ({
               onValueChange={(v) => { if (v) { setSelectedShape(v); setCrop({ x: 0, y: 0 }); setZoom(1); } }}
               className="flex flex-wrap gap-1 justify-start"
             >
-              {SHAPE_PRESETS.map((preset) => (
+              {availablePresets.map((preset) => (
                 <ToggleGroupItem
                   key={preset.id}
                   value={preset.id}
