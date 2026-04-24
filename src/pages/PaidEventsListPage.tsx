@@ -1,6 +1,7 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { PaidEventCard } from '@/components/paid-events/PaidEventCard';
+import { MyEventFormLinks } from '@/components/paid-events/MyEventFormLinks';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Ticket, CalendarX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
