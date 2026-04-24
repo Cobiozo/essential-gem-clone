@@ -6,8 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import MyEventFormReferrals from './MyEventFormReferrals';
 
 interface MyEventFormLinksProps {
   /** Optional: scope panel to a single paid event (event detail page). */
@@ -188,6 +190,20 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
                   >
                     <Link2 className="w-4 h-4 mr-1" /> Wygeneruj mój link
                   </Button>
+                )}
+
+                {link && subs > 0 && (
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-xs h-7 px-2 -ml-2 group">
+                        <ChevronDown className="h-3 w-3 mr-1 transition-transform group-data-[state=open]:rotate-180" />
+                        Pokaż zapisanych ({subs})
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <MyEventFormReferrals formId={form.id} />
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </CardContent>
             </Card>
