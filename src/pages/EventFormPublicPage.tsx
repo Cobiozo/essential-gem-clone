@@ -70,6 +70,15 @@ const EventFormPublicPage: React.FC = () => {
     })();
   }, [slug, refCode]);
 
+  // Auto-fill from logged-in user's profile (so partner can register themselves quickly)
+  useEffect(() => {
+    if (!user || !profile) return;
+    setFirstName(prev => prev || (profile as any).first_name || '');
+    setLastName(prev => prev || (profile as any).last_name || '');
+    setEmail(prev => prev || (profile as any).email || user.email || '');
+    setPhone(prev => prev || (profile as any).phone_number || '');
+  }, [user, profile]);
+
   const fields: FieldDef[] = useMemo(() => (form?.fields_config || []) as FieldDef[], [form]);
 
   const handleSubmit = async (e: React.FormEvent) => {
