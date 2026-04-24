@@ -20,6 +20,7 @@ interface ContentSection {
   content: string | null;
   position: number;
   is_active: boolean;
+  visible_to_guests: boolean;
   background_color: string | null;
   text_color: string | null;
   icon_name: string | null;
