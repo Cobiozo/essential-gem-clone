@@ -14,6 +14,12 @@ interface Props {
   value: string;
   onChange: (url: string) => void;
   compact?: boolean;
+  /** Limit available shape presets by ID. When provided, only these presets are shown. */
+  allowedShapes?: string[];
+  /** Default selected shape preset ID. Falls back to first available. */
+  defaultShape?: string;
+  /** When true, show "Podgląd na stronie wydarzenia" panel below cropper. */
+  showEventBannerPreview?: boolean;
 }
 
 interface ShapePreset {
@@ -25,6 +31,7 @@ interface ShapePreset {
 }
 
 const SHAPE_PRESETS: ShapePreset[] = [
+  { id: 'h21_9', label: '21:9', aspect: 21 / 9, cropShape: 'rect', icon: <RectangleHorizontal className="h-4 w-4" /> },
   { id: 'h16_9', label: '16:9', aspect: 16 / 9, cropShape: 'rect', icon: <RectangleHorizontal className="h-4 w-4" /> },
   { id: 'h4_3', label: '4:3', aspect: 4 / 3, cropShape: 'rect', icon: <RectangleHorizontal className="h-3.5 w-3.5" /> },
   { id: 'v9_16', label: '9:16', aspect: 9 / 16, cropShape: 'rect', icon: <RectangleVertical className="h-4 w-4" /> },
@@ -36,10 +43,28 @@ const SHAPE_PRESETS: ShapePreset[] = [
   { id: 'free', label: 'Dowolny', aspect: undefined, cropShape: 'rect', icon: <Maximize className="h-4 w-4" /> },
 ];
 
-export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) => {
+export const ImageUploadInput: React.FC<Props> = ({
+  value,
+  onChange,
+  compact,
+  allowedShapes,
+  defaultShape,
+  showEventBannerPreview,
+}) => {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Filtered preset list per allowedShapes whitelist
+  const availablePresets = React.useMemo(
+    () => (allowedShapes && allowedShapes.length > 0
+      ? SHAPE_PRESETS.filter(p => allowedShapes.includes(p.id))
+      : SHAPE_PRESETS),
+    [allowedShapes]
+  );
+  const initialShape = defaultShape && availablePresets.some(p => p.id === defaultShape)
+    ? defaultShape
+    : availablePresets[0]?.id ?? 'h16_9';
 
   // Crop state
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -47,9 +72,10 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedShape, setSelectedShape] = useState<string>('h16_9');
+  const [selectedShape, setSelectedShape] = useState<string>(initialShape);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const activePreset = SHAPE_PRESETS.find(p => p.id === selectedShape) || SHAPE_PRESETS[0];
+  const activePreset = availablePresets.find(p => p.id === selectedShape) || availablePresets[0] || SHAPE_PRESETS[0];
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels);
