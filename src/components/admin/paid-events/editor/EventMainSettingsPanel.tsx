@@ -301,24 +301,46 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2 pt-4 border-t">
+              <div className="space-y-3 pt-4 border-t">
                 <Label className="text-sm font-medium">Widoczność dla niezalogowanych gości</Label>
                 <p className="text-xs text-muted-foreground">
                   Decyduje, które elementy strony wydarzenia widzą goście (osoby niezalogowane), które trafiają tu z linku „Dowiedz się więcej". Zalogowani użytkownicy widzą wszystko zgodnie z ustawieniami ról powyżej.
                 </p>
-                <div className="grid grid-cols-1 gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Aby goście mieli w ogóle dostęp do strony wydarzenia, włącz przynajmniej jedną z poniższych opcji. Jeżeli wyłączysz wszystkie, gość zobaczy ekran „Brak dostępu".
+                </p>
+                <div className="grid grid-cols-1 gap-3">
                   {[
-                    { key: 'guests_show_description', label: 'Pokaż opis wydarzenia' },
-                    { key: 'guests_show_speakers', label: 'Pokaż prelegentów' },
-                    { key: 'guests_show_tickets', label: 'Pokaż bilety i przycisk zapisu' },
-                    { key: 'guests_show_schedule', label: 'Pokaż harmonogram' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-2">
-                      <Switch
-                        checked={formData[key] ?? true}
-                        onCheckedChange={(checked) => handleFieldChange(key, checked)}
-                      />
-                      <span className="text-sm">{label}</span>
+                    {
+                      key: 'guests_show_description',
+                      label: 'Pokaż opis wydarzenia',
+                      hint: 'Po wyłączeniu gość nie zobaczy pełnego opisu wydarzenia ani sekcji CMS oznaczonych jako widoczne dla gości.',
+                    },
+                    {
+                      key: 'guests_show_speakers',
+                      label: 'Pokaż prelegentów',
+                      hint: 'Po wyłączeniu zniknie cała sekcja „Prelegenci" wraz ze zdjęciami i opisami osób prowadzących.',
+                    },
+                    {
+                      key: 'guests_show_tickets',
+                      label: 'Pokaż bilety i przycisk zapisu',
+                      hint: 'Po wyłączeniu gość nie zobaczy panelu bocznego z biletami, cenami ani przyciskiem zapisu / zakupu.',
+                    },
+                    {
+                      key: 'guests_show_schedule',
+                      label: 'Pokaż harmonogram',
+                      hint: 'Po wyłączeniu zniknie sekcja harmonogramu / programu wydarzenia (jeśli skonfigurowano).',
+                    },
+                  ].map(({ key, label, hint }) => (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={formData[key] ?? true}
+                          onCheckedChange={(checked) => handleFieldChange(key, checked)}
+                        />
+                        <span className="text-sm">{label}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-10">{hint}</p>
                     </div>
                   ))}
                 </div>
