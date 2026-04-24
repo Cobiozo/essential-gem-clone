@@ -83,6 +83,7 @@ import { EmailDeliveryDashboard } from '@/components/admin/EmailDeliveryDashboar
 import { AdminActivityLog } from '@/components/admin/AdminActivityLog';
 import { PureBoxManagement } from '@/components/admin/PureBoxManagement';
 import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
+import { ApiIntegrationsPanel } from '@/components/admin/ApiIntegrationsPanel';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4731,6 +4732,10 @@ const Admin = () => {
 
           <TabsContent value="purebox">
             <PureBoxManagement />
+          </TabsContent>
+
+          <TabsContent value="api-integrations">
+            <ApiIntegrationsPanel />
           </TabsContent>
         </Tabs>
       </div>
