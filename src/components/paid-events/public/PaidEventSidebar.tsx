@@ -26,6 +26,10 @@ interface PaidEventSidebarProps {
   ticketsSold?: number | null;
   onPurchase: (ticketId: string) => void;
   currency?: string;
+  /** When provided AND there are no tickets, the CTA links here (registration form). */
+  formUrl?: string | null;
+  /** Optional helper text shown under the CTA when the user is a logged-in partner. */
+  helperText?: string | null;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
@@ -37,6 +41,8 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   ticketsSold,
   onPurchase,
   currency = 'PLN',
+  formUrl = null,
+  helperText = null,
 }) => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
