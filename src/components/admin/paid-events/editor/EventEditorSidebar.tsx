@@ -23,7 +23,7 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-4 pb-2 border-b bg-background/80 backdrop-blur-sm shrink-0">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="main" className="text-xs sm:text-sm">
@@ -45,7 +45,7 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-4">
             <TabsContent value="main" className="m-0">
               <EventMainSettingsPanel eventId={eventId} onDataChange={onDataChange} />

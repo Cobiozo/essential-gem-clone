@@ -1,30 +1,23 @@
-# Sekcja Prelegenci: usunięcie żółtego tła + przycisk „Czytaj więcej"
-
 ## Problem
 
-1. Sekcja „Prelegenci" na publicznej stronie wydarzenia ma jaskrawe żółte tło (komponent domyślnie używa `hsl(var(--primary))`, który w tym motywie jest złoto-żółty) — wygląda źle i nie pasuje do reszty strony.
-2. Bio prelegenta jest obcięte do 3 linii bez możliwości rozwinięcia.
+W oknie edytora wydarzenia (Admin → Eventy → edycja) lewy panel z formularzem (zakładki: Główne / Sekcje / Bilety / Prelegenci) nie pozwala przewinąć zawartości w dół — pola na dole formularza (np. „Grafika banera", przycisk „Zapisz zmiany") są obcięte i niedostępne.
 
-W panelu admina (podgląd) sekcja używa neutralnego tła strony i prostych kart — i to ma być wzorzec.
+## Przyczyna
 
-## Zakres zmian
+Klasyczny problem flexboxa w `EventEditorSidebar.tsx`:
+- `<Tabs className="flex-1 flex flex-col">` oraz wewnętrzny `<ScrollArea className="flex-1">` nie mają klasy `min-h-0`
+- Bez `min-h-0` element `flex-1` w kolumnie flex rozciąga się do wysokości swojej zawartości (zamiast ograniczyć się do dostępnej przestrzeni), więc `ScrollArea` nigdy nie aktywuje wewnętrznego scrolla
 
-### `src/components/paid-events/public/PaidEventSpeakers.tsx` — przepisanie
-- **Usunąć domyślny żółty fill.** Sekcja ma korzystać z neutralnego tła strony (`bg-background`/transparent), tak jak w podglądzie admina. Karty: `bg-card border-border`, tekst `text-foreground` / `text-muted-foreground`. Specjalne tło włącza się tylko, jeśli `backgroundColor` lub `textColor` zostaną jawnie podane (zachowana kompatybilność).
-- **Usunąć ikonę-pigułkę przy nagłówku** — sam tytuł „Prelegenci" jak w edytorze admina.
-- **Grid 2-kolumnowy** (zamiast 3), karty bardziej oddychające — bliżej layoutu z podglądu admina (screenshot pokazuje 2 kolumny).
-- **Avatar**: `ring-2 ring-border` zamiast `ring-4 ring-white/30`.
-- **Dodać przycisk „Czytaj więcej / Zwiń"** pod bio każdego prelegenta:
-  - Stan `expanded` per karta (lokalny `useState` w `SpeakerCard`).
-  - Gdy zwinięte — `line-clamp-3`; gdy rozwinięte — pełny tekst, z zachowaniem `whitespace-pre-line`.
-  - Przycisk: wariant `ghost`, ikony `ChevronDown` / `ChevronUp` (lucide-react), kolor `text-primary`.
-  - Przycisk pojawia się tylko gdy bio jest niepuste (zawsze pozwala rozwinąć/zwinąć — proste i przewidywalne UX, niezależne od długości tekstu).
+## Rozwiązanie
 
-### Pliki edytowane
-- `src/components/paid-events/public/PaidEventSpeakers.tsx` — pełne przepisanie zgodnie z powyższym.
+Drobna zmiana w pliku `src/components/admin/paid-events/editor/EventEditorSidebar.tsx`:
 
-Brak zmian w `PaidEventPage.tsx` ani w schemacie bazy.
+1. Dodać `min-h-0` do `<Tabs>` (`flex-1 flex flex-col min-h-0`)
+2. Dodać `min-h-0` do `<ScrollArea>` (`flex-1 min-h-0`)
+3. Upewnić się, że `TabsContent` nie wymusza dodatkowego marginesu psującego layout (jeśli trzeba — pozostawić `m-0`, już jest)
 
-## Uwagi
-- Funkcja `backgroundColor`/`textColor` z bazy pozostaje — gdyby admin świadomie chciał kolorowe tło sekcji, nadal będzie działać; bez ustawień sekcja jest neutralna.
-- Na podglądzie admina (`EventEditorPreview.tsx`) używana jest własna, prosta lista kart — pozostaje bez zmian (i tak nie miała żółtego tła).
+To naprawi przewijanie we wszystkich czterech zakładkach (Główne, Sekcje, Bilety, Prelegenci) — cała zawartość formularza będzie dostępna, łącznie z przyciskiem „Zapisz zmiany" na dole.
+
+## Pliki do edycji
+
+- `src/components/admin/paid-events/editor/EventEditorSidebar.tsx` (2 klasy CSS)
