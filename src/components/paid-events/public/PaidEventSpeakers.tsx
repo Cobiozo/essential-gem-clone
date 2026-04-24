@@ -115,15 +115,15 @@ export const PaidEventSpeakers: React.FC<PaidEventSpeakersProps> = ({
     <section
       id="speakers"
       className={cn(
-        'py-8 md:py-12 scroll-mt-16',
+        'py-6 md:py-8 scroll-mt-16',
         hasCustomStyle && '-mx-4 md:-mx-8 lg:-mx-12 px-4 md:px-8 lg:px-12 rounded-lg'
       )}
       style={sectionStyle}
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <h2 className="text-2xl md:text-3xl font-bold">{sectionTitle}</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedSpeakers.map((speaker) => (
             <SpeakerCard key={speaker.id} speaker={speaker} />
           ))}
