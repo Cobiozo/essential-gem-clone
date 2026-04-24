@@ -106,7 +106,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
   // Same composition regardless of container width → admin preview === public page.
   return (
     <section className="relative w-full">
-      <div className="relative w-full aspect-[21/9] max-h-[520px] overflow-hidden bg-muted">
+      <div className="relative w-full aspect-[21/9] min-h-[320px] md:min-h-[420px] max-h-[520px] overflow-hidden bg-muted">
         {/* Banner image */}
         <img
           src={resolvedBannerUrl}
@@ -114,8 +114,8 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
 
-        {/* Bottom-up gradient for text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+        {/* Bottom-up gradient for text legibility (lighter so banner stays visible) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-transparent" />
 
         {/* Top back-button overlay */}
         <div className="absolute top-0 left-0 right-0 z-10">
