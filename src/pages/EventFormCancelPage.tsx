@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import DualBrandHeader from '@/components/branding/DualBrandHeader';
 
 const EventFormCancelPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -18,37 +19,59 @@ const EventFormCancelPage: React.FC = () => {
       if (error) throw error;
       if (data?.success) {
         setState('ok');
-        setMessage('Twoje zgłoszenie zostało anulowane.');
+        setMessage(data.already_cancelled
+          ? 'Twoja rejestracja była już wcześniej anulowana.'
+          : 'Twoja rejestracja została anulowana. Powiadomienie zostało wysłane do organizatora.');
       } else {
         setState('error');
-        setMessage(data?.error === 'already_paid'
+        setMessage(data?.error === 'payment_already_received' || data?.error === 'already_paid'
           ? 'Tego zgłoszenia nie można już anulować — płatność została odnotowana. Skontaktuj się z organizatorem.'
-          : data?.error || 'Nie udało się anulować zgłoszenia.');
+          : data?.error === 'invalid_token'
+            ? 'Link anulujący jest nieprawidłowy lub wygasł.'
+            : (data?.error || 'Nie udało się anulować zgłoszenia.'));
       }
     } catch (e: any) {
       setState('error');
-      setMessage(e.message);
+      setMessage(e.message || 'Wystąpił błąd techniczny. Spróbuj ponownie za chwilę.');
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="max-w-md w-full">
+      <Card className="max-w-lg w-full overflow-hidden">
+        <DualBrandHeader />
         <CardContent className="pt-8 pb-8 text-center space-y-4">
           {state === 'idle' && (
             <>
               <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto" />
-              <h1 className="text-xl font-semibold">Anulować zgłoszenie?</h1>
-              <p className="text-muted-foreground text-sm">
-                Po anulowaniu Twoje zgłoszenie nie będzie już aktywne. Tej operacji nie można cofnąć.
+              <h1 className="text-2xl font-semibold">Anulować zgłoszenie?</h1>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Anulowanie rejestracji jest <strong>dobrowolne</strong>. Zwracamy uwagę,
+                że <strong>środki za bilet nie zostają zwrócone</strong> — zgodnie
+                z regulaminem wydarzenia opłata pozostaje po stronie organizatora.
               </p>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => window.location.href = '/'}>Wróć</Button>
-                <Button variant="destructive" onClick={handleCancel}>Anuluj zgłoszenie</Button>
+              <p className="text-xs text-muted-foreground">
+                Jeśli klikniesz „Tak, anuluj rejestrację", organizator oraz partner zapraszający
+                otrzymają o tym powiadomienie.
+              </p>
+              <div className="flex gap-2 justify-center pt-2 flex-wrap">
+                <Button variant="outline" onClick={() => window.location.href = '/'}>
+                  Wróć
+                </Button>
+                <Button variant="destructive" onClick={handleCancel}>
+                  Tak, anuluj rejestrację
+                </Button>
               </div>
             </>
           )}
-          {state === 'loading' && <><Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" /><p>Przetwarzanie...</p></>}
+
+          {state === 'loading' && (
+            <>
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+              <p>Przetwarzanie…</p>
+            </>
+          )}
+
           {state === 'ok' && (
             <>
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
@@ -57,6 +80,7 @@ const EventFormCancelPage: React.FC = () => {
               <a href="/" className="text-primary underline text-sm inline-block">Strona główna</a>
             </>
           )}
+
           {state === 'error' && (
             <>
               <XCircle className="w-16 h-16 text-destructive mx-auto" />

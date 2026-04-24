@@ -1,68 +1,96 @@
-## Co zostanie zrobione
+## Cel
 
-### 1. Admin → Eventy → Formularze → Zgłoszenia: ręczne przypisanie partnera + lepszy status emaila
+Po kliknięciu w mailu „Potwierdzam otrzymanie wiadomości" lub „Anuluj rejestrację" gość ma zobaczyć branżową stronę z jasnym komunikatem, system ma zaktualizować status zgłoszenia, powiadomić admina oraz partnera zapraszającego, oraz uwidocznić zdarzenie w CRM (Kontakty prywatne) partnera. Dodatkowo: w nagłówku maila pojawi się drugie logo „Eqology Independent Business Partner".
 
-W tabeli zgłoszeń (`EventFormSubmissions.tsx`):
+---
 
-- **Kolumna „Partner"** — zamiast tylko badge „Partner / —" pokażemy **imię, nazwisko i email partnera** (jeśli przypisany) oraz przycisk **„Przypisz partnera"** / **„Zmień"**. Po kliknięciu otwiera się dialog z wyszukiwarką (po imieniu/nazwisku/emailu) listującą partnerów z `profiles` (rola `partner`). Wybór partnera:
-  - aktualizuje `event_form_submissions.partner_user_id`,
-  - tworzy/aktualizuje wpis CRM partnera (`event_invite_contacts`) — żeby gość natychmiast pojawił się u partnera w „Kontakty prywatne → Z zaproszeń na Eventy",
-  - loguje akcję w `admin_activity_log`.
-  Można też **odpiąć** partnera (ustawia `partner_user_id = NULL`).
+## 1. Strona potwierdzenia (`/event-form/confirm/:token`)
 
-- **Kolumna „Email"** — rozszerzona o trzy jednoznaczne stany z ikonami i kolorami:
-  - **Wysłany** (`email_status = 'sent'`, brak potwierdzenia) — szary
-  - **Potwierdzony** (`email_confirmed_at` istnieje) — zielony „✔ Potwierdził"
-  - **Anulowany przez gościa** (`cancelled_at` + `cancelled_by = 'guest'`) — czerwony „✖ Anulował"
-  - **Anulowany przez admina** (`cancelled_by = 'admin'`) — pomarańczowy „Anulowane (admin)"
-  - Dodatkowo data potwierdzenia/anulowania w tooltipie.
+Plik: `src/pages/EventFormConfirmPage.tsx`
 
-- **Eksport CSV** — dorzucone kolumny: „Partner imię", „Partner nazwisko", „Partner email", „Anulowany przez", „Data anulowania", „Data potwierdzenia emaila".
+- Po sukcesie pokaż jeden, jednoznaczny komunikat:
+  - Tytuł: „Twoje dane i rejestracja zostały poprawnie potwierdzone"
+  - Treść: „Teraz oczekujemy na płatność na dane wskazane w wysłanym mailu. Po zaksięgowaniu wpłaty otrzymasz potwierdzenie udziału."
+  - Branding: logo Pure Life + (NEW) logo Eqology IBP w nagłówku karty.
+- Stan „już potwierdzone": ten sam komunikat + dopisek „(potwierdzone wcześniej)".
+- Stan błędu (np. anulowane wcześniej): odpowiedni komunikat z fallbackiem.
 
-### 2. Backend: nowa funkcja `admin-assign-submission-partner`
+## 2. Strona anulowania (`/event-form/cancel/:token`)
 
-Edge function (admin-only, weryfikacja roli przez `verifyAdmin`):
-- Wejście: `{ submissionId, partnerUserId | null }`
-- Aktualizuje `event_form_submissions.partner_user_id`
-- Jeśli `partnerUserId` nie-null: upsert do `event_invite_contacts` (partner widzi gościa w prywatnych kontaktach z odpowiednim źródłem „event_form")
-- Wpis do `admin_activity_log` (action_type: `event_form_partner_assigned`)
+Plik: `src/pages/EventFormCancelPage.tsx`
 
-### 3. Naprawa „Zapisz się" na stronie eventu (PaidEventPage)
+- Ekran startowy (przed kliknięciem):
+  - Tytuł „Anulować zgłoszenie?"
+  - Wyraźna informacja: „Anulowanie jest dobrowolne. Zwracamy uwagę, że środki za bilet **nie zostają zwrócone**."
+  - Przyciski: „Wróć" / „Tak, anuluj rejestrację" (destructive).
+- Po sukcesie: „Twoja rejestracja została anulowana. Powiadomienie o anulowaniu zostało wysłane do organizatora."
+- Branding: logo Pure Life + Eqology IBP.
 
-Aktualnie przycisk w sidebarze jest podpięty do `PurchaseDrawer` (zakup biletu PayU) i wymaga wybranego biletu. Event „TEST – KRAKÓW" **nie ma żadnych biletów** (`paid_event_tickets` puste), więc partner nie ma jak się zarejestrować.
+## 3. Logo „Eqology Independent Business Partner"
 
-Zmiana: jeśli dla wydarzenia istnieje aktywny **formularz rejestracyjny** (`event_registration_forms.is_active = true`):
-- Przycisk „Zapisz się" przekierowuje do `/event-form/{form.slug}` (z dołączonym `?ref={własny_kod_partnera}` jeśli zalogowany partner ma kod w `partner_links`).
-- Jeśli zalogowany jest partner — pokazujemy obok małą informację „Twoja rejestracja zostanie przypisana do Ciebie" + dane formularza pre-wypełnione z profilu.
-- W `EventFormPublicPage` dodajemy auto-fill imię/nazwisko/email/telefon z `useAuth().user` przy załadowaniu, jeśli użytkownik zalogowany.
+- Wgrane logo skopiujemy do `src/assets/eqology-ibp-logo.png` (do użycia w komponentach React) oraz do `public/lovable-uploads/eqology-ibp-logo.png` (URL absolutny do użycia w mailach SMTP).
+- Header maila (`send-event-form-confirmation/index.ts`) → dwa loga obok siebie (Pure Life po lewej, Eqology IBP po prawej, na tym samym złotym tle, responsywne).
+- Strony Confirm/Cancel → komponent nagłówka z dwoma logami.
 
-Jeśli wydarzenie **ma bilety** — flow zostaje obecny (PayU drawer), z dołożeniem `?ref` partnera w metadanych zamówienia (już zaimplementowane w `payu-create-order` — bez zmian).
+## 4. Edge Function `confirm-event-form-email`
 
-Logika ustalania docelowej akcji przycisku:
-```
-if (form && tickets.length === 0) → link do /event-form/{slug}
-else if (tickets.length > 0)      → PurchaseDrawer (jak teraz)
-else                               → przycisk wyłączony „Rejestracja niedostępna"
-```
+Plik: `supabase/functions/confirm-event-form-email/index.ts`
 
-### 4. Migracja DB (opcjonalna, drobna)
+Po udanym `rpc('confirm_event_form_email')` (gdy nie był wcześniej potwierdzony) — dodatkowo:
+1. Pobierz pełne dane zgłoszenia (event title, partner_user_id, email, imię, nazwisko, telefon).
+2. **Powiadom admina** — `user_notifications` dla wszystkich userów z rolą `admin`:
+   - title: „Gość potwierdził e-mail rejestracji"
+   - message: `{Imię Nazwisko} ({email}) potwierdził(a) rejestrację na {Event}`
+   - link: `/admin?tab=paid-events&form_submission={id}`
+   - source_module: `paid_events`
+3. **Powiadom partnera zapraszającego** (jeśli `partner_user_id` ≠ null):
+   - identyczne powiadomienie w `user_notifications` skierowane do partnera, z linkiem do `/dashboard?tab=contacts&contact={team_contact_id}`.
+4. **Zaktualizuj kontakt CRM** w `team_contacts` (jeśli istnieje rekord z `user_id = partner_user_id` i `email = sub.email`):
+   - dopisz do `notes` linijkę: `[YYYY-MM-DD HH:mm] ✅ Potwierdził rejestrację na: {Event}`
+   - jeśli kontakt nie istnieje (rzadki przypadek przy starszych zgłoszeniach), utwórz go z `contact_source = 'event_invite'`.
 
-Indeks pomocniczy: `CREATE INDEX IF NOT EXISTS idx_event_form_submissions_partner ON event_form_submissions(partner_user_id);` — przyspiesza listy partnera.
+## 5. Edge Function `cancel-event-form-submission`
 
-Brak nowych tabel/kolumn — wszystkie potrzebne pola już istnieją (`partner_user_id`, `email_confirmed_at`, `cancelled_at`, `cancelled_by`).
+Plik: `supabase/functions/cancel-event-form-submission/index.ts`
 
-## Pliki do zmiany
+Po udanym `rpc('cancel_event_form_submission')` (gdy nie było już anulowane) — dodatkowo:
+1. Pobierz dane zgłoszenia (event title, partner_user_id itp.).
+2. **Powiadom admina** w `user_notifications` (wszyscy adminowie):
+   - title: „Gość anulował rejestrację"
+   - message: `{Imię Nazwisko} ({email}) anulował(a) rejestrację na {Event}`
+   - link do panelu adminowego.
+3. **Powiadom partnera zapraszającego** (jeśli istnieje):
+   - analogiczne powiadomienie z linkiem do CRM.
+4. **Zaktualizuj kontakt CRM** partnera w `team_contacts`:
+   - dopisz do `notes`: `[YYYY-MM-DD HH:mm] ❌ Anulował(a) rejestrację na: {Event}`
+   - (statusu kontaktu nie zmieniamy — pozostaje gość/lead, admin/partner sam zdecyduje co dalej).
 
-- `supabase/functions/admin-assign-submission-partner/index.ts` *(nowy)*
-- `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx` — kolumny, dialog przypisania, eksport CSV
-- `src/components/admin/paid-events/event-forms/AssignPartnerDialog.tsx` *(nowy)* — wyszukiwarka partnerów
-- `src/pages/PaidEventPage.tsx` — logika przycisku „Zapisz się" przy braku biletów
-- `src/components/paid-events/public/PaidEventSidebar.tsx` — wsparcie trybu „link do formularza" (nowy prop `formUrl`)
-- `src/pages/EventFormPublicPage.tsx` — auto-fill danych zalogowanego użytkownika + auto-`ref` jeśli partner
-- migracja: indeks na `partner_user_id`
+## 6. UI admina — `EventFormSubmissions.tsx`
 
-## Co użytkownik zyska
+Status „Anulowane" (`status='cancelled'`) wraz z `cancelled_by='guest'` już jest pokazywany jako „Canceled by Guest" (zielono/pomarańczowo z poprzedniego loopa). Upewniamy się, że:
+- przy zmianie statusu lista odświeża się z bazy (już tak działa po realtime/refetch).
+- W kolumnie „E-mail status" emoji dla `email_confirmed_at IS NOT NULL` jest spójne (✅ Potwierdzony).
 
-- Admin widzi w jednej tabeli kto potwierdził, kto anulował (i kto anulował: gość czy admin), i kto jest partnerem zapraszającym.
-- Admin może w kilka sekund przypisać partnera do dowolnej rejestracji — gość natychmiast pojawi się u partnera w „Kontakty prywatne → Z zaproszeń na Eventy".
-- Każdy partner może wejść na stronę swojego eventu i zarejestrować się jednym kliknięciem (formularz pre-wypełniony, automatyczne `ref` = on sam).
+## 7. UI partnera — kontakty prywatne
+
+Bez zmian w UI: wpisy z punktów 4/5 wpadają jako linijki w polu `notes` istniejącego kontaktu CRM. Partner widzi historię zdarzeń w karcie kontaktu prywatnego.
+
+---
+
+## Sekcja techniczna
+
+### Pliki edytowane
+- `src/pages/EventFormConfirmPage.tsx` — nowa treść komunikatu, dwa loga.
+- `src/pages/EventFormCancelPage.tsx` — info o braku zwrotu, dwa loga.
+- `src/components/branding/DualBrandHeader.tsx` *(nowy)* — reusowalny header (Pure Life + Eqology IBP).
+- `supabase/functions/confirm-event-form-email/index.ts` — po RPC: notyfikacje + CRM upsert.
+- `supabase/functions/cancel-event-form-submission/index.ts` — po RPC: notyfikacje + CRM upsert.
+- `supabase/functions/send-event-form-confirmation/index.ts` — w `buildEmail` nagłówek z dwoma logo (URL z `public/lovable-uploads/eqology-ibp-logo.png`).
+- `src/assets/eqology-ibp-logo.png`, `public/lovable-uploads/eqology-ibp-logo.png` — wgrane logo.
+
+### Bez zmian w bazie
+RPC `confirm_event_form_email` i `cancel_event_form_submission` już zwracają `submission_id` / sukces — całą logikę powiadomień i CRM realizujemy w edge funkcjach na service_role. Tabele `user_notifications`, `team_contacts`, `event_form_submissions` mają wszystkie potrzebne kolumny. Migracja DB nie jest potrzebna.
+
+### Idempotencja
+- Confirm: jeśli `already_confirmed === true`, pomijamy notyfikacje i wpis w CRM (już zostały utworzone wcześniej).
+- Cancel: jeśli `already_cancelled === true`, pomijamy notyfikacje.
