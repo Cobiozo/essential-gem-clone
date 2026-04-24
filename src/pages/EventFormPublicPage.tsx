@@ -122,6 +122,26 @@ const EventFormPublicPage: React.FC = () => {
         .single();
       if (insErr) throw insErr;
 
+      // If submission came via partner link → save guest to that partner's team_contacts as event_invite
+      if (partnerUserId) {
+        try {
+          await supabase.from('team_contacts').insert({
+            user_id: partnerUserId,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            email: email.trim().toLowerCase(),
+            phone: phone.trim() || null,
+            contact_type: 'guest',
+            contact_source: 'event_invite',
+            contact_reason: `Zapisany przez Twój link na: ${event?.title || form.title}`,
+            is_active: true,
+          });
+        } catch (err) {
+          // non-blocking — duplicate emails are fine, contact may already exist
+          console.warn('[event-form] team_contacts insert skipped:', err);
+        }
+      }
+
       // Send confirmation email (fire-and-forget — UI shows success even if email is delayed)
       supabase.functions.invoke('send-event-form-confirmation', { body: { submissionId: ins.id } });
 
