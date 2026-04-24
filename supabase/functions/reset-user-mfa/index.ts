@@ -61,14 +61,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: factorsError.message }), { status: 500, headers: corsHeaders })
     }
 
-    const factors = [...(factorsData?.totp || []), ...(factorsData?.phone || [])]
+    const factors = [...((factorsData as any)?.totp || []), ...((factorsData as any)?.phone || [])]
     let deletedCount = 0
 
     for (const factor of factors) {
       const { error: deleteError } = await adminClient.auth.admin.mfa.deleteFactor({
         userId: target_user_id,
         factorId: factor.id,
-      })
+      } as any)
       if (deleteError) {
         console.error(`Error deleting factor ${factor.id}:`, deleteError)
       } else {
