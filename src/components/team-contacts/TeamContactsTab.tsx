@@ -85,7 +85,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'partner-page' | 'hk-materials' | 'deleted'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'event-invites' | 'partner-page' | 'hk-materials' | 'deleted'>('own');
   const [hkSessions, setHkSessions] = useState<HKSessionContact[]>([]);
   const [hkSessionsLoading, setHkSessionsLoading] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
