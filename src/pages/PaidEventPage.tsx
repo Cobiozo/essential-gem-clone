@@ -152,6 +152,28 @@ const PaidEventPage: React.FC = () => {
     enabled: !!event?.id,
   });
 
+  // Fetch speakers
+  const { data: speakers = [] } = useQuery({
+    queryKey: ['paid-event-speakers-public', event?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_event_speakers')
+        .select('*')
+        .eq('event_id', event!.id)
+        .order('position', { ascending: true });
+      if (error) throw error;
+      return data as Array<{
+        id: string;
+        name: string;
+        title: string | null;
+        bio: string | null;
+        photo_url: string | null;
+        position: number | null;
+      }>;
+    },
+    enabled: !!event?.id,
+  });
+
   // Fetch / lazily-create the partner ref code so the CTA auto-attaches it
   const { data: myRefCode } = useQuery({
     queryKey: ['my-ref-code-for-form', registrationForm?.id, user?.id],
