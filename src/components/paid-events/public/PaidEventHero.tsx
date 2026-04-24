@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, MapPin, Clock, Globe, ArrowLeft } from 'lucide-react';
+import { Calendar, MapPin, Globe, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,8 @@ interface PaidEventHeroProps {
   eventEndDate?: string | null;
   location?: string | null;
   isOnline?: boolean | null;
+  /** Optional cache-busting key (e.g. event.updated_at) appended to the banner URL. */
+  cacheKey?: string | null;
 }
 
 export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
@@ -24,6 +26,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
   eventEndDate,
   location,
   isOnline,
+  cacheKey,
 }) => {
   const navigate = useNavigate();
   const startDate = new Date(eventDate);
@@ -40,25 +43,20 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
     return format(startDate, 'd MMMM yyyy, HH:mm', { locale: pl });
   };
 
-  return (
-    <section className="relative w-full">
-      {/* Banner Image */}
-      {bannerUrl && (
-        <div className="absolute inset-0 h-[300px] md:h-[400px] overflow-hidden">
-          <img
-            src={bannerUrl}
-            alt={title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
-        </div>
-      )}
+  // Cache-bust the banner so admins immediately see freshly uploaded images
+  // and the public page never shows a stale CDN copy.
+  const resolvedBannerUrl = bannerUrl
+    ? cacheKey
+      ? `${bannerUrl}${bannerUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheKey)}`
+      : bannerUrl
+    : null;
 
-      {/* Content */}
-      <div className={`relative ${bannerUrl ? 'pt-[200px] md:pt-[280px]' : 'pt-8'} pb-6`}>
+  // No banner: simple text-only header
+  if (!resolvedBannerUrl) {
+    return (
+      <section className="relative w-full pt-8 pb-6">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl">
-            {/* Back Button */}
             <div className="mb-4">
               <Button
                 variant="ghost"
@@ -70,42 +68,102 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
                 Strona główna
               </Button>
             </div>
-
-            {/* Badges */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {isOnline && (
+            {isOnline && (
+              <div className="flex flex-wrap gap-2 mb-4">
                 <Badge variant="secondary" className="gap-1">
                   <Globe className="w-3 h-3" />
                   Online
                 </Badge>
-              )}
-            </div>
-
-            {/* Title */}
+              </div>
+            )}
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">
               {title}
             </h1>
-
-            {/* Short Description */}
             {shortDescription && (
               <p className="text-lg md:text-xl text-muted-foreground mb-6 max-w-3xl">
                 {shortDescription}
               </p>
             )}
-
-            {/* Meta Info */}
             <div className="flex flex-wrap gap-4 md:gap-6 text-sm md:text-base">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="w-5 h-5 text-primary" />
                 <span>{formatEventDate()}</span>
               </div>
-
               {location && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="w-5 h-5 text-primary" />
                   <span>{location}</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Banner present: deterministic aspect ratio + bottom overlay
+  // Same composition regardless of container width → admin preview === public page.
+  return (
+    <section className="relative w-full">
+      <div className="relative w-full aspect-[21/9] max-h-[520px] overflow-hidden bg-muted">
+        {/* Banner image */}
+        <img
+          src={resolvedBannerUrl}
+          alt={title}
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+
+        {/* Bottom-up gradient for text legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+
+        {/* Top back-button overlay */}
+        <div className="absolute top-0 left-0 right-0 z-10">
+          <div className="container mx-auto px-4 pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="gap-2 text-foreground/90 hover:text-foreground bg-background/40 backdrop-blur-sm hover:bg-background/60"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Strona główna
+            </Button>
+          </div>
+        </div>
+
+        {/* Bottom content overlay */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 md:pb-8">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl">
+              {isOnline && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Badge variant="secondary" className="gap-1">
+                    <Globe className="w-3 h-3" />
+                    Online
+                  </Badge>
+                </div>
+              )}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-2 md:mb-3 drop-shadow-lg">
+                {title}
+              </h1>
+              {shortDescription && (
+                <p className="text-sm sm:text-base md:text-lg text-foreground/90 mb-3 md:mb-4 max-w-3xl line-clamp-2">
+                  {shortDescription}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-3 md:gap-6 text-xs sm:text-sm md:text-base">
+                <div className="flex items-center gap-2 text-foreground/90">
+                  <Calendar className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                  <span>{formatEventDate()}</span>
+                </div>
+                {location && (
+                  <div className="flex items-center gap-2 text-foreground/90">
+                    <MapPin className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                    <span>{location}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
