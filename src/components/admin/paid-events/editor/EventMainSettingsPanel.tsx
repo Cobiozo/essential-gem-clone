@@ -12,6 +12,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface EventMainSettingsPanelProps {
   eventId: string;
@@ -151,13 +152,14 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
               </div>
 
               <div>
-                <Label htmlFor="banner_url">URL banera</Label>
-                <Input
-                  id="banner_url"
+                <Label htmlFor="banner_url">Grafika banera</Label>
+                <ImageUploadInput
                   value={formData.banner_url || ''}
-                  onChange={(e) => handleFieldChange('banner_url', e.target.value)}
-                  placeholder="https://..."
+                  onChange={(v) => handleFieldChange('banner_url', v)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Możesz wgrać plik z komputera (przeciągnij i upuść lub kliknij), albo wkleić zewnętrzny URL.
+                </p>
               </div>
             </CardContent>
           </CollapsibleContent>
