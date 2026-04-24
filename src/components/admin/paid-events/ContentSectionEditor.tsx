@@ -398,12 +398,24 @@ export const ContentSectionEditor: React.FC<ContentSectionEditorProps> = ({ even
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.is_active ?? true}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label>Sekcja aktywna (widoczna)</Label>
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.is_active ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label>Sekcja aktywna (widoczna)</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.visible_to_guests ?? true}
+                  onCheckedChange={(checked) => setFormData({ ...formData, visible_to_guests: checked })}
+                />
+                <Label>Widoczne dla niezalogowanych gości</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Gdy wyłączone, tę sekcję widzą tylko zalogowani użytkownicy.
+              </p>
             </div>
           </div>
 
