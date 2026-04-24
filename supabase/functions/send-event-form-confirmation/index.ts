@@ -178,21 +178,22 @@ serve(async (req) => {
 
     const { data: sub, error: subErr } = await supabase
       .from("event_form_submissions")
-      .select("*, event_registration_forms(*), events(title, start_time)")
+      .select("*, event_registration_forms(*), paid_events!event_form_submissions_event_id_fkey(title, event_date, location)")
       .eq("id", submissionId)
       .single();
 
     if (subErr || !sub) throw new Error(`Submission not found: ${subErr?.message}`);
 
     const form = (sub as any).event_registration_forms;
-    const event = (sub as any).events;
+    const event = (sub as any).paid_events;
 
     const publicBaseUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://purelife.lovable.app";
     const confirmUrl = `${publicBaseUrl}/event-form/confirm/${sub.confirmation_token}`;
     const cancelUrl = `${publicBaseUrl}/event-form/cancel/${sub.cancellation_token}`;
 
-    const eventDateFmt = event?.start_time
-      ? new Date(event.start_time).toLocaleString("pl-PL", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" })
+    const eventDateFmt = event?.event_date
+      ? new Date(event.event_date).toLocaleString("pl-PL", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" }) +
+        (event.location ? ` · ${event.location}` : "")
       : "";
 
     // Build dynamic submitted fields list from fields_config

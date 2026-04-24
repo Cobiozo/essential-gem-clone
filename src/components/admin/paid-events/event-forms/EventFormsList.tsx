@@ -24,7 +24,7 @@ export const EventFormsList: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('event_registration_forms')
-        .select('*, events(title, start_time)')
+        .select('*, paid_events!event_registration_forms_event_id_fkey(title, event_date, location)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as any[];
@@ -124,10 +124,11 @@ export const EventFormsList: React.FC = () => {
                   <TableRow key={f.id}>
                     <TableCell className="font-medium">{f.title}</TableCell>
                     <TableCell className="text-sm">
-                      {f.events?.title || '—'}
-                      {f.events?.start_time && (
+                      {f.paid_events?.title || '—'}
+                      {f.paid_events?.event_date && (
                         <div className="text-xs text-muted-foreground">
-                          {new Date(f.events.start_time).toLocaleDateString('pl-PL')}
+                          {new Date(f.paid_events.event_date).toLocaleDateString('pl-PL')}
+                          {f.paid_events.location ? ` · ${f.paid_events.location}` : ''}
                         </div>
                       )}
                     </TableCell>
