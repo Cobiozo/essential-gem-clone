@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 import { PaidEventHero } from '@/components/paid-events/public/PaidEventHero';
 import { PaidEventNavigation } from '@/components/paid-events/public/PaidEventNavigation';
