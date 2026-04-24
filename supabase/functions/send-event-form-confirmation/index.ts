@@ -176,16 +176,29 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // NOTE: event_form_submissions has no FK constraints in the schema, so PostgREST embed
+    // (paid_events!fk(...)) fails with "Could not find a relationship". Fetch each table separately.
     const { data: sub, error: subErr } = await supabase
       .from("event_form_submissions")
-      .select("*, event_registration_forms(*), paid_events!event_form_submissions_event_id_fkey(title, event_date, location)")
+      .select("*")
       .eq("id", submissionId)
       .single();
 
     if (subErr || !sub) throw new Error(`Submission not found: ${subErr?.message}`);
 
-    const form = (sub as any).event_registration_forms;
-    const event = (sub as any).paid_events;
+    const { data: form } = await supabase
+      .from("event_registration_forms")
+      .select("*")
+      .eq("id", sub.form_id)
+      .maybeSingle();
+
+    const { data: event } = sub.event_id
+      ? await supabase
+          .from("paid_events")
+          .select("title, event_date, location")
+          .eq("id", sub.event_id)
+          .maybeSingle()
+      : { data: null };
 
     const publicBaseUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://purelife.lovable.app";
     const confirmUrl = `${publicBaseUrl}/event-form/confirm/${sub.confirmation_token}`;
