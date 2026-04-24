@@ -1,65 +1,47 @@
-## Co naprawiamy
+## Co robimy
 
-Zgłoszone problemy:
-1. **Błąd zapisu formularza** — „new row violates row-level security policy for table event_form_submissions" przy próbie rejestracji.
-2. **Brak widoku dla partnera** — partner nie widzi listy osób, które zapisały się z jego linku partnerskiego (tylko liczniki).
+1. **Sidebar**: zmieniamy etykietę pozycji menu z „Eventy płatne" na „Eventy".
+2. **Pure-Kontakty → Kontakty prywatne**: dodajemy nową zakładkę **„Z zaproszeń na Eventy"**, w której partner widzi gości zapisanych przez jego link partnerski do formularza rejestracyjnego płatnego eventu.
 
-## Diagnoza błędu RLS
+## Skąd biorą się te kontakty
 
-Polityki INSERT są poprawne (`WITH CHECK true` dla wszystkich), więc sam zapis przechodzi. Problem powstaje na etapie `RETURNING id` (klauzula `.select('id').single()` w kliencie):
-- PostgREST po INSERT zwraca wstawiony wiersz, filtrując go przez polityki SELECT.
-- Polityki SELECT na `event_form_submissions` wymagają: bycia adminem **lub** `auth.uid() = partner_user_id`.
-- Anonimowy gość (lub zalogowany użytkownik niebędący partnerem-właścicielem) nie spełnia żadnego warunku → PostgREST zgłasza błąd RLS.
+Każde zgłoszenie wysłane z linku partnera (RPC `submit_event_form` → tabela `event_form_submissions` z `partner_user_id`) automatycznie tworzy wpis w `team_contacts` partnera z:
+- `contact_type = 'guest'`
+- `contact_source = 'event_invite'`
+- `contact_reason = 'Zapisany przez Twój link na: <tytuł eventu>'`
 
-## Plan napraw
+Czyli źródło danych już istnieje — wystarczy je odfiltrować i pokazać w nowej pod-zakładce.
 
-### 1. SECURITY DEFINER RPC do bezpiecznego zapisu (migracja DB)
+## Zmiany w kodzie
 
-Tworzymy funkcję `public.submit_event_form(...)`, która:
-- Waliduje istnienie aktywnego formularza i (opcjonalnie) ref_code.
-- Wstawia rekord do `event_form_submissions` (z `partner_link_id` / `partner_user_id` rozwiązanymi po stronie serwera — odporne na manipulację).
-- Wstawia rekord do `team_contacts` partnera (jeśli ref_code był podany), pomijając duplikaty po (user_id, email).
-- Zwraca: `submission_id`, `confirmation_token` — niezbędne do dalszej wysyłki maila.
+### 1. `src/components/dashboard/DashboardSidebar.tsx`
+- Linia 144: `'dashboard.menu.paidEvents': 'Eventy płatne'` → `'Eventy'`.
+- (Tooltip „Płatne szkolenia i wydarzenia z biletami" zostawiamy — to opis, nie nazwa.)
 
-Dzięki SECURITY DEFINER omijamy SELECT-RLS po RETURNING i izolujemy logikę bezpieczeństwa od klienta.
+### 2. `src/components/team-contacts/TeamContactsTab.tsx`
+- Rozszerzamy typ `privateSubTab` o wartość `'event-invites'`.
+- Liczymy nową grupę:
+  ```
+  const paidEventInviteContacts = privateContacts.filter(
+    c => c.contact_source === 'event_invite' && !(c as any).moved_to_own_list
+  );
+  ```
+- W `ownContacts` dokładamy wykluczenie `c.contact_source === 'event_invite'` (analogicznie do „Strona partnerska"), żeby goście z eventów nie dublowali się na „Mojej liście kontaktów".
+- W pasku pod-zakładek dodajemy nowy przycisk obok „Z zaproszeń na webinary ogólne":
+  ```
+  Z zaproszeń na Eventy  [N]
+  ```
+  z ikoną `Ticket` (już importowaną w projekcie).
+- W bloku renderującym dodajemy gałąź: gdy `privateSubTab === 'event-invites'`, używamy istniejącego `TeamContactAccordion` (lub `TeamContactsTable` zależnie od `viewMode`) z `contacts={paidEventInviteContacts}`, bez grupowania po wydarzeniu (każdy wpis ma już w `contact_reason` tytuł eventu).
 
-### 2. Aktualizacja `EventFormPublicPage.tsx`
-
-- Zamiast `supabase.from('event_form_submissions').insert(...).select('id').single()` → `supabase.rpc('submit_event_form', { ... })`.
-- `partner_user_id`/`partner_link_id` przestają być wysyłane z klienta — RPC sam je wylicza po `_ref_code`.
-- Dalsze wywołanie `send-event-form-confirmation` używa `submission_id` z odpowiedzi RPC.
-
-### 3. Nowy komponent: lista „Kto zapisał się z mojego linku"
-
-Plik: `src/components/paid-events/MyEventFormReferrals.tsx`
-- Pobiera z `event_form_submissions` rekordy gdzie `partner_user_id = auth.uid()` (działa już dzięki istniejącej polityce SELECT „Partners view own referred submissions").
-- Kolumny: data, imię/nazwisko, email, telefon (zaciemniony — np. ostatnie 3 cyfry), status maila (potwierdzony / oczekujący), status płatności (badge: oczekuje / opłacone / anulowane).
-- Filtrowanie po `eventId` jeśli przekazane.
-
-### 4. Osadzenie widoku referrali
-
-- W `MyEventFormLinks.tsx` — pod każdą kartą formularza dorzucamy collapsible „Pokaż zapisanych (N)" rozwijający `MyEventFormReferrals` zawężony do `form_id`.
-- Dzięki temu działa zarówno na `/paid-events` (wszystkie formularze partnera) jak i na `/event/:slug` (jeden formularz).
-
-### 5. Maskowanie PII
-
-Aby chronić dane gości (zgodnie z polityką PII):
-- Telefon: pokazujemy `+48 ••• ••• 123` (ostatnie 3 cyfry).
-- Email: pokazujemy `j••••@domena.pl`.
-- Pełne dane ma tylko admin (osobny widok w `/admin?tab=paid-events` → istniejące „Zgłoszenia").
+### 3. (opcjonalnie, jeśli zajdzie potrzeba) Brak — istniejące polityki RLS na `team_contacts` już zapewniają, że partner widzi tylko swoje wpisy (`user_id = auth.uid()`).
 
 ## Pliki
 
-**Nowe:**
-- `supabase/migrations/<timestamp>_submit_event_form_rpc.sql` — funkcja `submit_event_form` (SECURITY DEFINER, search_path = public).
-- `src/components/paid-events/MyEventFormReferrals.tsx` — lista zapisanych z linku partnera (z maskowaniem PII).
+**Edytowane (2):**
+- `src/components/dashboard/DashboardSidebar.tsx` — zmiana etykiety.
+- `src/components/team-contacts/TeamContactsTab.tsx` — nowy sub-tab „Z zaproszeń na Eventy".
 
-**Edytowane:**
-- `src/pages/EventFormPublicPage.tsx` — przejście na RPC `submit_event_form`.
-- `src/components/paid-events/MyEventFormLinks.tsx` — collapsible „Pokaż zapisanych" z osadzonym `MyEventFormReferrals`.
+Brak migracji DB ani nowych komponentów — używamy istniejących list (`TeamContactAccordion` / `TeamContactsTable`).
 
-## Odpowiedź na pytanie
-
-**Tak, partner będzie widział kto zapisał się z jego linku** — lista pojawi się w panelu „Moje linki partnerskie" (zarówno na `/paid-events`, jak i na stronie konkretnego eventu `/event/:slug`). Dane osobowe są częściowo maskowane (PII); pełne dane widzi tylko admin.
-
-Po Twojej akceptacji wykonuję migrację bazy + zmiany w kodzie.
+Po Twojej akceptacji wprowadzam zmiany.
