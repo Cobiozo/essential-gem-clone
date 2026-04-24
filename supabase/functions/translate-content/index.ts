@@ -130,7 +130,7 @@ Output format: [{"ns":"namespace","key":"keyname","value":"translated text"}]`;
           value: r.value
         }));
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await supabaseAdmin
           .from('i18n_translations')
           .upsert(inserts, { onConflict: 'language_code,namespace,key' });
 

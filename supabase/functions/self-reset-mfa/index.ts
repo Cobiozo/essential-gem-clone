@@ -130,12 +130,12 @@ serve(async (req) => {
 
     // Log structure for debugging
     console.log('[self-reset-mfa] factorsData keys:', Object.keys(factorsData || {}));
-    console.log('[self-reset-mfa] factorsData.totp:', JSON.stringify(factorsData?.totp));
+    console.log('[self-reset-mfa] factorsData.totp:', JSON.stringify((factorsData as any)?.totp));
     console.log('[self-reset-mfa] factorsData.factors:', JSON.stringify((factorsData as any)?.factors));
 
     // Handle both SDK response formats: .totp[] and .factors[]
     const totpFactors = [
-      ...(factorsData?.totp ?? []),
+      ...((factorsData as any)?.totp ?? []),
       ...((factorsData as any)?.factors?.filter((f: any) => f.factor_type === 'totp') ?? []),
     ];
     const uniqueFactors = Array.from(new Map(totpFactors.map((f: any) => [f.id, f])).values());
@@ -151,7 +151,7 @@ serve(async (req) => {
       const { error: deleteError } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
         userId: user.id,
         factorId: factor.id,
-      });
+      } as any);
       if (deleteError) {
         console.error(`[self-reset-mfa] Failed to delete factor ${factor.id}:`, deleteError);
       } else {
@@ -162,16 +162,20 @@ serve(async (req) => {
     console.log(`[self-reset-mfa] Deleted ${deletedCount}/${uniqueFactors.length} TOTP factors for user ${user.id}`);
 
     // Step 3: Log the action (non-blocking)
-    await supabaseAdmin.from('user_activity_log').insert({
-      user_id: user.id,
-      action_type: 'mfa_self_reset',
-      action_details: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
-      metadata: {
-        deleted_factor_count: deletedCount,
-        total_factors_found: totpFactors.length,
-        ip: req.headers.get('x-forwarded-for') || 'unknown',
-      },
-    }).then(() => {}).catch((e: any) => console.error('[self-reset-mfa] Failed to log activity:', e));
+    try {
+      await supabaseAdmin.from('user_activity_log').insert({
+        user_id: user.id,
+        action_type: 'mfa_self_reset',
+        action_details: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
+        metadata: {
+          deleted_factor_count: deletedCount,
+          total_factors_found: totpFactors.length,
+          ip: req.headers.get('x-forwarded-for') || 'unknown',
+        },
+      } as any);
+    } catch (e: any) {
+      console.error('[self-reset-mfa] Failed to log activity:', e);
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 

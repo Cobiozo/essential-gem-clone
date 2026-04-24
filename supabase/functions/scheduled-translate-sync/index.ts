@@ -255,7 +255,7 @@ async function checkOutdatedManually(
 
   for (const source of recentSources) {
     const translationUpdated = translationMap.get(source.id);
-    if (translationUpdated && new Date(source.updated_at) > new Date(translationUpdated)) {
+    if (translationUpdated && new Date(source.updated_at as any) > new Date(translationUpdated as any)) {
       return true;
     }
   }
