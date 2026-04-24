@@ -302,6 +302,7 @@ const PaidEventPage: React.FC = () => {
         eventEndDate={event.event_end_date}
         location={event.location}
         isOnline={event.is_online}
+        cacheKey={event.updated_at ?? null}
       />
 
       {/* Navigation */}
