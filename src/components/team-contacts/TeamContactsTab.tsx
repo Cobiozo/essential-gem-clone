@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw, BookOpen } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw, BookOpen, Ticket } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
@@ -85,7 +85,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'partner-page' | 'hk-materials' | 'deleted'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'event-invites' | 'partner-page' | 'hk-materials' | 'deleted'>('own');
   const [hkSessions, setHkSessions] = useState<HKSessionContact[]>([]);
   const [hkSessionsLoading, setHkSessionsLoading] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
@@ -287,17 +287,21 @@ export const TeamContactsTab: React.FC = () => {
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
   // Partner page contacts that haven't been moved to own list
   const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska' && !(c as any).moved_to_own_list);
+  // Paid event registrations referred via partner's event form link
+  const paidEventInviteContacts = privateContacts.filter(c => c.contact_source === 'event_invite' && !(c as any).moved_to_own_list);
   
   // Own list: exclude event contacts (unless moved) AND exclude partner page contacts (unless moved)
   const ownContacts = privateContacts.filter(c => {
     const isEventContact = eventContactIds.has(c.id);
     const isPartnerPage = c.contact_source === 'Strona partnerska';
+    const isPaidEventInvite = c.contact_source === 'event_invite';
     const movedToOwn = (c as any).moved_to_own_list;
     
-    // Show in own list if: (not from events AND not from partner page) OR explicitly moved
+    // Show in own list if: (not from events AND not from partner page AND not from paid event invite) OR explicitly moved
     if (movedToOwn) return true;
     if (isEventContact) return false;
     if (isPartnerPage) return false;
+    if (isPaidEventInvite) return false;
     return true;
   });
   const eventContactsBO = privateContacts.filter(c => eventContactIdsBO.has(c.id) && !(c as any).moved_to_own_list);
@@ -309,6 +313,7 @@ export const TeamContactsTab: React.FC = () => {
       if (privateSubTab === 'events-bo') return eventContactsBO;
       if (privateSubTab === 'events-hc') return eventContactsHC;
       if (privateSubTab === 'events-general') return eventContactsGeneral;
+      if (privateSubTab === 'event-invites') return paidEventInviteContacts;
       if (privateSubTab === 'partner-page') return partnerPageContacts;
       return ownContacts;
     }
@@ -473,6 +478,15 @@ export const TeamContactsTab: React.FC = () => {
                  >
                    {tf('teamContacts.fromInvitationsGeneral', 'Z zaproszeń na webinary ogólne')}
                    <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                 </Button>
+                 <Button
+                   variant={privateSubTab === 'event-invites' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('event-invites')}
+                 >
+                   <Ticket className="w-3.5 h-3.5 mr-1" />
+                   {tf('teamContacts.fromEventInvites', 'Z zaproszeń na Eventy')}
+                   <Badge variant="secondary" className="ml-2">{paidEventInviteContacts.length}</Badge>
                  </Button>
                  <Button
                    variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}

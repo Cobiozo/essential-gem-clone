@@ -141,7 +141,7 @@ export const DashboardSidebar: React.FC = () => {
     'dashboard.menu.webinars': 'Webinary',
     'dashboard.menu.teamMeetings': 'Spotkania zespołu',
     'dashboard.menu.individualMeetings': 'Spotkania indywidualne',
-    'dashboard.menu.paidEvents': 'Eventy płatne',
+    'dashboard.menu.paidEvents': 'Eventy',
     'dashboard.menu.individualMeeting': 'Spotkanie indywidualne',
     'dashboard.menu.setupTripartiteMeeting': 'Ustaw spotkanie trójstronne',
     'dashboard.menu.setupPartnerConsultation': 'Ustaw konsultacje dla partnerów',
