@@ -219,7 +219,7 @@ serve(async (req) => {
           break;
         }
 
-        const matchedUser = usersData.users.find((u) => u.email?.toLowerCase() === normalizedEmail);
+        const matchedUser = usersData.users.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
         if (matchedUser) {
           userId = matchedUser.id;
           console.log("[admin-reset-password] Found user_id in auth.users:", userId, "page:", page);
