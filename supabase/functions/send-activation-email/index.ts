@@ -296,7 +296,7 @@ const handler = async (req: Request): Promise<Response> => {
       options: {
         redirectTo: finalRedirectUrl,
       },
-    });
+    } as any);
 
     if (linkError) {
       console.error("[send-activation-email] Error generating activation link:", linkError);
