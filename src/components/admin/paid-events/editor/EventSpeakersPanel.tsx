@@ -231,7 +231,6 @@ export const EventSpeakersPanel: React.FC<EventSpeakersPanelProps> = ({
                   <ImageUploadInput
                     value={getEditingValue(speaker.id, 'photo_url', speaker.photo_url || '') as string}
                     onChange={(url) => setEditingValue(speaker.id, 'photo_url', url)}
-                    placeholder="https://... lub prześlij z komputera"
                   />
                 </div>
 
