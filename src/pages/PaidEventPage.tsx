@@ -367,8 +367,19 @@ const PaidEventPage: React.FC = () => {
               />
             ))}
 
-            {/* Speakers Section - placeholder for future DB integration */}
-            {/* <PaidEventSpeakers speakers={[]} /> */}
+            {/* Speakers Section */}
+            {speakers.length > 0 && (
+              <PaidEventSpeakers
+                speakers={speakers.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  title: s.title,
+                  bio: s.bio,
+                  photoUrl: s.photo_url,
+                  position: s.position ?? 0,
+                }))}
+              />
+            )}
 
             {/* Schedule Section - placeholder for future DB integration */}
             {/* <PaidEventSchedule items={[]} /> */}
