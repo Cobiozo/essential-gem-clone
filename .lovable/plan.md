@@ -1,37 +1,27 @@
-## Plan zmian
+## Cel
 
-1. Naprawię logikę dostępu do publicznej strony wydarzenia tak, aby niezalogowany użytkownik mógł wejść na stronę, jeśli admin włączył widoczność dla gości choćby części treści. Obecnie ustawienia `guests_show_*` działają dopiero po przejściu bramki dostępu, więc gość trafia na ekran „Brak dostępu”.
+Po kliknięciu „Czytaj więcej" na karcie prelegenta na stronie informacyjnej eventu, zamiast rozwijać tekst w karcie, otworzyć osobne okno (modal) z pełnym profilem prelegenta.
 
-2. Uporządkuję warunki renderowania na stronie eventu:
-   - gość zobaczy tylko te sekcje, które admin dopuścił,
-   - zalogowany użytkownik nadal będzie widział treści zgodnie z ustawieniami ról,
-   - blok „Twój link partnerski do formularza rejestracyjnego” zostanie całkowicie usunięty ze strony informacyjnej wydarzenia.
+## Zmiany
 
-3. Rozszerzę opisy w `EventMainSettingsPanel`, aby każda opcja mówiła wprost, co zniknie po jej wyłączeniu, np.:
-   - wyłączenie opisu ukrywa pełny opis wydarzenia,
-   - wyłączenie prelegentów ukrywa sekcję „Prelegenci”,
-   - wyłączenie biletów/CTA ukrywa sidebar z biletami, ceny i przycisk zapisu,
-   - wyłączenie harmonogramu ukrywa sekcję harmonogramu/programu.
+**Plik:** `src/components/paid-events/public/PaidEventSpeakers.tsx`
 
-4. Sprawdzę spójność ustawienia harmonogramu z faktycznym frontendem, bo w kodzie istnieje przełącznik `guests_show_schedule`, ale sama sekcja harmonogramu na stronie jest obecnie niewłączona. Dopasuję opis i logikę tak, żeby admin nie widział opcji, która nic realnie nie zmienia.
+1. Zastąpić mechanizm `expanded` (useState + line-clamp + ChevronUp/Down) komponentem `Dialog` z `@/components/ui/dialog`.
+2. Karta:
+   - Usunąć rozwijany tekst bio z karty.
+   - Pokazać krótki podgląd bio (np. `line-clamp-2`) — bez przełącznika.
+   - Przycisk „Czytaj więcej" (`ChevronDown` zostawiamy jako akcent ikony lub zamieniamy na neutralny) otwiera modal.
+   - Jeśli bio puste — przycisk się nie pojawia.
+3. Modal (`Dialog` + `DialogContent`):
+   - Nagłówek: zdjęcie (większe, np. 80–96 px), imię i nazwisko (`DialogTitle`), tytuł/firma (`DialogDescription`).
+   - Treść: pełne bio z `whitespace-pre-line`, przewijane (`max-h-[70vh] overflow-y-auto`).
+   - Szerokość: `sm:max-w-lg`.
+   - Zamknięcie standardowym przyciskiem `Dialog` (X w prawym górnym rogu).
+4. Brak wpływu na admina, bazę danych ani widoczność dla gości — czysto frontendowa zmiana renderowania.
 
-## Wynik po wdrożeniu
+## Co pozostaje bez zmian
 
-- Niezalogowany użytkownik przestanie dostawać „Brak dostępu”, jeśli event ma być częściowo publiczny dla gości.
-- Gość zobaczy tylko dozwolone elementy strony eventu.
-- Ze strony wydarzenia zniknie sekcja z partnerskim linkiem do formularza.
-- W panelu admina opisy przełączników będą jednoznaczne i operacyjne.
-
-## Techniczne szczegóły
-
-Pliki do zmiany:
-- `src/pages/PaidEventPage.tsx`
-- `src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx`
-
-Najważniejsza poprawka:
-- `hasAccess` w `PaidEventPage.tsx` zostanie rozdzielone na:
-  - dostęp do samej strony eventu dla gościa,
-  - widoczność poszczególnych sekcji dla gościa.
-
-Dodatkowo usunę import i renderowanie:
-- `MyEventFormLinks` z `src/pages/PaidEventPage.tsx`.
+- Layout siatki kart (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`).
+- Sortowanie po `position`.
+- Style `backgroundColor` / `textColor` sekcji.
+- Pozostałe sekcje strony eventu.
