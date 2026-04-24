@@ -135,7 +135,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
         </div>
 
         {/* Bottom content overlay */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 pb-6 md:pb-8">
+        <div className="absolute bottom-0 left-0 right-0 z-10 pb-5 sm:pb-6 md:pb-8">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl">
               {isOnline && (
