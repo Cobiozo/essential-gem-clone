@@ -1,61 +1,79 @@
-## Diagnoza
+## Cel
 
-### Problem 1 — Przycisk "Dowiedz się więcej…" przekierowuje na /auth
+Admin decyduje per-element, co niezalogowany gość zobaczy na publicznej stronie eventu (`/events/{slug}`) po kliknięciu „Dowiedz się więcej". Ukryte elementy po prostu się nie wyświetlają (bez placeholderów).
 
-W `src/components/profile/ProfileCompletionGuard.tsx` lista `PUBLIC_PATHS` (linie 18-31) zawiera m.in. `/event-form/`, `/e/`, `/events/register/`, ale **nie zawiera `/events/{slug}`** (publiczna strona płatnego wydarzenia). Trafia więc do `ProtectedRouteGuard`, który dla niezalogowanego użytkownika wykonuje `<Navigate to="/auth" />`.
+## Zakres widoczności
 
-Ścieżki `/events/webinars`, `/events/team-meetings`, `/events/individual-meetings`, `/events/register/...` muszą **pozostać chronione** (tylko zalogowani). Nowa ścieżka `/events/{slug}` (PaidEventPage) ma być publiczna.
+Dodajemy flagę `visible_to_guests` (boolean, default `true`) dla:
 
-### Problem 2 — Sekcja prelegentów zajmuje za dużo miejsca
+1. **Stałe bloki eventu** (kolumny w `paid_events`):
+   - `guests_show_description` — opis (gdy brak sekcji CMS)
+   - `guests_show_speakers` — sekcja Prelegenci
+   - `guests_show_tickets` — sidebar z biletami / CTA zakupu
+   - `guests_show_schedule` — harmonogram (gdy zostanie aktywowany)
 
-`src/components/paid-events/public/PaidEventSpeakers.tsx`:
-- siatka 1/2 kolumny, padding `p-6`, zdjęcie 96×96 px, tekst wyśrodkowany na całej karcie
-- każda karta zajmuje ~270 px wysokości — przy 5 prelegentach ramka mocno rozciąga stronę
+2. **Per sekcja CMS** (`paid_event_content_sections`):
+   - nowa kolumna `visible_to_guests` (boolean, default `true`) — admin zaznacza ją osobno przy każdej sekcji
 
-## Plan naprawczy
+Zalogowani użytkownicy widzą wszystko jak dotychczas (zgodnie z istniejącymi flagami `visible_to_partners/clients/specjalista/everyone`). Flagi `guests_*` wpływają wyłącznie na widok niezalogowanego gościa.
 
-### A. Naprawa routingu publicznej strony wydarzenia
+## Zmiany w bazie (migracja)
 
-W `src/components/profile/ProfileCompletionGuard.tsx`:
+```sql
+ALTER TABLE paid_events
+  ADD COLUMN guests_show_description boolean NOT NULL DEFAULT true,
+  ADD COLUMN guests_show_speakers    boolean NOT NULL DEFAULT true,
+  ADD COLUMN guests_show_tickets     boolean NOT NULL DEFAULT true,
+  ADD COLUMN guests_show_schedule    boolean NOT NULL DEFAULT true;
 
-1. Dodać `/events/` do `PUBLIC_PATHS`. Wszystkie kolizje (`/events/webinars`, `/events/team-meetings`, `/events/individual-meetings`, `/events/register/`) — to są **chronione** ścieżki i tak nie powinny być dostępne dla niezalogowanych. Po analizie kodu: te trasy nie są w PUBLIC_PATHS, więc obecnie też wymagają logowania, ALE teraz dodanie `/events/` zrobi je publicznymi → trzeba to obejść.
-
-2. **Lepsze rozwiązanie:** dodać dokładny prefiks tylko dla pojedynczego segmentu po `/events/`. Wykorzystać już istniejący wzorzec: dodać do bloku publicznego sprawdzenie regex `^/events/[^/]+/?$` z wykluczeniem znanych chronionych podścieżek:
-
-```ts
-// Public paid event page: /events/{slug} (single segment)
-const EXCLUDED_EVENTS_SUBPATHS = ['/events/webinars', '/events/team-meetings', '/events/individual-meetings', '/events/register'];
-const isPublicPaidEventPage = /^\/events\/[^/]+\/?$/.test(location.pathname)
-  && !EXCLUDED_EVENTS_SUBPATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+ALTER TABLE paid_event_content_sections
+  ADD COLUMN visible_to_guests boolean NOT NULL DEFAULT true;
 ```
 
-Następnie:
-```ts
-if (isPublicPath || isPartnerPage || isPublicPaidEventPage) {
-  return <>{children}</>;
-}
-```
+RLS dla obu tabel pozostaje bez zmian — kolumny są jawne, kontrola odbywa się w warstwie UI/zapytań.
 
-Również dodać `/paid-events` (lista publicznych wydarzeń) jako dokładny match — patrząc na route `/paid-events` w App.tsx (linia 414), powinien być publiczny.
+## Zmiany w UI panelu admina
 
-### B. Kompaktowa sekcja prelegentów
+**`EventMainSettingsPanel.tsx`** — w sekcji „Widoczność" dodaję podsekcję **„Widoczność dla niezalogowanych gości"** (4 switche):
+- Pokaż opis wydarzenia
+- Pokaż prelegentów
+- Pokaż bilety i przycisk zapisu
+- Pokaż harmonogram
 
-W `src/components/paid-events/public/PaidEventSpeakers.tsx`:
+**`EventSectionsPanel.tsx` / `ContentSectionEditor.tsx`** — przy każdej sekcji CMS dodaję jeden switch **„Widoczne dla niezalogowanych gości"** obok istniejącego `is_active`.
 
-1. Zmienić układ na **horyzontalny** (zdjęcie po lewej, treść po prawej) — oszczędza ~50% wysokości.
-2. Zmniejszyć padding karty z `p-6` na `p-4`.
-3. Zmniejszyć zdjęcie z `w-24 h-24` (96 px) na `w-16 h-16` (64 px), `shrink-0`.
-4. Zmienić siatkę: na desktop **3 kolumny** (`md:grid-cols-2 lg:grid-cols-3`), gap `gap-4`.
-5. Tekst wyrównać do lewej (nie wyśrodkowany), `text-base` zamiast `text-lg` dla nazwy.
-6. Bio: `line-clamp-2` zamiast `line-clamp-3`. Przycisk "Czytaj więcej" mniejszy (`h-7 text-xs`, `px-2`).
-7. Zmniejszyć padding sekcji z `py-8 md:py-12` na `py-6 md:py-8`.
+## Zmiany w widoku publicznym
+
+**`src/pages/PaidEventPage.tsx`**:
+
+1. Pobieranie sekcji CMS — dodać do select `visible_to_guests`.
+2. Pobieranie eventu — typ `PaidEvent` rozszerzyć o 4 nowe pola `guests_show_*`.
+3. Wyliczyć `isGuest = !user`.
+4. Filtrowanie sekcji CMS:
+   ```ts
+   const visibleSections = contentSections.filter(s =>
+     !isGuest || s.visible_to_guests
+   );
+   ```
+5. Renderowanie warunkowe:
+   - Opis (`event.description`): pokazuj gdy `!isGuest || event.guests_show_description`
+   - `<PaidEventSpeakers />`: gdy `speakers.length > 0 && (!isGuest || event.guests_show_speakers)`
+   - Sidebar `<PaidEventSidebar />` z biletami: gdy `!isGuest || event.guests_show_tickets`. Gdy ukryty — kolumna treści zajmuje pełną szerokość (usunąć grid `lg:flex-row` w tym wypadku albo wyrenderować bez sidebara).
+   - Harmonogram analogicznie (przygotowanie pod przyszłość).
+6. **Nawigacja** (`PaidEventNavigation`) — `navigationItems` budować już po przefiltrowaniu, żeby anchory ukrytych sekcji nie pojawiały się gościom.
+7. **`MyEventFormLinks`** (narzędzia partnera) — i tak wymaga `user`, więc dla gości naturalnie nie renderować (dodać `{user && ...}`).
+
+## Zmiany w typach
+
+`src/integrations/supabase/types.ts` jest auto-generowany — nie tykamy. W `PaidEventPage.tsx` lokalny interface `PaidEvent` i `ContentSection` rozszerzamy o nowe pola.
 
 ## Pliki do edycji
 
-1. `src/components/profile/ProfileCompletionGuard.tsx` — dodać regex match dla publicznej `/events/{slug}` z wykluczeniem chronionych podścieżek + dokładny match dla `/paid-events`.
-2. `src/components/paid-events/public/PaidEventSpeakers.tsx` — zmiana układu kart na horyzontalny i 3 kolumny, mniejsze rozmiary.
+- migracja SQL (4 + 1 kolumna)
+- `src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx` — UI 4 switche
+- `src/components/admin/paid-events/editor/EventSectionsPanel.tsx` lub `ContentSectionEditor.tsx` — switch per sekcja CMS
+- `src/pages/PaidEventPage.tsx` — logika filtrowania per `isGuest`
 
-## Efekt końcowy
+## Domyślne zachowanie po wdrożeniu
 
-- Przycisk "Dowiedz się więcej na temat wydarzenia" otwiera publiczną stronę wydarzenia bez wymuszania logowania.
-- Sekcja Prelegenci zajmuje ~50% mniej wysokości — 5 prelegentów mieści się w 2 rzędach po 3 zamiast 3 rzędach po 2.
+Wszystkie istniejące eventy i sekcje dostają `true` (default) — nic nie znika gościom bez świadomej decyzji admina. Admin wyłącza punktowo to, co ma być tylko dla zalogowanych.
