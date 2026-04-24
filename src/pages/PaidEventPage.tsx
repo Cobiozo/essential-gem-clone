@@ -209,13 +209,28 @@ const PaidEventPage: React.FC = () => {
     },
   });
 
+  // Guest view (not logged in) — admin can hide selected elements
+  const isGuest = !user;
+
   // Check access permissions
   const hasAccess = useMemo(() => {
     if (!event) return false;
     if (isAdmin) return true; // Admins can always see
-    
+
     if (!event.is_published || !event.is_active) {
-      return isAdmin; // Only admins can see unpublished
+      return false; // Only admins can see unpublished
+    }
+
+    // Niezalogowany gość: ma dostęp do strony, jeśli admin pozwolił mu widzieć
+    // przynajmniej jeden element (opis / prelegenci / bilety / harmonogram)
+    // lub jeśli istnieją sekcje CMS dostępne dla gości.
+    if (isGuest) {
+      const anyGuestElementVisible =
+        (event.guests_show_description ?? true) ||
+        (event.guests_show_speakers ?? true) ||
+        (event.guests_show_tickets ?? true) ||
+        (event.guests_show_schedule ?? true);
+      return anyGuestElementVisible;
     }
 
     if (event.visible_to_everyone) return true;
@@ -223,17 +238,15 @@ const PaidEventPage: React.FC = () => {
     if (event.visible_to_clients && isClient) return true;
     if (event.visible_to_specjalista && isSpecjalista) return true;
 
-    // If all visibility flags are false and not visible_to_everyone, allow public access
-    if (!event.visible_to_partners && !event.visible_to_clients && 
+    // If all role flags are false and visible_to_everyone is not explicitly false,
+    // fall back to allowing access for any logged-in user.
+    if (!event.visible_to_partners && !event.visible_to_clients &&
         !event.visible_to_specjalista && event.visible_to_everyone !== false) {
       return true;
     }
 
     return false;
-  }, [event, isAdmin, isPartner, isClient, isSpecjalista]);
-
-  // Guest view (not logged in) — admin can hide selected elements
-  const isGuest = !user;
+  }, [event, isAdmin, isPartner, isClient, isSpecjalista, isGuest]);
 
   // Filter CMS sections per guest visibility
   const visibleSections = useMemo(() => {
