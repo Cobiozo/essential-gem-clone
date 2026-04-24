@@ -26,6 +26,10 @@ interface PaidEventSidebarProps {
   ticketsSold?: number | null;
   onPurchase: (ticketId: string) => void;
   currency?: string;
+  /** When provided AND there are no tickets, the CTA links here (registration form). */
+  formUrl?: string | null;
+  /** Optional helper text shown under the CTA when the user is a logged-in partner. */
+  helperText?: string | null;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
@@ -37,6 +41,8 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   ticketsSold,
   onPurchase,
   currency = 'PLN',
+  formUrl = null,
+  helperText = null,
 }) => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
@@ -110,75 +116,103 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Ticket Options */}
-        {tickets.length > 1 ? (
-          <div className="space-y-3">
-            {tickets.map((ticket) => (
-              <button
-                key={ticket.id}
-                onClick={() => setSelectedTicketId(ticket.id)}
-                className={cn(
-                  'w-full text-left p-4 rounded-lg border-2 transition-all',
-                  selectedTicketId === ticket.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                )}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="font-medium">{ticket.name}</div>
-                    {ticket.highlightText && (
-                      <Badge variant="secondary" className="mt-1 text-xs">
-                        {ticket.highlightText}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-lg font-bold text-primary">
-                    {formatPrice(ticket.price)}
-                  </div>
-                </div>
-                {ticket.description && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {ticket.description}
-                  </p>
-                )}
-              </button>
-            ))}
-          </div>
-        ) : tickets.length === 1 ? (
-          <div className="text-center py-2">
-            <div className="text-3xl font-bold text-primary">
-              {formatPrice(tickets[0].price)}
+        {/* Form-only mode (no tickets, just registration form) */}
+        {tickets.length === 0 && formUrl ? (
+          <>
+            <div className="text-sm text-muted-foreground text-center">
+              Wypełnij krótki formularz, aby zarezerwować miejsce.
             </div>
-            <div className="text-sm text-muted-foreground mt-1">brutto (z VAT)</div>
-          </div>
-        ) : null}
+            <Button asChild size="lg" className="w-full gap-2" disabled={availableSpots === 0}>
+              <a href={formUrl}>
+                {ctaText}
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </Button>
+            {helperText && (
+              <p className="text-xs text-center text-muted-foreground">{helperText}</p>
+            )}
+          </>
+        ) : tickets.length === 0 ? (
+          <Button size="lg" className="w-full" disabled>
+            Rejestracja niedostępna
+          </Button>
+        ) : (
+          <>
+            {/* Ticket Options */}
+            {tickets.length > 1 ? (
+              <div className="space-y-3">
+                {tickets.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    onClick={() => setSelectedTicketId(ticket.id)}
+                    className={cn(
+                      'w-full text-left p-4 rounded-lg border-2 transition-all',
+                      selectedTicketId === ticket.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    )}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium">{ticket.name}</div>
+                        {ticket.highlightText && (
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            {ticket.highlightText}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-lg font-bold text-primary">
+                        {formatPrice(ticket.price)}
+                      </div>
+                    </div>
+                    {ticket.description && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {ticket.description}
+                      </p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-2">
+                <div className="text-3xl font-bold text-primary">
+                  {formatPrice(tickets[0].price)}
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">brutto (z VAT)</div>
+              </div>
+            )}
 
-        {/* Benefits List */}
-        {selectedTicket?.benefits && selectedTicket.benefits.length > 0 && (
-          <div className="space-y-2 pt-4 border-t">
-            <div className="text-sm font-medium text-muted-foreground">Cena zawiera:</div>
-            <ul className="space-y-2">
-              {selectedTicket.benefits.map((benefit, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm">
-                  <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>{benefit}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+            {/* Benefits List */}
+            {selectedTicket?.benefits && selectedTicket.benefits.length > 0 && (
+              <div className="space-y-2 pt-4 border-t">
+                <div className="text-sm font-medium text-muted-foreground">Cena zawiera:</div>
+                <ul className="space-y-2">
+                  {selectedTicket.benefits.map((benefit, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* CTA Button */}
+            <Button
+              size="lg"
+              className="w-full gap-2"
+              onClick={() => selectedTicketId && onPurchase(selectedTicketId)}
+              disabled={!selectedTicketId || availableSpots === 0}
+            >
+              {ctaText}
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+
+            {helperText && (
+              <p className="text-xs text-center text-muted-foreground">{helperText}</p>
+            )}
+          </>
         )}
-
-        {/* CTA Button */}
-        <Button
-          size="lg"
-          className="w-full gap-2"
-          onClick={() => selectedTicketId && onPurchase(selectedTicketId)}
-          disabled={!selectedTicketId || availableSpots === 0}
-        >
-          {ctaText}
-          <ArrowRight className="w-4 h-4" />
-        </Button>
 
         {availableSpots !== null && availableSpots < 10 && availableSpots > 0 && (
           <p className="text-xs text-center text-destructive">

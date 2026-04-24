@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, Search, Download } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, Download, UserPlus, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import AssignPartnerDialog from './AssignPartnerDialog';
 
 interface Props {
   form: any;
@@ -26,6 +28,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
+  const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
 
   const { data: submissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
@@ -37,6 +40,23 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as any[];
+    },
+  });
+
+  // Fetch partner profiles for badges
+  const partnerIds = Array.from(new Set(submissions.map(s => s.partner_user_id).filter(Boolean))) as string[];
+  const { data: partnersMap = {} } = useQuery({
+    queryKey: ['event-form-partners', partnerIds.sort().join(',')],
+    enabled: partnerIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', partnerIds);
+      if (error) throw error;
+      const map: Record<string, any> = {};
+      (data || []).forEach((p: any) => { map[p.user_id] = p; });
+      return map;
     },
   });
 
@@ -84,19 +104,26 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
 
   const exportCsv = () => {
     const fieldsConfig = (form.fields_config || []) as Array<{ key: string; label: string }>;
-    const headers = ['Data', 'Imię', 'Nazwisko', 'Email', 'Telefon', 'Status płatności', 'Email status', 'Potwierdził email', 'Partner ID', ...fieldsConfig.map(f => f.label)];
-    const rows = filtered.map(s => [
-      new Date(s.created_at).toLocaleString('pl-PL'),
-      s.first_name || '',
-      s.last_name || '',
-      s.email || '',
-      s.phone || '',
-      s.payment_status,
-      s.email_status,
-      s.email_confirmed_at ? 'Tak' : 'Nie',
-      s.partner_user_id || '',
-      ...fieldsConfig.map(f => s.submitted_data?.[f.key] || ''),
-    ]);
+    const headers = [
+      'Data', 'Imię', 'Nazwisko', 'Email', 'Telefon',
+      'Status płatności', 'Email status',
+      'Email potwierdzony (data)', 'Anulowane (data)', 'Anulowane przez',
+      'Partner imię', 'Partner nazwisko', 'Partner email',
+      ...fieldsConfig.map(f => f.label),
+    ];
+    const rows = filtered.map(s => {
+      const p = s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
+      return [
+        new Date(s.created_at).toLocaleString('pl-PL'),
+        s.first_name || '', s.last_name || '', s.email || '', s.phone || '',
+        s.payment_status, s.email_status,
+        s.email_confirmed_at ? new Date(s.email_confirmed_at).toLocaleString('pl-PL') : '',
+        s.cancelled_at ? new Date(s.cancelled_at).toLocaleString('pl-PL') : '',
+        s.cancelled_by || '',
+        p?.first_name || '', p?.last_name || '', p?.email || '',
+        ...fieldsConfig.map(f => s.submitted_data?.[f.key] || ''),
+      ];
+    });
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -108,6 +135,55 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   };
 
   const fieldsConfig = (form.fields_config || []) as Array<{ key: string; label: string }>;
+
+  const renderEmailCell = (s: any) => {
+    // Cancelled wins
+    if (s.cancelled_at) {
+      const byGuest = s.cancelled_by === 'guest';
+      const byAdmin = s.cancelled_by === 'admin';
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={`flex items-center gap-1 text-xs ${byGuest ? 'text-destructive' : 'text-orange-600'}`}>
+                <MailX className="w-3 h-3" />
+                <span className="font-medium">
+                  {byGuest ? 'Anulował (gość)' : byAdmin ? 'Anulowane (admin)' : 'Anulowane'}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>{new Date(s.cancelled_at).toLocaleString('pl-PL')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    if (s.email_confirmed_at) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                <MailCheck className="w-3 h-3" /> Potwierdził
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>{new Date(s.email_confirmed_at).toLocaleString('pl-PL')}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    if (s.email_status === 'sent') {
+      return (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Mail className="w-3 h-3" /> Wysłany — czeka
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Mail className="w-3 h-3" /> {s.email_status || 'pending'}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -156,7 +232,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                 <TableHead>Kontakt</TableHead>
                 <TableHead>Płatność</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Partner</TableHead>
+                <TableHead>Partner zapraszający</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
@@ -164,6 +240,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
               {filtered.map(s => {
                 const ps = PAYMENT_LABELS[s.payment_status] || PAYMENT_LABELS.pending;
                 const PsIcon = ps.icon;
+                const partner = s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="text-xs">{new Date(s.created_at).toLocaleString('pl-PL')}</TableCell>
@@ -189,19 +266,34 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                     <TableCell>
                       <Badge className={ps.cls}><PsIcon className="w-3 h-3 mr-1" />{ps.label}</Badge>
                     </TableCell>
+                    <TableCell>{renderEmailCell(s)}</TableCell>
                     <TableCell className="text-xs">
-                      <div className="flex items-center gap-1">
-                        {s.email_status === 'sent' ? <Mail className="w-3 h-3 text-green-600" /> : <Mail className="w-3 h-3 text-muted-foreground" />}
-                        <span>{s.email_status}</span>
-                      </div>
-                      {s.email_confirmed_at && (
-                        <div className="flex items-center gap-1 text-green-600 mt-0.5">
-                          <MailCheck className="w-3 h-3" /> Potwierdzono
+                      {partner ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 font-medium">
+                            <UserCheck className="w-3 h-3 text-green-600" />
+                            {partner.first_name} {partner.last_name}
+                          </div>
+                          <div className="text-muted-foreground">{partner.email}</div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setAssignFor({ id: s.id, partnerUserId: s.partner_user_id })}
+                          >
+                            Zmień
+                          </Button>
                         </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setAssignFor({ id: s.id, partnerUserId: null })}
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" /> Przypisz
+                        </Button>
                       )}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {s.partner_user_id ? <Badge variant="secondary">Partner</Badge> : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
                       {s.payment_status !== 'paid' && (
@@ -231,6 +323,16 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {assignFor && (
+        <AssignPartnerDialog
+          open={!!assignFor}
+          onOpenChange={(o) => { if (!o) setAssignFor(null); }}
+          submissionId={assignFor.id}
+          currentPartnerUserId={assignFor.partnerUserId}
+          onAssigned={() => qc.invalidateQueries({ queryKey: ['event-form-submissions', form.id] })}
+        />
       )}
     </div>
   );
