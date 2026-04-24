@@ -135,7 +135,7 @@ serve(async (req) => {
 
     // Handle both SDK response formats: .totp[] and .factors[]
     const totpFactors = [
-      ...(factorsData?.totp ?? []),
+      ...((factorsData as any)?.totp ?? []),
       ...((factorsData as any)?.factors?.filter((f: any) => f.factor_type === 'totp') ?? []),
     ];
     const uniqueFactors = Array.from(new Map(totpFactors.map((f: any) => [f.id, f])).values());
@@ -151,7 +151,7 @@ serve(async (req) => {
       const { error: deleteError } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
         userId: user.id,
         factorId: factor.id,
-      });
+      } as any);
       if (deleteError) {
         console.error(`[self-reset-mfa] Failed to delete factor ${factor.id}:`, deleteError);
       } else {
