@@ -47,7 +47,7 @@ const EventFormPublicPage: React.FC = () => {
       try {
         const { data: f, error: fe } = await supabase
           .from('event_registration_forms')
-          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online)')
+          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online, slug)')
           .eq('slug', slug)
           .eq('is_active', true)
           .maybeSingle();
@@ -278,6 +278,17 @@ const EventFormPublicPage: React.FC = () => {
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                 {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Zapisywanie...</> : (form.cta_label || 'Zapisuję się')}
               </Button>
+
+              {event?.slug && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
+                >
+                  Dowiedz się więcej na temat wydarzenia
+                </Button>
+              )}
             </form>
           </CardContent>
         </Card>
