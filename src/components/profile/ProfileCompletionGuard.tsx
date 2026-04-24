@@ -37,6 +37,21 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     return location.pathname === path || location.pathname.startsWith(path);
   });
 
+  // Public paid event page: /events/{slug} (single segment, e.g. /events/test-krakow).
+  // Excludes protected sub-routes like /events/webinars, /events/team-meetings,
+  // /events/individual-meetings, /events/register/...
+  const EXCLUDED_EVENTS_SUBPATHS = [
+    '/events/webinars',
+    '/events/team-meetings',
+    '/events/individual-meetings',
+    '/events/register',
+  ];
+  const isPublicPaidEventPage = /^\/events\/[^/]+\/?$/.test(location.pathname)
+    && !EXCLUDED_EVENTS_SUBPATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'));
+
+  // Public list of paid events
+  const isPublicPaidEventsList = location.pathname === '/paid-events' || location.pathname === '/paid-events/';
+
   const KNOWN_APP_ROUTES = [
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
@@ -50,7 +65,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   const isPartnerPage = isSingleSegmentPath && !isKnownRoute;
   
   // Bypass ALL auth logic for public paths and partner pages
-  if (isPublicPath || isPartnerPage) {
+  if (isPublicPath || isPartnerPage || isPublicPaidEventPage || isPublicPaidEventsList) {
     return <>{children}</>;
   }
 
