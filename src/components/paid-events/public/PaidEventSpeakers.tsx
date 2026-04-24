@@ -66,7 +66,7 @@ const SpeakerCard: React.FC<{ speaker: Speaker }> = ({ speaker }) => {
               type="button"
               variant="ghost"
               size="sm"
-              className="mt-2 h-8 text-primary hover:text-primary"
+              className="mt-2 h-8 text-primary hover:text-primary hover:bg-primary/10"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
             >

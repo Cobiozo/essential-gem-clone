@@ -1,23 +1,39 @@
-## Problem
+## Problem 1 — żółty "Czytaj więcej" na hover
 
-W oknie edytora wydarzenia (Admin → Eventy → edycja) lewy panel z formularzem (zakładki: Główne / Sekcje / Bilety / Prelegenci) nie pozwala przewinąć zawartości w dół — pola na dole formularza (np. „Grafika banera", przycisk „Zapisz zmiany") są obcięte i niedostępne.
+Przycisk "Czytaj więcej" / "Zwiń" w `src/components/paid-events/public/PaidEventSpeakers.tsx` używa `Button variant="ghost"`. Wariant ghost ma globalnie ustawione `hover:bg-accent hover:text-accent-foreground` — w tym motywie kolor `accent` jest żółty (primary), przez co cały przycisk staje się żółty na żółtym tekście i tekst znika.
 
-## Przyczyna
+**Fix:** Nadpisać tło hover na neutralne i utrzymać kolor primary dla tekstu.
 
-Klasyczny problem flexboxa w `EventEditorSidebar.tsx`:
-- `<Tabs className="flex-1 flex flex-col">` oraz wewnętrzny `<ScrollArea className="flex-1">` nie mają klasy `min-h-0`
-- Bez `min-h-0` element `flex-1` w kolumnie flex rozciąga się do wysokości swojej zawartości (zamiast ograniczyć się do dostępnej przestrzeni), więc `ScrollArea` nigdy nie aktywuje wewnętrznego scrolla
+W `PaidEventSpeakers.tsx` na przycisku zmienić klasy:
+- z: `mt-2 h-8 text-primary hover:text-primary`
+- na: `mt-2 h-8 text-primary hover:text-primary hover:bg-primary/10`
 
-## Rozwiązanie
+Dzięki temu na hover pojawi się delikatne żółte podświetlenie (10% opacity), tekst pozostanie czytelny (primary), a nie zostanie nadpisany przez `accent-foreground`.
 
-Drobna zmiana w pliku `src/components/admin/paid-events/editor/EventEditorSidebar.tsx`:
+## Problem 2 — link do strony wydarzenia z formularza rejestracji
 
-1. Dodać `min-h-0` do `<Tabs>` (`flex-1 flex flex-col min-h-0`)
-2. Dodać `min-h-0` do `<ScrollArea>` (`flex-1 min-h-0`)
-3. Upewnić się, że `TabsContent` nie wymusza dodatkowego marginesu psującego layout (jeśli trzeba — pozostawić `m-0`, już jest)
+Strona `/events/:slug` (PaidEventPage) jest **publiczna** — niezalogowani widzą ją bez problemu. Wystarczy z formularza rejestracji (`src/pages/EventGuestRegistration.tsx`) dodać przycisk linkujący do tej strony.
 
-To naprawi przewijanie we wszystkich czterech zakładkach (Główne, Sekcje, Bilety, Prelegenci) — cała zawartość formularza będzie dostępna, łącznie z przyciskiem „Zapisz zmiany" na dole.
+Dane są już dostępne: pobierany rekord eventu zawiera pole `slug` (linia 274). 
+
+**Fix:** Pod głównym przyciskiem submit (linia ~992, `<Button type="submit">`) dodać warunkowo dodatkowy outline button:
+
+```tsx
+{event.slug && (
+  <Button
+    type="button"
+    variant="outline"
+    className="w-full"
+    onClick={() => window.open(`/events/${event.slug}`, '_blank')}
+  >
+    Dowiedz się więcej na temat wydarzenia
+  </Button>
+)}
+```
+
+Otwarcie w nowej karcie zachowuje stan formularza rejestracji.
 
 ## Pliki do edycji
 
-- `src/components/admin/paid-events/editor/EventEditorSidebar.tsx` (2 klasy CSS)
+1. `src/components/paid-events/public/PaidEventSpeakers.tsx` — naprawa hover na "Czytaj więcej" / "Zwiń".
+2. `src/pages/EventGuestRegistration.tsx` — dodanie przycisku "Dowiedz się więcej na temat wydarzenia" pod przyciskiem rejestracji (otwiera `/events/{slug}` w nowej karcie, widoczne tylko gdy event ma slug).
