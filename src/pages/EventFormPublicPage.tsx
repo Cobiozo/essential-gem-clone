@@ -88,63 +88,26 @@ const EventFormPublicPage: React.FC = () => {
     }
     setSubmitting(true);
     try {
-      // Resolve partner via ref code
-      let partnerLinkId: string | null = null;
-      let partnerUserId: string | null = null;
-      if (refCode) {
-        const { data: link } = await supabase
-          .from('paid_event_partner_links')
-          .select('id, partner_user_id, is_active')
-          .eq('ref_code', refCode)
-          .eq('form_id', form.id)
-          .eq('is_active', true)
-          .maybeSingle();
-        if (link) {
-          partnerLinkId = link.id;
-          partnerUserId = link.partner_user_id;
-        }
-      }
+      // SECURITY DEFINER RPC handles insert + partner resolution + CRM upsert server-side.
+      // Avoids RLS issues on RETURNING and prevents partner_user_id spoofing from client.
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('submit_event_form', {
+        _form_id: form.id,
+        _first_name: firstName.trim(),
+        _last_name: lastName.trim(),
+        _email: email.trim().toLowerCase(),
+        _phone: phone.trim() || null,
+        _extra: extra,
+        _ref_code: refCode || null,
+      });
+      if (rpcErr) throw rpcErr;
 
-      const { data: ins, error: insErr } = await supabase
-        .from('event_form_submissions')
-        .insert({
-          form_id: form.id,
-          event_id: form.event_id,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone.trim() || null,
-          submitted_data: extra,
-          partner_link_id: partnerLinkId,
-          partner_user_id: partnerUserId,
-        })
-        .select('id')
-        .single();
-      if (insErr) throw insErr;
-
-      // If submission came via partner link → save guest to that partner's team_contacts as event_invite
-      if (partnerUserId) {
-        try {
-          await supabase.from('team_contacts').insert({
-            user_id: partnerUserId,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            email: email.trim().toLowerCase(),
-            phone_number: phone.trim() || null,
-            role: 'guest',
-            contact_type: 'guest',
-            contact_source: 'event_invite',
-            contact_reason: `Zapisany przez Twój link na: ${event?.title || form.title}`,
-            is_active: true,
-          });
-        } catch (err) {
-          // non-blocking — duplicate emails are fine, contact may already exist
-          console.warn('[event-form] team_contacts insert skipped:', err);
-        }
+      const result = rpcData as { success: boolean; submission_id?: string; error?: string };
+      if (!result?.success) {
+        throw new Error(result?.error === 'form_not_found' ? 'Formularz nie istnieje lub został wyłączony.' : 'Nie udało się zapisać zgłoszenia.');
       }
 
       // Send confirmation email (fire-and-forget — UI shows success even if email is delayed)
-      supabase.functions.invoke('send-event-form-confirmation', { body: { submissionId: ins.id } });
+      supabase.functions.invoke('send-event-form-confirmation', { body: { submissionId: result.submission_id } });
 
       setDone(true);
     } catch (e: any) {

@@ -9770,6 +9770,18 @@ export type Database = {
         Args: { template_id: string }
         Returns: undefined
       }
+      submit_event_form: {
+        Args: {
+          _email: string
+          _extra: Json
+          _first_name: string
+          _form_id: string
+          _last_name: string
+          _phone: string
+          _ref_code?: string
+        }
+        Returns: Json
+      }
       update_cron_schedule: {
         Args: { p_interval_minutes: number; p_job_name: string }
         Returns: boolean
