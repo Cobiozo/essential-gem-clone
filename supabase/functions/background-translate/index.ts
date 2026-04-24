@@ -41,7 +41,7 @@ async function filterOutdatedItems(
   return items.filter(item => {
     const tUpdated = translationMap.get(item.id);
     if (!tUpdated) return false; // No translation exists — handled by 'missing' mode
-    return new Date(item.updated_at) > new Date(tUpdated);
+    return new Date(item.updated_at as any) > new Date(tUpdated as any);
   });
 }
 
