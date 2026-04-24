@@ -24,6 +24,7 @@ const EventFormPublicPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get('ref');
+  const { user, profile, isPartner } = useAuth();
   const { toast } = useToast();
 
   const [form, setForm] = useState<any>(null);
