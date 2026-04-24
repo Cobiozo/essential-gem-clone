@@ -6,8 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import MyEventFormReferrals from './MyEventFormReferrals';
 
 interface MyEventFormLinksProps {
   /** Optional: scope panel to a single paid event (event detail page). */
