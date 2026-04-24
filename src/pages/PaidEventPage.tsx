@@ -123,7 +123,7 @@ const PaidEventPage: React.FC = () => {
         id: ticket.id,
         name: ticket.name,
         description: ticket.description ?? null,
-        price: Number(ticket.price_pln) || 0,
+        price: (Number(ticket.price_pln) || 0) / 100,
         benefits: Array.isArray(ticket.benefits) ? ticket.benefits : [],
         highlight_text: ticket.highlight_text ?? null,
         is_featured: ticket.is_featured ?? false,

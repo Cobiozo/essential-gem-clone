@@ -79,7 +79,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
     return new Intl.NumberFormat('pl-PL', {
       style: 'currency',
       currency,
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(price);
   };

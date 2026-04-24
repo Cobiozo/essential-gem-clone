@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, CreditCard, ArrowRight, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TicketInfo {
   id: string;
@@ -32,6 +33,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   currency = 'PLN',
 }) => {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -42,11 +44,23 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     acceptMarketing: false,
   });
 
+  // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input)
+  useEffect(() => {
+    if (!open || !user || !profile) return;
+    setFormData(prev => ({
+      ...prev,
+      firstName: prev.firstName || (profile as any).first_name || '',
+      lastName: prev.lastName || (profile as any).last_name || '',
+      email: prev.email || (profile as any).email || user.email || '',
+      phone: prev.phone || (profile as any).phone_number || '',
+    }));
+  }, [open, user, profile]);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pl-PL', {
       style: 'currency',
       currency,
-      minimumFractionDigits: 0,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(price);
   };
