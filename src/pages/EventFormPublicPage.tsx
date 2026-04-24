@@ -200,6 +200,13 @@ const EventFormPublicPage: React.FC = () => {
               )}
             </div>
 
+            {user && isPartner && refCode && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-primary/10 text-primary text-sm">
+                <UserCheck className="w-4 h-4" />
+                <span>Rejestrujesz się jako partner — zgłoszenie zostanie przypisane do Twojego konta.</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
