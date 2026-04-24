@@ -14,6 +14,12 @@ interface Props {
   value: string;
   onChange: (url: string) => void;
   compact?: boolean;
+  /** Limit available shape presets by ID. When provided, only these presets are shown. */
+  allowedShapes?: string[];
+  /** Default selected shape preset ID. Falls back to first available. */
+  defaultShape?: string;
+  /** When true, show "Podgląd na stronie wydarzenia" panel below cropper. */
+  showEventBannerPreview?: boolean;
 }
 
 interface ShapePreset {
@@ -25,6 +31,7 @@ interface ShapePreset {
 }
 
 const SHAPE_PRESETS: ShapePreset[] = [
+  { id: 'h21_9', label: '21:9', aspect: 21 / 9, cropShape: 'rect', icon: <RectangleHorizontal className="h-4 w-4" /> },
   { id: 'h16_9', label: '16:9', aspect: 16 / 9, cropShape: 'rect', icon: <RectangleHorizontal className="h-4 w-4" /> },
   { id: 'h4_3', label: '4:3', aspect: 4 / 3, cropShape: 'rect', icon: <RectangleHorizontal className="h-3.5 w-3.5" /> },
   { id: 'v9_16', label: '9:16', aspect: 9 / 16, cropShape: 'rect', icon: <RectangleVertical className="h-4 w-4" /> },
@@ -36,10 +43,28 @@ const SHAPE_PRESETS: ShapePreset[] = [
   { id: 'free', label: 'Dowolny', aspect: undefined, cropShape: 'rect', icon: <Maximize className="h-4 w-4" /> },
 ];
 
-export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) => {
+export const ImageUploadInput: React.FC<Props> = ({
+  value,
+  onChange,
+  compact,
+  allowedShapes,
+  defaultShape,
+  showEventBannerPreview,
+}) => {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Filtered preset list per allowedShapes whitelist
+  const availablePresets = React.useMemo(
+    () => (allowedShapes && allowedShapes.length > 0
+      ? SHAPE_PRESETS.filter(p => allowedShapes.includes(p.id))
+      : SHAPE_PRESETS),
+    [allowedShapes]
+  );
+  const initialShape = defaultShape && availablePresets.some(p => p.id === defaultShape)
+    ? defaultShape
+    : availablePresets[0]?.id ?? 'h16_9';
 
   // Crop state
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -47,9 +72,10 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedShape, setSelectedShape] = useState<string>('h16_9');
+  const [selectedShape, setSelectedShape] = useState<string>(initialShape);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const activePreset = SHAPE_PRESETS.find(p => p.id === selectedShape) || SHAPE_PRESETS[0];
+  const activePreset = availablePresets.find(p => p.id === selectedShape) || availablePresets[0] || SHAPE_PRESETS[0];
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels);
@@ -72,9 +98,38 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
     setCropSrc(URL.createObjectURL(file));
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    setSelectedShape('h16_9');
+    setSelectedShape(initialShape);
+    setPreviewUrl(null);
     if (inputRef.current) inputRef.current.value = '';
   };
+
+  // Live preview: regenerate cropped thumbnail when crop area changes
+  React.useEffect(() => {
+    if (!showEventBannerPreview || !cropSrc || !croppedAreaPixels) return;
+    let cancelled = false;
+    let lastUrl: string | null = null;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const blob = await getCroppedImg(cropSrc, croppedAreaPixels, 'rect');
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        lastUrl = url;
+        setPreviewUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } catch {
+        // ignore preview errors
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (lastUrl) {
+        // url ownership transferred to state; do not revoke here
+      }
+    };
+  }, [cropSrc, croppedAreaPixels, showEventBannerPreview]);
 
   const handleCropConfirm = async () => {
     if (!cropSrc || !croppedAreaPixels || !selectedFile) return;
@@ -107,9 +162,11 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
 
   const closeCropDialog = () => {
     if (cropSrc) URL.revokeObjectURL(cropSrc);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setCropSrc(null);
     setSelectedFile(null);
     setCroppedAreaPixels(null);
+    setPreviewUrl(null);
   };
 
   return (
@@ -131,7 +188,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
       <input ref={inputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
 
       <Dialog open={!!cropSrc} onOpenChange={(open) => { if (!open) closeCropDialog(); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Pozycjonowanie zdjęcia</DialogTitle>
           </DialogHeader>
@@ -144,7 +201,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
               onValueChange={(v) => { if (v) { setSelectedShape(v); setCrop({ x: 0, y: 0 }); setZoom(1); } }}
               className="flex flex-wrap gap-1 justify-start"
             >
-              {SHAPE_PRESETS.map((preset) => (
+              {availablePresets.map((preset) => (
                 <ToggleGroupItem
                   key={preset.id}
                   value={preset.id}
@@ -184,6 +241,36 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
               onValueChange={([v]) => setZoom(v)}
             />
           </div>
+
+          {showEventBannerPreview && (
+            <div className="space-y-1.5 pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Podgląd na stronie wydarzenia (proporcje 21:9)
+              </p>
+              <div className="relative w-full aspect-[21/9] bg-muted rounded-md overflow-hidden">
+                {previewUrl ? (
+                  <>
+                    <img
+                      src={previewUrl}
+                      alt="Podgląd bannera"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
+                    />
+                    {/* Same bottom gradient as PaidEventHero */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-semibold text-foreground line-clamp-1">
+                        Tytuł wydarzenia
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                    Generowanie podglądu…
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={closeCropDialog} disabled={uploading}>
               <X className="w-3 h-3 mr-1" /> Anuluj
