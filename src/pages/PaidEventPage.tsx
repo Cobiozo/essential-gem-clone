@@ -237,11 +237,12 @@ const PaidEventPage: React.FC = () => {
       });
     });
 
-    // Add speakers section if we have speakers data (future: from DB)
-    // items.push({ id: 'speakers', label: 'Prelegenci' });
+    if (speakers.length > 0) {
+      items.push({ id: 'speakers', label: 'Prelegenci' });
+    }
 
     return items;
-  }, [contentSections]);
+  }, [contentSections, speakers]);
 
   // Handle scroll navigation
   const handleNavigate = useCallback((sectionId: string) => {
