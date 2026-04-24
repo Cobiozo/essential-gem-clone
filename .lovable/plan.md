@@ -1,36 +1,54 @@
-## Cel
+## Problem
 
-W edytorze administratora podgląd banera ma wyglądać **identycznie** jak strona publiczna widziana przez niezalogowanego gościa. Tytuł i metadane (data, lokalizacja) mają być nałożone na obrazek banera (overlay z gradientem), a nie wyświetlane pod nim na osobnym czarnym tle.
+Aktualnie w `PaidEventHero.tsx` baner używa kombinacji `aspect-[21/9] min-h-[320px] md:min-h-[420px] max-h-[520px]` + mocnego gradientu `from-background/95 via-background/50`. Skutki widoczne na zrzucie:
 
-## Diagnoza
+1. Na desktopie w podglądzie admin (kontener ~870px) `aspect-[21/9]` daje ~373px wysokości, ale `min-h-[420px]` rozciąga kontener do 420px. `object-cover` przycina obraz nienaturalnie — widoczny jest tylko pas środka (stąd urwane "EQOLOGY" u góry).
+2. Gradient `from-background/95 via-background/50` pokrywa ~60% wysokości baneru ciemnym tłem, więc tytuł wygląda jakby siedział na osobnym ciemnym pasku **pod** obrazkiem, zamiast być nałożony na żywy fragment zdjęcia.
+3. W rezultacie podgląd admin i strona publiczna nadal się różnią wizualnie — proporcje obrazu i pozycja tytułu zależą od szerokości kontenera.
 
-`PaidEventHero` ma poprawną implementację — kiedy `bannerUrl` jest ustawione, używa kontenera `aspect-[21/9]` z absolutnie pozycjonowanym overlay'em tekstu na dole. Na stronie publicznej (`PaidEventPage`) działa to dobrze (image-932).
+## Rozwiązanie
 
-Problem leży w `EventEditorPreview` (image-933): na pierwszy rzut oka wygląda jakby tytuł był pod banerem. Faktycznie powodem jest to, że:
+Zunifikować baner do **jednej deterministycznej proporcji** bez `min-h`, które łamie aspect ratio, oraz zmniejszyć gradient tak, aby pokrywał tylko dolną część (gdzie faktycznie siedzi tekst).
 
-1. Prawy panel edytora (`ResizablePanel defaultSize={60}`) jest węższy niż okno publiczne, więc baner z `aspect-[21/9]` staje się stosunkowo niski (~320px). 
-2. Na tej wysokości gradient `from-background via-background/70` pokrywa ponad 60% wysokości banera, tworząc dużą czarną strefę z tytułem, która optycznie wygląda jak osobna sekcja pod banerem — co wywołuje wrażenie "baner i tekst osobno".
-3. Dodatkowo w podglądzie nie ma żadnego `cache-bust` ani odświeżania, ale to inny temat.
+### Zmiany w `src/components/paid-events/public/PaidEventHero.tsx`
 
-Rozwiązanie powinno zapewnić, że proporcje, gradient i pozycja overlay'a w trybie podglądu wyglądają tak samo jak na finalnej stronie publicznej.
+1. **Container baneru** — zastąpić:
+   ```
+   aspect-[21/9] min-h-[320px] md:min-h-[420px] max-h-[520px]
+   ```
+   na proporcję responsywną bez `min-h`:
+   ```
+   aspect-[16/9] sm:aspect-[2/1] lg:aspect-[21/9] max-h-[560px]
+   ```
+   - Mobile (16/9) → wyższy baner przy wąskim ekranie, czytelny tytuł.
+   - Tablet (2/1) → wyważone proporcje.
+   - Desktop ≥1024px (21/9) → szeroki cinematic baner.
+   - Brak `min-h` = obraz nigdy nie jest sztucznie rozciągany ponad swoją proporcję, więc nie traci kompozycji.
 
-## Plan zmian
+2. **Gradient** — zastąpić:
+   ```
+   bg-gradient-to-t from-background/95 via-background/50 to-transparent
+   ```
+   na łagodniejszy, ograniczony do dolnych ~50%:
+   ```
+   bg-gradient-to-t from-background/85 via-background/40 to-transparent
+   ```
+   plus dodać explicit `h-1/2` overlay tylko na dole zamiast pełnego inset, aby górna część baneru pozostała w pełni widoczna.
+   Konkretnie: drugi `<div>` (gradient) zmienić z `absolute inset-0` na `absolute inset-x-0 bottom-0 h-2/3` z gradientem `from-background/90 via-background/60 to-transparent`.
 
-### 1. `src/components/paid-events/public/PaidEventHero.tsx`
-- Dodać minimalną wysokość banera (np. `min-h-[420px]` na desktop, `min-h-[320px]` na mobile), żeby przy wąskich kontenerach (jak prawy panel edytora ~750px) baner nie kurczył się do wysokości, w której gradient zjada cały obraz.
-- Zachować `aspect-[21/9]` + `max-h-[520px]`, ale dodać też `min-h` aby utrzymać proporcję obrazu vs tekstu spójnie między widokami.
-- Lekko zmniejszyć intensywność gradientu (`from-background/95 via-background/50 to-transparent`), aby na wąskim kontenerze obraz banera pozostawał wyraźnie widoczny pod tytułem.
+3. **Bottom content overlay** — bez zmian strukturalnych, ale dorzucić `text-shadow` (już mamy `drop-shadow-lg` na h1) i upewnić się, że padding bottom jest spójny: `pb-5 sm:pb-6 md:pb-8`.
 
-### 2. `src/components/admin/paid-events/editor/EventEditorPreview.tsx`
-- Usunąć/poluzować jakiekolwiek wymuszenie szerokości na poziomie `ScrollArea` aby `PaidEventHero` mógł renderować się tak samo jak na stronie publicznej (pełna szerokość kontenera, overlay tekstu na dole banera).
-- Upewnić się, że `<div className="min-h-full bg-background">` nie psuje wewnętrznych stylów `aspect-ratio` banera.
+### Zmiany w `src/components/admin/paid-events/editor/EventEditorPreview.tsx`
 
-### 3. Weryfikacja wizualna
-- Po zmianach: w widoku publicznym (gość niezalogowany) i w panelu admina (`/admin?tab=paid-events` → edytor) tytuł, opis krótki, data i lokalizacja powinny być nałożone na ten sam obraz banera, na tym samym poziomie wysokości względnej, z identycznym gradientem.
+Bez zmian — `PaidEventHero` jest już używany identycznie jak na stronie publicznej, więc jednolite proporcje w komponencie automatycznie zsynchronizują oba widoki.
 
-## Pliki do modyfikacji
+## Pliki edytowane
 
-- `src/components/paid-events/public/PaidEventHero.tsx` — dostosowanie min-height i intensywności gradientu.
-- `src/components/admin/paid-events/editor/EventEditorPreview.tsx` — drobne korekty kontenera podglądu (jeśli to konieczne).
+- `src/components/paid-events/public/PaidEventHero.tsx`
 
-Brak zmian w bazie danych.
+## Efekt
+
+- Podgląd w edytorze i widok publiczny mają **identyczne** proporcje baneru przy każdej szerokości kontenera.
+- Tytuł zawsze nakłada się na żywy fragment obrazu (nie na ciemny pasek).
+- Górna część zdjęcia (np. logo/napis "EQOLOGY") pozostaje widoczna i nieprzycięta nienaturalnie.
+- Tekst tytułu, opisu i metadanych pozostaje czytelny dzięki łagodnemu gradientowi i `drop-shadow`.
