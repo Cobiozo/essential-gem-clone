@@ -12,6 +12,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface EventMainSettingsPanelProps {
   eventId: string;
