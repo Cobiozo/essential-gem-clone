@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, ChevronDown, Save, Loader2, User } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface EventSpeakersPanelProps {
   eventId: string;
@@ -226,12 +227,11 @@ export const EventSpeakersPanel: React.FC<EventSpeakersPanelProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor={`photo-${speaker.id}`}>URL zdjęcia</Label>
-                  <Input
-                    id={`photo-${speaker.id}`}
-                    value={getEditingValue(speaker.id, 'photo_url', speaker.photo_url || '')}
-                    onChange={(e) => setEditingValue(speaker.id, 'photo_url', e.target.value)}
-                    placeholder="https://..."
+                  <Label>Zdjęcie prelegenta</Label>
+                  <ImageUploadInput
+                    value={getEditingValue(speaker.id, 'photo_url', speaker.photo_url || '') as string}
+                    onChange={(url) => setEditingValue(speaker.id, 'photo_url', url)}
+                    placeholder="https://... lub prześlij z komputera"
                   />
                 </div>
 
