@@ -171,7 +171,7 @@ serve(async (req) => {
         total_factors_found: totpFactors.length,
         ip: req.headers.get('x-forwarded-for') || 'unknown',
       },
-    }).then(() => {}).catch((e: any) => console.error('[self-reset-mfa] Failed to log activity:', e));
+    } as any).then(() => {}).catch((e: any) => console.error('[self-reset-mfa] Failed to log activity:', e));
 
     return new Response(JSON.stringify({ 
       success: true, 
