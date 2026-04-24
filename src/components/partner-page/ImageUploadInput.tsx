@@ -241,6 +241,36 @@ export const ImageUploadInput: React.FC<Props> = ({
               onValueChange={([v]) => setZoom(v)}
             />
           </div>
+
+          {showEventBannerPreview && (
+            <div className="space-y-1.5 pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Podgląd na stronie wydarzenia (proporcje 21:9)
+              </p>
+              <div className="relative w-full aspect-[21/9] bg-muted rounded-md overflow-hidden">
+                {previewUrl ? (
+                  <>
+                    <img
+                      src={previewUrl}
+                      alt="Podgląd bannera"
+                      className="absolute inset-0 w-full h-full object-cover object-center"
+                    />
+                    {/* Same bottom gradient as PaidEventHero */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <p className="text-sm font-semibold text-foreground line-clamp-1">
+                        Tytuł wydarzenia
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                    Generowanie podglądu…
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={closeCropDialog} disabled={uploading}>
               <X className="w-3 h-3 mr-1" /> Anuluj
