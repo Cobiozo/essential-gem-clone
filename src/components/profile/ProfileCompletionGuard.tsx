@@ -27,6 +27,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/reset-password',  // Password reset page
     '/landing-preview', // Leader landing page preview
     '/a-w/',              // Public auto-webinar watch page (short URL)
+    '/event-form/',       // Public paid-event registration forms (+ confirm/cancel tokens)
   ];
   
   const isPublicPath = PUBLIC_PATHS.some(path => {
