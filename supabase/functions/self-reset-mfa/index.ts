@@ -162,16 +162,20 @@ serve(async (req) => {
     console.log(`[self-reset-mfa] Deleted ${deletedCount}/${uniqueFactors.length} TOTP factors for user ${user.id}`);
 
     // Step 3: Log the action (non-blocking)
-    await supabaseAdmin.from('user_activity_log').insert({
-      user_id: user.id,
-      action_type: 'mfa_self_reset',
-      action_details: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
-      metadata: {
-        deleted_factor_count: deletedCount,
-        total_factors_found: totpFactors.length,
-        ip: req.headers.get('x-forwarded-for') || 'unknown',
-      },
-    } as any).then(() => {}).catch((e: any) => console.error('[self-reset-mfa] Failed to log activity:', e));
+    try {
+      await supabaseAdmin.from('user_activity_log').insert({
+        user_id: user.id,
+        action_type: 'mfa_self_reset',
+        action_details: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
+        metadata: {
+          deleted_factor_count: deletedCount,
+          total_factors_found: totpFactors.length,
+          ip: req.headers.get('x-forwarded-for') || 'unknown',
+        },
+      } as any);
+    } catch (e: any) {
+      console.error('[self-reset-mfa] Failed to log activity:', e);
+    }
 
     return new Response(JSON.stringify({ 
       success: true, 
