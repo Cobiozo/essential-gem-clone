@@ -330,7 +330,7 @@ serve(async (req) => {
         subject: emailSubject,
         status: 'sent',
         sent_at: emailSentAt,
-        metadata: { certificateId, moduleId, moduleTitle, method: 'smtp', cc_support: ccResult.success }
+        metadata: { certificateId, moduleId, moduleTitle, method: 'smtp', cc_support: false }
       });
 
     return new Response(JSON.stringify({
