@@ -188,7 +188,7 @@ export const ImageUploadInput: React.FC<Props> = ({
       <input ref={inputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
 
       <Dialog open={!!cropSrc} onOpenChange={(open) => { if (!open) closeCropDialog(); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Pozycjonowanie zdjęcia</DialogTitle>
           </DialogHeader>
