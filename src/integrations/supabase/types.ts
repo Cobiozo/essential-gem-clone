@@ -621,6 +621,92 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_usage_log: {
+        Row: {
+          api_key_id: string | null
+          created_at: string
+          endpoint: string
+          error_message: string | null
+          id: string
+          ip: string | null
+          method: string
+          request_size_bytes: number | null
+          status_code: number
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint: string
+          error_message?: string | null
+          id?: string
+          ip?: string | null
+          method: string
+          request_size_bytes?: number | null
+          status_code: number
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint?: string
+          error_message?: string | null
+          id?: string
+          ip?: string | null
+          method?: string
+          request_size_bytes?: number | null
+          status_code?: number
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_usage_log_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Relationships: []
+      }
       auto_webinar_config: {
         Row: {
           category: string
@@ -5478,6 +5564,107 @@ export type Database = {
           visible_to_clients?: boolean
           visible_to_partners?: boolean
           visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
+      outbound_call_log: {
+        Row: {
+          caller_user_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          integration_id: string | null
+          method: string
+          path: string
+          status_code: number | null
+        }
+        Insert: {
+          caller_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          method: string
+          path: string
+          status_code?: number | null
+        }
+        Update: {
+          caller_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          method?: string
+          path?: string
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_call_log_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbound_integrations: {
+        Row: {
+          auth_header_name: string
+          auth_type: string
+          base_url: string
+          created_at: string
+          created_by: string
+          default_headers: Json | null
+          description: string | null
+          enabled: boolean
+          health_path: string | null
+          id: string
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_status: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          auth_header_name?: string
+          auth_type?: string
+          base_url: string
+          created_at?: string
+          created_by: string
+          default_headers?: Json | null
+          description?: string | null
+          enabled?: boolean
+          health_path?: string | null
+          id?: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          auth_header_name?: string
+          auth_type?: string
+          base_url?: string
+          created_at?: string
+          created_by?: string
+          default_headers?: Json | null
+          description?: string | null
+          enabled?: boolean
+          health_path?: string | null
+          id?: string
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_status?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
