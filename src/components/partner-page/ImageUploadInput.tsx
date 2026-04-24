@@ -162,9 +162,11 @@ export const ImageUploadInput: React.FC<Props> = ({
 
   const closeCropDialog = () => {
     if (cropSrc) URL.revokeObjectURL(cropSrc);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setCropSrc(null);
     setSelectedFile(null);
     setCroppedAreaPixels(null);
+    setPreviewUrl(null);
   };
 
   return (
