@@ -6318,11 +6318,14 @@ export type Database = {
           is_published: boolean | null
           location: string | null
           max_tickets: number | null
+          payment_method_payu: boolean
+          payment_method_transfer: boolean
           short_description: string | null
           slug: string
           stream_url: string | null
           tickets_sold: number | null
           title: string
+          transfer_payment_details: string | null
           updated_at: string
           visible_to_clients: boolean | null
           visible_to_everyone: boolean | null
@@ -6342,11 +6345,14 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_tickets?: number | null
+          payment_method_payu?: boolean
+          payment_method_transfer?: boolean
           short_description?: string | null
           slug: string
           stream_url?: string | null
           tickets_sold?: number | null
           title: string
+          transfer_payment_details?: string | null
           updated_at?: string
           visible_to_clients?: boolean | null
           visible_to_everyone?: boolean | null
@@ -6366,11 +6372,14 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_tickets?: number | null
+          payment_method_payu?: boolean
+          payment_method_transfer?: boolean
           short_description?: string | null
           slug?: string
           stream_url?: string | null
           tickets_sold?: number | null
           title?: string
+          transfer_payment_details?: string | null
           updated_at?: string
           visible_to_clients?: boolean | null
           visible_to_everyone?: boolean | null

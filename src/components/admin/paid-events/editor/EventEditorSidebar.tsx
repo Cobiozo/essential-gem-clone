@@ -6,6 +6,7 @@ import { EventMainSettingsPanel } from './EventMainSettingsPanel';
 import { EventSectionsPanel } from './EventSectionsPanel';
 import { EventTicketsPanel } from './EventTicketsPanel';
 import { EventSpeakersPanel } from './EventSpeakersPanel';
+import { EventPaymentMethodsPanel } from './EventPaymentMethodsPanel';
 
 interface EventEditorSidebarProps {
   eventId: string;
@@ -58,7 +59,8 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
               />
             </TabsContent>
 
-            <TabsContent value="tickets" className="m-0">
+            <TabsContent value="tickets" className="m-0 space-y-4">
+              <EventPaymentMethodsPanel eventId={eventId} onDataChange={onDataChange} />
               <EventTicketsPanel eventId={eventId} onDataChange={onDataChange} />
             </TabsContent>
 
