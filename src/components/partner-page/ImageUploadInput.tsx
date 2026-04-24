@@ -256,7 +256,7 @@ export const ImageUploadInput: React.FC<Props> = ({
                       className="absolute inset-0 w-full h-full object-cover object-center"
                     />
                     {/* Same bottom gradient as PaidEventHero */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-transparent" />
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <p className="text-sm font-semibold text-foreground line-clamp-1">
                         Tytuł wydarzenia
