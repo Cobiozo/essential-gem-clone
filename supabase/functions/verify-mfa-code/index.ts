@@ -85,25 +85,27 @@ serve(async (req) => {
 
     if (codeError || !codeRecord) {
       // Increment attempts on all active codes for this user (wrong code = attempt on all)
-      await supabaseAdmin.rpc('increment_mfa_code_attempts', { p_user_id: user.id }).catch(() => {
+      try {
+        await supabaseAdmin.rpc('increment_mfa_code_attempts', { p_user_id: user.id });
+      } catch {
         // Fallback: increment via direct update
-        supabaseAdmin
-          .from('mfa_email_codes')
-          .select('id, attempts')
-          .eq('user_id', user.id)
-          .eq('used', false)
-          .gte('expires_at', new Date().toISOString())
-          .then(async ({ data: codes }) => {
-            if (codes) {
-              for (const c of codes) {
-                await supabaseAdmin
-                  .from('mfa_email_codes')
-                  .update({ attempts: (c.attempts || 0) + 1, used: (c.attempts || 0) + 1 >= MAX_ATTEMPTS_PER_CODE })
-                  .eq('id', c.id);
-              }
+        try {
+          const { data: codes } = await supabaseAdmin
+            .from('mfa_email_codes')
+            .select('id, attempts')
+            .eq('user_id', user.id)
+            .eq('used', false)
+            .gte('expires_at', new Date().toISOString());
+          if (codes) {
+            for (const c of codes) {
+              await supabaseAdmin
+                .from('mfa_email_codes')
+                .update({ attempts: (c.attempts || 0) + 1, used: (c.attempts || 0) + 1 >= MAX_ATTEMPTS_PER_CODE })
+                .eq('id', c.id);
             }
-          });
-      });
+          }
+        } catch {}
+      }
 
       return new Response(JSON.stringify({ error: 'Invalid or expired code', valid: false }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
