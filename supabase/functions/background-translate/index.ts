@@ -108,7 +108,7 @@ serve(async (req) => {
       });
     };
 
-    EdgeRuntime.waitUntil(withGlobalTimeout(
+    (globalThis as any).EdgeRuntime?.waitUntil(withGlobalTimeout(
       () => processTranslationJob(jobId), 
       55000 // 55 seconds max (Supabase limit is 60s)
     ));
