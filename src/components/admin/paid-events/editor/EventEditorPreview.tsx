@@ -110,6 +110,7 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
           eventEndDate={event.event_end_date}
           location={event.location}
           isOnline={event.is_online}
+          cacheKey={event.updated_at ?? null}
         />
 
         {/* Main Content */}
