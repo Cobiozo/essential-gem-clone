@@ -158,6 +158,9 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
                 <ImageUploadInput
                   value={formData.banner_url || ''}
                   onChange={(v) => handleFieldChange('banner_url', v)}
+                  allowedShapes={['h21_9', 'h16_9']}
+                  defaultShape="h21_9"
+                  showEventBannerPreview
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Możesz wgrać plik z komputera (przeciągnij i upuść lub kliknij), albo wkleić zewnętrzny URL.
