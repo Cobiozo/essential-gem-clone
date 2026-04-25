@@ -34,6 +34,14 @@ interface SmtpSettings {
   sender_name: string;
 }
 
+interface ContactPerson {
+  role: 'upline' | 'inviter';
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
 function generateTicketCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -126,6 +134,41 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function buildContactSection(contact: ContactPerson | null): string {
+  if (!contact || (!contact.firstName && !contact.lastName && !contact.email && !contact.phone)) {
+    return `<p style="font-size:13px;color:#888;margin-top:20px;">
+        W razie pytań prosimy o kontakt z organizatorem.
+      </p>`;
+  }
+
+  const heading = contact.role === 'upline'
+    ? '👤 Twój opiekun w Pure Life'
+    : '👤 Osoba zapraszająca';
+  const intro = contact.role === 'upline'
+    ? 'W razie pytań do tego wydarzenia skontaktuj się ze swoim opiekunem:'
+    : 'W razie dodatkowych pytań skontaktuj się bezpośrednio z osobą, która Cię zaprosiła:';
+
+  const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
+  const rows: string[] = [];
+  if (fullName) {
+    rows.push(`<div style="font-size:15px;font-weight:600;color:#222;margin-bottom:6px;">${escapeHtml(fullName)}</div>`);
+  }
+  if (contact.email) {
+    rows.push(`<div style="font-size:14px;margin:2px 0;">📧 <a href="mailto:${escapeHtml(contact.email)}" style="color:#D4AF37;text-decoration:none;">${escapeHtml(contact.email)}</a></div>`);
+  }
+  if (contact.phone) {
+    const telHref = contact.phone.replace(/\s+/g, '');
+    rows.push(`<div style="font-size:14px;margin:2px 0;">📞 <a href="tel:${escapeHtml(telHref)}" style="color:#D4AF37;text-decoration:none;">${escapeHtml(contact.phone)}</a></div>`);
+  }
+
+  return `
+    <div style="margin:28px 0 0;padding:18px 20px;background:#fdf8ec;border:1px solid #f0e2b6;border-radius:8px;">
+      <div style="font-size:14px;font-weight:700;color:#8a6d1c;margin-bottom:8px;">${heading}</div>
+      <div style="font-size:13px;color:#555;margin-bottom:10px;">${intro}</div>
+      ${rows.join('\n')}
+    </div>`;
+}
+
 function buildEmail(opts: {
   firstName: string;
   eventTitle: string;
@@ -134,26 +177,38 @@ function buildEmail(opts: {
   amountFormatted: string;
   transferDetails: string;
   ticketCode: string;
+  bannerUrl?: string | null;
+  contact: ContactPerson | null;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
+
+  const bannerHtml = opts.bannerUrl
+    ? `<div style="background:#000;">
+         <img src="${escapeHtml(opts.bannerUrl)}" alt="${escapeHtml(opts.eventTitle)}" style="display:block;width:100%;max-width:620px;height:auto;margin:0 auto;" />
+       </div>`
+    : '';
+
+  const logoStripHtml = `
+    <div style="padding:18px 24px;background:linear-gradient(135deg,#D4AF37,#F5E6A3,#D4AF37);">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td align="center" valign="middle" style="padding:0 12px;">
+            <img src="${logoUrl}" alt="Pure Life" style="max-width:130px;height:auto;display:inline-block;vertical-align:middle;" />
+          </td>
+          <td align="center" valign="middle" width="1" style="border-left:1px solid rgba(0,0,0,0.18);height:36px;"></td>
+          <td align="center" valign="middle" style="padding:0 12px;">
+            <img src="${eqologyLogoUrl}" alt="Eqology Independent Business Partner" style="max-width:130px;height:auto;display:inline-block;vertical-align:middle;" />
+          </td>
+        </tr>
+      </table>
+    </div>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
   <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-    <div style="padding:24px;background:linear-gradient(135deg,#D4AF37,#F5E6A3,#D4AF37);">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${logoUrl}" alt="Pure Life" style="max-width:150px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-          <td align="center" valign="middle" width="1" style="border-left:1px solid rgba(0,0,0,0.18);height:40px;"></td>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${eqologyLogoUrl}" alt="Eqology Independent Business Partner" style="max-width:150px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-        </tr>
-      </table>
-    </div>
+    ${bannerHtml}
+    ${logoStripHtml}
     <div style="padding:30px;">
       <h1 style="margin:0 0 10px;font-size:22px;color:#222;">Rezerwacja przyjęta</h1>
       <p style="font-size:15px;">Cześć <strong>${escapeHtml(opts.firstName)}</strong>!</p>
@@ -172,9 +227,8 @@ function buildEmail(opts: {
       <p style="font-size:14px;line-height:1.6;color:#555;">
         Po zaksięgowaniu wpłaty wyślemy do Ciebie email z biletem i kodem QR potrzebnym do wejścia na wydarzenie.
       </p>
-      <p style="font-size:13px;color:#888;margin-top:20px;">
-        W razie pytań prosimy o kontakt mailowy z osobą zapraszającą lub organizatorem.
-      </p>
+
+      ${buildContactSection(opts.contact)}
     </div>
     <div style="text-align:center;padding:18px;background:#fafafa;color:#999;font-size:12px;border-top:1px solid #eee;">
       © ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.
@@ -202,10 +256,39 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch event + ticket
+    // Try to identify the logged-in user from the Authorization header (best-effort).
+    let currentUserId: string | null = null;
+    let currentUserProfile: any = null;
+    try {
+      const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+      if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+        const token = authHeader.slice(7).trim();
+        if (token) {
+          const supabaseAuth = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_ANON_KEY")!
+          );
+          const { data: userData } = await supabaseAuth.auth.getUser(token);
+          if (userData?.user?.id) {
+            currentUserId = userData.user.id;
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("first_name, last_name, email, phone_number, upline_eq_id, upline_first_name, upline_last_name")
+              .eq("id", currentUserId)
+              .maybeSingle();
+            currentUserProfile = profile || null;
+            console.log(`[auth] logged-in user resolved: ${currentUserId}`);
+          }
+        }
+      }
+    } catch (authErr) {
+      console.warn("[auth] could not resolve user from Authorization header", authErr);
+    }
+
+    // Fetch event + ticket (include banner_url for the email header)
     const { data: ticket, error: ticketErr } = await supabase
       .from("paid_event_tickets")
-      .select("*, paid_events(id, title, slug, event_date, transfer_payment_details, payment_method_transfer)")
+      .select("*, paid_events(id, title, slug, event_date, transfer_payment_details, payment_method_transfer, banner_url)")
       .eq("id", ticketId)
       .eq("event_id", eventId)
       .eq("is_active", true)
@@ -234,8 +317,9 @@ serve(async (req) => {
       });
     }
 
-    // Resolve partner via ref code (best-effort)
+    // Resolve partner via ref code (best-effort) + load partner profile for contact section
     let partnerUserId: string | null = null;
+    let partnerProfile: any = null;
     if (refCode) {
       const { data: link } = await supabase
         .from("paid_event_partner_links")
@@ -243,17 +327,27 @@ serve(async (req) => {
         .eq("ref_code", refCode)
         .maybeSingle();
       partnerUserId = link?.partner_user_id ?? null;
+
+      if (partnerUserId) {
+        const { data: pp } = await supabase
+          .from("profiles")
+          .select("first_name, last_name, email, phone_number")
+          .eq("id", partnerUserId)
+          .maybeSingle();
+        partnerProfile = pp || null;
+      }
     }
 
     const ticketCode = generateTicketCode();
     const totalAmount = Number(ticket.price_pln) || 0; // grosze
 
-    // Insert order
+    // Insert order — now stores user_id when the buyer is logged in
     const { data: order, error: orderErr } = await supabase
       .from("paid_event_orders")
       .insert({
         event_id: eventId,
         ticket_id: ticketId,
+        user_id: currentUserId,
         email: buyer.email.trim().toLowerCase(),
         first_name: buyer.firstName.trim(),
         last_name: buyer.lastName.trim(),
@@ -275,6 +369,43 @@ serve(async (req) => {
       });
     }
 
+    // Build the contact-person block:
+    //  - logged-in user → use upline from profiles (look up full profile by upline_eq_id if possible)
+    //  - guest with refCode → use partner profile
+    //  - fallback → none
+    let contact: ContactPerson | null = null;
+    if (currentUserId && currentUserProfile) {
+      let uplineProfile: any = null;
+      const uplineEqId = (currentUserProfile as any).upline_eq_id;
+      if (uplineEqId) {
+        const { data: up } = await supabase
+          .from("profiles")
+          .select("first_name, last_name, email, phone_number")
+          .eq("eq_id", uplineEqId)
+          .maybeSingle();
+        uplineProfile = up || null;
+      }
+      const upFirst = uplineProfile?.first_name || (currentUserProfile as any).upline_first_name || null;
+      const upLast = uplineProfile?.last_name || (currentUserProfile as any).upline_last_name || null;
+      if (upFirst || upLast || uplineProfile?.email || uplineProfile?.phone_number) {
+        contact = {
+          role: 'upline',
+          firstName: upFirst,
+          lastName: upLast,
+          email: uplineProfile?.email || null,
+          phone: uplineProfile?.phone_number || null,
+        };
+      }
+    } else if (partnerProfile) {
+      contact = {
+        role: 'inviter',
+        firstName: partnerProfile.first_name || null,
+        lastName: partnerProfile.last_name || null,
+        email: partnerProfile.email || null,
+        phone: partnerProfile.phone_number || null,
+      };
+    }
+
     // Format event date (PL)
     const eventDateStr = event.event_date
       ? new Date(event.event_date).toLocaleDateString("pl-PL", {
@@ -292,8 +423,6 @@ serve(async (req) => {
     }).format(totalAmount / 100);
 
     // Run side-effects (email, notifications, CRM upsert) in the background.
-    // SMTP can be slow / unreachable; we don't want to block the client response
-    // (which would otherwise surface as "Edge Function returned a non-2xx status code").
     const sideEffects = (async () => {
       // Send email (best-effort)
       try {
@@ -308,8 +437,6 @@ serve(async (req) => {
         }
 
         if (smtp) {
-          // The DB column is `smtp_encryption`, but our SmtpSettings type
-          // uses `encryption_type` (matches the rest of the codebase).
           const smtpSettings: SmtpSettings = {
             smtp_host: (smtp as any).smtp_host,
             smtp_port: (smtp as any).smtp_port,
@@ -332,6 +459,8 @@ serve(async (req) => {
             amountFormatted,
             transferDetails,
             ticketCode,
+            bannerUrl: event.banner_url,
+            contact,
           });
           await sendSmtp(
             smtpSettings,
@@ -370,6 +499,7 @@ serve(async (req) => {
             event_id: eventId,
             ticket_id: ticketId,
             ticket_code: ticketCode,
+            buyer_user_id: currentUserId,
           },
         }));
 
@@ -416,12 +546,10 @@ serve(async (req) => {
       }
     })();
 
-    // Keep the worker alive until side-effects finish, but don't block the response.
     try {
       // @ts-ignore — EdgeRuntime is provided by the Supabase edge runtime
       EdgeRuntime.waitUntil(sideEffects);
     } catch (_) {
-      // Fallback: detach without keeping worker alive (best-effort)
       sideEffects.catch((e) => console.error("side-effects error", e));
     }
 
