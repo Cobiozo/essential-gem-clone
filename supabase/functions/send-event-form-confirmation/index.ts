@@ -6,9 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logoUrl = "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png";
-const eqologyLogoUrl = (Deno.env.get("PUBLIC_SITE_URL") || "https://purelife.lovable.app") + "/lovable-uploads/eqology-ibp-logo.png";
-
 interface ReqBody {
   submissionId: string;
 }
