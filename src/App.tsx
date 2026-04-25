@@ -129,8 +129,11 @@ const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
 const EventFormPublicPage = lazyWithRetry(() => import("./pages/EventFormPublicPage"));
-const EventFormConfirmPage = lazyWithRetry(() => import("./pages/EventFormConfirmPage"));
-const EventFormCancelPage = lazyWithRetry(() => import("./pages/EventFormCancelPage"));
+// EAGER load — public email link pages must render instantly without
+// triggering chunk loads (which can fail in stale browser caches and
+// would otherwise leave the user staring at a spinner or blank screen).
+import EventFormConfirmPage from "./pages/EventFormConfirmPage";
+import EventFormCancelPage from "./pages/EventFormCancelPage";
 const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
