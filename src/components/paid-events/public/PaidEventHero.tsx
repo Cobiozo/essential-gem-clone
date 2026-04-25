@@ -124,7 +124,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
 
         {/* Top back-button overlay */}
         <div className="absolute top-0 left-0 right-0 z-10">
-          <div className="container mx-auto px-4 pt-4">
+          <div className="px-4 pt-4">
             <Button
               variant="ghost"
               size="sm"
@@ -139,7 +139,7 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
 
         {/* Bottom content overlay */}
         <div className="absolute bottom-0 left-0 right-0 z-10 pb-5 sm:pb-6 md:pb-8">
-          <div className="container mx-auto px-4">
+          <div className="px-4 sm:px-6">
             <div className="max-w-4xl">
               {isOnline && (
                 <div className="flex flex-wrap gap-2 mb-3">
