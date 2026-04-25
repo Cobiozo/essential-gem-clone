@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Download, MousePointerClick, UserPlus, CheckCircle2, XCircle, ArrowUpDown, Trophy } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, MousePointerClick, UserPlus, CheckCircle2, XCircle, ArrowUpDown, Trophy } from 'lucide-react';
+import * as XLSX from 'xlsx-js-style';
 
 interface Props {
   form: any;
@@ -163,31 +164,280 @@ export const EventFormPartnerStats: React.FC<Props> = ({ form, onBack }) => {
     else { setSortKey(k); setSortAsc(false); }
   };
 
-  const exportCsv = () => {
-    const headers = ['#', 'Imię', 'Nazwisko', 'EQID', 'Kliknięcia', 'Rejestracje', 'Opłacone', 'Anulowane', 'Konwersja klik→rej (%)', 'Konwersja rej→opł (%)'];
-    const lines = [headers.join(',')];
+  const exportXlsx = () => {
+    // Style helpers
+    const border = {
+      top: { style: 'thin', color: { rgb: 'D1D5DB' } },
+      bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
+      left: { style: 'thin', color: { rgb: 'D1D5DB' } },
+      right: { style: 'thin', color: { rgb: 'D1D5DB' } },
+    };
+    const thickBottom = { ...border, bottom: { style: 'medium', color: { rgb: '0F172A' } } };
+
+    // Build sheet as array of arrays — we'll style cells afterwards
+    const eventTitle = form.paid_events?.title || 'Wydarzenie';
+    const eventDate = form.paid_events?.event_date
+      ? new Date(form.paid_events.event_date).toLocaleDateString('pl-PL')
+      : '';
+    const eventLoc = form.paid_events?.location || '';
+    const subtitle = [eventTitle, eventDate, eventLoc].filter(Boolean).join(' · ');
+    const generatedAt = new Date().toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' });
+
+    const headers = ['#', 'Imię', 'Nazwisko', 'EQID', 'Kliknięcia', 'Rejestracje', 'Opłacone', 'Anulowane', 'Konwersja klik→rej', 'Konwersja rej→opł'];
+
+    const aoa: any[][] = [];
+    aoa.push([`Statystyki partnerów: ${form.title}`]); // row 1
+    aoa.push([subtitle]); // row 2
+    aoa.push([`Wygenerowano: ${generatedAt}`]); // row 3
+    aoa.push([]); // row 4 separator
+
+    // Summary block (rows 5-6)
+    aoa.push(['Podsumowanie', '', '', '', '', '', '', '', '', '']); // row 5 header
+    aoa.push(['Kliknięcia ref linku', summary.totalClicks, '', 'Rejestracje', summary.totalRegs, '', 'Opłacone', summary.totalPaid, 'Anulowane', summary.totalCancelled]); // row 6
+
+    aoa.push([]); // row 7 separator
+
+    // Table header (row 8 = index 7)
+    const headerRowIdx = aoa.length;
+    aoa.push(headers);
+
+    // Data rows
+    const dataStartIdx = aoa.length;
     rows.forEach((r, i) => {
-      lines.push([
+      aoa.push([
         i + 1,
-        `"${(r.firstName || '').replace(/"/g, '""')}"`,
-        `"${(r.lastName || '').replace(/"/g, '""')}"`,
-        `"${(r.eqId || '').replace(/"/g, '""')}"`,
+        r.firstName || '',
+        r.lastName || '',
+        r.eqId || '',
         r.clicks,
         r.registrations,
         r.paid,
         r.cancelled,
-        r.convClickReg,
-        r.convRegPaid,
-      ].join(','));
+        r.convClickReg / 100,
+        r.convRegPaid / 100,
+      ]);
     });
-    const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `statystyki-partnerow-${form.slug || form.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    // No-partner row
+    let noPartnerRowIdx = -1;
+    if (noPartner.registrations > 0 || noPartner.paid > 0 || noPartner.cancelled > 0) {
+      noPartnerRowIdx = aoa.length;
+      aoa.push(['', 'Bez przypisanego partnera', '', '', '', noPartner.registrations, noPartner.paid, noPartner.cancelled, '', '']);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 6 },   // #
+      { wch: 18 },  // Imię
+      { wch: 20 },  // Nazwisko
+      { wch: 16 },  // EQID
+      { wch: 14 },  // Kliknięcia
+      { wch: 14 },  // Rejestracje
+      { wch: 14 },  // Opłacone
+      { wch: 14 },  // Anulowane
+      { wch: 22 },  // Konw. klik→rej
+      { wch: 22 },  // Konw. rej→opł
+    ];
+
+    // Row heights
+    ws['!rows'] = [];
+    ws['!rows'][0] = { hpt: 32 }; // title
+    ws['!rows'][1] = { hpt: 20 }; // subtitle
+    ws['!rows'][headerRowIdx] = { hpt: 28 }; // table header
+
+    // Merges
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }, // title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }, // subtitle
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } }, // generated
+      { s: { r: 4, c: 0 }, e: { r: 4, c: 9 } }, // summary header
+      // Summary value cells: pair label+value (label spans 1, value spans 1)
+      { s: { r: 5, c: 1 }, e: { r: 5, c: 1 } },
+    ];
+
+    // Style the title row
+    const setCell = (addr: string, value: any, style: any) => {
+      if (!ws[addr]) ws[addr] = { t: typeof value === 'number' ? 'n' : 's', v: value };
+      ws[addr].s = style;
+    };
+
+    // Title
+    setCell('A1', `Statystyki partnerów: ${form.title}`, {
+      font: { name: 'Calibri', sz: 16, bold: true, color: { rgb: '0F172A' } },
+      fill: { fgColor: { rgb: 'D4AF37' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    });
+    // Subtitle
+    setCell('A2', subtitle, {
+      font: { name: 'Calibri', sz: 11, italic: true, color: { rgb: '475569' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      fill: { fgColor: { rgb: 'FEF3C7' } },
+    });
+    // Generated
+    setCell('A3', `Wygenerowano: ${generatedAt}`, {
+      font: { name: 'Calibri', sz: 9, color: { rgb: '94A3B8' } },
+      alignment: { horizontal: 'center' },
+    });
+
+    // Summary header (row 5 = A5)
+    setCell('A5', 'Podsumowanie', {
+      font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '0F172A' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    });
+    ws['!rows'][4] = { hpt: 22 };
+
+    // Summary row 6 — pairs of (label, value, label, value, ...)
+    const summaryStyle = {
+      label: {
+        font: { name: 'Calibri', sz: 10, color: { rgb: '64748B' } },
+        alignment: { horizontal: 'right', vertical: 'center' },
+        fill: { fgColor: { rgb: 'F8FAFC' } },
+        border,
+      },
+      valueDefault: {
+        font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: '0F172A' } },
+        alignment: { horizontal: 'left', vertical: 'center' },
+        fill: { fgColor: { rgb: 'F8FAFC' } },
+        border,
+      },
+      valuePaid: {
+        font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: '15803D' } },
+        alignment: { horizontal: 'left', vertical: 'center' },
+        fill: { fgColor: { rgb: 'F0FDF4' } },
+        border,
+      },
+      valueCancel: {
+        font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'B91C1C' } },
+        alignment: { horizontal: 'left', vertical: 'center' },
+        fill: { fgColor: { rgb: 'FEF2F2' } },
+        border,
+      },
+    };
+    setCell('A6', 'Kliknięcia ref linku', summaryStyle.label);
+    setCell('B6', summary.totalClicks, summaryStyle.valueDefault);
+    setCell('D6', 'Rejestracje', summaryStyle.label);
+    setCell('E6', summary.totalRegs, summaryStyle.valueDefault);
+    setCell('G6', 'Opłacone', summaryStyle.label);
+    setCell('H6', summary.totalPaid, summaryStyle.valuePaid);
+    setCell('I6', 'Anulowane', summaryStyle.label);
+    setCell('J6', summary.totalCancelled, summaryStyle.valueCancel);
+    ws['!rows'][5] = { hpt: 28 };
+
+    // Table header row
+    const headerStyle = {
+      font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '0F172A' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: thickBottom,
+    };
+    headers.forEach((_, c) => {
+      const addr = XLSX.utils.encode_cell({ r: headerRowIdx, c });
+      ws[addr] = ws[addr] || { t: 's', v: headers[c] };
+      ws[addr].s = headerStyle;
+    });
+
+    // Data rows styling
+    rows.forEach((r, i) => {
+      const rowIdx = dataStartIdx + i;
+      const isPodium = i < 3;
+      const podiumFills = ['FEF3C7', 'F1F5F9', 'FED7AA']; // gold, silver, bronze
+      const baseFill = isPodium ? podiumFills[i] : (i % 2 === 0 ? 'FFFFFF' : 'F8FAFC');
+      const baseFont = { name: 'Calibri', sz: 10, color: { rgb: '0F172A' }, bold: isPodium };
+
+      const baseStyle = (extra: any = {}) => ({
+        font: { ...baseFont, ...(extra.font || {}) },
+        alignment: { horizontal: 'left', vertical: 'center', ...(extra.alignment || {}) },
+        fill: { fgColor: { rgb: baseFill } },
+        border,
+        ...(extra.numFmt ? { numFmt: extra.numFmt } : {}),
+      });
+
+      // # column with medals
+      const medalChar = ['🥇', '🥈', '🥉'];
+      const numCellAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 0 });
+      ws[numCellAddr] = ws[numCellAddr] || { t: 's' };
+      ws[numCellAddr].v = isPodium ? medalChar[i] : (i + 1);
+      ws[numCellAddr].t = isPodium ? 's' : 'n';
+      ws[numCellAddr].s = baseStyle({ alignment: { horizontal: 'center' }, font: { sz: isPodium ? 14 : 10 } });
+
+      // Imię, Nazwisko, EQID — left aligned text
+      [1, 2, 3].forEach(c => {
+        const addr = XLSX.utils.encode_cell({ r: rowIdx, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        ws[addr].s = baseStyle();
+      });
+
+      // Numeric cols 4-7 — right aligned
+      [4, 5].forEach(c => {
+        const addr = XLSX.utils.encode_cell({ r: rowIdx, c });
+        if (!ws[addr]) ws[addr] = { t: 'n', v: 0 };
+        ws[addr].s = baseStyle({ alignment: { horizontal: 'right' } });
+      });
+
+      // Opłacone — bold green
+      const paidAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 6 });
+      ws[paidAddr] = ws[paidAddr] || { t: 'n', v: r.paid };
+      ws[paidAddr].s = baseStyle({
+        alignment: { horizontal: 'right' },
+        font: { bold: true, color: { rgb: '15803D' } },
+      });
+
+      // Anulowane — red if > 0
+      const cancAddr = XLSX.utils.encode_cell({ r: rowIdx, c: 7 });
+      ws[cancAddr] = ws[cancAddr] || { t: 'n', v: r.cancelled };
+      ws[cancAddr].s = baseStyle({
+        alignment: { horizontal: 'right' },
+        font: r.cancelled > 0 ? { bold: true, color: { rgb: 'B91C1C' } } : {},
+      });
+
+      // Conversion columns — percent format
+      [8, 9].forEach(c => {
+        const addr = XLSX.utils.encode_cell({ r: rowIdx, c });
+        if (!ws[addr]) ws[addr] = { t: 'n', v: 0 };
+        ws[addr].s = baseStyle({ alignment: { horizontal: 'center' }, numFmt: '0%' });
+      });
+    });
+
+    // No-partner row styling
+    if (noPartnerRowIdx > -1) {
+      const npStyle = {
+        font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: '64748B' } },
+        alignment: { horizontal: 'left', vertical: 'center' },
+        fill: { fgColor: { rgb: 'F1F5F9' } },
+        border,
+      };
+      for (let c = 0; c < 10; c++) {
+        const addr = XLSX.utils.encode_cell({ r: noPartnerRowIdx, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        const isNum = c === 5 || c === 6 || c === 7;
+        ws[addr].s = { ...npStyle, alignment: { ...npStyle.alignment, horizontal: isNum ? 'right' : (c === 0 ? 'center' : 'left') } };
+      }
+    }
+
+    // Freeze panes — keep header visible
+    ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 };
+    (ws as any)['!views'] = [{ state: 'frozen', ySplit: headerRowIdx + 1 }];
+
+    // Build workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Statystyki partnerów');
+
+    // Workbook properties
+    wb.Props = {
+      Title: `Statystyki partnerów - ${form.title}`,
+      Subject: eventTitle,
+      Author: 'Pure Life Platform',
+      CreatedDate: new Date(),
+    };
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `statystyki-partnerow-${form.slug || form.id}-${dateStr}.xlsx`;
+    XLSX.writeFile(wb, filename);
   };
+
 
   const initials = (r: PartnerRow) => `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || '?';
 
