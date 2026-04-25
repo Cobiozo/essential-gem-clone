@@ -1,59 +1,57 @@
 ## Cel
 
-Zastąpić obecny eksport CSV (surowy, nieformatowany) profesjonalnym plikiem **Excel (.xlsx)** z pełnym formatowaniem.
+Zastąpić obecny "Eksport CSV" w widoku **Zgłoszenia** (lista submissions konkretnego formularza) profesjonalnym eksportem **Excel (.xlsx)** — analogicznym stylistycznie do eksportu w "Statystykach partnerów".
 
-## Co się zmieni
+## Zakres zmian
 
-Przycisk „Eksport CSV" → **„Eksport Excel"** w widoku statystyk partnerów (`EventFormPartnerStats.tsx`).
+**Plik:** `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`
 
-## Zawartość pliku Excel
+1. Zamienić funkcję `exportCsv` na `exportXlsx` używającą `xlsx-js-style` (biblioteka jest już zainstalowana).
+2. Zamienić przycisk "Eksport CSV" na "Eksport Excel" z ikoną `FileSpreadsheet`.
+3. Nazwa pliku: `zgloszenia-{slug}-{YYYY-MM-DD}.xlsx`.
 
-### Nagłówek dokumentu (wiersze 1–4)
-- **Wiersz 1**: scalona komórka z tytułem `Statystyki partnerów: {nazwa formularza}` — duża czcionka, pogrubiona, tło markowe (złoto Pure Life)
-- **Wiersz 2**: scalona komórka z nazwą wydarzenia + datą + lokalizacją
-- **Wiersz 3**: data eksportu (`Wygenerowano: 25.04.2026, 14:32`)
-- **Wiersz 4**: pusty (separator)
+## Struktura arkusza
 
-### Sekcja podsumowania (wiersze 5–7)
-Kompaktowa tabelka z 4 metrykami zbiorczymi: kliknięcia, rejestracje, opłacone, anulowane — pogrubione wartości, kolorowe komórki.
+**Sekcja 1 — Nagłówek brandowy (gold #D4AF37):**
+- Tytuł: `Zgłoszenia: {form.title}`
+- Podtytuł: nazwa wydarzenia / slug
+- Data wygenerowania (pl-PL)
+- Liczba zgłoszeń (po zastosowanych filtrach)
 
-### Pusta linia separatora
+**Sekcja 2 — Podsumowanie (kafelki):**
+- Wszystkich: X
+- Opłaconych: X (zielone)
+- Oczekujących: X (żółte)
+- Anulowanych: X (czerwone)
+- Zwróconych: X (niebieskie)
 
-### Główna tabela rankingu
-Nagłówki: `#`, `Imię`, `Nazwisko`, `EQID`, `Kliknięcia`, `Rejestracje`, `Opłacone`, `Anulowane`, `Konwersja klik→rej`, `Konwersja rej→opł`
+**Sekcja 3 — Tabela zgłoszeń** (zamrożone nagłówki, naprzemienne tło wierszy, granice):
 
-Formatowanie:
-- **Nagłówki** — pogrubione, białe na ciemnym tle (granat), wyśrodkowane, wysokość wiersza 28px
-- **Top 3** — wiersze podświetlone gradientowo (złoto/srebro/brąz), w kolumnie `#` emoji medali (🥇🥈🥉)
-- **Naprzemienne wiersze** (alternating rows) — lekkie tło dla parzystych
-- **Kolumna „Opłacone"** — pogrubiona, kolor zielony
-- **Kolumna „Anulowane"** — kolor czerwony jeśli > 0
-- **Kolumny konwersji** — formatowanie procentowe (`0%`)
-- **Liczby** — wyrównane do prawej; tekst do lewej
-- **Wiersz „Bez przypisanego partnera"** — kursywa, jasnoszare tło, na końcu
+Kolumny stałe:
+| Lp. | Data zgłoszenia | Imię | Nazwisko | Email | Telefon | Status płatności | Status email | Email potwierdzony | Anulowane (data) | Anulowane przez | Partner — imię | Partner — nazwisko | Partner — email | …pola dynamiczne z `fields_config` |
 
-### Szerokości kolumn
-Stałe, dopasowane do treści: `#`=6, `Imię`=18, `Nazwisko`=20, `EQID`=14, liczby=14, konwersje=18.
+**Formatowanie warunkowe:**
+- `Status płatności = Opłacone` → bold, zielone tło `#D1FAE5`
+- `Status płatności = Oczekuje` → żółte tło `#FEF3C7`
+- `Status płatności = Anulowane` → czerwone, jasne tło `#FEE2E2`
+- `Status płatności = Zwrócone` → niebieskie tło `#DBEAFE`
+- Statusy mailowe (Wysłany/Potwierdzony/Anulowane) — odpowiednie kolory tekstu
+- Nagłówek tabeli: granat `#1E3A5F`, biały tekst, bold
+- Naprzemienne tło wierszy `#F8FAFC` / białe
+- Wszystkie etykiety statusów po polsku (mapowane przez `PAYMENT_LABELS`)
 
-### Pierwszy wiersz danych zamrożony (freeze panes)
-Po przewijaniu nagłówki tabeli pozostają widoczne.
+**Layout:**
+- Szerokości kolumn dopasowane do typu danych (data ~20, email ~30, status ~14 itd.)
+- Freeze panes na nagłówku tabeli
+- Borders cienkie szare na wszystkich komórkach danych
+- Stopka: "Wygenerowano w panelu Pure Life — {data}"
 
-### Obramowania
-Wszystkie komórki tabeli — cienkie, szare obramowanie. Nagłówek tabeli — pogrubione obramowanie dolne.
+## Eksportowane dane
 
-### Nazwa pliku
-`statystyki-partnerow-{slug}-{YYYY-MM-DD}.xlsx`
+- Stosujemy aktualnie **przefiltrowany** zbiór (`filtered`) — szanuje wybór statusu i wyszukiwarkę, dokładnie jak teraz CSV.
+- Pola dynamiczne (`form.fields_config`) dołączane jako dodatkowe kolumny po danych partnera.
 
-## Implementacja techniczna
+## Bez zmian
 
-- Biblioteka **`xlsx`** (SheetJS) — zainstaluję przez `bun add xlsx` (popularna, lekka, działa w przeglądarce, brak dodatkowych zależności)
-- Generowanie po stronie klienta (bez edge function) — szybkie, bez round-tripa
-- Wykorzystam `XLSX.utils.aoa_to_sheet` + ręczne ustawianie `!cols`, `!merges`, stylów komórek przez `cell.s`
-- Plik zapisywany przez `XLSX.writeFile` (Blob + auto-download)
-
-**Uwaga**: standardowy `xlsx` nie wspiera stylów. Zainstaluję **`xlsx-js-style`** (fork z pełnym wsparciem dla stylów: kolory, czcionki, obramowania, scalanie, wyrównanie) — to zapewni profesjonalny wygląd zgodny z opisem powyżej.
-
-## Pliki do edycji
-
-- `src/components/admin/paid-events/event-forms/EventFormPartnerStats.tsx` — zamiana funkcji `exportCsv` → `exportXlsx` + zmiana etykiety przycisku i ikony pliku
-- `package.json` — dodanie `xlsx-js-style`
+- Logika pobierania danych, filtrów i mapowania partnerów pozostaje bez zmian.
+- Brak migracji bazy, brak zmian w innych plikach.
