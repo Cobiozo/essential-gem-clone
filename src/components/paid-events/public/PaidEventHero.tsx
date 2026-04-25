@@ -116,8 +116,9 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
         />
 
         {/* Bottom-only gradient (covers ~2/3) — keeps top of the image fully visible
-            while ensuring text legibility over the bottom portion. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background/90 via-background/55 to-transparent" />
+            while ensuring text legibility over the bottom portion. min-h ensures
+            consistent intensity on narrow / short containers (mobile + admin preview). */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 min-h-[180px] bg-gradient-to-t from-background/90 via-background/55 to-transparent" />
 
         {/* Top back-button overlay */}
         <div className="absolute top-0 left-0 right-0 z-10">

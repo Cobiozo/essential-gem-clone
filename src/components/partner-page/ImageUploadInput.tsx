@@ -245,9 +245,9 @@ export const ImageUploadInput: React.FC<Props> = ({
           {showEventBannerPreview && (
             <div className="space-y-1.5 pt-2 border-t">
               <p className="text-xs text-muted-foreground">
-                Podgląd na stronie wydarzenia (proporcje 21:9)
+                Podgląd na stronie wydarzenia (proporcje responsywne 16:9 → 21:9)
               </p>
-              <div className="relative w-full aspect-[21/9] bg-muted rounded-md overflow-hidden">
+              <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] lg:aspect-[21/9] max-h-[560px] bg-muted rounded-md overflow-hidden">
                 {previewUrl ? (
                   <>
                     <img
@@ -255,10 +255,10 @@ export const ImageUploadInput: React.FC<Props> = ({
                       alt="Podgląd bannera"
                       className="absolute inset-0 w-full h-full object-cover object-center"
                     />
-                    {/* Same bottom gradient as PaidEventHero */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-sm font-semibold text-foreground line-clamp-1">
+                    {/* Identical bottom gradient as PaidEventHero (~2/3 height) */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 min-h-[120px] bg-gradient-to-t from-background/90 via-background/55 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 px-3 pb-3 sm:pb-4">
+                      <p className="text-sm font-semibold text-foreground line-clamp-1 drop-shadow-lg">
                         Tytuł wydarzenia
                       </p>
                     </div>
