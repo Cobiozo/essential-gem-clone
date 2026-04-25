@@ -6457,6 +6457,33 @@ export type Database = {
         }
         Relationships: []
       }
+      paid_events_visibility_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          mode: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mode: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mode?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       partner_page_forms: {
         Row: {
           consent_text: string | null

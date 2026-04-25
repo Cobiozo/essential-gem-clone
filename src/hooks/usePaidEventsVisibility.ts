@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface PaidEventsVisibility {
   is_enabled: boolean;
@@ -21,7 +23,6 @@ export const usePaidEventsVisibility = () => {
 
       if (error) {
         console.error('Error fetching paid events visibility:', error);
-        // Default to all hidden if fetch fails (safe default)
         return {
           is_enabled: false,
           visible_to_admin: true,
@@ -33,7 +34,7 @@ export const usePaidEventsVisibility = () => {
 
       return data as PaidEventsVisibility;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 };
 
@@ -41,15 +42,14 @@ export const isRoleVisibleForPaidEvents = (
   visibility: PaidEventsVisibility | undefined,
   role: string | undefined
 ): boolean => {
-  // If no visibility settings or module disabled, hide for non-admins
   if (!visibility || !visibility.is_enabled) {
-    return role?.toLowerCase() === 'admin'; // Admins can always see if enabled check fails
+    return role?.toLowerCase() === 'admin';
   }
-  
+
   if (!role) return false;
-  
+
   const normalizedRole = role.toLowerCase();
-  
+
   switch (normalizedRole) {
     case 'admin':
       return visibility.visible_to_admin;
@@ -63,4 +63,52 @@ export const isRoleVisibleForPaidEvents = (
     default:
       return false;
   }
+};
+
+/**
+ * Hook returning per-user override for current user, if any.
+ */
+const useMyPaidEventsOverride = () => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['paid-events-visibility-override', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_events_visibility_overrides')
+        .select('mode')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching paid events override:', error);
+        return null;
+      }
+      return (data?.mode as 'allowed' | 'denied' | undefined) ?? null;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+};
+
+/**
+ * Final visibility decision for the current logged-in user.
+ * Priorities:
+ *  1. Override 'denied' → hidden
+ *  2. Override 'allowed' → visible
+ *  3. Admin role → visible
+ *  4. Otherwise → role-based settings + is_enabled flag
+ */
+export const useIsPaidEventsVisible = (): boolean => {
+  const { data: visibility } = usePaidEventsVisibility();
+  const { data: override } = useMyPaidEventsOverride();
+  const { userRole } = useUserPermissions();
+
+  if (override === 'denied') return false;
+  if (override === 'allowed') return true;
+
+  const role = userRole?.role;
+  if (role?.toLowerCase() === 'admin') return true;
+
+  return isRoleVisibleForPaidEvents(visibility, role);
 };
