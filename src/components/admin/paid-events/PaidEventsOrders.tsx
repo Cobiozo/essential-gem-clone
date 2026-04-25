@@ -241,7 +241,14 @@ export const PaidEventsOrders: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{order.first_name} {order.last_name}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {order.first_name} {order.last_name}
+                          {order.user_id ? (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0">Zalogowany</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">Gość</Badge>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {order.email}
