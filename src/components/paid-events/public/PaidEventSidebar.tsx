@@ -49,6 +49,17 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   );
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
 
+  // Sync selectedTicketId with tickets list once it loads (or when admin reconfigures tickets).
+  // Without this, the CTA stays disabled because useState initializes once with an empty list.
+  useEffect(() => {
+    if (tickets.length === 0) return;
+    const exists = selectedTicketId && tickets.some(t => t.id === selectedTicketId);
+    if (!exists) {
+      const featured = tickets.find(t => t.isFeatured);
+      setSelectedTicketId(featured?.id ?? tickets[0].id);
+    }
+  }, [tickets, selectedTicketId]);
+
   // Calculate countdown
   useEffect(() => {
     const targetDate = new Date(eventDate).getTime();
