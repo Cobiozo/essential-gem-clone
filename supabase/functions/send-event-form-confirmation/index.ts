@@ -211,7 +211,13 @@ serve(async (req) => {
           .maybeSingle()
       : { data: null };
 
-    const publicBaseUrl = Deno.env.get("PUBLIC_SITE_URL") || "https://purelife.lovable.app";
+    // CRITICAL: Public email links MUST point to the production domain
+    // (purelife.info.pl). The Lovable preview domain (purelife.lovable.app)
+    // currently redirects unauthenticated users to /auth, which would break
+    // guest confirm/cancel links from emails.
+    const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
+      || Deno.env.get("PUBLIC_SITE_URL")
+      || "https://purelife.info.pl";
     const confirmUrl = `${publicBaseUrl}/event-form/confirm/${sub.confirmation_token}`;
     const cancelUrl = `${publicBaseUrl}/event-form/cancel/${sub.cancellation_token}`;
 
