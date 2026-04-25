@@ -6,20 +6,24 @@ import { PaidEventSection } from '@/components/paid-events/public/PaidEventSecti
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Ticket, Check } from 'lucide-react';
+import { Ticket, Check, UserX, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { EditorPreviewMode } from './PaidEventEditorLayout';
 
 interface EventEditorPreviewProps {
   eventId: string;
   eventSlug: string;
   highlightedSection?: string | null;
+  previewMode?: EditorPreviewMode;
 }
 
 export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
   eventId,
   eventSlug,
   highlightedSection,
+  previewMode = 'admin',
 }) => {
+  const isGuestPreview = previewMode === 'guest';
   // Fetch event data
   const { data: event } = useQuery({
     queryKey: ['paid-event-preview', eventId],
