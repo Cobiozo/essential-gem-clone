@@ -1,27 +1,62 @@
-# Usunięcie żółtego paska z logo z maila potwierdzenia rejestracji
+## Cel
 
-## Co zmieniamy
+Dodać pod-widok **Statystyki partnerów** dla każdego formularza w zakładce **Eventy → Formularze**. Statystyki są osobne dla każdego wydarzenia/formularza.
 
-W mailu potwierdzającym zgłoszenie na wydarzenie (`send-event-form-confirmation`) na samej górze wyświetla się żółto-złoty pasek (gradient `#D4AF37 → #F5E6A3 → #D4AF37`) z dwoma logo: Pure Life i Eqology IBP.
+## Lokalizacja
 
-Zgodnie z prośbą — pasek znika całkowicie. Email zaczyna się od bannera ustawionego przez administratora w formularzu (`form.banner_url`). Reszta treści (tytuł, powitanie, dane płatności, przyciski potwierdzenia/anulowania, stopka) pozostaje bez zmian.
+W `EventFormsList.tsx` w wierszu każdego formularza obok przycisku „Zgłoszenia" pojawi się drugi przycisk **„Statystyki partnerów"**. Kliknięcie otwiera nowy komponent `EventFormPartnerStats` (analogicznie do obecnego `EventFormSubmissions`) z przyciskiem **← Powrót** do listy formularzy.
 
-## Zachowanie po zmianie
+## Co zobaczy admin
 
-- Jeśli admin ustawił banner w formularzu → email zaczyna się od bannera (pełna szerokość, na górze białej karty).
-- Jeśli admin nie ustawił bannera → email zaczyna się od razu od tytułu formularza i powitania (bez żadnego nagłówka graficznego).
+### Nagłówek
+- Tytuł: „Statystyki partnerów: {nazwa formularza}"
+- Podtytuł: nazwa wydarzenia + liczba aktywnych partnerów
 
-## Zmiany techniczne
+### 4 karty zbiorcze (na górze)
+- **Kliknięcia ref linku** (suma `paid_event_partner_links.click_count` dla tego `form_id`)
+- **Rejestracje gości** (liczba `event_form_submissions` dla `form_id`, dowolny status)
+- **Opłacone** (liczba zgłoszeń z `payment_status = 'paid'`)
+- **Anulowane** (liczba zgłoszeń ze `status = 'cancelled'` lub `payment_status = 'cancelled'`)
 
-**Plik:** `supabase/functions/send-event-form-confirmation/index.ts`
+### 🏆 Podium TOP 3
+Trzy duże karty obok siebie (🥇 🥈 🥉) z:
+- avatar / inicjały + Imię Nazwisko
+- EQID
+- liczba opłaconych zgłoszeń (główna metryka rankingu)
+- pod spodem mini-statystyki: kliknięcia · rejestracje · konwersja %
 
-1. Usunąć cały blok `<div style="padding:24px;background:linear-gradient(...)">…</div>` (linie ~140–152) zawierający tabelę z dwoma logo.
-2. Usunąć nieużywane już stałe `logoUrl` i `eqologyLogoUrl` (linie 9–10).
-3. Pozostawić bez zmian renderowanie `${opts.bannerUrl ? <img …/> : ""}` — to jest banner ustawiony przez admina i ma być jedynym elementem graficznym na górze.
-4. Po zmianie zredeployować Edge Function `send-event-form-confirmation`.
+### Pełna tabela rankingu
+Wszyscy partnerzy z aktywnym ref linkiem dla tego formularza **lub** z co najmniej jednym zgłoszeniem przypisanym do nich. Kolumny:
 
-## Co NIE jest zmieniane
+| # | Partner (Imię Nazwisko + EQID) | Kliknięcia | Rejestracje | Opłacone | Anulowane | Konwersja klik→rej | Konwersja rej→opł |
 
-- Komponent `src/components/branding/DualBrandHeader.tsx` (używany na publicznych stronach potwierdzenia/anulowania w przeglądarce) — pozostaje bez zmian, bo to inny kontekst niż mail.
-- Pozostałe maile (`send-webinar-confirmation`, `register-event-transfer-order`) — nie ruszamy, bo użytkownik mówi konkretnie o mailu z formularzy rejestracyjnych widocznym w załączonym screenshocie.
-- Treść maila, przyciski Potwierdzam/Anuluj, sekcja danych do płatności, stopka — bez zmian.
+- Sortowanie po każdej kolumnie (klik nagłówka), domyślnie po **Opłaconych** malejąco.
+- Pierwsze trzy wiersze podświetlone medalami 🥇🥈🥉.
+- Wyszukiwarka po imieniu/EQID (dla dużych eventów).
+
+### Eksport CSV
+Przycisk **„Eksport CSV"** (jak w `EventFormSubmissions`) — pobiera całą tabelę rankingu z bieżącymi sortami/filtrem.
+
+## Logika danych (źródła)
+
+Wszystko pobierane z istniejących tabel — bez nowych migracji:
+
+1. **`paid_event_partner_links`** filtr `form_id` → źródło `click_count` per partner + lista wszystkich aktywnych partnerów dla formularza.
+2. **`event_form_submissions`** filtr `form_id` → grupowanie po `partner_user_id` dla rejestracji/opłaconych/anulowanych.
+3. **`profiles`** join po `user_id` → `first_name`, `last_name`, `eq_id`, `avatar_url`.
+
+Agregacja po stronie klienta (małe wolumeny per event, wzorzec jak w istniejącym `AutoWebinarPartnerStats.tsx`).
+
+Zgłoszenia bez przypisanego partnera (`partner_user_id IS NULL`) liczone tylko w kartach zbiorczych, nie w rankingu (oddzielny wiersz „Bez partnera" w stopce tabeli z licznikami, dla pełnej transparencji).
+
+## Pliki do utworzenia / edycji
+
+**Nowy plik:**
+- `src/components/admin/paid-events/event-forms/EventFormPartnerStats.tsx` — cały widok (karty zbiorcze, podium, tabela, eksport CSV).
+
+**Edytowane pliki:**
+- `src/components/admin/paid-events/event-forms/EventFormsList.tsx` — dodanie przycisku „Statystyki partnerów" w wierszu tabeli + stan `viewStatsFor` przełączający na `EventFormPartnerStats` (analogicznie do `viewSubmissionsFor`).
+
+## Bez zmian w bazie
+
+Nie potrzeba nowych tabel ani migracji — `paid_event_partner_links.click_count` i `event_form_submissions.partner_user_id` już istnieją i są wypełniane (przez `increment_partner_link_click` RPC oraz przy zapisie zgłoszenia).

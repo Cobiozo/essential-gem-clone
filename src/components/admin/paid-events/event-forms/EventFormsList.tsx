@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Copy, Eye, ListChecks, Power, PowerOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Copy, Eye, ListChecks, Power, PowerOff, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EventFormEditor } from './EventFormEditor';
 import { EventFormSubmissions } from './EventFormSubmissions';
+import { EventFormPartnerStats } from './EventFormPartnerStats';
 import { useAdminActivityLog } from '@/hooks/useAdminActivityLog';
 
 export const EventFormsList: React.FC = () => {
@@ -18,6 +19,7 @@ export const EventFormsList: React.FC = () => {
   const [editing, setEditing] = useState<any | null>(null);
   const [creating, setCreating] = useState(false);
   const [viewSubmissionsFor, setViewSubmissionsFor] = useState<any | null>(null);
+  const [viewStatsFor, setViewStatsFor] = useState<any | null>(null);
 
   const { data: forms = [], isLoading } = useQuery({
     queryKey: ['event-registration-forms'],
@@ -85,6 +87,15 @@ export const EventFormsList: React.FC = () => {
     );
   }
 
+  if (viewStatsFor) {
+    return (
+      <EventFormPartnerStats
+        form={viewStatsFor}
+        onBack={() => setViewStatsFor(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -148,6 +159,9 @@ export const EventFormsList: React.FC = () => {
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => setViewSubmissionsFor(f)} title="Zgłoszenia">
                         <ListChecks className="w-4 h-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setViewStatsFor(f)} title="Statystyki partnerów">
+                        <BarChart3 className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => toggleActive.mutate({ id: f.id, is_active: !f.is_active })} title={f.is_active ? 'Wyłącz' : 'Włącz'}>
                         {f.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
