@@ -1,62 +1,59 @@
 ## Cel
 
-Dodać pod-widok **Statystyki partnerów** dla każdego formularza w zakładce **Eventy → Formularze**. Statystyki są osobne dla każdego wydarzenia/formularza.
+Zastąpić obecny eksport CSV (surowy, nieformatowany) profesjonalnym plikiem **Excel (.xlsx)** z pełnym formatowaniem.
 
-## Lokalizacja
+## Co się zmieni
 
-W `EventFormsList.tsx` w wierszu każdego formularza obok przycisku „Zgłoszenia" pojawi się drugi przycisk **„Statystyki partnerów"**. Kliknięcie otwiera nowy komponent `EventFormPartnerStats` (analogicznie do obecnego `EventFormSubmissions`) z przyciskiem **← Powrót** do listy formularzy.
+Przycisk „Eksport CSV" → **„Eksport Excel"** w widoku statystyk partnerów (`EventFormPartnerStats.tsx`).
 
-## Co zobaczy admin
+## Zawartość pliku Excel
 
-### Nagłówek
-- Tytuł: „Statystyki partnerów: {nazwa formularza}"
-- Podtytuł: nazwa wydarzenia + liczba aktywnych partnerów
+### Nagłówek dokumentu (wiersze 1–4)
+- **Wiersz 1**: scalona komórka z tytułem `Statystyki partnerów: {nazwa formularza}` — duża czcionka, pogrubiona, tło markowe (złoto Pure Life)
+- **Wiersz 2**: scalona komórka z nazwą wydarzenia + datą + lokalizacją
+- **Wiersz 3**: data eksportu (`Wygenerowano: 25.04.2026, 14:32`)
+- **Wiersz 4**: pusty (separator)
 
-### 4 karty zbiorcze (na górze)
-- **Kliknięcia ref linku** (suma `paid_event_partner_links.click_count` dla tego `form_id`)
-- **Rejestracje gości** (liczba `event_form_submissions` dla `form_id`, dowolny status)
-- **Opłacone** (liczba zgłoszeń z `payment_status = 'paid'`)
-- **Anulowane** (liczba zgłoszeń ze `status = 'cancelled'` lub `payment_status = 'cancelled'`)
+### Sekcja podsumowania (wiersze 5–7)
+Kompaktowa tabelka z 4 metrykami zbiorczymi: kliknięcia, rejestracje, opłacone, anulowane — pogrubione wartości, kolorowe komórki.
 
-### 🏆 Podium TOP 3
-Trzy duże karty obok siebie (🥇 🥈 🥉) z:
-- avatar / inicjały + Imię Nazwisko
-- EQID
-- liczba opłaconych zgłoszeń (główna metryka rankingu)
-- pod spodem mini-statystyki: kliknięcia · rejestracje · konwersja %
+### Pusta linia separatora
 
-### Pełna tabela rankingu
-Wszyscy partnerzy z aktywnym ref linkiem dla tego formularza **lub** z co najmniej jednym zgłoszeniem przypisanym do nich. Kolumny:
+### Główna tabela rankingu
+Nagłówki: `#`, `Imię`, `Nazwisko`, `EQID`, `Kliknięcia`, `Rejestracje`, `Opłacone`, `Anulowane`, `Konwersja klik→rej`, `Konwersja rej→opł`
 
-| # | Partner (Imię Nazwisko + EQID) | Kliknięcia | Rejestracje | Opłacone | Anulowane | Konwersja klik→rej | Konwersja rej→opł |
+Formatowanie:
+- **Nagłówki** — pogrubione, białe na ciemnym tle (granat), wyśrodkowane, wysokość wiersza 28px
+- **Top 3** — wiersze podświetlone gradientowo (złoto/srebro/brąz), w kolumnie `#` emoji medali (🥇🥈🥉)
+- **Naprzemienne wiersze** (alternating rows) — lekkie tło dla parzystych
+- **Kolumna „Opłacone"** — pogrubiona, kolor zielony
+- **Kolumna „Anulowane"** — kolor czerwony jeśli > 0
+- **Kolumny konwersji** — formatowanie procentowe (`0%`)
+- **Liczby** — wyrównane do prawej; tekst do lewej
+- **Wiersz „Bez przypisanego partnera"** — kursywa, jasnoszare tło, na końcu
 
-- Sortowanie po każdej kolumnie (klik nagłówka), domyślnie po **Opłaconych** malejąco.
-- Pierwsze trzy wiersze podświetlone medalami 🥇🥈🥉.
-- Wyszukiwarka po imieniu/EQID (dla dużych eventów).
+### Szerokości kolumn
+Stałe, dopasowane do treści: `#`=6, `Imię`=18, `Nazwisko`=20, `EQID`=14, liczby=14, konwersje=18.
 
-### Eksport CSV
-Przycisk **„Eksport CSV"** (jak w `EventFormSubmissions`) — pobiera całą tabelę rankingu z bieżącymi sortami/filtrem.
+### Pierwszy wiersz danych zamrożony (freeze panes)
+Po przewijaniu nagłówki tabeli pozostają widoczne.
 
-## Logika danych (źródła)
+### Obramowania
+Wszystkie komórki tabeli — cienkie, szare obramowanie. Nagłówek tabeli — pogrubione obramowanie dolne.
 
-Wszystko pobierane z istniejących tabel — bez nowych migracji:
+### Nazwa pliku
+`statystyki-partnerow-{slug}-{YYYY-MM-DD}.xlsx`
 
-1. **`paid_event_partner_links`** filtr `form_id` → źródło `click_count` per partner + lista wszystkich aktywnych partnerów dla formularza.
-2. **`event_form_submissions`** filtr `form_id` → grupowanie po `partner_user_id` dla rejestracji/opłaconych/anulowanych.
-3. **`profiles`** join po `user_id` → `first_name`, `last_name`, `eq_id`, `avatar_url`.
+## Implementacja techniczna
 
-Agregacja po stronie klienta (małe wolumeny per event, wzorzec jak w istniejącym `AutoWebinarPartnerStats.tsx`).
+- Biblioteka **`xlsx`** (SheetJS) — zainstaluję przez `bun add xlsx` (popularna, lekka, działa w przeglądarce, brak dodatkowych zależności)
+- Generowanie po stronie klienta (bez edge function) — szybkie, bez round-tripa
+- Wykorzystam `XLSX.utils.aoa_to_sheet` + ręczne ustawianie `!cols`, `!merges`, stylów komórek przez `cell.s`
+- Plik zapisywany przez `XLSX.writeFile` (Blob + auto-download)
 
-Zgłoszenia bez przypisanego partnera (`partner_user_id IS NULL`) liczone tylko w kartach zbiorczych, nie w rankingu (oddzielny wiersz „Bez partnera" w stopce tabeli z licznikami, dla pełnej transparencji).
+**Uwaga**: standardowy `xlsx` nie wspiera stylów. Zainstaluję **`xlsx-js-style`** (fork z pełnym wsparciem dla stylów: kolory, czcionki, obramowania, scalanie, wyrównanie) — to zapewni profesjonalny wygląd zgodny z opisem powyżej.
 
-## Pliki do utworzenia / edycji
+## Pliki do edycji
 
-**Nowy plik:**
-- `src/components/admin/paid-events/event-forms/EventFormPartnerStats.tsx` — cały widok (karty zbiorcze, podium, tabela, eksport CSV).
-
-**Edytowane pliki:**
-- `src/components/admin/paid-events/event-forms/EventFormsList.tsx` — dodanie przycisku „Statystyki partnerów" w wierszu tabeli + stan `viewStatsFor` przełączający na `EventFormPartnerStats` (analogicznie do `viewSubmissionsFor`).
-
-## Bez zmian w bazie
-
-Nie potrzeba nowych tabel ani migracji — `paid_event_partner_links.click_count` i `event_form_submissions.partner_user_id` już istnieją i są wypełniane (przez `increment_partner_link_click` RPC oraz przy zapisie zgłoszenia).
+- `src/components/admin/paid-events/event-forms/EventFormPartnerStats.tsx` — zamiana funkcji `exportCsv` → `exportXlsx` + zmiana etykiety przycisku i ikony pliku
+- `package.json` — dodanie `xlsx-js-style`
