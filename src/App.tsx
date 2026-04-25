@@ -476,20 +476,72 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
+/**
+ * Bezpośredni "fast path" dla publicznych linków z maili
+ * (potwierdzenie / anulowanie rejestracji na wydarzenie).
+ *
+ * Ten ekran montuje się PRZED AuthProvider, ProfileCompletionGuard,
+ * MFA i logiką dashboardu. Dzięki temu gość po kliknięciu w mailu
+ * NIGDY nie ląduje na ekranie logowania, nawet jeśli ma starą /
+ * uszkodzoną sesję na produkcji.
+ */
+const EmailLinkFastPath: React.FC = () => {
+  const path = window.location.pathname;
+  const confirmMatch = path.match(/^\/event-form\/confirm\/([^/]+)\/?$/);
+  const cancelMatch = path.match(/^\/event-form\/cancel\/([^/]+)\/?$/);
+
+  if (!confirmMatch && !cancelMatch) return null;
+
+  return (
+    <ErrorBoundary>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <Suspense fallback={<LoadingSpinner />}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/event-form/confirm/:token" element={<EventFormConfirmPage />} />
+              <Route path="/event-form/cancel/:token" element={<EventFormCancelPage />} />
+              <Route path="*" element={<EventFormConfirmPage />} />
+            </Routes>
+          </BrowserRouter>
+        </Suspense>
+      </TooltipProvider>
+    </ErrorBoundary>
+  );
+};
+
+const App = () => {
+  // Publiczne linki z maili obsługujemy poza pełnym drzewem auth/MFA/guard
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isEmailLink =
+    /^\/event-form\/confirm\//.test(path) || /^\/event-form\/cancel\//.test(path);
+
+  if (isEmailLink) {
+    return (
       <LanguageProvider>
         <ThemeProvider defaultTheme="system" storageKey="pure-life-theme">
-          <AuthProvider>
-            <EditingProvider>
-              <AppContent />
-            </EditingProvider>
-          </AuthProvider>
+          <EmailLinkFastPath />
         </ThemeProvider>
       </LanguageProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <LanguageProvider>
+          <ThemeProvider defaultTheme="system" storageKey="pure-life-theme">
+            <AuthProvider>
+              <EditingProvider>
+                <AppContent />
+              </EditingProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </LanguageProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
