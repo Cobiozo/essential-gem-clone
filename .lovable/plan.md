@@ -1,55 +1,40 @@
 ## Problem
 
-Po kliknięciu „Zarejestruj mnie i wyślij dane do przelewu" pojawia się toast „Błąd rejestracji – Edge Function returned a non-2xx status code", mimo że zamówienie faktycznie zostało utworzone w bazie (`paid_event_orders.status = 'awaiting_transfer'`).
+Email z danymi do przelewu nigdy nie dochodzi, mimo że w UI widać komunikat "Wysłaliśmy email…". Zamówienia poprawnie zapisują się w bazie (status `awaiting_transfer`), ale wysyłka SMTP cicho nie działa.
 
-## Diagnoza
+## Przyczyna
 
-Edge Function `register-event-transfer-order` wykonuje synchronicznie po insercie zamówienia trzy ciężkie operacje przed zwróceniem odpowiedzi:
+W funkcji `register-event-transfer-order` jest niezgodność nazwy kolumny SMTP:
 
-1. **Pobranie ustawień SMTP + wysyłka maila** przez własnego klienta TCP/TLS (`Deno.connectTls` / `Deno.startTls`) — z timeoutami 15 s na samo połączenie.
-2. Wstawienie powiadomień dla wszystkich adminów + partnera.
-3. Upsert kontaktu w CRM partnera.
+- W bazie kolumna nazywa się **`smtp_encryption`** (wartość: `ssl`, port `465`)
+- Funkcja czyta natomiast **`s.encryption_type`** (taka właściwość nie istnieje → `undefined`)
 
-Bezpośredni test funkcji (`supabase--curl_edge_functions`) zawiesił się — funkcja nie zwróciła odpowiedzi w czasie, **mimo że order w bazie został utworzony** (potwierdzone w `paid_event_orders`). Klient otrzymuje 5xx (timeout edge function gateway), choć logicznie operacja się powiodła. Dla zalogowanego użytkownika oznacza to mylący komunikat o błędzie i prawdopodobne podwójne rezerwacje przy powtórnych klikach.
+Skutkiem tego:
 
-Powodem zwisania jest najpewniej blokujące się połączenie SMTP (TLS handshake / odpowiedź serwera) — handler nie wraca aż SMTP zakończy.
+1. Warunek `if (s.encryption_type === "ssl")` jest fałszywy → funkcja otwiera **zwykłe nieszyfrowane TCP** na porcie 465.
+2. Cyber-folks na porcie 465 wymaga natychmiastowego TLS — handshake się nie udaje, błąd jest łapany przez `try/catch` wokół wysyłki maila i tylko logowany. Klient już dawno dostał odpowiedź `200 OK` (wysyłka jest w `EdgeRuntime.waitUntil`), więc użytkownik widzi sukces, ale email nigdy nie wychodzi.
+
+Wszystkie inne edge functions (np. `send-bulk-webinar-reminders`, `send-welcome-email`) mapują tę kolumnę poprawnie: `encryption_type: smtpData.smtp_encryption`. Tylko ta jedna funkcja tego nie robi.
 
 ## Rozwiązanie
 
-Po udanym `INSERT` do `paid_event_orders` natychmiast zwrócić `200 { success: true, orderId, ticketCode }`, a wszystkie efekty uboczne (wysyłka maila, powiadomienia, CRM) wykonać w tle przez `EdgeRuntime.waitUntil(...)`. To standardowy pattern w Supabase Edge Functions:
+W `supabase/functions/register-event-transfer-order/index.ts`:
 
-```ts
-const sideEffects = (async () => {
-  // try { ... SMTP ... } catch { console.error }
-  // try { ... user_notifications ... } catch { ... }
-  // try { ... team_contacts upsert ... } catch { ... }
-})();
+1. Po pobraniu `smtp_settings` zmapować poprawnie pole szyfrowania:
+   ```ts
+   const smtpSettings: SmtpSettings = {
+     ...smtp,
+     encryption_type: (smtp as any).smtp_encryption,
+   };
+   ```
+   (analogicznie do `send-bulk-webinar-reminders/index.ts` linia 352)
 
-try {
-  // @ts-ignore EdgeRuntime is provided by Supabase runtime
-  EdgeRuntime.waitUntil(sideEffects);
-} catch {
-  sideEffects.catch((e) => console.error("side-effects error", e));
-}
+2. Dodać wyraźne logi diagnostyczne w bloku wysyłki maila (host, port, encryption, krok który się wywalił), żeby przyszłe problemy SMTP były widoczne w `edge_function_logs` zamiast cicho ginąć.
 
-return new Response(JSON.stringify({ success: true, orderId: order.id, ticketCode }), {
-  status: 200,
-  headers: { ...corsHeaders, "Content-Type": "application/json" },
-});
-```
+3. Po wdrożeniu: ręcznie wywołać ponowną rejestrację testową, sprawdzić skrzynkę odbiorczą oraz logi.
 
-Dzięki temu:
-- użytkownik dostaje natychmiastową odpowiedź sukcesu po samym zarezerwowaniu rekordu,
-- powolny/awaryjny SMTP nie powoduje już 5xx,
-- powiadomienia i CRM nadal są dostarczane (worker żyje aż do ich zakończenia).
+## Pliki do zmiany
 
-## Plik do zmiany
+- `supabase/functions/register-event-transfer-order/index.ts` — fix mapowania `smtp_encryption` → `encryption_type` + dodanie logów.
 
-- `supabase/functions/register-event-transfer-order/index.ts` — przeniesienie SMTP + notifications + CRM do bloku tła wywołanego przez `EdgeRuntime.waitUntil`, response `200` zaraz po insercie zamówienia.
-
-## Test po wdrożeniu
-
-1. Otworzyć `/events/bom-krakow` jako zalogowany użytkownik, wypełnić drawer „Kup bilet" i kliknąć „Zarejestruj mnie i wyślij dane do przelewu".
-2. Powinien pojawić się toast sukcesu (a nie „Błąd rejestracji").
-3. W tabeli `paid_event_orders` rekord ze statusem `awaiting_transfer`.
-4. W ciągu kilku-kilkunastu sekund: mail z danymi do przelewu, powiadomienia adminów, wpis w `team_contacts` partnera (jeśli był `refCode`).
+Brak zmian w bazie, brak zmian w UI, brak nowych sekretów.
