@@ -7,9 +7,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, Download, UserPlus, UserCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
+import * as XLSX from 'xlsx-js-style';
 
 interface Props {
   form: any;
@@ -102,36 +103,271 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       || (s.phone || '').toLowerCase().includes(q);
   });
 
-  const exportCsv = () => {
+  const exportXlsx = () => {
     const fieldsConfig = (form.fields_config || []) as Array<{ key: string; label: string }>;
+
+    // ----- Style helpers -----
+    const border = { style: 'thin', color: { rgb: 'CBD5E1' } } as const;
+    const allBorders = { top: border, bottom: border, left: border, right: border };
+    const titleStyle: any = {
+      font: { name: 'Calibri', sz: 18, bold: true, color: { rgb: '1E293B' } },
+      fill: { fgColor: { rgb: 'D4AF37' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: allBorders,
+    };
+    const subTitleStyle: any = {
+      font: { name: 'Calibri', sz: 11, italic: true, color: { rgb: '475569' } },
+      fill: { fgColor: { rgb: 'FEF3C7' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: allBorders,
+    };
+    const summaryLabelStyle: any = {
+      font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '475569' } },
+      fill: { fgColor: { rgb: 'F1F5F9' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: allBorders,
+    };
+    const summaryValueStyle = (bg: string, fg: string): any => ({
+      font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: fg } },
+      fill: { fgColor: { rgb: bg } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: allBorders,
+    });
+    const headerStyle: any = {
+      font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '1E3A5F' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border: allBorders,
+    };
+    const baseCell = (alt: boolean): any => ({
+      font: { name: 'Calibri', sz: 10, color: { rgb: '0F172A' } },
+      fill: { fgColor: { rgb: alt ? 'F8FAFC' : 'FFFFFF' } },
+      alignment: { vertical: 'center', wrapText: true },
+      border: allBorders,
+    });
+    const paymentStyle = (status: string, alt: boolean): any => {
+      const map: Record<string, { bg: string; fg: string }> = {
+        paid: { bg: 'D1FAE5', fg: '047857' },
+        pending: { bg: 'FEF3C7', fg: '92400E' },
+        cancelled: { bg: 'FEE2E2', fg: 'B91C1C' },
+        refunded: { bg: 'DBEAFE', fg: '1D4ED8' },
+      };
+      const c = map[status] || { bg: alt ? 'F8FAFC' : 'FFFFFF', fg: '0F172A' };
+      return {
+        font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: c.fg } },
+        fill: { fgColor: { rgb: c.bg } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: allBorders,
+      };
+    };
+    const emailStyle = (status: string, alt: boolean): any => {
+      const map: Record<string, { fg: string }> = {
+        sent: { fg: '1D4ED8' },
+        confirmed: { fg: '047857' },
+        cancelled: { fg: 'B91C1C' },
+        bounced: { fg: 'B91C1C' },
+      };
+      const c = map[status] || { fg: '0F172A' };
+      return {
+        font: { name: 'Calibri', sz: 10, color: { rgb: c.fg } },
+        fill: { fgColor: { rgb: alt ? 'F8FAFC' : 'FFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: allBorders,
+      };
+    };
+
+    // ----- Compute summary -----
+    const counts = {
+      total: filtered.length,
+      paid: filtered.filter(s => s.payment_status === 'paid').length,
+      pending: filtered.filter(s => s.payment_status === 'pending').length,
+      cancelled: filtered.filter(s => s.payment_status === 'cancelled').length,
+      refunded: filtered.filter(s => s.payment_status === 'refunded').length,
+    };
+
+    // ----- Headers -----
     const headers = [
-      'Data', 'Imię', 'Nazwisko', 'Email', 'Telefon',
-      'Status płatności', 'Email status',
-      'Email potwierdzony (data)', 'Anulowane (data)', 'Anulowane przez',
-      'Partner imię', 'Partner nazwisko', 'Partner email',
+      'Lp.', 'Data zgłoszenia', 'Imię', 'Nazwisko', 'Email', 'Telefon',
+      'Status płatności', 'Status email',
+      'Email potwierdzony', 'Anulowane (data)', 'Anulowane przez',
+      'Partner — imię', 'Partner — nazwisko', 'Partner — email',
       ...fieldsConfig.map(f => f.label),
     ];
-    const rows = filtered.map(s => {
+    const totalCols = headers.length;
+    const lastColLetter = XLSX.utils.encode_col(totalCols - 1);
+
+    // ----- Build AOA -----
+    const aoa: any[][] = [];
+    // Row 1: brand title
+    aoa.push([`Zgłoszenia: ${form.title || form.slug || ''}`, ...Array(totalCols - 1).fill('')]);
+    // Row 2: subtitle
+    aoa.push([`Wygenerowano: ${new Date().toLocaleString('pl-PL')}  •  Liczba zgłoszeń: ${counts.total}`, ...Array(totalCols - 1).fill('')]);
+    // Row 3: empty spacer
+    aoa.push(Array(totalCols).fill(''));
+    // Row 4-5: summary tiles (label row + value row, each tile = 2 cols)
+    const summary = [
+      { label: 'Wszystkich', value: counts.total, bg: 'E2E8F0', fg: '0F172A' },
+      { label: 'Opłaconych', value: counts.paid, bg: 'D1FAE5', fg: '047857' },
+      { label: 'Oczekujących', value: counts.pending, bg: 'FEF3C7', fg: '92400E' },
+      { label: 'Anulowanych', value: counts.cancelled, bg: 'FEE2E2', fg: 'B91C1C' },
+      { label: 'Zwróconych', value: counts.refunded, bg: 'DBEAFE', fg: '1D4ED8' },
+    ];
+    const labelRow: any[] = [];
+    const valueRow: any[] = [];
+    summary.forEach(t => { labelRow.push(t.label, ''); valueRow.push(t.value, ''); });
+    while (labelRow.length < totalCols) { labelRow.push(''); valueRow.push(''); }
+    aoa.push(labelRow);
+    aoa.push(valueRow);
+    // Row 6: empty spacer
+    aoa.push(Array(totalCols).fill(''));
+    // Row 7: headers
+    aoa.push(headers);
+    // Data rows
+    filtered.forEach((s, idx) => {
       const p = s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
-      return [
-        new Date(s.created_at).toLocaleString('pl-PL'),
-        s.first_name || '', s.last_name || '', s.email || '', s.phone || '',
-        s.payment_status, s.email_status,
+      aoa.push([
+        idx + 1,
+        s.created_at ? new Date(s.created_at).toLocaleString('pl-PL') : '',
+        s.first_name || '',
+        s.last_name || '',
+        s.email || '',
+        s.phone || '',
+        PAYMENT_LABELS[s.payment_status]?.label || s.payment_status || '',
+        s.email_status || '',
         s.email_confirmed_at ? new Date(s.email_confirmed_at).toLocaleString('pl-PL') : '',
         s.cancelled_at ? new Date(s.cancelled_at).toLocaleString('pl-PL') : '',
-        s.cancelled_by || '',
-        p?.first_name || '', p?.last_name || '', p?.email || '',
-        ...fieldsConfig.map(f => s.submitted_data?.[f.key] || ''),
-      ];
+        s.cancelled_by === 'guest' ? 'Gość' : s.cancelled_by === 'admin' ? 'Administrator' : (s.cancelled_by || ''),
+        p?.first_name || '',
+        p?.last_name || '',
+        p?.email || '',
+        ...fieldsConfig.map(f => {
+          const v = s.submitted_data?.[f.key];
+          if (v == null) return '';
+          if (typeof v === 'boolean') return v ? 'Tak' : 'Nie';
+          if (typeof v === 'object') return JSON.stringify(v);
+          return String(v);
+        }),
+      ]);
     });
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `zgloszenia-${form.slug}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Footer
+    aoa.push(Array(totalCols).fill(''));
+    aoa.push([`Wygenerowano w panelu Pure Life — ${new Date().toLocaleString('pl-PL')}`, ...Array(totalCols - 1).fill('')]);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    // ----- Merges -----
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, // title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } }, // subtitle
+      // summary tiles: each label/value spans 2 cols
+      ...summary.flatMap((_, i) => [
+        { s: { r: 3, c: i * 2 }, e: { r: 3, c: i * 2 + 1 } },
+        { s: { r: 4, c: i * 2 }, e: { r: 4, c: i * 2 + 1 } },
+      ]),
+      { s: { r: aoa.length - 1, c: 0 }, e: { r: aoa.length - 1, c: totalCols - 1 } }, // footer
+    ];
+
+    // ----- Apply styles -----
+    // Title row
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r: 0, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = titleStyle;
+    }
+    // Subtitle row
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r: 1, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = subTitleStyle;
+    }
+    // Summary label/value
+    summary.forEach((t, i) => {
+      const labelAddr = XLSX.utils.encode_cell({ r: 3, c: i * 2 });
+      if (!ws[labelAddr]) ws[labelAddr] = { t: 's', v: t.label };
+      ws[labelAddr].s = summaryLabelStyle;
+      const valueAddr = XLSX.utils.encode_cell({ r: 4, c: i * 2 });
+      if (!ws[valueAddr]) ws[valueAddr] = { t: 'n', v: t.value };
+      ws[valueAddr].s = summaryValueStyle(t.bg, t.fg);
+    });
+    // Header row (row index 6)
+    const headerRowIdx = 6;
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r: headerRowIdx, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: headers[c] };
+      ws[addr].s = headerStyle;
+    }
+    // Data rows
+    filtered.forEach((s, idx) => {
+      const r = headerRowIdx + 1 + idx;
+      const alt = idx % 2 === 1;
+      for (let c = 0; c < totalCols; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        if (c === 6) {
+          ws[addr].s = paymentStyle(s.payment_status, alt);
+        } else if (c === 7) {
+          ws[addr].s = emailStyle(s.email_status, alt);
+        } else {
+          ws[addr].s = baseCell(alt);
+        }
+      }
+    });
+    // Footer row
+    const footerRowIdx = aoa.length - 1;
+    for (let c = 0; c < totalCols; c++) {
+      const addr = XLSX.utils.encode_cell({ r: footerRowIdx, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = {
+        font: { name: 'Calibri', sz: 9, italic: true, color: { rgb: '64748B' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        fill: { fgColor: { rgb: 'F8FAFC' } },
+      };
+    }
+
+    // ----- Column widths -----
+    const widths = [
+      6,   // Lp.
+      20,  // Data
+      14,  // Imię
+      16,  // Nazwisko
+      30,  // Email
+      16,  // Telefon
+      16,  // Status płatności
+      14,  // Status email
+      20,  // Email potwierdzony
+      20,  // Anulowane data
+      16,  // Anulowane przez
+      14,  // Partner imię
+      16,  // Partner nazwisko
+      30,  // Partner email
+      ...fieldsConfig.map(() => 22),
+    ];
+    ws['!cols'] = widths.map(w => ({ wch: w }));
+
+    // Row heights
+    ws['!rows'] = [
+      { hpt: 28 }, // title
+      { hpt: 20 }, // subtitle
+      { hpt: 6 },  // spacer
+      { hpt: 20 }, // summary labels
+      { hpt: 28 }, // summary values
+      { hpt: 6 },  // spacer
+      { hpt: 32 }, // headers
+    ];
+
+    // Freeze panes below headers
+    ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 };
+    (ws as any)['!autofilter'] = { ref: `A${headerRowIdx + 1}:${lastColLetter}${headerRowIdx + 1 + filtered.length}` };
+
+    // Set ref to include footer
+    ws['!ref'] = `A1:${lastColLetter}${aoa.length}`;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Zgłoszenia');
+    const fileName = `zgloszenia-${form.slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    toast({ title: 'Eksport zakończony', description: `Wyeksportowano ${filtered.length} zgłoszeń` });
   };
 
   const fieldsConfig = (form.fields_config || []) as Array<{ key: string; label: string }>;
@@ -211,8 +447,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
           <option value="cancelled">Anulowane</option>
           <option value="refunded">Zwrócone</option>
         </select>
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="w-4 h-4 mr-1" /> Eksport CSV
+        <Button variant="outline" size="sm" onClick={exportXlsx}>
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Eksport Excel
         </Button>
       </div>
 
