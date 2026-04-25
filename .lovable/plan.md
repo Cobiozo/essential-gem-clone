@@ -1,99 +1,62 @@
-## Diagnoza
+## Problem 1 — Banner rozciągnięty na całą szerokość
 
-W bazie dla Jana Testującego (`byk1023@wp.pl`) widać:
-- `email_status = 'sent'` (mail z linkiem został wysłany 24.04.2026 18:38)
-- `email_confirmed_at = NULL` (system nie odnotował kliknięcia w link potwierdzający)
+Na publicznej stronie eventu (`/events/:slug`) sekcja `PaidEventHero` używa `w-full` (full bleed), więc baner ciągnie się od krawędzi do krawędzi okna. Treść poniżej jest zamknięta w `container mx-auto px-4`, więc baner wizualnie wystaje poza tekst.
 
-Link w mailu prowadzi do `/event-form/confirm/:token`. Strona React po załadowaniu wywołuje Edge Function `confirm-event-form-email` przez `supabase.functions.invoke(...)`. Funkcja powinna wywołać RPC `confirm_event_form_email`, który ustawia `email_confirmed_at = now()` i wstawia powiadomienia adminom + partnerowi.
+### Fix
+W `src/components/paid-events/public/PaidEventHero.tsx` zawinąć kafelek z banerem w ten sam wrapper kontenera, którego używa reszta strony, oraz zaokrąglić rogi:
 
-**Przyczyna:** W `supabase/config.toml` BRAKUJE wpisu z `verify_jwt = false` dla funkcji obsługujących publiczne linki w mailach:
-- `confirm-event-form-email` — kliknięcie linku potwierdzającego
-- `cancel-event-form-submission` — kliknięcie linku anulującego
-- `send-event-form-confirmation` — wysyłka maila z publicznego formularza
-
-Bez tego wpisu Supabase domyślnie wymaga ważnego JWT zalogowanego użytkownika. Gość (Jan), który klika link w mailu, jest niezalogowany — request `supabase.functions.invoke` jest wtedy odrzucany przez bramkę Supabase **zanim w ogóle wejdzie w kod funkcji**, dlatego:
-- nie ma żadnych logów Edge Function dla tych wywołań
-- RPC nie jest wywoływane → `email_confirmed_at` zostaje NULL
-- admin nie widzi potwierdzenia w panelu
-
-Frontend rzuca błąd, ale strona `EventFormConfirmPage.tsx` może go pokazywać jako jakieś niejasne „wystąpił błąd techniczny" (i Jan/admin tego nie zauważyli).
-
-## Naprawa
-
-### 1. `supabase/config.toml` — odblokować funkcje publicznych linków
-
-Dodać 3 brakujące wpisy:
-
-```
-[functions.confirm-event-form-email]
-verify_jwt = false
-
-[functions.cancel-event-form-submission]
-verify_jwt = false
-
-[functions.send-event-form-confirmation]
-verify_jwt = false
+```text
+<section> 
+  └── <div className="container mx-auto px-4 pt-6">
+      └── <div className="relative w-full aspect-… rounded-2xl overflow-hidden …">
+          ├── <img …/>
+          ├── gradient overlay
+          ├── back-button overlay (pozycjonowany absolutnie wewnątrz banera)
+          └── bottom content overlay (tytuł, data, lokalizacja)
 ```
 
-(Pozostałe funkcje obsługujące publiczne linki, np. `verify-event-ticket`, `payu-create-order`, mają już `verify_jwt = false` — to jest spójne z resztą konfiguracji.)
+Zmiany:
+1. Owinąć blok banera (linie 109–173 obecnego pliku) w `<div className="container mx-auto px-4 pt-6 md:pt-8">`.
+2. Dodać do wewnętrznego kafelka klasy `rounded-2xl shadow-sm` aby wizualnie pasował do reszty layoutu.
+3. Dla wariantu „bez baneru" pozostawić obecny układ z `container` (już jest ok).
 
-### 2. Ręczne potwierdzenie rejestracji Jana
+Efekt: lewa i prawa krawędź banera będą równe z lewą/prawą krawędzią tekstu w sekcjach poniżej.
 
-Aby admin natychmiast zobaczył potwierdzenie tej konkretnej rejestracji (skoro Jan rzeczywiście kliknął link, ale nie zadziałało nie z jego winy), uruchomić jednorazową migrację, która wywoła istniejący RPC `confirm_event_form_email` z aktualnym tokenem Jana — lub bezpośrednio: 
+---
 
-```sql
-UPDATE public.event_form_submissions
-SET email_confirmed_at = now()
-WHERE id = '64aed010-5584-4601-8ef3-c8fde6f0cc74'
-  AND email_confirmed_at IS NULL;
-```
+## Problem 2 — Linki potwierdzenia / anulowania w mailu prowadzą do logowania
 
-Powiadomienia (admin + partner) i wpis CRM dla tego konkretnego zgłoszenia trzeba zrobić jednym INSERT-em do `user_notifications` w tej samej migracji, żeby nie zostały pominięte (logika z `confirm-event-form-email/index.ts` jest poza SQL-em, więc samo `UPDATE` jej nie odpali). Migracja:
+### Diagnoza
+Sprawdziłem wersję produkcyjną pod `https://purelife.lovable.app/event-form/cancel/<token>`: zwraca **stronę logowania**, a nie kreator potwierdzenia. Powód: produkcja nie ma jeszcze wgranych ostatnich zmian, w tym:
 
-```sql
--- 1) potwierdź rejestrację
-UPDATE public.event_form_submissions
-SET email_confirmed_at = now()
-WHERE id = '64aed010-5584-4601-8ef3-c8fde6f0cc74'
-  AND email_confirmed_at IS NULL;
+- Wpisu `/event-form/` w `PUBLIC_PATHS` w `ProfileCompletionGuard.tsx` (dodanego w naprawie sprzed kilku iteracji).
+- Wpisów `verify_jwt = false` dla `confirm-event-form-email`, `cancel-event-form-submission`, `send-event-form-confirmation` w `supabase/config.toml`.
+- Tras `/event-form/confirm/:token` i `/event-form/cancel/:token` w `App.tsx` (jeśli były dodane po ostatniej publikacji).
 
--- 2) powiadom adminów
-INSERT INTO public.user_notifications (user_id, notification_type, source_module, title, message, link, metadata)
-SELECT ur.user_id,
-       'event_form_confirmed',
-       'paid_events',
-       'Gość potwierdził e-mail rejestracji',
-       'Jan Testujący (byk1023@wp.pl) potwierdził rejestrację (uzupełnione ręcznie po naprawie błędu konfiguracji).',
-       '/admin?tab=paid-events',
-       jsonb_build_object('submission_id','64aed010-5584-4601-8ef3-c8fde6f0cc74')
-FROM public.user_roles ur
-WHERE ur.role = 'admin';
+W rezultacie nieautoryzowany gość, który klika link w mailu, trafia do `ProfileCompletionGuard`, który (w starej wersji bez `/event-form/`) traktuje ścieżkę jako chronioną i przekierowuje na `/auth`.
 
--- 3) powiadom partnera (jeśli istnieje)
-INSERT INTO public.user_notifications (user_id, notification_type, source_module, title, message, link, metadata)
-SELECT s.partner_user_id,
-       'event_form_confirmed',
-       'paid_events',
-       'Twój gość potwierdził rejestrację',
-       'Jan Testujący (byk1023@wp.pl) potwierdził rejestrację.',
-       '/dashboard?tab=contacts',
-       jsonb_build_object('submission_id', s.id)
-FROM public.event_form_submissions s
-WHERE s.id = '64aed010-5584-4601-8ef3-c8fde6f0cc74'
-  AND s.partner_user_id IS NOT NULL;
-```
+W środowisku **preview** (najnowszy kod) trasy działają poprawnie — funkcje edge zwracają `200 OK` i mają wpis `verify_jwt = false`.
 
-### 3. (opcjonalnie, ale polecam) Lepsza obsługa błędu w `EventFormConfirmPage.tsx`
+### Fix
+1. Zweryfikować, że w `App.tsx` istnieją oba routy: `/event-form/confirm/:token` i `/event-form/cancel/:token` (są — linie 417–418).
+2. Zweryfikować, że `ProfileCompletionGuard.tsx` ma `/event-form/` w `PUBLIC_PATHS` (jest — linia 30).
+3. Zweryfikować `supabase/config.toml` — wpisy są (linie 285–292).
+4. **Opublikować projekt** (Publish) — bez tego produkcja nie zobaczy żadnej z tych zmian. Po publikacji link z maila otworzy stronę potwierdzenia/anulowania zamiast loginu.
+5. Po publikacji ponownie wysłać sobie testowy mail (lub poprosić Jana o ponowne kliknięcie linku anulującego) i sprawdzić, że:
+   - `/event-form/confirm/<token>` → ekran „Twoje dane i rejestracja zostały poprawnie potwierdzone".
+   - `/event-form/cancel/<token>` → ekran z przyciskiem „Tak, anuluj rejestrację" → po kliknięciu komunikat sukcesu i automatyczne powiadomienie do admina + partnera (kod edge-funkcji już to robi).
 
-Gdy `supabase.functions.invoke` rzuci błąd 401/non-2xx, na ekranie pojawia się ogólny komunikat. Doprecyzować, by pokazywał krótkie „Spróbuj ponownie odświeżając stronę. Jeśli problem się powtarza, skontaktuj się z organizatorem." — to nie zmienia logiki, ale gość przynajmniej wie, że potwierdzenie nie przeszło.
+### Dodatkowe wzmocnienie (zapobieganie)
+Aby ten sam problem nie powtarzał się przy każdej kolejnej publikacji ścieżek publicznych, dopisać krótki komentarz w `ProfileCompletionGuard.tsx` przy `PUBLIC_PATHS`: „Pamiętaj o publikacji po dodaniu ścieżki publicznej — w przeciwnym razie produkcja przekieruje na /auth.".
 
-## Pliki edytowane
+---
 
-- `supabase/config.toml` — dodanie 3 wpisów `verify_jwt = false`
-- nowa migracja SQL — naprawa stanu rejestracji Jana + powiadomienia
-- (opcjonalnie) `src/pages/EventFormConfirmPage.tsx` — czytelniejszy komunikat błędu
+## Pliki
 
-## Efekt
+- `src/components/paid-events/public/PaidEventHero.tsx` — zawinięcie banera w `container mx-auto px-4`, dodanie `rounded-2xl shadow-sm`.
+- `src/components/profile/ProfileCompletionGuard.tsx` — komentarz przy `PUBLIC_PATHS`.
+- (Brak zmian w edge-funkcjach i `config.toml` — są poprawne, wymagana tylko publikacja.)
 
-- Po deploy'u kliknięcie linku potwierdzającego w mailu przez **niezalogowanego** gościa będzie poprawnie wywoływać Edge Function, RPC ustawi `email_confirmed_at`, admin zobaczy zmianę w `EventFormSubmissions` i otrzyma powiadomienie. To samo dla linku anulowania.
-- Stan rejestracji Jana zostanie naprawiony jednorazową migracją, więc admin od razu zobaczy „potwierdzono" w panelu i dostanie zaległe powiadomienie.
+## Po wdrożeniu — akcja użytkownika
+
+Po zatwierdzeniu i wgraniu zmian: **opublikuj projekt** (przycisk Publish), następnie wykonaj test linku z maila. Bez publikacji druga część poprawki (cancel/confirm na produkcji) nie zacznie działać.

@@ -105,9 +105,11 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
   // Banner present: responsive aspect ratio (no min-h, so the image is never
   // artificially stretched and its composition stays intact at every width).
   // Same proportions in admin preview and on the public page.
+  // Wrapped in `container` so banner edges align with content/text below.
   return (
     <section className="relative w-full">
-      <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] lg:aspect-[21/9] max-h-[560px] overflow-hidden bg-muted">
+      <div className="container mx-auto px-4 pt-6 md:pt-8">
+        <div className="relative w-full aspect-[16/9] sm:aspect-[2/1] lg:aspect-[21/9] max-h-[560px] overflow-hidden bg-muted rounded-2xl shadow-sm">
         {/* Banner image */}
         <img
           src={resolvedBannerUrl}
