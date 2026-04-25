@@ -1,7 +1,8 @@
 import React from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Eye, Save } from 'lucide-react';
+import { ArrowLeft, Eye, UserX, Settings } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { EventEditorSidebar } from './EventEditorSidebar';
 import { EventEditorPreview } from './EventEditorPreview';
 
@@ -12,6 +13,8 @@ interface PaidEventEditorLayoutProps {
   onClose: () => void;
 }
 
+export type EditorPreviewMode = 'admin' | 'guest';
+
 export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
   eventId,
   eventSlug,
@@ -20,6 +23,7 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
 }) => {
   const [highlightedSection, setHighlightedSection] = React.useState<string | null>(null);
   const [previewKey, setPreviewKey] = React.useState(0);
+  const [previewMode, setPreviewMode] = React.useState<EditorPreviewMode>('admin');
 
   const refreshPreview = () => {
     setPreviewKey(prev => prev + 1);
@@ -28,13 +32,13 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
-      <header className="h-14 border-b bg-background flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 border-b bg-background flex items-center justify-between px-4 shrink-0 gap-3">
+        <div className="flex items-center gap-4 min-w-0">
           <Button variant="ghost" size="sm" onClick={onClose}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Powrót
           </Button>
-          <div className="hidden sm:block">
+          <div className="hidden sm:block min-w-0">
             <h1 className="font-semibold text-lg truncate max-w-[300px] lg:max-w-[500px]">
               Edytor: {eventTitle}
             </h1>
@@ -44,9 +48,25 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={previewMode}
+            onValueChange={(v) => { if (v) setPreviewMode(v as EditorPreviewMode); }}
+            className="border rounded-md"
+          >
+            <ToggleGroupItem value="admin" aria-label="Widok edytora" className="text-xs gap-1.5 px-2.5">
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Widok edytora</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="guest" aria-label="Widok niezalogowanego gościa" className="text-xs gap-1.5 px-2.5">
+              <UserX className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Widok gościa</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Button variant="outline" size="sm" onClick={refreshPreview}>
             <Eye className="w-4 h-4 mr-2" />
-            Odśwież podgląd
+            <span className="hidden sm:inline">Odśwież podgląd</span>
           </Button>
         </div>
       </header>
@@ -75,6 +95,7 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
                 eventId={eventId}
                 eventSlug={eventSlug}
                 highlightedSection={highlightedSection}
+                previewMode={previewMode}
               />
             </div>
           </ResizablePanel>
