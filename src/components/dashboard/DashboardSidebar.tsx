@@ -66,7 +66,7 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
-import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
+import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
@@ -195,6 +195,7 @@ export const DashboardSidebar: React.FC = () => {
   // Chat sidebar visibility
   const { data: chatVisibility } = useChatSidebarVisibility();
   const { data: paidEventsVisibility } = usePaidEventsVisibility();
+  const isPaidEventsVisible = useIsPaidEventsVisible();
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
 
@@ -542,8 +543,8 @@ export const DashboardSidebar: React.FC = () => {
       return false;
     }
 
-    // Check paid-events visibility based on role settings
-    if (item.id === 'paid-events' && !isRoleVisibleForPaidEvents(paidEventsVisibility, userRole?.role)) {
+    // Check paid-events visibility (role + per-user override)
+    if (item.id === 'paid-events' && !isPaidEventsVisible) {
       return false;
     }
 
