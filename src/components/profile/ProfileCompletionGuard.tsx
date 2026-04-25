@@ -15,6 +15,8 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   
   // PUBLIC PATH CHECK FIRST — before any auth hooks to prevent race conditions
   // This is critical for Messenger/Facebook WebView which may have stale sessions
+  // ⚠️ IMPORTANT: After adding a public path here you MUST publish the project,
+  // otherwise production will keep redirecting unauthenticated guests to /auth.
   const PUBLIC_PATHS = [
     '/',           // Strona główna - publiczna (CMS)
     '/auth',       // Panel logowania
