@@ -172,9 +172,8 @@ export const PaidEventHero: React.FC<PaidEventHeroProps> = ({
             </div>
           </div>
         </div>
+        </div>
       </div>
     </section>
-  );
-};
   );
 };
