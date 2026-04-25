@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Settings, Eye, AlertTriangle, Building } from 'lucide-react';
+import { PaidEventsUserOverrides } from './PaidEventsUserOverrides';
 
 interface PaidEventsSettingsData {
   id: string;
@@ -280,6 +281,9 @@ export const PaidEventsSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Per-user visibility overrides */}
+      <PaidEventsUserOverrides />
 
       {/* PayU Info */}
       <Card>
