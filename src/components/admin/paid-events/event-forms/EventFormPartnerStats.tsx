@@ -471,8 +471,8 @@ export const EventFormPartnerStats: React.FC<Props> = ({ form, onBack }) => {
             {form.paid_events?.title || 'Wydarzenie'} · {summary.partnersCount} {summary.partnersCount === 1 ? 'partner' : 'partnerów'}
           </p>
         </div>
-        <Button onClick={exportCsv} variant="outline" disabled={rows.length === 0}>
-          <Download className="w-4 h-4 mr-1" /> Eksport CSV
+        <Button onClick={exportXlsx} variant="outline" disabled={rows.length === 0}>
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Eksport Excel
         </Button>
       </div>
 
