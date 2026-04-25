@@ -447,8 +447,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
           <option value="cancelled">Anulowane</option>
           <option value="refunded">Zwrócone</option>
         </select>
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="w-4 h-4 mr-1" /> Eksport CSV
+        <Button variant="outline" size="sm" onClick={exportXlsx}>
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Eksport Excel
         </Button>
       </div>
 
