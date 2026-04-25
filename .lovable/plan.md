@@ -1,46 +1,55 @@
 ## Problem
 
-Na stronie wydarzenia płatnego (np. `/events/bom-krakow`) zalogowany użytkownik nie może kliknąć przycisku „Zapisz się” pod ceną biletu — przycisk jest wyłączony (`disabled`), nawet gdy są dostępne miejsca i bilet istnieje.
+Po kliknięciu „Zarejestruj mnie i wyślij dane do przelewu" pojawia się toast „Błąd rejestracji – Edge Function returned a non-2xx status code", mimo że zamówienie faktycznie zostało utworzone w bazie (`paid_event_orders.status = 'awaiting_transfer'`).
 
 ## Diagnoza
 
-W komponencie `src/components/paid-events/public/PaidEventSidebar.tsx`:
+Edge Function `register-event-transfer-order` wykonuje synchronicznie po insercie zamówienia trzy ciężkie operacje przed zwróceniem odpowiedzi:
 
-```ts
-const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
-  tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
-);
-```
+1. **Pobranie ustawień SMTP + wysyłka maila** przez własnego klienta TCP/TLS (`Deno.connectTls` / `Deno.startTls`) — z timeoutami 15 s na samo połączenie.
+2. Wstawienie powiadomień dla wszystkich adminów + partnera.
+3. Upsert kontaktu w CRM partnera.
 
-`useState` wykonuje inicjalizację **tylko raz** — przy pierwszym renderze. W tym momencie `PaidEventPage` przekazuje jeszcze pustą tablicę `tickets = []` (zanim `useQuery` zwróci dane), więc `selectedTicketId` zostaje ustawiony na `null`.
+Bezpośredni test funkcji (`supabase--curl_edge_functions`) zawiesił się — funkcja nie zwróciła odpowiedzi w czasie, **mimo że order w bazie został utworzony** (potwierdzone w `paid_event_orders`). Klient otrzymuje 5xx (timeout edge function gateway), choć logicznie operacja się powiodła. Dla zalogowanego użytkownika oznacza to mylący komunikat o błędzie i prawdopodobne podwójne rezerwacje przy powtórnych klikach.
 
-Kiedy `tickets` w końcu się załadują (1 element), stan `selectedTicketId` **nie jest aktualizowany**. W trybie pojedynczego biletu (linia 176–183) nie ma też żadnego przycisku selekcji, który mógłby ten stan zaktualizować ręcznie.
-
-Skutek: w przycisku CTA na linii 205 warunek `disabled={!selectedTicketId || availableSpots === 0}` pozostaje `true`, mimo że bilet w UI jest pokazany.
+Powodem zwisania jest najpewniej blokujące się połączenie SMTP (TLS handshake / odpowiedź serwera) — handler nie wraca aż SMTP zakończy.
 
 ## Rozwiązanie
 
-W `PaidEventSidebar.tsx` dodać `useEffect`, który auto-wybiera bilet po załadowaniu/zmianie listy biletów, jeśli aktualny `selectedTicketId` nie istnieje w nowej liście:
+Po udanym `INSERT` do `paid_event_orders` natychmiast zwrócić `200 { success: true, orderId, ticketCode }`, a wszystkie efekty uboczne (wysyłka maila, powiadomienia, CRM) wykonać w tle przez `EdgeRuntime.waitUntil(...)`. To standardowy pattern w Supabase Edge Functions:
 
 ```ts
-useEffect(() => {
-  if (tickets.length === 0) return;
-  const exists = selectedTicketId && tickets.some(t => t.id === selectedTicketId);
-  if (!exists) {
-    const featured = tickets.find(t => t.isFeatured);
-    setSelectedTicketId(featured?.id ?? tickets[0].id);
-  }
-}, [tickets, selectedTicketId]);
+const sideEffects = (async () => {
+  // try { ... SMTP ... } catch { console.error }
+  // try { ... user_notifications ... } catch { ... }
+  // try { ... team_contacts upsert ... } catch { ... }
+})();
+
+try {
+  // @ts-ignore EdgeRuntime is provided by Supabase runtime
+  EdgeRuntime.waitUntil(sideEffects);
+} catch {
+  sideEffects.catch((e) => console.error("side-effects error", e));
+}
+
+return new Response(JSON.stringify({ success: true, orderId: order.id, ticketCode }), {
+  status: 200,
+  headers: { ...corsHeaders, "Content-Type": "application/json" },
+});
 ```
 
-To rozwiąże również edge-case, gdy admin zmieni konfigurację biletów w trakcie życia komponentu.
+Dzięki temu:
+- użytkownik dostaje natychmiastową odpowiedź sukcesu po samym zarezerwowaniu rekordu,
+- powolny/awaryjny SMTP nie powoduje już 5xx,
+- powiadomienia i CRM nadal są dostarczane (worker żyje aż do ich zakończenia).
 
-## Pliki do zmiany
+## Plik do zmiany
 
-- `src/components/paid-events/public/PaidEventSidebar.tsx` — dodać `useEffect` synchronizujący `selectedTicketId` z listą `tickets`.
+- `supabase/functions/register-event-transfer-order/index.ts` — przeniesienie SMTP + notifications + CRM do bloku tła wywołanego przez `EdgeRuntime.waitUntil`, response `200` zaraz po insercie zamówienia.
 
 ## Test po wdrożeniu
 
-1. Otworzyć `/events/bom-krakow` jako zalogowany użytkownik.
-2. Przycisk „Zapisz się” pod ceną 35,00 zł powinien być aktywny.
-3. Kliknięcie otwiera drawer zakupu z wybranym biletem.
+1. Otworzyć `/events/bom-krakow` jako zalogowany użytkownik, wypełnić drawer „Kup bilet" i kliknąć „Zarejestruj mnie i wyślij dane do przelewu".
+2. Powinien pojawić się toast sukcesu (a nie „Błąd rejestracji").
+3. W tabeli `paid_event_orders` rekord ze statusem `awaiting_transfer`.
+4. W ciągu kilku-kilkunastu sekund: mail z danymi do przelewu, powiadomienia adminów, wpis w `team_contacts` partnera (jeśli był `refCode`).

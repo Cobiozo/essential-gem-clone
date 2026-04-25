@@ -291,103 +291,117 @@ serve(async (req) => {
       maximumFractionDigits: 2,
     }).format(totalAmount / 100);
 
-    // Send email (best-effort — don't fail the whole order if SMTP misbehaves)
-    try {
-      const { data: smtp } = await supabase
-        .from("smtp_settings")
-        .select("*")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (smtp) {
-        const html = buildEmail({
-          firstName: buyer.firstName,
-          eventTitle: event.title,
-          eventDate: eventDateStr,
-          ticketName: ticket.name,
-          amountFormatted,
-          transferDetails,
-          ticketCode,
-        });
-        await sendSmtp(
-          smtp as SmtpSettings,
-          buyer.email,
-          `Rezerwacja przyjęta – ${event.title} – dane do przelewu`,
-          html
-        );
-      } else {
-        console.warn("No active SMTP settings — skipping email");
-      }
-    } catch (mailErr) {
-      console.error("email send failed", mailErr);
-    }
-
-    // Notify all admins + inviting partner
-    try {
-      const { data: admins } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "admin");
-
-      const recipients = new Set<string>();
-      (admins || []).forEach((a: any) => recipients.add(a.user_id));
-      if (partnerUserId) recipients.add(partnerUserId);
-
-      const notifications = Array.from(recipients).map((uid) => ({
-        user_id: uid,
-        notification_type: "event_order_pending",
-        source_module: "paid_events",
-        title: "📥 Nowa rezerwacja oczekująca na przelew",
-        message: `${buyer.firstName} ${buyer.lastName} zarezerwował bilet "${ticket.name}" na "${event.title}" (${amountFormatted}).`,
-        link: `/admin/paid-events`,
-        metadata: {
-          order_id: order.id,
-          event_id: eventId,
-          ticket_id: ticketId,
-          ticket_code: ticketCode,
-        },
-      }));
-
-      if (notifications.length > 0) {
-        await supabase.from("user_notifications").insert(notifications);
-      }
-    } catch (notifyErr) {
-      console.error("notification insert failed", notifyErr);
-    }
-
-    // Upsert into partner's CRM (team_contacts) — best-effort
-    if (partnerUserId) {
+    // Run side-effects (email, notifications, CRM upsert) in the background.
+    // SMTP can be slow / unreachable; we don't want to block the client response
+    // (which would otherwise surface as "Edge Function returned a non-2xx status code").
+    const sideEffects = (async () => {
+      // Send email (best-effort)
       try {
-        const noteLine = `📥 ${new Date().toLocaleString("pl-PL")} – Zarezerwował bilet "${ticket.name}" na "${event.title}" (${amountFormatted}, oczekuje na przelew, kod: ${ticketCode})`;
-
-        const { data: existing } = await supabase
-          .from("team_contacts")
-          .select("id, notes")
-          .eq("user_id", partnerUserId)
-          .eq("email", buyer.email.trim().toLowerCase())
+        const { data: smtp } = await supabase
+          .from("smtp_settings")
+          .select("*")
+          .eq("is_active", true)
           .maybeSingle();
 
-        if (existing) {
-          const newNotes = existing.notes ? `${existing.notes}\n${noteLine}` : noteLine;
-          await supabase
-            .from("team_contacts")
-            .update({ notes: newNotes, updated_at: new Date().toISOString() })
-            .eq("id", existing.id);
-        } else {
-          await supabase.from("team_contacts").insert({
-            user_id: partnerUserId,
-            first_name: buyer.firstName.trim(),
-            last_name: buyer.lastName.trim(),
-            email: buyer.email.trim().toLowerCase(),
-            phone_number: buyer.phone?.trim() || null,
-            role: "client",
-            contact_source: "paid_event_transfer",
-            notes: noteLine,
+        if (smtp) {
+          const html = buildEmail({
+            firstName: buyer.firstName,
+            eventTitle: event.title,
+            eventDate: eventDateStr,
+            ticketName: ticket.name,
+            amountFormatted,
+            transferDetails,
+            ticketCode,
           });
+          await sendSmtp(
+            smtp as SmtpSettings,
+            buyer.email,
+            `Rezerwacja przyjęta – ${event.title} – dane do przelewu`,
+            html
+          );
+        } else {
+          console.warn("No active SMTP settings — skipping email");
         }
-      } catch (crmErr) {
-        console.error("CRM upsert failed", crmErr);
+      } catch (mailErr) {
+        console.error("email send failed", mailErr);
       }
+
+      // Notify all admins + inviting partner
+      try {
+        const { data: admins } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "admin");
+
+        const recipients = new Set<string>();
+        (admins || []).forEach((a: any) => recipients.add(a.user_id));
+        if (partnerUserId) recipients.add(partnerUserId);
+
+        const notifications = Array.from(recipients).map((uid) => ({
+          user_id: uid,
+          notification_type: "event_order_pending",
+          source_module: "paid_events",
+          title: "📥 Nowa rezerwacja oczekująca na przelew",
+          message: `${buyer.firstName} ${buyer.lastName} zarezerwował bilet "${ticket.name}" na "${event.title}" (${amountFormatted}).`,
+          link: `/admin/paid-events`,
+          metadata: {
+            order_id: order.id,
+            event_id: eventId,
+            ticket_id: ticketId,
+            ticket_code: ticketCode,
+          },
+        }));
+
+        if (notifications.length > 0) {
+          await supabase.from("user_notifications").insert(notifications);
+        }
+      } catch (notifyErr) {
+        console.error("notification insert failed", notifyErr);
+      }
+
+      // Upsert into partner's CRM (team_contacts) — best-effort
+      if (partnerUserId) {
+        try {
+          const noteLine = `📥 ${new Date().toLocaleString("pl-PL")} – Zarezerwował bilet "${ticket.name}" na "${event.title}" (${amountFormatted}, oczekuje na przelew, kod: ${ticketCode})`;
+
+          const { data: existing } = await supabase
+            .from("team_contacts")
+            .select("id, notes")
+            .eq("user_id", partnerUserId)
+            .eq("email", buyer.email.trim().toLowerCase())
+            .maybeSingle();
+
+          if (existing) {
+            const newNotes = existing.notes ? `${existing.notes}\n${noteLine}` : noteLine;
+            await supabase
+              .from("team_contacts")
+              .update({ notes: newNotes, updated_at: new Date().toISOString() })
+              .eq("id", existing.id);
+          } else {
+            await supabase.from("team_contacts").insert({
+              user_id: partnerUserId,
+              first_name: buyer.firstName.trim(),
+              last_name: buyer.lastName.trim(),
+              email: buyer.email.trim().toLowerCase(),
+              phone_number: buyer.phone?.trim() || null,
+              role: "client",
+              contact_source: "paid_event_transfer",
+              notes: noteLine,
+            });
+          }
+        } catch (crmErr) {
+          console.error("CRM upsert failed", crmErr);
+        }
+      }
+    })();
+
+    // Keep the worker alive until side-effects finish, but don't block the response.
+    try {
+      // @ts-ignore — EdgeRuntime is provided by the Supabase edge runtime
+      EdgeRuntime.waitUntil(sideEffects);
+    } catch (_) {
+      // Fallback: detach without keeping worker alive (best-effort)
+      sideEffects.catch((e) => console.error("side-effects error", e));
     }
 
     return new Response(
