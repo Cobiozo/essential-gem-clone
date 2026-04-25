@@ -1,57 +1,73 @@
 ## Cel
 
-Zastąpić obecny "Eksport CSV" w widoku **Zgłoszenia** (lista submissions konkretnego formularza) profesjonalnym eksportem **Excel (.xlsx)** — analogicznym stylistycznie do eksportu w "Statystykach partnerów".
+Rozszerzyć system widoczności modułu „Płatne wydarzenia" o nadpisania per-użytkownik. Admin chce możliwość:
 
-## Zakres zmian
+- Włączyć moduł dla całej roli (np. Partnerzy), ale **wykluczyć** konkretnego partnera.
+- Wyłączyć moduł dla całej roli, ale **dodać dostęp** konkretnemu użytkownikowi (niezależnie od jego roli).
 
-**Plik:** `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`
+Dotychczasowe przełączniki ról (Admin / Partner / Specjalista / Klient) pozostają. Dochodzi warstwa wyjątków per-użytkownik.
 
-1. Zamienić funkcję `exportCsv` na `exportXlsx` używającą `xlsx-js-style` (biblioteka jest już zainstalowana).
-2. Zamienić przycisk "Eksport CSV" na "Eksport Excel" z ikoną `FileSpreadsheet`.
-3. Nazwa pliku: `zgloszenia-{slug}-{YYYY-MM-DD}.xlsx`.
+## Logika widoczności (priorytety)
 
-## Struktura arkusza
+Dla danego użytkownika kolejność decyzji:
 
-**Sekcja 1 — Nagłówek brandowy (gold #D4AF37):**
-- Tytuł: `Zgłoszenia: {form.title}`
-- Podtytuł: nazwa wydarzenia / slug
-- Data wygenerowania (pl-PL)
-- Liczba zgłoszeń (po zastosowanych filtrach)
+1. **Override = denied** dla tego user_id → moduł UKRYTY (nawet jeśli rola ma włączone).
+2. **Override = allowed** dla tego user_id → moduł WIDOCZNY (nawet jeśli rola ma wyłączone, i nawet jeśli `is_enabled=false` na poziomie roli — admin świadomie dał dostęp).
+3. **Brak overrida** → standardowa logika `visible_to_<role>` z `paid_events_settings`.
 
-**Sekcja 2 — Podsumowanie (kafelki):**
-- Wszystkich: X
-- Opłaconych: X (zielone)
-- Oczekujących: X (żółte)
-- Anulowanych: X (czerwone)
-- Zwróconych: X (niebieskie)
+Admini (rola admin) zawsze widzą moduł — bez zmian.
 
-**Sekcja 3 — Tabela zgłoszeń** (zamrożone nagłówki, naprzemienne tło wierszy, granice):
+## Zmiany w bazie
 
-Kolumny stałe:
-| Lp. | Data zgłoszenia | Imię | Nazwisko | Email | Telefon | Status płatności | Status email | Email potwierdzony | Anulowane (data) | Anulowane przez | Partner — imię | Partner — nazwisko | Partner — email | …pola dynamiczne z `fields_config` |
+Nowa tabela `paid_events_visibility_overrides`:
 
-**Formatowanie warunkowe:**
-- `Status płatności = Opłacone` → bold, zielone tło `#D1FAE5`
-- `Status płatności = Oczekuje` → żółte tło `#FEF3C7`
-- `Status płatności = Anulowane` → czerwone, jasne tło `#FEE2E2`
-- `Status płatności = Zwrócone` → niebieskie tło `#DBEAFE`
-- Statusy mailowe (Wysłany/Potwierdzony/Anulowane) — odpowiednie kolory tekstu
-- Nagłówek tabeli: granat `#1E3A5F`, biały tekst, bold
-- Naprzemienne tło wierszy `#F8FAFC` / białe
-- Wszystkie etykiety statusów po polsku (mapowane przez `PAYMENT_LABELS`)
+```text
+id            uuid PK
+user_id       uuid → auth.users(id) on delete cascade
+mode          text check in ('allowed','denied')
+created_at    timestamptz default now()
+created_by    uuid → auth.users(id)
+note          text nullable     -- opcjonalna notatka admina
+unique(user_id)                 -- jeden wpis per user
+```
 
-**Layout:**
-- Szerokości kolumn dopasowane do typu danych (data ~20, email ~30, status ~14 itd.)
-- Freeze panes na nagłówku tabeli
-- Borders cienkie szare na wszystkich komórkach danych
-- Stopka: "Wygenerowano w panelu Pure Life — {data}"
+RLS:
+- SELECT/INSERT/UPDATE/DELETE: tylko `has_role(auth.uid(), 'admin')`.
+- Dodatkowo SELECT dla samego użytkownika na własnym wpisie (potrzebne by frontend mógł zbudować swój stan widoczności bez edge function).
 
-## Eksportowane dane
+Indeks na `user_id`.
 
-- Stosujemy aktualnie **przefiltrowany** zbiór (`filtered`) — szanuje wybór statusu i wyszukiwarkę, dokładnie jak teraz CSV.
-- Pola dynamiczne (`form.fields_config`) dołączane jako dodatkowe kolumny po danych partnera.
+## Zmiany w hooku widoczności
 
-## Bez zmian
+`src/hooks/usePaidEventsVisibility.ts`:
 
-- Logika pobierania danych, filtrów i mapowania partnerów pozostaje bez zmian.
-- Brak migracji bazy, brak zmian w innych plikach.
+- Dodaje równoległe pobieranie overrida dla bieżącego użytkownika (`paid_events_visibility_overrides` where `user_id = auth.uid()`).
+- Nowa funkcja `useIsPaidEventsVisible()` zwracająca pojedynczy boolean wg priorytetów wyżej.
+- Stara funkcja `isRoleVisibleForPaidEvents` pozostaje dla zgodności wstecznej, ale `DashboardSidebar` zostaje przepięty na `useIsPaidEventsVisible()`.
+
+## Zmiany w UI ustawień
+
+`src/components/admin/paid-events/PaidEventsSettings.tsx` — nowa karta „Wyjątki per użytkownik" pod kartą „Widoczność modułu":
+
+- Wyszukiwarka użytkowników (po imieniu, nazwisku, e-mailu, EQID) — re-używamy istniejącego wzorca z innych paneli admina.
+- Przycisk „Dodaj wyjątek" → modal: wybór użytkownika + tryb (Zezwól / Zablokuj) + opcjonalna notatka.
+- Lista bieżących wyjątków: avatar/imię/nazwisko, e-mail, rola, badge trybu (zielony „Zezwolono" / czerwony „Zablokowano"), notatka, przycisk usuń.
+- Filtr/przełącznik „Pokaż tylko zablokowanych / zezwolonych / wszystkich".
+
+UX:
+- Krótka legenda: „Wyjątek nadpisuje ustawienia roli. Zezwól = użytkownik widzi moduł niezależnie od swojej roli. Zablokuj = użytkownik nie widzi modułu, nawet jeśli jego rola ma dostęp."
+- Walidacja: nie można dodać wyjątku dla samego siebie (admin) — i tak by nic nie zmieniło.
+
+## Pliki do zmiany / utworzenia
+
+- migracja SQL: tabela `paid_events_visibility_overrides` + RLS + indeks
+- `src/hooks/usePaidEventsVisibility.ts` — rozszerzenie o overrida i `useIsPaidEventsVisible`
+- `src/components/dashboard/DashboardSidebar.tsx` — użycie nowego hooka
+- `src/components/admin/paid-events/PaidEventsSettings.tsx` — montuje nową kartę
+- nowy `src/components/admin/paid-events/PaidEventsUserOverrides.tsx` — UI listy + modal dodawania
+- nowy `src/components/admin/paid-events/AddPaidEventsOverrideDialog.tsx` — wyszukiwarka użytkownika + tryb + notatka
+
+## Poza zakresem
+
+- Brak grupowych nadpisań (np. cały zespół lidera) — tylko per-user.
+- Brak czasowych wygasań (TTL) — wyjątek obowiązuje do ręcznego usunięcia.
