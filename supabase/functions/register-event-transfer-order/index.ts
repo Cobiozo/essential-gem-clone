@@ -297,13 +297,33 @@ serve(async (req) => {
     const sideEffects = (async () => {
       // Send email (best-effort)
       try {
-        const { data: smtp } = await supabase
+        const { data: smtp, error: smtpErr } = await supabase
           .from("smtp_settings")
           .select("*")
           .eq("is_active", true)
           .maybeSingle();
 
+        if (smtpErr) {
+          console.error("[email] failed to load SMTP settings", smtpErr);
+        }
+
         if (smtp) {
+          // The DB column is `smtp_encryption`, but our SmtpSettings type
+          // uses `encryption_type` (matches the rest of the codebase).
+          const smtpSettings: SmtpSettings = {
+            smtp_host: (smtp as any).smtp_host,
+            smtp_port: (smtp as any).smtp_port,
+            smtp_username: (smtp as any).smtp_username,
+            smtp_password: (smtp as any).smtp_password,
+            encryption_type: (smtp as any).smtp_encryption,
+            sender_email: (smtp as any).sender_email,
+            sender_name: (smtp as any).sender_name,
+          };
+
+          console.log(
+            `[email] sending to ${buyer.email} via ${smtpSettings.smtp_host}:${smtpSettings.smtp_port} (${smtpSettings.encryption_type})`
+          );
+
           const html = buildEmail({
             firstName: buyer.firstName,
             eventTitle: event.title,
@@ -314,16 +334,17 @@ serve(async (req) => {
             ticketCode,
           });
           await sendSmtp(
-            smtp as SmtpSettings,
+            smtpSettings,
             buyer.email,
             `Rezerwacja przyjęta – ${event.title} – dane do przelewu`,
             html
           );
+          console.log(`[email] sent successfully to ${buyer.email}`);
         } else {
-          console.warn("No active SMTP settings — skipping email");
+          console.warn("[email] No active SMTP settings — skipping email");
         }
       } catch (mailErr) {
-        console.error("email send failed", mailErr);
+        console.error("[email] send failed", mailErr instanceof Error ? mailErr.message : mailErr);
       }
 
       // Notify all admins + inviting partner
