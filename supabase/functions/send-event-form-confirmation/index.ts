@@ -6,9 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const logoUrl = "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png";
-const eqologyLogoUrl = (Deno.env.get("PUBLIC_SITE_URL") || "https://purelife.lovable.app") + "/lovable-uploads/eqology-ibp-logo.png";
-
 interface ReqBody {
   submissionId: string;
 }
@@ -137,19 +134,6 @@ function buildEmail(opts: {
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
   <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-    <div style="padding:24px;background:linear-gradient(135deg,#D4AF37,#F5E6A3,#D4AF37);">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${logoUrl}" alt="Pure Life" style="max-width:150px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-          <td align="center" valign="middle" width="1" style="border-left:1px solid rgba(0,0,0,0.18);height:40px;"></td>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${eqologyLogoUrl}" alt="Eqology Independent Business Partner" style="max-width:150px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-        </tr>
-      </table>
-    </div>
     ${opts.bannerUrl ? `<img src="${opts.bannerUrl}" alt="${opts.formTitle}" style="display:block;width:100%;height:auto;" />` : ""}
     <div style="padding:30px;">
       <h1 style="margin:0 0 10px;font-size:22px;color:#222;">${opts.formTitle}</h1>

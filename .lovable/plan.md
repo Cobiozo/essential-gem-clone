@@ -1,32 +1,27 @@
-Rozumiem — gość po kliknięciu z maila nie może trafiać do logowania. Ma od razu zobaczyć ekran z informacją o potwierdzeniu albo ekran anulowania z komunikatem po wykonaniu akcji.
+# Usunięcie żółtego paska z logo z maila potwierdzenia rejestracji
 
-Ustaliłem kluczowy problem: domena produkcyjna `purelife.info.pl` obsługuje te publiczne ekrany poprawnie, ale linki z maili mogą nadal prowadzić na `purelife.lovable.app`, gdzie aktualnie pokazuje się logowanie. Dlatego samo działanie funkcji potwierdzenia/anulowania nie wystarcza — trzeba naprawić adres generowany w mailu oraz zabezpieczyć stare linki.
+## Co zmieniamy
 
-Plan naprawy:
+W mailu potwierdzającym zgłoszenie na wydarzenie (`send-event-form-confirmation`) na samej górze wyświetla się żółto-złoty pasek (gradient `#D4AF37 → #F5E6A3 → #D4AF37`) z dwoma logo: Pure Life i Eqology IBP.
 
-1. Zmienię generowanie linków w mailu rejestracyjnym tak, aby przyciski „Potwierdzam” i „Anuluj rejestrację” zawsze prowadziły na właściwą publiczną domenę:
-   - `https://purelife.info.pl/event-form/confirm/...`
-   - `https://purelife.info.pl/event-form/cancel/...`
+Zgodnie z prośbą — pasek znika całkowicie. Email zaczyna się od bannera ustawionego przez administratora w formularzu (`form.banner_url`). Reszta treści (tytuł, powitanie, dane płatności, przyciski potwierdzenia/anulowania, stopka) pozostaje bez zmian.
 
-2. Zostawię bezpieczny fallback w kodzie, żeby już nigdy automatycznie nie wracał do `purelife.lovable.app` jako domyślnego adresu dla tych maili.
+## Zachowanie po zmianie
 
-3. Dopilnuję, żeby oba ekrany mailowe były całkowicie publiczne:
-   - bez logowania,
-   - bez przekierowania na stronę główną,
-   - bez przechodzenia przez ochronę profilu/MFA/dashboardu.
+- Jeśli admin ustawił banner w formularzu → email zaczyna się od bannera (pełna szerokość, na górze białej karty).
+- Jeśli admin nie ustawił bannera → email zaczyna się od razu od tytułu formularza i powitania (bez żadnego nagłówka graficznego).
 
-4. Ulepszę komunikaty widoczne dla gościa:
-   - po potwierdzeniu: jasny zielony baner/ekran „Rejestracja potwierdzona”,
-   - po anulowaniu: ekran potwierdzenia anulowania,
-   - przy ponownym kliknięciu: informacja, że akcja była już wcześniej wykonana,
-   - przy błędnym/wygasłym linku: czytelny komunikat, bez logowania.
+## Zmiany techniczne
 
-5. Sprawdzę logikę zapisu w bazie i powiadomień admina/partnera:
-   - potwierdzenie ma zapisać `email_confirmed_at`,
-   - anulowanie ma zapisać status anulowania,
-   - admin ma widzieć zmianę w panelu,
-   - powiadomienia mają tworzyć się tylko przy pierwszym wykonaniu akcji.
+**Plik:** `supabase/functions/send-event-form-confirmation/index.ts`
 
-6. Po zmianach wdrożę ponownie funkcje mailowe/potwierdzenia/anulowania i przetestuję publiczne wejście na linki bez zalogowania.
+1. Usunąć cały blok `<div style="padding:24px;background:linear-gradient(...)">…</div>` (linie ~140–152) zawierający tabelę z dwoma logo.
+2. Usunąć nieużywane już stałe `logoUrl` i `eqologyLogoUrl` (linie 9–10).
+3. Pozostawić bez zmian renderowanie `${opts.bannerUrl ? <img …/> : ""}` — to jest banner ustawiony przez admina i ma być jedynym elementem graficznym na górze.
+4. Po zmianie zredeployować Edge Function `send-event-form-confirmation`.
 
-Ważne: nowe maile będą prowadzić na poprawną domenę od razu po wdrożeniu funkcji. Jeśli ktoś kliknie stary mail wygenerowany wcześniej z adresem `purelife.lovable.app`, pełna naprawa tego starego linku będzie wymagała opublikowania aktualnej wersji frontendu również na tej domenie Lovable.
+## Co NIE jest zmieniane
+
+- Komponent `src/components/branding/DualBrandHeader.tsx` (używany na publicznych stronach potwierdzenia/anulowania w przeglądarce) — pozostaje bez zmian, bo to inny kontekst niż mail.
+- Pozostałe maile (`send-webinar-confirmation`, `register-event-transfer-order`) — nie ruszamy, bo użytkownik mówi konkretnie o mailu z formularzy rejestracyjnych widocznym w załączonym screenshocie.
+- Treść maila, przyciski Potwierdzam/Anuluj, sekcja danych do płatności, stopka — bez zmian.
