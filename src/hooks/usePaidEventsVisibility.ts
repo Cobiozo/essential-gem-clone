@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface PaidEventsVisibility {
   is_enabled: boolean;
@@ -102,12 +101,12 @@ const useMyPaidEventsOverride = () => {
 export const useIsPaidEventsVisible = (): boolean => {
   const { data: visibility } = usePaidEventsVisibility();
   const { data: override } = useMyPaidEventsOverride();
-  const { userRole } = useUserPermissions();
+  const { userRole } = useAuth();
 
   if (override === 'denied') return false;
   if (override === 'allowed') return true;
 
-  const role = userRole?.role;
+  const role = (userRole as any)?.role as string | undefined;
   if (role?.toLowerCase() === 'admin') return true;
 
   return isRoleVisibleForPaidEvents(visibility, role);
