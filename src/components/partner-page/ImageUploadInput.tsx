@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, X, Loader2, Check, RectangleHorizontal, RectangleVertical, Square, Circle, Maximize } from 'lucide-react';
+import { Upload, X, Loader2, Check, RectangleHorizontal, RectangleVertical, Square, Circle, Maximize, Crop } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -132,7 +132,7 @@ export const ImageUploadInput: React.FC<Props> = ({
   }, [cropSrc, croppedAreaPixels, showEventBannerPreview]);
 
   const handleCropConfirm = async () => {
-    if (!cropSrc || !croppedAreaPixels || !selectedFile) return;
+    if (!cropSrc || !croppedAreaPixels) return;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -151,10 +151,47 @@ export const ImageUploadInput: React.FC<Props> = ({
       const { data: urlData } = supabase.storage.from('landing-images').getPublicUrl(path);
       const shapeTag = activePreset.id !== 'h16_9' ? `#shape=${activePreset.id}` : '';
       onChange(urlData.publicUrl + shapeTag);
-      toast({ title: 'Przesłano!' });
+      toast({ title: selectedFile ? 'Przesłano!' : 'Zaktualizowano kadrowanie!' });
       closeCropDialog();
     } catch (err: any) {
       toast({ title: 'Błąd uploadu', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleEditExisting = async () => {
+    if (!value) return;
+    // Strip optional #shape=xyz fragment from stored URL
+    const hashIdx = value.indexOf('#');
+    const cleanUrl = hashIdx >= 0 ? value.slice(0, hashIdx) : value;
+    const shapeMatch = hashIdx >= 0 ? value.slice(hashIdx + 1).match(/shape=([\w-]+)/) : null;
+    const shapeId = shapeMatch?.[1];
+
+    setUploading(true);
+    try {
+      // Fetch image as blob → object URL so react-easy-crop + canvas can read pixels.
+      // Cache-bust to dodge stale CDN copies.
+      const bust = `${cleanUrl.includes('?') ? '&' : '?'}_=${Date.now()}`;
+      const res = await fetch(cleanUrl + bust, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      setSelectedFile(null);
+      setCropSrc(objectUrl);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setSelectedShape(
+        shapeId && availablePresets.some(p => p.id === shapeId) ? shapeId : initialShape
+      );
+      setPreviewUrl(null);
+    } catch (err: any) {
+      toast({
+        title: 'Nie można otworzyć obrazu',
+        description: 'Spróbuj wgrać plik ponownie z dysku.',
+        variant: 'destructive',
+      });
     } finally {
       setUploading(false);
     }
@@ -174,14 +211,45 @@ export const ImageUploadInput: React.FC<Props> = ({
       {value && !compact && (
         <div className="relative w-full">
           <img src={value} alt="Podgląd" className="w-full max-h-64 object-contain rounded-md border bg-muted" />
-          <button onClick={() => onChange('')} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1">
-            <X className="h-3 w-3" />
-          </button>
+          <div className="absolute top-1 right-1 flex gap-1">
+            <button
+              type="button"
+              onClick={handleEditExisting}
+              disabled={uploading}
+              className="bg-background/90 hover:bg-background text-foreground rounded-full p-1.5 shadow-sm border transition-colors disabled:opacity-50"
+              title="Edytuj kadrowanie"
+              aria-label="Edytuj kadrowanie"
+            >
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crop className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="bg-destructive text-destructive-foreground rounded-full p-1.5 shadow-sm transition-colors hover:bg-destructive/90"
+              title="Usuń obraz"
+              aria-label="Usuń obraz"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
       <div className="flex gap-2">
         <Input value={value} onChange={e => onChange(e.target.value)} placeholder="URL lub prześlij plik" className="flex-1 text-sm" />
-        <Button type="button" variant="outline" size="icon" onClick={() => inputRef.current?.click()} disabled={uploading}>
+        {value && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleEditExisting}
+            disabled={uploading}
+            title="Edytuj kadrowanie"
+            aria-label="Edytuj kadrowanie"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crop className="h-4 w-4" />}
+          </Button>
+        )}
+        <Button type="button" variant="outline" size="icon" onClick={() => inputRef.current?.click()} disabled={uploading} title="Wgraj nowy plik" aria-label="Wgraj nowy plik">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
         </Button>
       </div>
