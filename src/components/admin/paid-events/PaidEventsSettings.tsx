@@ -282,6 +282,9 @@ export const PaidEventsSettings: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Per-user visibility overrides */}
+      <PaidEventsUserOverrides />
+
       {/* PayU Info */}
       <Card>
         <CardHeader>
