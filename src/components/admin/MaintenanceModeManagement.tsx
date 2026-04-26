@@ -92,7 +92,7 @@ const MaintenanceModeManagement: React.FC = () => {
           is_enabled: isEnabled,
           title,
           message,
-          planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null,
+          planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null,
         })
         .eq('id', settings.id);
 
@@ -192,7 +192,7 @@ const MaintenanceModeManagement: React.FC = () => {
           is_enabled: enabled,
           title,
           message,
-          planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null,
+          planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null,
         })
         .eq('id', settings.id);
 
@@ -420,7 +420,7 @@ const MaintenanceModeManagement: React.FC = () => {
               maintenance={{
                 title,
                 message,
-                planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null
+                planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null
               }} 
             />
           </div>
