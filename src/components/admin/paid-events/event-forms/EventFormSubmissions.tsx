@@ -63,24 +63,83 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
 
-  // Identify which submissions belong to registered users (partners) vs guests by email match
+  // Identify which submissions belong to registered users (partners) vs guests by email match,
+  // AND fetch each submitter's own profile (with upline_eq_id) so that for partner rows we
+  // can render the submitter's direct upline ("opiekun") in the "Partner zapraszający" column,
+  // regardless of which ref link was used to register.
   const submissionEmails = Array.from(new Set(
     submissions.map(s => (s.email || '').toLowerCase()).filter(Boolean)
   ));
-  const { data: registeredEmailsSet } = useQuery({
-    queryKey: ['event-form-submission-registered-emails', form.id, submissionEmails.sort().join(',')],
+  const { data: submitterProfilesByEmail = {} as Record<string, any> } = useQuery({
+    queryKey: ['event-form-submission-submitter-profiles', form.id, submissionEmails.sort().join(',')],
     enabled: submissionEmails.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('email')
+        .select('user_id, email, upline_eq_id, upline_first_name, upline_last_name')
         .in('email', submissionEmails);
       if (error) throw error;
-      return new Set((data || []).map((p: any) => (p.email || '').toLowerCase()));
+      const map: Record<string, any> = {};
+      (data || []).forEach((p: any) => {
+        if (p.email) map[String(p.email).toLowerCase()] = p;
+      });
+      return map;
     },
   });
-  const registeredEmails = registeredEmailsSet || new Set<string>();
+  const registeredEmails = new Set(Object.keys(submitterProfilesByEmail));
   const isPartnerSubmission = (s: any) => registeredEmails.has((s.email || '').toLowerCase());
+
+  // Resolve upline profiles by eq_id so we can render full name + email.
+  const uplineEqIds = Array.from(new Set(
+    Object.values(submitterProfilesByEmail)
+      .map((p: any) => p?.upline_eq_id)
+      .filter(Boolean)
+  )) as string[];
+  const { data: uplineByEqId = {} as Record<string, any> } = useQuery({
+    queryKey: ['event-form-submission-uplines', uplineEqIds.sort().join(',')],
+    enabled: uplineEqIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, eq_id, first_name, last_name, email')
+        .in('eq_id', uplineEqIds);
+      if (error) throw error;
+      const map: Record<string, any> = {};
+      (data || []).forEach((p: any) => { if (p.eq_id) map[p.eq_id] = p; });
+      return map;
+    },
+  });
+
+  // Returns the inviting party for a submission.
+  //  - Partner submission: their direct upline (opiekun). Falls back to the
+  //    upline_first_name/last_name snapshot on the submitter's own profile if the
+  //    upline profile cannot be resolved by eq_id.
+  //  - Guest submission: partner_user_id assigned via the ref link / manual assignment.
+  const getInvitingPartner = (s: any): any => {
+    if (isPartnerSubmission(s)) {
+      const submitter = submitterProfilesByEmail[(s.email || '').toLowerCase()];
+      if (!submitter?.upline_eq_id) return null;
+      const upline = uplineByEqId[submitter.upline_eq_id];
+      if (upline) {
+        return {
+          first_name: upline.first_name,
+          last_name: upline.last_name,
+          email: upline.email,
+          isUpline: true,
+        };
+      }
+      if (submitter.upline_first_name || submitter.upline_last_name) {
+        return {
+          first_name: submitter.upline_first_name,
+          last_name: submitter.upline_last_name,
+          email: null,
+          isUpline: true,
+        };
+      }
+      return null;
+    }
+    return s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
+  };
 
   // Audience counts (independent of payment/search filter so user always sees totals)
   const audienceCounts = {
