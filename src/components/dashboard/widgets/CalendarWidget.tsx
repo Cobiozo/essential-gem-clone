@@ -492,7 +492,57 @@ ${labels.signUp}: ${inviteUrl}
               </p>
             ) : (
               <div className="space-y-2">
-                {selectedDayEvents.map(event => (
+                {selectedDayEvents.map(event => {
+                  // Paid event — uproszczony kafelek z linkami do strony eventu
+                  if (event.event_type === ('paid_event' as any)) {
+                    const slug = (event as any)._event_slug as string | undefined;
+                    const eventUrl = slug ? `/e/${slug}` : '#';
+                    const openEvent = () => {
+                      if (slug) window.open(eventUrl, '_blank', 'noopener,noreferrer');
+                    };
+                    return (
+                      <div
+                        key={`paid-${event.id}`}
+                        className="p-2 rounded-md bg-muted/50 space-y-1 border-l-2 border-red-500"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-red-500" />
+                          <span className="text-sm font-medium line-clamp-1">{event.title}</span>
+                          <Badge variant="outline" className="text-xs ml-1 px-1.5 py-0 border-red-500/40 text-red-600 dark:text-red-400">
+                            EVENT
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {formatInTimeZone(new Date(event.start_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), (event as any).timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')}
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-3 touch-action-manipulation"
+                              onClick={(e) => { e.stopPropagation(); openEvent(); }}
+                              title={tf('events.details', 'Szczegóły')}
+                              disabled={!slug}
+                            >
+                              <Info className="h-3.5 w-3.5 mr-1" />
+                              {tf('events.details', 'Szczegóły')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs touch-action-manipulation bg-red-600 hover:bg-red-700 text-white"
+                              onClick={(e) => { e.stopPropagation(); openEvent(); }}
+                              disabled={!slug}
+                            >
+                              {tf('events.registerButton', 'Zapisz się')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
                   <div
                     key={`${event.id}-${(event as any)._occurrence_index ?? 'single'}`}
                     className="p-2 rounded-md bg-muted/50 space-y-1"
