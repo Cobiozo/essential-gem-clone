@@ -13,23 +13,33 @@ function nowStamp() {
   });
 }
 
-async function notifyAndUpdateCRM(supabase: any, token: string) {
-  // Token jest cancellation_token — pobieramy zgłoszenie po nim
+/**
+ * Aktualizuje CRM po anulowaniu rejestracji.
+ * NIGDY nie tworzy duplikatu kontaktu — jeżeli kontakt istnieje (po (partner_user_id, lower(email))),
+ * dopisuje notatkę „❌ Anulował(a) rejestrację na: …".
+ * Wstawia nowy rekord WYŁĄCZNIE wtedy, gdy żadnego kontaktu z tym e-mailem nie było wcześniej.
+ */
+async function notifyAndUpdateCRM(
+  supabase: any,
+  token: string,
+): Promise<{ event_id: string | null; banner_url: string | null; event_title: string | null }> {
   const { data: sub } = await supabase
     .from("event_form_submissions")
     .select("id, event_id, partner_user_id, email, first_name, last_name, phone")
     .eq("cancellation_token", token)
     .maybeSingle();
-  if (!sub) return;
+  if (!sub) return { event_id: null, banner_url: null, event_title: null };
 
   let eventTitle = "wydarzenie";
+  let bannerUrl: string | null = null;
   if (sub.event_id) {
     const { data: ev } = await supabase
       .from("paid_events")
-      .select("title")
+      .select("title, banner_url")
       .eq("id", sub.event_id)
       .maybeSingle();
     if (ev?.title) eventTitle = ev.title;
+    bannerUrl = ev?.banner_url ?? null;
   }
 
   const fullName = `${sub.first_name || ""} ${sub.last_name || ""}`.trim() || sub.email;
@@ -54,7 +64,7 @@ async function notifyAndUpdateCRM(supabase: any, token: string) {
     await supabase.from("user_notifications").insert(adminNotifs);
   }
 
-  // 2) Partner + CRM
+  // 2) Partner + CRM (bez duplikatów)
   if (sub.partner_user_id) {
     await supabase.from("user_notifications").insert({
       user_id: sub.partner_user_id,
@@ -67,19 +77,25 @@ async function notifyAndUpdateCRM(supabase: any, token: string) {
     });
 
     const emailLower = (sub.email || "").toLowerCase();
-    const { data: contact } = await supabase
+
+    // Szukamy istniejącego kontaktu — case-insensitive po e-mailu, w obrębie tego partnera.
+    // Bierzemy wszystkie pasujące rekordy (na wypadek wcześniejszej duplikacji) i aktualizujemy najnowszy.
+    const { data: contacts } = await supabase
       .from("team_contacts")
-      .select("id, notes")
+      .select("id, notes, created_at")
       .eq("user_id", sub.partner_user_id)
-      .eq("email", emailLower)
-      .maybeSingle();
+      .ilike("email", emailLower)
+      .order("created_at", { ascending: false });
 
     const noteLine = `[${nowStamp()}] ❌ Anulował(a) rejestrację na: ${eventTitle}`;
 
-    if (contact) {
-      const newNotes = contact.notes ? `${contact.notes}\n${noteLine}` : noteLine;
-      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", contact.id);
+    if (contacts && contacts.length > 0) {
+      // Aktualizuj NAJNOWSZY rekord — nigdy nie wstawiaj nowego.
+      const target = contacts[0];
+      const newNotes = target.notes ? `${target.notes}\n${noteLine}` : noteLine;
+      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", target.id);
     } else {
+      // Brak jakiegokolwiek wpisu — utwórz nowy.
       await supabase.from("team_contacts").insert({
         user_id: sub.partner_user_id,
         first_name: sub.first_name || "",
@@ -95,6 +111,8 @@ async function notifyAndUpdateCRM(supabase: any, token: string) {
       });
     }
   }
+
+  return { event_id: sub.event_id ?? null, banner_url: bannerUrl, event_title: eventTitle };
 }
 
 serve(async (req) => {
@@ -108,16 +126,43 @@ serve(async (req) => {
     const { data, error } = await supabase.rpc("cancel_event_form_submission", { _token: token });
     if (error) throw error;
 
-    // Powiadomienia tylko przy pierwszej (skutecznej) anulacji
+    let event_id: string | null = null;
+    let banner_url: string | null = null;
+    let event_title: string | null = null;
+
+    // Powiadomienia + CRM tylko przy pierwszej (skutecznej) anulacji
     if (data?.success && !data?.already_cancelled) {
       try {
-        await notifyAndUpdateCRM(supabase, token);
+        const meta = await notifyAndUpdateCRM(supabase, token);
+        event_id = meta.event_id;
+        banner_url = meta.banner_url;
+        event_title = meta.event_title;
       } catch (notifyErr) {
         console.error("[cancel-event-form-submission] notify error:", notifyErr);
       }
+    } else if (data?.success && data?.already_cancelled) {
+      // Druga próba — odśwież dane wydarzenia bez aktualizacji CRM
+      const { data: sub } = await supabase
+        .from("event_form_submissions")
+        .select("event_id")
+        .eq("cancellation_token", token)
+        .maybeSingle();
+      if (sub?.event_id) {
+        event_id = sub.event_id;
+        const { data: ev } = await supabase
+          .from("paid_events")
+          .select("banner_url, title")
+          .eq("id", sub.event_id)
+          .maybeSingle();
+        banner_url = ev?.banner_url ?? null;
+        event_title = ev?.title ?? null;
+      }
     }
 
-    return new Response(JSON.stringify(data), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ ...data, event_id, banner_url, event_title }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e: any) {
     console.error("[cancel-event-form-submission]", e);
     return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
