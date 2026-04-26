@@ -365,7 +365,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             <div className="relative">
               <Input
                 type="datetime-local"
-                value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
+                value={form.start_time ? formatInTimeZone(new Date(form.start_time), DEFAULT_EVENT_TIMEZONE, "yyyy-MM-dd'T'HH:mm") : ''}
                 onChange={(e) => {
                   if (e.target.value) {
                     // Parse the input as time in event timezone (Europe/Warsaw)
