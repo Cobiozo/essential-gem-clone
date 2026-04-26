@@ -178,6 +178,8 @@ function buildEmail(opts: {
   ticketCode: string;
   bannerUrl?: string | null;
   contact: ContactPerson | null;
+  confirmUrl?: string | null;
+  cancelUrl?: string | null;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
 
@@ -186,6 +188,18 @@ function buildEmail(opts: {
     ? `<div style="background:#000;">
          <img src="${escapeHtml(opts.bannerUrl)}" alt="${escapeHtml(opts.eventTitle)}" style="display:block;width:100%;max-width:620px;height:auto;margin:0 auto;" />
        </div>`
+    : '';
+
+  const confirmCtaHtml = opts.confirmUrl
+    ? `<div style="margin:24px 0;text-align:center;">
+         <a href="${escapeHtml(opts.confirmUrl)}" style="display:inline-block;background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✅ Potwierdzam otrzymanie wiadomości</a>
+       </div>`
+    : '';
+
+  const cancelLinkHtml = opts.cancelUrl
+    ? `<p style="text-align:center;font-size:13px;color:#888;margin:18px 0 0;">
+         Chcesz anulować zgłoszenie? <a href="${escapeHtml(opts.cancelUrl)}" style="color:#c0392b;">Anuluj rejestrację</a>
+       </p>`
     : '';
 
   return `<!DOCTYPE html>
@@ -205,14 +219,18 @@ function buildEmail(opts: {
         Numer rezerwacji: <code style="background:#f3f3f3;padding:2px 6px;border-radius:4px;">${escapeHtml(opts.ticketCode)}</code>
       </p>
 
+      ${confirmCtaHtml}
+
       <h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">💳 Dane do przelewu</h3>
       ${transferHtml}
 
       <p style="font-size:14px;line-height:1.6;color:#555;">
-        Po zaksięgowaniu wpłaty wyślemy do Ciebie email z biletem i kodem QR potrzebnym do wejścia na wydarzenie.
+        Po zaksięgowaniu wpłaty wyślemy do Ciebie email z biletem i/lub kodem QR potrzebnym do wejścia na wydarzenie.
       </p>
 
       ${buildContactSection(opts.contact)}
+
+      ${cancelLinkHtml}
     </div>
     <div style="text-align:center;padding:18px;background:#fafafa;color:#999;font-size:12px;border-top:1px solid #eee;">
       © ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.
