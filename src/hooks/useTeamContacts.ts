@@ -576,11 +576,81 @@ export const useTeamContacts = () => {
     return { groups, groupsBO, groupsHC, groupsGeneral, duplicates };
   }, [eventContactDetails]);
 
+  // Fetch submissions wykonanych przez gości zaproszonych przez tego partnera
+  // (zakładka „Z zaproszeń na eventy" — pokazujemy status: potwierdzony / anulowany / opłacony)
+  const fetchEventInviteSubmissions = useCallback(async (allContacts: TeamContact[]) => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('event_form_submissions')
+        .select('id, event_id, email, status, payment_status, email_confirmed_at, cancelled_at, created_at, paid_events(title, event_date)')
+        .eq('partner_user_id', user.id);
+
+      if (error) throw error;
+
+      // Mapa email (lower) -> kontakty z event_invite source
+      const emailToContacts = new Map<string, TeamContact[]>();
+      for (const c of allContacts) {
+        if (!c.email) continue;
+        if (!c.contact_source || !c.contact_source.toLowerCase().startsWith('event_invite')) continue;
+        const key = c.email.trim().toLowerCase();
+        const arr = emailToContacts.get(key) || [];
+        arr.push(c);
+        emailToContacts.set(key, arr);
+      }
+
+      const map = new Map<string, EventInviteSubmissionInfo[]>();
+      for (const s of (data || [])) {
+        const emailKey = (s.email || '').trim().toLowerCase();
+        if (!emailKey) continue;
+        const matched = emailToContacts.get(emailKey);
+        if (!matched || matched.length === 0) continue;
+
+        const ev = (s as any).paid_events;
+        const info: EventInviteSubmissionInfo = {
+          submission_id: s.id,
+          event_id: s.event_id,
+          event_title: ev?.title || 'Wydarzenie',
+          event_date: ev?.event_date || null,
+          status: s.status || 'active',
+          payment_status: s.payment_status || 'pending',
+          email_confirmed_at: s.email_confirmed_at,
+          cancelled_at: s.cancelled_at,
+          created_at: s.created_at,
+        };
+
+        for (const c of matched) {
+          const list = map.get(c.id) || [];
+          list.push(info);
+          map.set(c.id, list);
+        }
+      }
+
+      // Sort each list — najnowsze pierwsze
+      for (const list of map.values()) {
+        list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      }
+
+      setEventInviteSubmissions(map);
+    } catch (err) {
+      console.error('Error fetching event invite submissions:', err);
+    }
+  }, [user]);
+
   useEffect(() => {
     fetchContacts();
     fetchEventContactIds();
     fetchDeletedContacts();
   }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
+
+  // Refetch submissions whenever contacts change
+  useEffect(() => {
+    if (contacts.length > 0) {
+      fetchEventInviteSubmissions(contacts);
+    } else {
+      setEventInviteSubmissions(new Map());
+    }
+  }, [contacts, fetchEventInviteSubmissions]);
 
   // Compute grouped data
   const { groups: eventGroupedContacts, groupsBO: eventGroupedContactsBO, groupsHC: eventGroupedContactsHC, groupsGeneral: eventGroupedContactsGeneral, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
@@ -600,6 +670,7 @@ export const useTeamContacts = () => {
     eventContactIdsHC,
     eventContactIdsGeneral,
     eventContactDetails,
+    eventInviteSubmissions,
     eventGroupedContacts,
     eventGroupedContactsBO,
     eventGroupedContactsHC,
