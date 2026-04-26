@@ -1,67 +1,58 @@
-## Cel
+## Problem
 
-1. Linki partnerskie do formularzy rejestracyjnych mają kończyć się numerem EQID partnera (`?ref=EQID`), co czytelnie wskazuje, do kogo przypisać gościa.
-2. E‑mail "Rezerwacja przyjęta – dane do przelewu" ma pokazywać wyłącznie baner wydarzenia — bez złotego paska z logo Pure Life i Eqology IBP.
+Partner Sebastian (sebastiansnopek.eqology@gmail.com) registered for the Kraków event and received the confirmation email, but does not appear in **Eventy → Formularze → Zgłoszenia → Partnerzy**.
 
----
+### Root cause
 
-## 1. EQID jako `ref` w linkach partnerskich
+The platform has two parallel registration paths for paid events:
 
-### Co zmienić
+1. **Form path** (`event_form_submissions`) — used by the public `/e/...` form (`submit_event_form` RPC). Always creates a row in `event_form_submissions`.
+2. **Ticket order path** (`paid_event_orders`) — used by the "Buy ticket / Transfer" flow (`register-event-transfer-order` edge function). Creates a row in `paid_event_orders` only.
 
-Wszystkie miejsca, gdzie generowane lub odczytywane są ref-kody dla `paid_event_partner_links`, mają używać `profiles.eq_id`.
+The admin **Zgłoszenia / Partnerzy** tab reads only from `event_form_submissions`, so any registration done through the ticket-order flow is invisible there — even though the partner gets the confirmation email.
 
-**Migracja DB**
-- Zdjąć globalny `UNIQUE` z kolumny `paid_event_partner_links.ref_code`.
-- Dodać `UNIQUE (form_id, ref_code)` (zapewnia unikalność w obrębie jednego formularza, pozwala temu samemu EQID występować przy różnych formularzach).
-- Backfill: istniejące rekordy zaktualizować na `ref_code = profiles.eq_id` po `partner_user_id`. Tam gdzie partner nie ma `eq_id`, zostawić obecny kod.
+Sebastian has 2 records in `paid_event_orders` for the Kraków event (status `awaiting_transfer`) and **0** records in `event_form_submissions`. That's why he is missing from the Partners tab. He DOES appear in the **Zamówienia** tab.
 
-**Frontend — generowanie linku**
-- `src/components/paid-events/MyEventFormLinks.tsx` (mutacja `generateLink`):
-  - Pobrać `eq_id` z `profiles` zalogowanego użytkownika (jeśli brak — komunikat: "Uzupełnij EQID w profilu, aby wygenerować link").
-  - W `insert` użyć `ref_code = eq_id`.
-  - Jeżeli rekord dla tej pary `(partner_user_id, form_id)` już istnieje — zaktualizować jego `ref_code` do EQID (idempotentnie, np. `upsert` po `(partner_user_id, form_id)`).
-- `src/pages/PaidEventPage.tsx` (auto‑attribution dla zalogowanego partnera):
-  - Zamiast losowego sufiksu, użyć `eq_id` z profilu jako `ref_code`. Logika lookup→insert pozostaje ta sama.
+### Fix
 
-**Backend — odczyt po ref_code**
-- `supabase/functions/register-event-transfer-order/index.ts`: lookup `paid_event_partner_links` po `ref_code` jest już niezmieniony i zadziała z EQID.
-- Trigger SQL `submit_event_form` (`20260424152226_*.sql`) odczytuje partnera po `ref_code` — działa bez zmian.
+Make `register-event-transfer-order` mirror the order into `event_form_submissions` so logged-in partners (and guests) buying a ticket are also visible in the Formularze → Zgłoszenia view, with correct partner attribution.
 
-### Format linku po zmianie
+## Plan
 
-```
-https://purelife.info.pl/event-form/<slug-formularza>?ref=<EQID>
-```
+### 1. Edge function `register-event-transfer-order`
 
----
+After successfully inserting into `paid_event_orders`, additionally insert a row into `event_form_submissions`:
 
-## 2. E‑mail rezerwacji bez paska Pure Life / Eqology
+- Look up the active `event_registration_forms` for this `event_id` (use `is_active = true`, take the first one). If none — skip mirroring (nothing to mirror to).
+- Resolve `partner_user_id` and `partner_link_id` from `paid_event_partner_links` using:
+  - The provided `ref_code` if present, OR
+  - For a logged-in user, fall back to a link where `partner_user_id = current user`. (Auto-attribution — the partner registered themselves.)
+- Insert into `event_form_submissions` with:
+  - `form_id`, `event_id`, `first_name`, `last_name`, `email` (lowercased), `phone`
+  - `partner_user_id`, `partner_link_id`
+  - `payment_status = 'pending'` (transfer not yet confirmed; admin can mark `paid` later)
+  - `email_status = 'sent'` (the function already sent the confirmation email)
+  - `submitted_data` = `{ source: 'ticket_order', order_id, ticket_id, quantity, total_amount }`
+- Wrap in try/catch — must NEVER fail the order if mirroring fails (log and continue).
+- Bump `paid_event_partner_links.submission_count` when partner_link_id resolved (mirror RPC behavior).
 
-### Diagnoza
+### 2. Backfill existing orders
 
-Źródło `supabase/functions/register-event-transfer-order/index.ts` aktualnie buduje e‑mail tylko z banera wydarzenia (komentarz w kodzie: "Banner wydarzenia jako jedyny nagłówek graficzny"). Banner w bazie (`paid_events.banner_url`) to czysty obraz Krakowa z logiem EQOLOGY — nie zawiera złotego paska.
+Migration: for every row in `paid_event_orders` where the event has an active `event_registration_forms` AND no matching submission exists in `event_form_submissions` (matched by lowercased email + form_id), insert a mirroring submission row. This covers Sebastian's 2 existing orders and any other historical case.
 
-To oznacza, że na produkcji wciąż działa **starsza wersja edge function**, która dorzucała blok `DualBrandHeader` (gradient `#D4AF37 → #F5E6A3 → #D4AF37` + logo Pure Life + obraz `eqology-ibp-logo.png`).
+For partner attribution during backfill, use the same fallback (ref_code on order is not stored, so resolve via `paid_event_partner_links.partner_user_id = paid_event_orders.user_id` for logged-in users).
 
-### Co zrobić
+### 3. No UI changes required
 
-- Usunąć z `register-event-transfer-order/index.ts` nieużywane stałe `logoUrl` i `eqologyLogoUrl` (porządek, eliminuje ryzyko ich późniejszego użycia).
-- Wymusić ponowne wdrożenie funkcji `register-event-transfer-order`, aby produkcja używała aktualnej wersji (tylko banner wydarzenia, zero brandingu Pure Life/Eqology w nagłówku).
-- Zweryfikować, że funkcja `send-event-form-confirmation` (używana przez formularze rejestracyjne — odrębna od kupna biletu) również nie zawiera paska brandingowego — po przeglądzie: jest czysta, używa wyłącznie `form.banner_url`. Brak zmian.
-- Po wdrożeniu wykonać testową rezerwację jako partner i jako gość, aby potwierdzić, że e‑mail ma tylko baner wydarzenia + treść.
+The existing `EventFormSubmissions.tsx` already reads everything from `event_form_submissions`, so once the rows exist, Sebastian will show up under the **Partnerzy** tab automatically (because his submission will have `email` matching a profile and `partner_user_id` set to his own user_id).
 
----
+## Files
 
-## Pliki do edycji
+- `supabase/functions/register-event-transfer-order/index.ts` — add mirror insert after order insert.
+- New migration `supabase/migrations/<ts>_mirror_paid_orders_to_event_form_submissions.sql` — backfill existing orders.
 
-- `supabase/migrations/<nowa>.sql` — zmiana unikalności `ref_code` + backfill EQID.
-- `src/components/paid-events/MyEventFormLinks.tsx` — generowanie linków po EQID.
-- `src/pages/PaidEventPage.tsx` — auto‑ref po EQID dla zalogowanego partnera.
-- `supabase/functions/register-event-transfer-order/index.ts` — usunięcie nieużywanych stałych logo, redeploy.
+## Out of scope
 
-## Zakres niezmieniany
-
-- Tabela `event_form_submissions` i RPC `submit_event_form` — bez zmian (czytają po `ref_code`).
-- Funkcje SMTP, układ treści e‑maila i dane do przelewu — bez zmian.
-- DualBrandHeader (komponent React) — pozostaje, używany jest na publicznych stronach potwierdzenia/anulowania, nie w e‑mailach.
+- Not changing the order flow itself (PayU / transfer logic stays).
+- Not unifying the two tables (would be a larger refactor).
+- Not touching `event_registrations` (different feature: webinars / team trainings).
