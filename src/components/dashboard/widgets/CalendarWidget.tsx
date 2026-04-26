@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays, Info, X } from 'lucide-react';
 import { Widget3DIcon } from './Widget3DIcon';
@@ -36,6 +37,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
 }) => {
   const { t, tf, language } = useLanguage();
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -496,10 +498,8 @@ ${labels.signUp}: ${inviteUrl}
                   // Paid event — uproszczony kafelek z linkami do strony eventu
                   if (event.event_type === ('paid_event' as any)) {
                     const slug = (event as any)._event_slug as string | undefined;
-                    const eqRef = profile?.eq_id ? `?ref=${profile.eq_id}` : '';
-                    const eventUrl = slug ? `/events/${slug}${eqRef}` : '#';
                     const openEvent = () => {
-                      if (slug) window.open(eventUrl, '_blank', 'noopener,noreferrer');
+                      if (slug) navigate(`/events/${slug}`);
                     };
                     return (
                       <div

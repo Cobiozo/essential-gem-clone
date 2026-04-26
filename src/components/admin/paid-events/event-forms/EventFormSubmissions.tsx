@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
 import * as XLSX from 'xlsx-js-style';
@@ -119,6 +119,23 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       toast({ title: 'Email wysłany ponownie' });
     },
     onError: (e: Error) => toast({ title: 'Błąd', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteSubmission = useMutation({
+    mutationFn: async (submissionId: string) => {
+      const { error } = await supabase
+        .from('event_form_submissions')
+        .delete()
+        .eq('id', submissionId);
+      if (error) throw error;
+      return { id: submissionId };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['event-form-submissions', form.id] });
+      qc.invalidateQueries({ queryKey: ['event-form-submission-counts'] });
+      toast({ title: 'Zgłoszenie usunięte', description: 'Rekord został trwale usunięty.' });
+    },
+    onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
   });
 
   const filtered = submissions.filter(s => {
@@ -611,6 +628,18 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       )}
                       <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
                         <Mail className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Usuń zgłoszenie całkowicie"
+                        onClick={() => {
+                          const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                          if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
+                          deleteSubmission.mutate(s.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
