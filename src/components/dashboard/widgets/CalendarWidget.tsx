@@ -624,7 +624,8 @@ ${labels.signUp}: ${inviteUrl}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
