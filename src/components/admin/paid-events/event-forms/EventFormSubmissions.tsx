@@ -333,7 +333,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     aoa.push(headers);
     // Data rows
     filtered.forEach((s, idx) => {
-      const p = s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
+      const p = getInvitingPartner(s);
       aoa.push([
         idx + 1,
         s.created_at ? new Date(s.created_at).toLocaleString('pl-PL') : '',
