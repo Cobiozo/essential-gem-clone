@@ -1294,19 +1294,19 @@ export const NewsTickerManagement: React.FC = () => {
                   {/* Daty ważności */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Data od</Label>
+                      <Label>Data od <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={editingItem.start_date || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value || null })}
+                        value={isoToLocalInput(editingItem.start_date)}
+                        onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value ? localInputToISO(e.target.value) : null })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Data do</Label>
+                      <Label>Data do <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={editingItem.end_date || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value || null })}
+                        value={isoToLocalInput(editingItem.end_date)}
+                        onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value ? localInputToISO(e.target.value) : null })}
                       />
                     </div>
                   </div>
