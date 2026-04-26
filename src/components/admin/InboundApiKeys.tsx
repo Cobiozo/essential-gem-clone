@@ -16,6 +16,7 @@ import {
 import { Plus, Copy, KeyRound, Ban, AlertTriangle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { localInputToISO } from '@/utils/datetimeLocal';
 
 interface ApiKey {
   id: string;
@@ -87,7 +88,7 @@ export const InboundApiKeys: React.FC = () => {
       body: {
         name: name.trim(),
         scopes: selectedScopes,
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        expires_at: expiresAt ? localInputToISO(expiresAt) : null,
       },
     });
     setCreating(false);
@@ -177,7 +178,7 @@ export const InboundApiKeys: React.FC = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="expires">Data wygaśnięcia (opcjonalnie)</Label>
+                <Label htmlFor="expires">Data wygaśnięcia (opcjonalnie) <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span></Label>
                 <Input id="expires" type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               </div>
             </div>

@@ -23,6 +23,7 @@ import { isMultiOccurrenceEvent, getNextActiveOccurrence } from '@/hooks/useOccu
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
+import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
 
 interface TickerSettings {
   id: string;
@@ -1065,19 +1066,19 @@ export const NewsTickerManagement: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Data rozpoczęcia</Label>
+                      <Label>Data rozpoczęcia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={newItem.start_date}
-                        onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value })}
+                        value={isoToLocalInput(newItem.start_date)}
+                        onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value ? (localInputToISO(e.target.value) ?? '') : '' })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Data zakończenia</Label>
+                      <Label>Data zakończenia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={newItem.end_date}
-                        onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value })}
+                        value={isoToLocalInput(newItem.end_date)}
+                        onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value ? (localInputToISO(e.target.value) ?? '') : '' })}
                       />
                     </div>
                   </div>
@@ -1293,19 +1294,19 @@ export const NewsTickerManagement: React.FC = () => {
                   {/* Daty ważności */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Data od</Label>
+                      <Label>Data od <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={editingItem.start_date || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value || null })}
+                        value={isoToLocalInput(editingItem.start_date)}
+                        onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value ? localInputToISO(e.target.value) : null })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Data do</Label>
+                      <Label>Data do <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={editingItem.end_date || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value || null })}
+                        value={isoToLocalInput(editingItem.end_date)}
+                        onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value ? localInputToISO(e.target.value) : null })}
                       />
                     </div>
                   </div>

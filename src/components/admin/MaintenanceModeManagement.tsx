@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { AlertTriangle, Save, Wrench, Eye, Key, Copy, RefreshCw, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
 import { useLanguage } from '@/contexts/LanguageContext';
 import MaintenanceBanner from '@/components/MaintenanceBanner';
 import {
@@ -69,8 +70,7 @@ const MaintenanceModeManagement: React.FC = () => {
         setIsEnabled(data.is_enabled || false);
         setTitle(data.title || t('admin.maintenance.defaultTitle'));
         setMessage(data.message || t('admin.maintenance.defaultMessage'));
-        setPlannedEndTime(data.planned_end_time ? 
-          format(new Date(data.planned_end_time), "yyyy-MM-dd'T'HH:mm") : '');
+        setPlannedEndTime(isoToLocalInput(data.planned_end_time));
         setBypassKey(data.bypass_key || null);
       }
     } catch (error) {
@@ -92,7 +92,7 @@ const MaintenanceModeManagement: React.FC = () => {
           is_enabled: isEnabled,
           title,
           message,
-          planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null,
+          planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null,
         })
         .eq('id', settings.id);
 
@@ -192,7 +192,7 @@ const MaintenanceModeManagement: React.FC = () => {
           is_enabled: enabled,
           title,
           message,
-          planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null,
+          planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null,
         })
         .eq('id', settings.id);
 
@@ -327,7 +327,7 @@ const MaintenanceModeManagement: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="planned-end">{t('admin.maintenance.plannedEndLabel')}</Label>
+            <Label htmlFor="planned-end">{t('admin.maintenance.plannedEndLabel')} <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span></Label>
             <Input
               id="planned-end"
               type="datetime-local"
@@ -420,7 +420,7 @@ const MaintenanceModeManagement: React.FC = () => {
               maintenance={{
                 title,
                 message,
-                planned_end_time: plannedEndTime ? new Date(plannedEndTime).toISOString() : null
+                planned_end_time: plannedEndTime ? localInputToISO(plannedEndTime) : null
               }} 
             />
           </div>

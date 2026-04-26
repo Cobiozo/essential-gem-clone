@@ -17,7 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { addMinutes, format } from 'date-fns';
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { 
   Calendar, 
@@ -407,7 +407,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
               <div className="relative">
                 <Input
                   type="datetime-local"
-                  value={form.start_time ? format(new Date(form.start_time), "yyyy-MM-dd'T'HH:mm") : ''}
+                  value={form.start_time ? formatInTimeZone(new Date(form.start_time), DEFAULT_EVENT_TIMEZONE, "yyyy-MM-dd'T'HH:mm") : ''}
                   onChange={(e) => {
                     if (e.target.value) {
                       // Parse the input as time in event timezone (Europe/Warsaw)
@@ -713,14 +713,15 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             <div className="relative">
               <Input
                 type="datetime-local"
-                value={(form as any).publish_at ? format(new Date((form as any).publish_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                value={(form as any).publish_at ? formatInTimeZone(new Date((form as any).publish_at), DEFAULT_EVENT_TIMEZONE, "yyyy-MM-dd'T'HH:mm") : ''}
                 onChange={(e) => {
                   if (e.target.value) {
                     const [datePart, timePart] = e.target.value.split('T');
                     const [year, month, day] = datePart.split('-').map(Number);
                     const [hours, minutes] = timePart.split(':').map(Number);
-                    const localDate = new Date(year, month - 1, day, hours, minutes);
-                    setForm({ ...form, publish_at: localDate.toISOString() } as any);
+                    const localDateTime = new Date(year, month - 1, day, hours, minutes);
+                    const utcDateTime = fromZonedTime(localDateTime, DEFAULT_EVENT_TIMEZONE);
+                    setForm({ ...form, publish_at: utcDateTime.toISOString() } as any);
                   } else {
                     setForm({ ...form, publish_at: null } as any);
                   }

@@ -17,6 +17,7 @@ import { MediaUpload } from '@/components/MediaUpload';
 import { IconPicker } from '@/components/cms/IconPicker';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
 
 interface InfoBanner {
   id: string;
@@ -137,8 +138,8 @@ export const ImportantInfoManagement: React.FC = () => {
         visible_to_specjalista: formData.visible_to_specjalista,
         display_frequency: formData.display_frequency,
         priority: formData.priority,
-        scheduled_date: formData.scheduled_date ? new Date(formData.scheduled_date).toISOString() : null,
-        expiration_date: formData.expiration_date ? new Date(formData.expiration_date).toISOString() : null,
+        scheduled_date: formData.scheduled_date ? localInputToISO(formData.scheduled_date) : null,
+        expiration_date: formData.expiration_date ? localInputToISO(formData.expiration_date) : null,
         image_url: formData.image_url || null,
         animation_type: formData.animation_type,
         animation_intensity: formData.animation_intensity,
@@ -195,8 +196,8 @@ export const ImportantInfoManagement: React.FC = () => {
       visible_to_specjalista: banner.visible_to_specjalista,
       display_frequency: banner.display_frequency,
       priority: banner.priority,
-      scheduled_date: banner.scheduled_date ? banner.scheduled_date.slice(0, 16) : '',
-      expiration_date: banner.expiration_date ? banner.expiration_date.slice(0, 16) : '',
+      scheduled_date: isoToLocalInput(banner.scheduled_date),
+      expiration_date: isoToLocalInput(banner.expiration_date),
       image_url: banner.image_url || '',
       animation_type: banner.animation_type || 'fade-in',
       animation_intensity: banner.animation_intensity || 'subtle',
@@ -547,7 +548,7 @@ export const ImportantInfoManagement: React.FC = () => {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        Data publikacji
+                        Data publikacji <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span>
                       </Label>
                       <Input
                         type="datetime-local"
@@ -561,7 +562,7 @@ export const ImportantInfoManagement: React.FC = () => {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <CalendarX className="h-4 w-4" />
-                        Data wygaśnięcia
+                        Data wygaśnięcia <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span>
                       </Label>
                       <Input
                         type="datetime-local"
