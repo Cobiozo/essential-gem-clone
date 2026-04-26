@@ -100,7 +100,6 @@ const EventFormCancelPage: React.FC = () => {
                   </span>
                 </div>
               )}
-              <a href="/" className="text-primary underline text-sm inline-block pt-2">Strona główna</a>
             </>
           )}
 
