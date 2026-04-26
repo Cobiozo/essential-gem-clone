@@ -58,7 +58,8 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
     { type: 'webinar', color: 'bg-blue-500', label: tf('events.type.webinar', 'Webinar') },
     { type: 'team_training', color: 'bg-green-500', label: tf('events.type.teamMeeting', 'Spotkanie zespołu') },
     { type: 'tripartite_meeting', color: 'bg-violet-500', label: tf('events.type.tripartiteMeeting', 'Spotkanie trójstronne') },
-    { type: 'partner_consultation', color: 'bg-fuchsia-500', label: tf('events.type.consultation', 'Konsultacje') }
+    { type: 'partner_consultation', color: 'bg-fuchsia-500', label: tf('events.type.consultation', 'Konsultacje') },
+    { type: 'paid_event', color: 'bg-red-500', label: tf('events.type.paidEvent', 'EVENT') }
   ];
 
   // Copy webinar invitation to clipboard
@@ -157,6 +158,8 @@ ${labels.signUp}: ${inviteUrl}
         return 'bg-violet-500';
       case 'partner_consultation':
         return 'bg-fuchsia-500';
+      case 'paid_event':
+        return 'bg-red-500';
       default:
         return 'bg-primary';
     }
