@@ -153,16 +153,17 @@ function buildEmail(opts: {
 
       ${opts.bodyHtml ? `<div style="font-size:14px;line-height:1.6;margin:18px 0;">${opts.bodyHtml}</div>` : ""}
 
+      <!-- CTA POTWIERDZENIA — celowo NAD danymi do przelewu -->
+      <div style="margin:24px 0;text-align:center;">
+        <a href="${opts.confirmUrl}" style="display:inline-block;background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✅ Potwierdzam otrzymanie wiadomości</a>
+      </div>
+
       ${paymentHtml}
 
       ${partnerHtml}
 
       ${opts.submittedFields.length ? `<h3 style="font-size:15px;color:#444;margin:24px 0 8px;">Twoje dane zgłoszeniowe:</h3>
         <table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:6px;overflow:hidden;">${fieldsHtml}</table>` : ""}
-
-      <div style="margin:30px 0;text-align:center;">
-        <a href="${opts.confirmUrl}" style="display:inline-block;background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✅ Potwierdzam otrzymanie wiadomości</a>
-      </div>
 
       <p style="text-align:center;font-size:13px;color:#888;margin:18px 0;">
         Chcesz anulować zgłoszenie? <a href="${opts.cancelUrl}" style="color:#c0392b;">Anuluj rejestrację</a>
