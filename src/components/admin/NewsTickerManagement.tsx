@@ -1066,19 +1066,19 @@ export const NewsTickerManagement: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Data rozpoczęcia</Label>
+                      <Label>Data rozpoczęcia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={newItem.start_date}
-                        onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value })}
+                        value={isoToLocalInput(newItem.start_date)}
+                        onChange={(e) => setNewItem({ ...newItem, start_date: e.target.value ? (localInputToISO(e.target.value) ?? '') : '' })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Data zakończenia</Label>
+                      <Label>Data zakończenia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                       <Input
                         type="datetime-local"
-                        value={newItem.end_date}
-                        onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value })}
+                        value={isoToLocalInput(newItem.end_date)}
+                        onChange={(e) => setNewItem({ ...newItem, end_date: e.target.value ? (localInputToISO(e.target.value) ?? '') : '' })}
                       />
                     </div>
                   </div>
