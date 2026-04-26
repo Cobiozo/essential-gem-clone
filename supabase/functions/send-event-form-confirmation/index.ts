@@ -113,6 +113,7 @@ function buildEmail(opts: {
   confirmUrl: string;
   cancelUrl: string;
   publicBaseUrl: string;
+  partner?: { name: string; email: string | null; phone: string | null } | null;
 }): string {
   const fieldsHtml = opts.submittedFields
     .map(f => `<tr><td style="padding:6px 12px;color:#666;font-size:13px;">${f.label}</td><td style="padding:6px 12px;font-weight:600;">${f.value}</td></tr>`)
