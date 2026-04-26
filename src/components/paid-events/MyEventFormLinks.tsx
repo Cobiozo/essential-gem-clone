@@ -83,16 +83,29 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
   const generateLink = useMutation({
     mutationFn: async (form: any) => {
       if (!user?.id) throw new Error('Musisz być zalogowany');
-      // ref_code: short eq_id-like + random
-      const refCode = `${user.id.slice(0, 8)}-${Math.random().toString(36).slice(2, 8)}`;
+      // ref_code = EQID partnera, dzięki czemu z linku wprost wynika do kogo przypisać gościa
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('eq_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (profileErr) throw profileErr;
+      const eqId = (profile?.eq_id || '').trim();
+      if (!eqId) {
+        throw new Error('Uzupełnij EQID w swoim profilu, aby wygenerować link partnerski.');
+      }
+      // Upsert po (partner_user_id, form_id) — jeden link na partnera/formularz, ref_code zawsze równy aktualnemu EQID
       const { data, error } = await supabase
         .from('paid_event_partner_links')
-        .insert({
-          partner_user_id: user.id,
-          form_id: form.id,
-          event_id: form.event_id,
-          ref_code: refCode,
-        })
+        .upsert(
+          {
+            partner_user_id: user.id,
+            form_id: form.id,
+            event_id: form.event_id,
+            ref_code: eqId,
+          },
+          { onConflict: 'partner_user_id,form_id' }
+        )
         .select()
         .single();
       if (error) throw error;

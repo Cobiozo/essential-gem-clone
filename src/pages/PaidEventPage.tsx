@@ -191,16 +191,36 @@ const PaidEventPage: React.FC = () => {
         .eq('partner_user_id', user!.id)
         .eq('form_id', registrationForm!.id)
         .maybeSingle();
-      if (existing?.ref_code) return existing.ref_code as string;
+      // Sprawdź EQID z profilu i, jeśli istnieje, wymuś go jako ref_code
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('eq_id')
+        .eq('id', user!.id)
+        .maybeSingle();
+      const eqId = (profile?.eq_id || '').trim();
+      if (existing?.ref_code) {
+        if (eqId && existing.ref_code !== eqId) {
+          // Migracja istniejącego linku na EQID (best-effort, ignoruje konflikty)
+          const { data: updated } = await supabase
+            .from('paid_event_partner_links')
+            .update({ ref_code: eqId })
+            .eq('partner_user_id', user!.id)
+            .eq('form_id', registrationForm!.id)
+            .select('ref_code')
+            .maybeSingle();
+          return (updated?.ref_code ?? existing.ref_code) as string;
+        }
+        return existing.ref_code as string;
+      }
       // Auto-generate so partner is always attributed when registering themselves
-      const refCode = `${user!.id.slice(0, 8)}-${Math.random().toString(36).slice(2, 8)}`;
+      if (!eqId) return null;
       const { data: created, error: insErr } = await supabase
         .from('paid_event_partner_links')
         .insert({
           partner_user_id: user!.id,
           form_id: registrationForm!.id,
           event_id: event!.id,
-          ref_code: refCode,
+          ref_code: eqId,
         })
         .select('ref_code')
         .single();
