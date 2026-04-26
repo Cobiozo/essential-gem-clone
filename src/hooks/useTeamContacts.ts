@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
-import type { TeamContact, TeamContactFilters, TeamContactHistory, EventRegistrationInfo, EventGroup } from '@/components/team-contacts/types';
+import type { TeamContact, TeamContactFilters, TeamContactHistory, EventRegistrationInfo, EventInviteSubmissionInfo, EventGroup } from '@/components/team-contacts/types';
 
 export const useTeamContacts = () => {
   const { user, isAdmin } = useAuth();
@@ -15,6 +15,7 @@ export const useTeamContacts = () => {
   const [eventContactIdsHC, setEventContactIdsHC] = useState<Set<string>>(new Set());
   const [eventContactIdsGeneral, setEventContactIdsGeneral] = useState<Set<string>>(new Set());
   const [eventContactDetails, setEventContactDetails] = useState<Map<string, EventRegistrationInfo[]>>(new Map());
+  const [eventInviteSubmissions, setEventInviteSubmissions] = useState<Map<string, EventInviteSubmissionInfo[]>>(new Map());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
     status: '',
