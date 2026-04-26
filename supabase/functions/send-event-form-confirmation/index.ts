@@ -113,6 +113,7 @@ function buildEmail(opts: {
   confirmUrl: string;
   cancelUrl: string;
   publicBaseUrl: string;
+  partner?: { name: string; email: string | null; phone: string | null } | null;
 }): string {
   const fieldsHtml = opts.submittedFields
     .map(f => `<tr><td style="padding:6px 12px;color:#666;font-size:13px;">${f.label}</td><td style="padding:6px 12px;font-weight:600;">${f.value}</td></tr>`)
@@ -130,6 +131,16 @@ function buildEmail(opts: {
       </div>`
     : "";
 
+  const partnerHtml = opts.partner
+    ? `<div style="background:#f4f8fb;border-left:4px solid #3b82f6;padding:18px 22px;border-radius:8px;margin:20px 0;">
+        <h3 style="margin:0 0 10px;color:#1e3a8a;font-size:16px;">👤 Twój opiekun</h3>
+        <p style="margin:4px 0;"><strong>Imię i nazwisko:</strong> ${opts.partner.name}</p>
+        ${opts.partner.email ? `<p style="margin:4px 0;">📧 <a href="mailto:${opts.partner.email}" style="color:#1e3a8a;">${opts.partner.email}</a></p>` : ""}
+        ${opts.partner.phone ? `<p style="margin:4px 0;">📞 <a href="tel:${opts.partner.phone.replace(/\s+/g, '')}" style="color:#1e3a8a;">${opts.partner.phone}</a></p>` : ""}
+        <p style="margin:10px 0 0;font-size:13px;color:#555;">W razie pytań dotyczących wydarzenia możesz skontaktować się bezpośrednio z osobą, która Cię zaprosiła.</p>
+      </div>`
+    : "";
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
@@ -143,6 +154,8 @@ function buildEmail(opts: {
       ${opts.bodyHtml ? `<div style="font-size:14px;line-height:1.6;margin:18px 0;">${opts.bodyHtml}</div>` : ""}
 
       ${paymentHtml}
+
+      ${partnerHtml}
 
       ${opts.submittedFields.length ? `<h3 style="font-size:15px;color:#444;margin:24px 0 8px;">Twoje dane zgłoszeniowe:</h3>
         <table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:6px;overflow:hidden;">${fieldsHtml}</table>` : ""}
@@ -195,6 +208,24 @@ serve(async (req) => {
           .maybeSingle()
       : { data: null };
 
+    // Fetch inviting partner contact info (only if registration came via partner link)
+    let partner: { name: string; email: string | null; phone: string | null } | null = null;
+    if (sub.partner_user_id) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email, phone_number")
+        .eq("user_id", sub.partner_user_id)
+        .maybeSingle();
+      if (p) {
+        const fullName = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+        partner = {
+          name: fullName || "Twój opiekun",
+          email: p.email || null,
+          phone: p.phone_number || null,
+        };
+      }
+    }
+
     // CRITICAL: Public email links MUST point to the production domain
     // (purelife.info.pl). The Lovable preview domain (purelife.lovable.app)
     // currently redirects unauthenticated users to /auth, which would break
@@ -228,6 +259,7 @@ serve(async (req) => {
       confirmUrl,
       cancelUrl,
       publicBaseUrl,
+      partner,
     });
 
     const subject = form?.email_subject || "Potwierdzenie rejestracji";
