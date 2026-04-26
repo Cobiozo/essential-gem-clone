@@ -7,10 +7,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Save, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Save, Loader2, ImageIcon } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { IconPicker } from '@/components/cms/IconPicker';
 
 interface EventSectionsPanelProps {
   eventId: string;
@@ -274,15 +276,35 @@ export const EventSectionsPanel: React.FC<EventSectionsPanelProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor={`icon-${section.id}`}>Ikona (Lucide)</Label>
-                  <Input
-                    id={`icon-${section.id}`}
-                    value={getEditingValue(section.id, 'icon_name', section.icon_name || '')}
-                    onChange={(e) => setEditingValue(section.id, 'icon_name', e.target.value)}
-                    placeholder="np. BookOpen, Target, Users"
-                  />
+                  <Label>Ikona (Lucide)</Label>
+                  {(() => {
+                    const currentIcon = getEditingValue(section.id, 'icon_name', section.icon_name || '') as string;
+                    const CurrentIconComp = currentIcon ? (LucideIcons as any)[currentIcon] : null;
+                    return (
+                      <IconPicker
+                        value={currentIcon || null}
+                        onChange={(name) => setEditingValue(section.id, 'icon_name', name)}
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start gap-2 mt-1"
+                          >
+                            {CurrentIconComp ? (
+                              <CurrentIconComp className="h-4 w-4" />
+                            ) : (
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className={cn(!currentIcon && 'text-muted-foreground')}>
+                              {currentIcon || 'Wybierz ikonę'}
+                            </span>
+                          </Button>
+                        }
+                      />
+                    );
+                  })()}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Lista ikon: lucide.dev/icons
+                    Wybierz ikonę z listy lub wyszukaj.
                   </p>
                 </div>
 
