@@ -496,7 +496,8 @@ ${labels.signUp}: ${inviteUrl}
                   // Paid event — uproszczony kafelek z linkami do strony eventu
                   if (event.event_type === ('paid_event' as any)) {
                     const slug = (event as any)._event_slug as string | undefined;
-                    const eventUrl = slug ? `/e/${slug}` : '#';
+                    const eqRef = profile?.eq_id ? `?ref=${profile.eq_id}` : '';
+                    const eventUrl = slug ? `/events/${slug}${eqRef}` : '#';
                     const openEvent = () => {
                       if (slug) window.open(eventUrl, '_blank', 'noopener,noreferrer');
                     };

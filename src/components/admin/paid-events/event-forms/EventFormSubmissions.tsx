@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
 import * as XLSX from 'xlsx-js-style';
@@ -29,6 +30,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
+  const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
 
   const { data: submissions = [], isLoading } = useQuery({
@@ -60,6 +62,32 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       return map;
     },
   });
+
+  // Identify which submissions belong to registered users (partners) vs guests by email match
+  const submissionEmails = Array.from(new Set(
+    submissions.map(s => (s.email || '').toLowerCase()).filter(Boolean)
+  ));
+  const { data: registeredEmailsSet } = useQuery({
+    queryKey: ['event-form-submission-registered-emails', form.id, submissionEmails.sort().join(',')],
+    enabled: submissionEmails.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('email', submissionEmails);
+      if (error) throw error;
+      return new Set((data || []).map((p: any) => (p.email || '').toLowerCase()));
+    },
+  });
+  const registeredEmails = registeredEmailsSet || new Set<string>();
+  const isPartnerSubmission = (s: any) => registeredEmails.has((s.email || '').toLowerCase());
+
+  // Audience counts (independent of payment/search filter so user always sees totals)
+  const audienceCounts = {
+    all: submissions.length,
+    partners: submissions.filter(isPartnerSubmission).length,
+    guests: submissions.filter(s => !isPartnerSubmission(s)).length,
+  };
 
   const updatePayment = useMutation({
     mutationFn: async ({ submissionId, paymentStatus }: { submissionId: string; paymentStatus: string }) => {
@@ -95,6 +123,11 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
 
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
+    if (audience !== 'all') {
+      const isPartner = isPartnerSubmission(s);
+      if (audience === 'partners' && !isPartner) return false;
+      if (audience === 'guests' && isPartner) return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return (s.email || '').toLowerCase().includes(q)
@@ -435,6 +468,22 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         </div>
       </div>
 
+      <Tabs value={audience} onValueChange={(v) => setAudience(v as 'all' | 'guests' | 'partners')}>
+        <TabsList>
+          <TabsTrigger value="all">
+            Wszystkie <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.all})</span>
+          </TabsTrigger>
+          <TabsTrigger value="guests">
+            <UserIcon className="w-3.5 h-3.5 mr-1" />
+            Goście <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.guests})</span>
+          </TabsTrigger>
+          <TabsTrigger value="partners">
+            <Shield className="w-3.5 h-3.5 mr-1" />
+            Partnerzy <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.partners})</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -481,7 +530,18 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                   <TableRow key={s.id}>
                     <TableCell className="text-xs">{new Date(s.created_at).toLocaleString('pl-PL')}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{s.first_name} {s.last_name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{s.first_name} {s.last_name}</span>
+                        {isPartnerSubmission(s) ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">
+                            <Shield className="w-2.5 h-2.5 mr-0.5" /> Partner
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/40 text-muted-foreground">
+                            <UserIcon className="w-2.5 h-2.5 mr-0.5" /> Gość
+                          </Badge>
+                        )}
+                      </div>
                       {fieldsConfig.length > 0 && (
                         <details className="text-xs text-muted-foreground mt-1">
                           <summary className="cursor-pointer hover:text-foreground">Dodatkowe dane</summary>
