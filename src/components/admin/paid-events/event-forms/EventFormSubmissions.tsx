@@ -123,6 +123,11 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
 
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
+    if (audience !== 'all') {
+      const isPartner = isPartnerSubmission(s);
+      if (audience === 'partners' && !isPartner) return false;
+      if (audience === 'guests' && isPartner) return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return (s.email || '').toLowerCase().includes(q)
