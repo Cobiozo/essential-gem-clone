@@ -9827,11 +9827,11 @@ export type Database = {
       submit_event_form: {
         Args: {
           _email: string
-          _extra: Json
+          _extra?: Json
           _first_name: string
           _form_id: string
           _last_name: string
-          _phone: string
+          _phone?: string
           _ref_code?: string
         }
         Returns: Json
