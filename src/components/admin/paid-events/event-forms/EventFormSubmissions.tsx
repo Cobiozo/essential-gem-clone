@@ -468,6 +468,22 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         </div>
       </div>
 
+      <Tabs value={audience} onValueChange={(v) => setAudience(v as 'all' | 'guests' | 'partners')}>
+        <TabsList>
+          <TabsTrigger value="all">
+            Wszystkie <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.all})</span>
+          </TabsTrigger>
+          <TabsTrigger value="guests">
+            <UserIcon className="w-3.5 h-3.5 mr-1" />
+            Goście <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.guests})</span>
+          </TabsTrigger>
+          <TabsTrigger value="partners">
+            <Shield className="w-3.5 h-3.5 mr-1" />
+            Partnerzy <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.partners})</span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
