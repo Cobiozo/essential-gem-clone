@@ -48,6 +48,17 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
     >
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row gap-4">
+          {event.banner_url && (
+            <div className="flex-shrink-0">
+              <img
+                src={event.banner_url}
+                alt={event.title}
+                loading="lazy"
+                className="w-full sm:w-40 h-24 sm:h-20 object-cover rounded-lg bg-muted"
+              />
+            </div>
+          )}
+
           <div className="flex-shrink-0">
             <div className="w-16 h-16 rounded-lg bg-primary/10 flex flex-col items-center justify-center text-primary">
               <span className="text-2xl font-bold leading-none">
