@@ -1,46 +1,56 @@
 ## Problem
 
-Okno „Pozycjonowanie zdjęcia" (`ImageUploadInput.tsx`) ma tylko: wybór proporcji (21:9, 16:9, 4:3, …), zoom oraz przesuwanie kadru myszą. Brakuje precyzyjnego pozycjonowania, dlatego trudno trafić w docelowy kadr bannera, który na stronie wydarzenia jest **responsywny** (`16:9` na mobile → `2:1` na tablet → `21:9` na desktop). Innymi słowy: nawet jeśli skadrujesz idealnie pod 16:9, na desktopie i tak część obrazu zostanie ucięta.
+1. **Mail do partnerów po rejestracji na wydarzenie nie ma przycisku „Potwierdzam otrzymanie wiadomości" ani linku „Anuluj rejestrację"** — w przeciwieństwie do maila gości niezalogowanych. W efekcie kolumna „Email" w panelu admina pozostaje na zawsze w stanie `Wysłany — czeka` i partner nie może anulować zgłoszenia z poziomu maila.
 
-## Rozwiązanie — więcej narzędzi pozycjonowania w jednym oknie
+2. W treści maila partnera fraza „…wyślemy do Ciebie email z biletem **i** kodem QR…" powinna brzmieć „…z biletem **i/lub** kodem QR…".
 
-### 1. Tryb „Banner wydarzenia" (kluczowy)
+## Rozwiązanie
 
-Nowy preset/tryb specjalnie dla banerów wydarzeń, który zamiast jednej proporcji pokazuje **trzy nakładki bezpiecznych obszarów** jednocześnie:
+### 1. Dodanie CTA „Potwierdzam" + linku „Anuluj" w mailu partnera
 
-- pełny kadr **16:9** (zdjęcie zawsze widoczne na mobile),
-- środkowy obszar **2:1** (przycięcie na tablecie),
-- środkowy obszar **21:9** (przycięcie na desktopie) — oznaczony jako „strefa zawsze widoczna".
+Tabela `event_form_submissions` ma już kolumny `confirmation_token` i `cancellation_token` (auto-generowane DB defaultem `gen_random_bytes(32)`), a w aplikacji istnieją gotowe trasy `/event-form/confirm/:token` i `/event-form/cancel/:token` wraz z funkcjami `confirm-event-form-email` i `cancel-event-form-submission`. Wystarczy podpiąć je do maila zamówienia biletu.
 
-Tylko zawartość w wąskim pasie 21:9 jest gwarantowana na każdym urządzeniu — użytkownik od razu widzi, co przepadnie na większych ekranach i może umieścić logo/napis w bezpiecznej strefie.
+W `supabase/functions/register-event-transfer-order/index.ts`:
 
-### 2. Precyzyjne kontrolki w oknie
+a) **Mirror order → submission**: rozszerzyć obecne zapytania, by zwracały tokeny:
+   - `insert(...).select('id, confirmation_token, cancellation_token').single()` — przy nowym zgłoszeniu,
+   - `select('id, submitted_data, confirmation_token, cancellation_token')` — przy istniejącym (powtórne zamówienie tej samej osoby).
+   
+   Tokeny przekazać dalej przez closure do bloku wysyłki maila.
 
-- **Zoom**: ręczne pole liczbowe (0.3–3, krok 0.05) obok suwaka + przyciski `−` / `+` / `Reset`.
-- **Pozycja X / Y**: dwa suwaki (lewo↔prawo, góra↕dół) z polami liczbowymi w procentach kadru.
-- **Obrót**: suwak −180°…+180° z polem stopni i przyciskami `↺ −90°`, `↻ +90°`, `Reset`. (`react-easy-crop` natywnie obsługuje `rotation` — wystarczy przekazać prop.)
-- **Lustro**: przyciski `↔ Odbij poziomo` i `↕ Odbij pionowo` (canvas flip w `getCroppedImg`).
-- **Wyrównaj do**: 9 przycisków siatki 3×3 (góra-lewo, góra-środek, …) — szybkie pozycjonowanie kadru.
-- **Dopasuj**: dwa skróty — `Wypełnij` (cover, domyślne) i `Zmieść` (contain, dodaje pusty pas).
+b) **`buildEmail(...)`**: dodać opcjonalne pola `confirmUrl` i `cancelUrl`. Gdy są ustawione, wstawić:
+   - **NAD danymi do przelewu** żółty przycisk `✅ Potwierdzam otrzymanie wiadomości` (identyczny styl jak w mailu gościa),
+   - **NA DOLE** sekcji wiadomości link `Chcesz anulować zgłoszenie? Anuluj rejestrację` (czerwony, taki sam jak u gości).
 
-### 3. Drobne usprawnienia UX
+c) **Budowanie URL-i**: użyć tego samego wzorca co w `send-event-form-confirmation`:
+   ```
+   const publicBaseUrl = Deno.env.get('PUBLIC_EMAIL_LINK_BASE_URL')
+     || Deno.env.get('PUBLIC_SITE_URL')
+     || 'https://purelife.info.pl';
+   const confirmUrl = `${publicBaseUrl}/event-form/confirm/${confirmation_token}`;
+   const cancelUrl  = `${publicBaseUrl}/event-form/cancel/${cancellation_token}`;
+   ```
 
-- Zwiększenie wysokości obszaru kadrowania z `h-64` na `h-80 md:h-96`, żeby było widać więcej.
-- Strzałki klawiatury (←↑↓→) przesuwają kadr o 1px (Shift = 10px) gdy okno jest aktywne.
-- Pasek statusu pod cropperem: `Zoom: 1.20 ×  •  Pozycja: 12% × −5%  •  Obrót: 0°`.
-- Podgląd „na stronie wydarzenia" pozostaje, ale dodatkowo dostaje **przełącznik urządzenia** (Mobile 16:9 / Tablet 2:1 / Desktop 21:9), żeby zobaczyć każdy wariant osobno bez czekania na resize okna.
+   Linki działają niezależnie od logowania (publiczne strony obsługują tokeny), więc partnerzy klikają je tak samo jak goście.
 
-### 4. Zachowanie wstecznej kompatybilności
+### 2. Zmiana frazy w mailu
 
-- Wszystkie obecne presety (21:9, 16:9, 4:3, 9:16, 3:4, kwadrat, koło, owale, dowolny) zostają.
-- Nowe pola (`rotation`, `flipH`, `flipV`) są opcjonalne — jeśli nie zostaną zmienione, wynik będzie identyczny jak dziś.
-- `getCroppedImg` w `src/lib/cropImage.ts` rozszerzony o opcje `rotation`, `flipH`, `flipV`; domyślne zachowanie bez zmian.
+W tym samym `buildEmail(...)`:
+- z: „wyślemy do Ciebie email z biletem **i** kodem QR potrzebnym do wejścia na wydarzenie."
+- na: „wyślemy do Ciebie email z biletem **i/lub** kodem QR potrzebnym do wejścia na wydarzenie."
+
+### 3. Wdrożenie
+
+Po edycji wymagany jest redeploy edge function `register-event-transfer-order`, żeby zmiany zaczęły działać produkcyjnie.
 
 ## Pliki
 
-- `src/components/partner-page/ImageUploadInput.tsx` — nowe kontrolki, tryb „Banner wydarzenia", trójwarstwowy podgląd, skróty klawiaturowe.
-- `src/lib/cropImage.ts` — obsługa rotacji i lustra w canvas (`ctx.translate` + `ctx.rotate` + `ctx.scale`).
+- `supabase/functions/register-event-transfer-order/index.ts`
+  - rozszerzenie sygnatury `buildEmail` o `confirmUrl`/`cancelUrl`,
+  - dodanie sekcji CTA i linku „Anuluj" w HTML maila,
+  - poprawka tekstu „i" → „i/lub",
+  - pobranie `confirmation_token`/`cancellation_token` z mirrorowanego wpisu i zbudowanie URL-i przed wywołaniem `buildEmail`.
 
 ## Efekt
 
-Jedno okno daje pełną kontrolę: precyzyjny zoom liczbowy, X/Y w procentach, rotację, lustro, snap do 9 punktów siatki oraz tryb „Banner wydarzenia" pokazujący od razu co zostanie obcięte na desktopie. Wystarczy raz ustawić zdjęcie, żeby na mobile, tablecie i desktopie banner wyglądał tak jak zaplanowane.
+Każdy email po rezerwacji biletu (zarówno dla zalogowanego partnera, jak i dla gościa) zawiera ten sam komplet kontroli: żółty przycisk potwierdzenia oraz czerwony link anulowania. Po kliknięciu „Potwierdzam" w panelu admina (`Eventy → Formularze → Zgłoszenia`) partner przestaje widnieć jako `Wysłany — czeka` i otrzymuje status `Potwierdził`. Tekst maila informuje precyzyjnie, że bilet i/lub kod QR będą dostarczone po zaksięgowaniu wpłaty.

@@ -178,6 +178,8 @@ function buildEmail(opts: {
   ticketCode: string;
   bannerUrl?: string | null;
   contact: ContactPerson | null;
+  confirmUrl?: string | null;
+  cancelUrl?: string | null;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
 
@@ -186,6 +188,18 @@ function buildEmail(opts: {
     ? `<div style="background:#000;">
          <img src="${escapeHtml(opts.bannerUrl)}" alt="${escapeHtml(opts.eventTitle)}" style="display:block;width:100%;max-width:620px;height:auto;margin:0 auto;" />
        </div>`
+    : '';
+
+  const confirmCtaHtml = opts.confirmUrl
+    ? `<div style="margin:24px 0;text-align:center;">
+         <a href="${escapeHtml(opts.confirmUrl)}" style="display:inline-block;background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✅ Potwierdzam otrzymanie wiadomości</a>
+       </div>`
+    : '';
+
+  const cancelLinkHtml = opts.cancelUrl
+    ? `<p style="text-align:center;font-size:13px;color:#888;margin:18px 0 0;">
+         Chcesz anulować zgłoszenie? <a href="${escapeHtml(opts.cancelUrl)}" style="color:#c0392b;">Anuluj rejestrację</a>
+       </p>`
     : '';
 
   return `<!DOCTYPE html>
@@ -205,14 +219,18 @@ function buildEmail(opts: {
         Numer rezerwacji: <code style="background:#f3f3f3;padding:2px 6px;border-radius:4px;">${escapeHtml(opts.ticketCode)}</code>
       </p>
 
+      ${confirmCtaHtml}
+
       <h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">💳 Dane do przelewu</h3>
       ${transferHtml}
 
       <p style="font-size:14px;line-height:1.6;color:#555;">
-        Po zaksięgowaniu wpłaty wyślemy do Ciebie email z biletem i kodem QR potrzebnym do wejścia na wydarzenie.
+        Po zaksięgowaniu wpłaty wyślemy do Ciebie email z biletem i/lub kodem QR potrzebnym do wejścia na wydarzenie.
       </p>
 
       ${buildContactSection(opts.contact)}
+
+      ${cancelLinkHtml}
     </div>
     <div style="text-align:center;padding:18px;background:#fafafa;color:#999;font-size:12px;border-top:1px solid #eee;">
       © ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.
@@ -356,6 +374,8 @@ serve(async (req) => {
     // Mirror this order into event_form_submissions so it shows up in the
     // admin "Formularze → Zgłoszenia" view (Goście / Partnerzy tabs).
     // Best-effort: never fail the order if mirroring fails.
+    let mirrorConfirmationToken: string | null = null;
+    let mirrorCancellationToken: string | null = null;
     try {
       const { data: regForm } = await supabase
         .from("event_registration_forms")
@@ -411,7 +431,7 @@ serve(async (req) => {
         const lowerEmail = buyer.email.trim().toLowerCase();
         const { data: existingSub } = await supabase
           .from("event_form_submissions")
-          .select("id, submitted_data")
+          .select("id, submitted_data, confirmation_token, cancellation_token")
           .eq("form_id", regForm.id)
           .eq("email", lowerEmail)
           .maybeSingle();
@@ -439,8 +459,10 @@ serve(async (req) => {
           if (updErr) {
             console.error("[mirror] event_form_submissions update failed", updErr);
           }
+          mirrorConfirmationToken = (existingSub as any).confirmation_token ?? null;
+          mirrorCancellationToken = (existingSub as any).cancellation_token ?? null;
         } else {
-          const { error: subErr } = await supabase
+          const { data: insertedSub, error: subErr } = await supabase
             .from("event_form_submissions")
             .insert({
               form_id: regForm.id,
@@ -461,25 +483,40 @@ serve(async (req) => {
                 quantity: 1,
                 total_amount: totalAmount,
               },
-            });
+            })
+            .select("id, confirmation_token, cancellation_token")
+            .maybeSingle();
           if (subErr) {
             // Likely a race against the new unique index — treat as already-mirrored.
             console.error("[mirror] event_form_submissions insert failed", subErr);
-          } else if (mirrorPartnerLinkId) {
-            await supabase.rpc("increment_partner_link_submission" as any, {
-              _link_id: mirrorPartnerLinkId,
-            }).then(() => {}, async () => {
-              // RPC may not exist — fall back to manual increment
-              const { data: cur } = await supabase
-                .from("paid_event_partner_links")
-                .select("submission_count")
-                .eq("id", mirrorPartnerLinkId)
-                .maybeSingle();
-              await supabase
-                .from("paid_event_partner_links")
-                .update({ submission_count: (cur?.submission_count ?? 0) + 1 })
-                .eq("id", mirrorPartnerLinkId);
-            });
+            // Try fetching the row that won the race so we still have tokens for the email.
+            const { data: raceRow } = await supabase
+              .from("event_form_submissions")
+              .select("confirmation_token, cancellation_token")
+              .eq("form_id", regForm.id)
+              .eq("email", lowerEmail)
+              .maybeSingle();
+            mirrorConfirmationToken = (raceRow as any)?.confirmation_token ?? null;
+            mirrorCancellationToken = (raceRow as any)?.cancellation_token ?? null;
+          } else {
+            mirrorConfirmationToken = (insertedSub as any)?.confirmation_token ?? null;
+            mirrorCancellationToken = (insertedSub as any)?.cancellation_token ?? null;
+            if (mirrorPartnerLinkId) {
+              await supabase.rpc("increment_partner_link_submission" as any, {
+                _link_id: mirrorPartnerLinkId,
+              }).then(() => {}, async () => {
+                // RPC may not exist — fall back to manual increment
+                const { data: cur } = await supabase
+                  .from("paid_event_partner_links")
+                  .select("submission_count")
+                  .eq("id", mirrorPartnerLinkId)
+                  .maybeSingle();
+                await supabase
+                  .from("paid_event_partner_links")
+                  .update({ submission_count: (cur?.submission_count ?? 0) + 1 })
+                  .eq("id", mirrorPartnerLinkId);
+              });
+            }
           }
         }
       }
@@ -569,6 +606,19 @@ serve(async (req) => {
             `[email] sending to ${buyer.email} via ${smtpSettings.smtp_host}:${smtpSettings.smtp_port} (${smtpSettings.encryption_type})`
           );
 
+          // Public link base — must be the production domain so that
+          // unauthenticated guests AND logged-out partners can open the
+          // confirm/cancel pages from their inbox without hitting /auth.
+          const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
+            || Deno.env.get("PUBLIC_SITE_URL")
+            || "https://purelife.info.pl";
+          const confirmUrl = mirrorConfirmationToken
+            ? `${publicBaseUrl}/event-form/confirm/${mirrorConfirmationToken}`
+            : null;
+          const cancelUrl = mirrorCancellationToken
+            ? `${publicBaseUrl}/event-form/cancel/${mirrorCancellationToken}`
+            : null;
+
           const html = buildEmail({
             firstName: buyer.firstName,
             eventTitle: event.title,
@@ -579,6 +629,8 @@ serve(async (req) => {
             ticketCode,
             bannerUrl: event.banner_url,
             contact,
+            confirmUrl,
+            cancelUrl,
           });
           await sendSmtp(
             smtpSettings,
