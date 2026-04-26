@@ -429,7 +429,7 @@ serve(async (req) => {
         const lowerEmail = buyer.email.trim().toLowerCase();
         const { data: existingSub } = await supabase
           .from("event_form_submissions")
-          .select("id, submitted_data")
+          .select("id, submitted_data, confirmation_token, cancellation_token")
           .eq("form_id", regForm.id)
           .eq("email", lowerEmail)
           .maybeSingle();
@@ -457,8 +457,10 @@ serve(async (req) => {
           if (updErr) {
             console.error("[mirror] event_form_submissions update failed", updErr);
           }
+          mirrorConfirmationToken = (existingSub as any).confirmation_token ?? null;
+          mirrorCancellationToken = (existingSub as any).cancellation_token ?? null;
         } else {
-          const { error: subErr } = await supabase
+          const { data: insertedSub, error: subErr } = await supabase
             .from("event_form_submissions")
             .insert({
               form_id: regForm.id,
@@ -479,25 +481,40 @@ serve(async (req) => {
                 quantity: 1,
                 total_amount: totalAmount,
               },
-            });
+            })
+            .select("id, confirmation_token, cancellation_token")
+            .maybeSingle();
           if (subErr) {
             // Likely a race against the new unique index — treat as already-mirrored.
             console.error("[mirror] event_form_submissions insert failed", subErr);
-          } else if (mirrorPartnerLinkId) {
-            await supabase.rpc("increment_partner_link_submission" as any, {
-              _link_id: mirrorPartnerLinkId,
-            }).then(() => {}, async () => {
-              // RPC may not exist — fall back to manual increment
-              const { data: cur } = await supabase
-                .from("paid_event_partner_links")
-                .select("submission_count")
-                .eq("id", mirrorPartnerLinkId)
-                .maybeSingle();
-              await supabase
-                .from("paid_event_partner_links")
-                .update({ submission_count: (cur?.submission_count ?? 0) + 1 })
-                .eq("id", mirrorPartnerLinkId);
-            });
+            // Try fetching the row that won the race so we still have tokens for the email.
+            const { data: raceRow } = await supabase
+              .from("event_form_submissions")
+              .select("confirmation_token, cancellation_token")
+              .eq("form_id", regForm.id)
+              .eq("email", lowerEmail)
+              .maybeSingle();
+            mirrorConfirmationToken = (raceRow as any)?.confirmation_token ?? null;
+            mirrorCancellationToken = (raceRow as any)?.cancellation_token ?? null;
+          } else {
+            mirrorConfirmationToken = (insertedSub as any)?.confirmation_token ?? null;
+            mirrorCancellationToken = (insertedSub as any)?.cancellation_token ?? null;
+            if (mirrorPartnerLinkId) {
+              await supabase.rpc("increment_partner_link_submission" as any, {
+                _link_id: mirrorPartnerLinkId,
+              }).then(() => {}, async () => {
+                // RPC may not exist — fall back to manual increment
+                const { data: cur } = await supabase
+                  .from("paid_event_partner_links")
+                  .select("submission_count")
+                  .eq("id", mirrorPartnerLinkId)
+                  .maybeSingle();
+                await supabase
+                  .from("paid_event_partner_links")
+                  .update({ submission_count: (cur?.submission_count ?? 0) + 1 })
+                  .eq("id", mirrorPartnerLinkId);
+              });
+            }
           }
         }
       }
