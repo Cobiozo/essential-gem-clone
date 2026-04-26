@@ -250,6 +250,58 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                   </div>
                 )}
 
+                {/* Status zaproszeń na płatne wydarzenia (zakładka „Z zaproszeń na eventy") */}
+                {eventInviteSubmissions && eventInviteSubmissions.get(contact.id) && (
+                  <div className="flex flex-col gap-1.5 pl-[52px] sm:pl-[52px] max-w-full overflow-hidden">
+                    {eventInviteSubmissions.get(contact.id)!.map((sub) => {
+                      const isCancelled = sub.status === 'cancelled' || !!sub.cancelled_at;
+                      const isConfirmed = !!sub.email_confirmed_at && !isCancelled;
+                      const isPaid = sub.payment_status === 'paid';
+                      return (
+                        <div
+                          key={sub.submission_id}
+                          className="flex flex-wrap items-center gap-1.5 max-w-full"
+                        >
+                          <Badge variant="outline" className="text-xs font-normal truncate max-w-full">
+                            📅 {sub.event_title}
+                            {sub.event_date && (
+                              <span className="ml-1 text-muted-foreground">
+                                ({new Date(sub.event_date).toLocaleDateString('pl-PL')})
+                              </span>
+                            )}
+                          </Badge>
+
+                          {isCancelled ? (
+                            <Badge className="text-xs font-normal bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                              ❌ Anulowano
+                            </Badge>
+                          ) : isConfirmed ? (
+                            <Badge className="text-xs font-normal bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              ✅ Potwierdzono
+                            </Badge>
+                          ) : (
+                            <Badge className="text-xs font-normal bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                              ⏳ Oczekuje potwierdzenia
+                            </Badge>
+                          )}
+
+                          {!isCancelled && (
+                            isPaid ? (
+                              <Badge className="text-xs font-normal bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                                💰 Opłacono
+                              </Badge>
+                            ) : (
+                              <Badge className="text-xs font-normal bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                💳 Brak płatności
+                              </Badge>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Action buttons row */}
                 {!readOnly && (
                   <div className="flex items-center gap-1 flex-wrap pl-[52px] sm:pl-[52px]">
