@@ -601,14 +601,15 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
               {filtered.map(s => {
                 const ps = PAYMENT_LABELS[s.payment_status] || PAYMENT_LABELS.pending;
                 const PsIcon = ps.icon;
-                const partner = s.partner_user_id ? (partnersMap as any)[s.partner_user_id] : null;
+                const isPartnerRow = isPartnerSubmission(s);
+                const partner = getInvitingPartner(s);
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="text-xs">{new Date(s.created_at).toLocaleString('pl-PL')}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{s.first_name} {s.last_name}</span>
-                        {isPartnerSubmission(s) ? (
+                        {isPartnerRow ? (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">
                             <Shield className="w-2.5 h-2.5 mr-0.5" /> Partner
                           </Badge>
@@ -646,16 +647,24 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                             <UserCheck className="w-3 h-3 text-green-600" />
                             {partner.first_name} {partner.last_name}
                           </div>
-                          <div className="text-muted-foreground">{partner.email}</div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => setAssignFor({ id: s.id, partnerUserId: s.partner_user_id })}
-                          >
-                            Zmień
-                          </Button>
+                          {partner.email && (
+                            <div className="text-muted-foreground">{partner.email}</div>
+                          )}
+                          {isPartnerRow ? (
+                            <div className="text-[10px] text-muted-foreground italic">Bezpośredni upline</div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setAssignFor({ id: s.id, partnerUserId: s.partner_user_id })}
+                            >
+                              Zmień
+                            </Button>
+                          )}
                         </div>
+                      ) : isPartnerRow ? (
+                        <span className="text-xs text-muted-foreground italic">— brak uplinu —</span>
                       ) : (
                         <Button
                           size="sm"
