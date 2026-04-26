@@ -606,6 +606,19 @@ serve(async (req) => {
             `[email] sending to ${buyer.email} via ${smtpSettings.smtp_host}:${smtpSettings.smtp_port} (${smtpSettings.encryption_type})`
           );
 
+          // Public link base — must be the production domain so that
+          // unauthenticated guests AND logged-out partners can open the
+          // confirm/cancel pages from their inbox without hitting /auth.
+          const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
+            || Deno.env.get("PUBLIC_SITE_URL")
+            || "https://purelife.info.pl";
+          const confirmUrl = mirrorConfirmationToken
+            ? `${publicBaseUrl}/event-form/confirm/${mirrorConfirmationToken}`
+            : null;
+          const cancelUrl = mirrorCancellationToken
+            ? `${publicBaseUrl}/event-form/cancel/${mirrorCancellationToken}`
+            : null;
+
           const html = buildEmail({
             firstName: buyer.firstName,
             eventTitle: event.title,
@@ -616,6 +629,8 @@ serve(async (req) => {
             ticketCode,
             bannerUrl: event.banner_url,
             contact,
+            confirmUrl,
+            cancelUrl,
           });
           await sendSmtp(
             smtpSettings,
