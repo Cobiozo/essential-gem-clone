@@ -1,56 +1,32 @@
 ## Problem
 
-1. **Mail do partnerów po rejestracji na wydarzenie nie ma przycisku „Potwierdzam otrzymanie wiadomości" ani linku „Anuluj rejestrację"** — w przeciwieństwie do maila gości niezalogowanych. W efekcie kolumna „Email" w panelu admina pozostaje na zawsze w stanie `Wysłany — czeka` i partner nie może anulować zgłoszenia z poziomu maila.
-
-2. W treści maila partnera fraza „…wyślemy do Ciebie email z biletem **i** kodem QR…" powinna brzmieć „…z biletem **i/lub** kodem QR…".
+W zakładce **Eventy → Formularze → Zgłoszenia → Partnerzy** kolumna „Partner zapraszający" pokazuje partnera przypisanego przez ref-link (lub przycisk „Przypisz", jeśli linku nie było). Dla zgłoszeń od partnerów to nie ma sensu — partner sam siebie zaprasza i powinien widnieć tam jego **bezpośredni upline (opiekun)**.
 
 ## Rozwiązanie
 
-### 1. Dodanie CTA „Potwierdzam" + linku „Anuluj" w mailu partnera
+W `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`:
 
-Tabela `event_form_submissions` ma już kolumny `confirmation_token` i `cancellation_token` (auto-generowane DB defaultem `gen_random_bytes(32)`), a w aplikacji istnieją gotowe trasy `/event-form/confirm/:token` i `/event-form/cancel/:token` wraz z funkcjami `confirm-event-form-email` i `cancel-event-form-submission`. Wystarczy podpiąć je do maila zamówienia biletu.
+1. **Zamiast pobierać tylko zbiór emaili zarejestrowanych** (obecnie `registeredEmailsSet`), pobrać dla każdego zgłoszenia profil osoby zgłaszającej z polami `user_id, email, upline_eq_id, upline_first_name, upline_last_name`. Trzymać mapę `email → profile` (`submitterProfilesByEmail`). Klucze tej mapy zastępują `registeredEmails` — funkcja `isPartnerSubmission` działa bez zmian.
 
-W `supabase/functions/register-event-transfer-order/index.ts`:
+2. **Doliczyć drugie zapytanie**: pobrać profile po `eq_id IN (lista upline_eq_id)` i zbudować mapę `eq_id → uplineProfile` (`uplineByEqId`), żeby uzyskać aktualne `first_name`, `last_name`, `email` opiekuna.
 
-a) **Mirror order → submission**: rozszerzyć obecne zapytania, by zwracały tokeny:
-   - `insert(...).select('id, confirmation_token, cancellation_token').single()` — przy nowym zgłoszeniu,
-   - `select('id, submitted_data, confirmation_token, cancellation_token')` — przy istniejącym (powtórne zamówienie tej samej osoby).
-   
-   Tokeny przekazać dalej przez closure do bloku wysyłki maila.
+3. **Dodać helper `getInvitingPartner(s)`**:
+   - Jeśli `isPartnerSubmission(s)` → zwróć `uplineByEqId[submitter.upline_eq_id]` (lub fallback na `upline_first_name/last_name` zapisane w profilu zgłaszającego, jeśli profil opiekuna nie istnieje w bazie).
+   - W przeciwnym razie (gość) → zachowaj obecne zachowanie: `partnersMap[s.partner_user_id]`.
 
-b) **`buildEmail(...)`**: dodać opcjonalne pola `confirmUrl` i `cancelUrl`. Gdy są ustawione, wstawić:
-   - **NAD danymi do przelewu** żółty przycisk `✅ Potwierdzam otrzymanie wiadomości` (identyczny styl jak w mailu gościa),
-   - **NA DOLE** sekcji wiadomości link `Chcesz anulować zgłoszenie? Anuluj rejestrację` (czerwony, taki sam jak u gości).
+4. **Render kolumny „Partner zapraszający"**: zastąpić `const partner = s.partner_user_id ? partnersMap[s.partner_user_id] : null` wywołaniem `const partner = getInvitingPartner(s)`. Dodatkowo:
+   - Dla wierszy partnerskich (`isPartnerSubmission(s) === true`) **ukryć przyciski „Zmień" / „Przypisz"** — upline wynika z profilu i nie powinien być ręcznie nadpisywany w kontekście wydarzenia. Dla gości pozostają bez zmian.
+   - Jeśli partner nie ma uplinu w profilu, wyświetlić neutralną etykietę „— brak uplinu —" (zamiast przycisku „Przypisz"), żeby admin wiedział, że trzeba uzupełnić profil partnera.
 
-c) **Budowanie URL-i**: użyć tego samego wzorca co w `send-event-form-confirmation`:
-   ```
-   const publicBaseUrl = Deno.env.get('PUBLIC_EMAIL_LINK_BASE_URL')
-     || Deno.env.get('PUBLIC_SITE_URL')
-     || 'https://purelife.info.pl';
-   const confirmUrl = `${publicBaseUrl}/event-form/confirm/${confirmation_token}`;
-   const cancelUrl  = `${publicBaseUrl}/event-form/cancel/${cancellation_token}`;
-   ```
-
-   Linki działają niezależnie od logowania (publiczne strony obsługują tokeny), więc partnerzy klikają je tak samo jak goście.
-
-### 2. Zmiana frazy w mailu
-
-W tym samym `buildEmail(...)`:
-- z: „wyślemy do Ciebie email z biletem **i** kodem QR potrzebnym do wejścia na wydarzenie."
-- na: „wyślemy do Ciebie email z biletem **i/lub** kodem QR potrzebnym do wejścia na wydarzenie."
-
-### 3. Wdrożenie
-
-Po edycji wymagany jest redeploy edge function `register-event-transfer-order`, żeby zmiany zaczęły działać produkcyjnie.
+5. **Eksport Excel**: w funkcji `exportXlsx` użyć tego samego `getInvitingPartner(s)` przy wypełnianiu kolumny „Partner zapraszający" — w eksporcie partnera widnieje jego upline, a u gości partner ref-linku.
 
 ## Pliki
 
-- `supabase/functions/register-event-transfer-order/index.ts`
-  - rozszerzenie sygnatury `buildEmail` o `confirmUrl`/`cancelUrl`,
-  - dodanie sekcji CTA i linku „Anuluj" w HTML maila,
-  - poprawka tekstu „i" → „i/lub",
-  - pobranie `confirmation_token`/`cancellation_token` z mirrorowanego wpisu i zbudowanie URL-i przed wywołaniem `buildEmail`.
+- `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`
+  - Refactor zapytań (`registeredEmailsSet` → `submitterProfilesByEmail` + `uplineByEqId`).
+  - Nowy helper `getInvitingPartner(s)`.
+  - Aktualizacja renderu kolumny i logiki eksportu.
 
 ## Efekt
 
-Każdy email po rezerwacji biletu (zarówno dla zalogowanego partnera, jak i dla gościa) zawiera ten sam komplet kontroli: żółty przycisk potwierdzenia oraz czerwony link anulowania. Po kliknięciu „Potwierdzam" w panelu admina (`Eventy → Formularze → Zgłoszenia`) partner przestaje widnieć jako `Wysłany — czeka` i otrzymuje status `Potwierdził`. Tekst maila informuje precyzyjnie, że bilet i/lub kod QR będą dostarczone po zaksięgowaniu wpłaty.
+W zakładce „Partnerzy" w kolumnie „Partner zapraszający" widnieje opiekun (bezpośredni upline) partnera — z imieniem, nazwiskiem i emailem. W zakładce „Goście" nic się nie zmienia: nadal widnieje partner przypisany przez link / ręcznie. Eksport Excel zachowuje tę samą logikę.
