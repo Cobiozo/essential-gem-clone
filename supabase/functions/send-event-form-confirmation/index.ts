@@ -208,6 +208,24 @@ serve(async (req) => {
           .maybeSingle()
       : { data: null };
 
+    // Fetch inviting partner contact info (only if registration came via partner link)
+    let partner: { name: string; email: string | null; phone: string | null } | null = null;
+    if (sub.partner_user_id) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, email, phone_number")
+        .eq("user_id", sub.partner_user_id)
+        .maybeSingle();
+      if (p) {
+        const fullName = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+        partner = {
+          name: fullName || "Twój opiekun",
+          email: p.email || null,
+          phone: p.phone_number || null,
+        };
+      }
+    }
+
     // CRITICAL: Public email links MUST point to the production domain
     // (purelife.info.pl). The Lovable preview domain (purelife.lovable.app)
     // currently redirects unauthenticated users to /auth, which would break
