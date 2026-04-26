@@ -121,6 +121,23 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     onError: (e: Error) => toast({ title: 'Błąd', description: e.message, variant: 'destructive' }),
   });
 
+  const deleteSubmission = useMutation({
+    mutationFn: async (submissionId: string) => {
+      const { error } = await supabase
+        .from('event_form_submissions')
+        .delete()
+        .eq('id', submissionId);
+      if (error) throw error;
+      return { id: submissionId };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['event-form-submissions', form.id] });
+      qc.invalidateQueries({ queryKey: ['event-form-submission-counts'] });
+      toast({ title: 'Zgłoszenie usunięte', description: 'Rekord został trwale usunięty.' });
+    },
+    onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
+  });
+
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
     if (audience !== 'all') {
