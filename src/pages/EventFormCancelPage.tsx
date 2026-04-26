@@ -4,13 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Loader2, AlertTriangle, Info } from 'lucide-react';
-import DualBrandHeader from '@/components/branding/DualBrandHeader';
 
 const EventFormCancelPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [wasPaid, setWasPaid] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [eventTitle, setEventTitle] = useState<string | null>(null);
 
   const handleCancel = async () => {
     if (!token) return;
@@ -20,6 +21,8 @@ const EventFormCancelPage: React.FC = () => {
       if (error) throw error;
       if (data?.success) {
         setWasPaid(!!data.was_paid);
+        setBannerUrl(data?.banner_url ?? null);
+        setEventTitle(data?.event_title ?? null);
         setState('ok');
         if (data.already_cancelled) {
           setMessage('Twoja rejestracja była już wcześniej anulowana.');
@@ -43,7 +46,14 @@ const EventFormCancelPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-lg w-full overflow-hidden">
-        <DualBrandHeader />
+        {bannerUrl && (
+          <img
+            src={bannerUrl}
+            alt={eventTitle || 'Baner wydarzenia'}
+            className="w-full h-auto object-cover"
+            loading="eager"
+          />
+        )}
         <CardContent className="pt-8 pb-8 text-center space-y-4">
           {state === 'idle' && (
             <>
