@@ -187,21 +187,21 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="event_date">Data rozpoczęcia</Label>
+                  <Label htmlFor="event_date">Data rozpoczęcia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw – CET/CEST)</span></Label>
                   <Input
                     id="event_date"
                     type="datetime-local"
-                    value={formData.event_date?.slice(0, 16) || ''}
-                    onChange={(e) => handleFieldChange('event_date', e.target.value)}
+                    value={isoToLocalInput(formData.event_date)}
+                    onChange={(e) => handleFieldChange('event_date', localInputToISO(e.target.value) ?? '')}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="event_end_date">Data zakończenia</Label>
+                  <Label htmlFor="event_end_date">Data zakończenia <span className="text-xs text-muted-foreground">(czas Europe/Warsaw)</span></Label>
                   <Input
                     id="event_end_date"
                     type="datetime-local"
-                    value={formData.event_end_date?.slice(0, 16) || ''}
-                    onChange={(e) => handleFieldChange('event_end_date', e.target.value || null)}
+                    value={isoToLocalInput(formData.event_end_date)}
+                    onChange={(e) => handleFieldChange('event_end_date', e.target.value ? localInputToISO(e.target.value) : null)}
                   />
                 </div>
               </div>
