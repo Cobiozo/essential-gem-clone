@@ -374,6 +374,8 @@ serve(async (req) => {
     // Mirror this order into event_form_submissions so it shows up in the
     // admin "Formularze → Zgłoszenia" view (Goście / Partnerzy tabs).
     // Best-effort: never fail the order if mirroring fails.
+    let mirrorConfirmationToken: string | null = null;
+    let mirrorCancellationToken: string | null = null;
     try {
       const { data: regForm } = await supabase
         .from("event_registration_forms")
