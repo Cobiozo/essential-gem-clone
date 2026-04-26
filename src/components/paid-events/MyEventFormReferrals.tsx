@@ -17,7 +17,7 @@ interface MyEventFormReferralsProps {
  * Polityka SELECT na event_form_submissions: auth.uid() = partner_user_id
  * (gwarantuje, że partner widzi wyłącznie swoich poleconych).
  *
- * Dane PII są częściowo maskowane — pełen rejestr ma tylko admin.
+ * Partner widzi pełne dane swoich poleconych — RLS wymusza izolację.
  */
 export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ formId, eventId }) => {
   const { user } = useAuth();
@@ -56,19 +56,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     );
   }
 
-  const maskEmail = (e: string) => {
-    if (!e || !e.includes('@')) return e;
-    const [name, domain] = e.split('@');
-    if (name.length <= 2) return `${name[0] || '•'}•@${domain}`;
-    return `${name.slice(0, 2)}${'•'.repeat(Math.max(2, name.length - 2))}@${domain}`;
-  };
-
-  const maskPhone = (p: string | null) => {
-    if (!p) return '—';
-    const digits = p.replace(/\D/g, '');
-    if (digits.length < 4) return '•••';
-    return `••• ••• ${digits.slice(-3)}`;
-  };
 
   const paymentBadge = (s: string, status: string) => {
     if (status === 'cancelled') return <Badge variant="destructive">Anulowane</Badge>;
@@ -99,8 +86,8 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
               <td className="py-2 pr-2 font-medium">
                 {[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}
               </td>
-              <td className="py-2 pr-2 text-muted-foreground">{maskEmail(r.email)}</td>
-              <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">{maskPhone(r.phone)}</td>
+              <td className="py-2 pr-2 text-muted-foreground break-all">{r.email || '—'}</td>
+              <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">{r.phone || '—'}</td>
               <td className="py-2 pr-2">
                 {r.email_confirmed_at ? (
                   <Badge variant="outline" className="border-green-600 text-green-700">Tak</Badge>
@@ -113,9 +100,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
           ))}
         </tbody>
       </table>
-      <p className="text-[10px] text-muted-foreground mt-2">
-        Dane osobowe są częściowo zamaskowane. Pełen rejestr widzi administrator.
-      </p>
     </div>
   );
 };
