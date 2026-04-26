@@ -23,6 +23,7 @@ import { isMultiOccurrenceEvent, getNextActiveOccurrence } from '@/hooks/useOccu
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
+import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
 
 interface TickerSettings {
   id: string;
