@@ -19,7 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, addMinutes, parseISO } from 'date-fns';
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { getAppDateLocale } from '@/utils/dateLocale';
 import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { 
