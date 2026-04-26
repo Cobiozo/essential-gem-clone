@@ -405,16 +405,41 @@ serve(async (req) => {
           }
         }
 
-        // Skip if a submission for this email + form already exists
+        // One submission per (form_id, email). Multiple ticket orders by the
+        // same person never create new submission rows — we just append the
+        // new order_id to submitted_data.order_ids on the existing row.
         const lowerEmail = buyer.email.trim().toLowerCase();
         const { data: existingSub } = await supabase
           .from("event_form_submissions")
-          .select("id")
+          .select("id, submitted_data")
           .eq("form_id", regForm.id)
           .eq("email", lowerEmail)
           .maybeSingle();
 
-        if (!existingSub) {
+        if (existingSub) {
+          // Append order_id to the existing submission, no counter increment.
+          const existingData: any = existingSub.submitted_data || {};
+          const existingIds: string[] = Array.isArray(existingData.order_ids)
+            ? existingData.order_ids.filter((v: any) => typeof v === "string")
+            : (existingData.order_id ? [String(existingData.order_id)] : []);
+          if (!existingIds.includes(order.id)) existingIds.push(order.id);
+          const { error: updErr } = await supabase
+            .from("event_form_submissions")
+            .update({
+              submitted_data: {
+                ...existingData,
+                source: existingData.source || "ticket_order",
+                order_ids: existingIds,
+                last_order_id: order.id,
+                last_ticket_id: ticketId,
+                last_total_amount: totalAmount,
+              },
+            })
+            .eq("id", existingSub.id);
+          if (updErr) {
+            console.error("[mirror] event_form_submissions update failed", updErr);
+          }
+        } else {
           const { error: subErr } = await supabase
             .from("event_form_submissions")
             .insert({
@@ -431,12 +456,14 @@ serve(async (req) => {
               submitted_data: {
                 source: "ticket_order",
                 order_id: order.id,
+                order_ids: [order.id],
                 ticket_id: ticketId,
                 quantity: 1,
                 total_amount: totalAmount,
               },
             });
           if (subErr) {
+            // Likely a race against the new unique index — treat as already-mirrored.
             console.error("[mirror] event_form_submissions insert failed", subErr);
           } else if (mirrorPartnerLinkId) {
             await supabase.rpc("increment_partner_link_submission" as any, {
