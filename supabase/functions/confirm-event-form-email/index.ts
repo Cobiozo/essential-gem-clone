@@ -67,20 +67,21 @@ async function notifyAndUpdateCRM(supabase: any, submissionId: string) {
       metadata: { submission_id: sub.id, event_id: sub.event_id, email: sub.email },
     });
 
-    // Znajdź lub utwórz wpis CRM
+    // Znajdź lub utwórz wpis CRM (bez duplikatów — bierzemy ostatni pasujący)
     const emailLower = (sub.email || "").toLowerCase();
-    const { data: contact } = await supabase
+    const { data: contacts } = await supabase
       .from("team_contacts")
-      .select("id, notes")
+      .select("id, notes, created_at")
       .eq("user_id", sub.partner_user_id)
-      .eq("email", emailLower)
-      .maybeSingle();
+      .ilike("email", emailLower)
+      .order("created_at", { ascending: false });
 
     const noteLine = `[${nowStamp()}] ✅ Potwierdził rejestrację na: ${eventTitle}`;
 
-    if (contact) {
-      const newNotes = contact.notes ? `${contact.notes}\n${noteLine}` : noteLine;
-      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", contact.id);
+    if (contacts && contacts.length > 0) {
+      const target = contacts[0];
+      const newNotes = target.notes ? `${target.notes}\n${noteLine}` : noteLine;
+      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", target.id);
     } else {
       await supabase.from("team_contacts").insert({
         user_id: sub.partner_user_id,
@@ -110,6 +111,28 @@ serve(async (req) => {
     const { data, error } = await supabase.rpc("confirm_event_form_email", { _token: token });
     if (error) throw error;
 
+    // Wzbogacamy odpowiedź o dane wydarzenia (banner) potrzebne stronie potwierdzającej
+    let event_id: string | null = null;
+    let banner_url: string | null = null;
+    let event_title: string | null = null;
+    if (data?.success && data?.submission_id) {
+      const { data: sub } = await supabase
+        .from("event_form_submissions")
+        .select("event_id")
+        .eq("id", data.submission_id)
+        .maybeSingle();
+      if (sub?.event_id) {
+        event_id = sub.event_id;
+        const { data: ev } = await supabase
+          .from("paid_events")
+          .select("banner_url, title")
+          .eq("id", sub.event_id)
+          .maybeSingle();
+        banner_url = ev?.banner_url ?? null;
+        event_title = ev?.title ?? null;
+      }
+    }
+
     // Wyślij powiadomienia tylko przy pierwszym potwierdzeniu (nie przy "already_confirmed")
     if (data?.success && !data?.already_confirmed && data?.submission_id) {
       try {
@@ -120,7 +143,10 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify(data), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ ...data, event_id, banner_url, event_title }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e: any) {
     console.error("[confirm-event-form-email]", e);
     return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

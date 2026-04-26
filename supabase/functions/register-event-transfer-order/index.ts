@@ -182,33 +182,18 @@ function buildEmail(opts: {
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
 
+  // Banner wydarzenia jako jedyny nagłówek graficzny (bez złotego paska Pure Life / Eqology).
   const bannerHtml = opts.bannerUrl
     ? `<div style="background:#000;">
          <img src="${escapeHtml(opts.bannerUrl)}" alt="${escapeHtml(opts.eventTitle)}" style="display:block;width:100%;max-width:620px;height:auto;margin:0 auto;" />
        </div>`
     : '';
 
-  const logoStripHtml = `
-    <div style="padding:18px 24px;background:linear-gradient(135deg,#D4AF37,#F5E6A3,#D4AF37);">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${logoUrl}" alt="Pure Life" style="max-width:130px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-          <td align="center" valign="middle" width="1" style="border-left:1px solid rgba(0,0,0,0.18);height:36px;"></td>
-          <td align="center" valign="middle" style="padding:0 12px;">
-            <img src="${eqologyLogoUrl}" alt="Eqology Independent Business Partner" style="max-width:130px;height:auto;display:inline-block;vertical-align:middle;" />
-          </td>
-        </tr>
-      </table>
-    </div>`;
-
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
   <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
     ${bannerHtml}
-    ${logoStripHtml}
     <div style="padding:30px;">
       <h1 style="margin:0 0 10px;font-size:22px;color:#222;">Rezerwacja przyjęta</h1>
       <p style="font-size:15px;">Cześć <strong>${escapeHtml(opts.firstName)}</strong>!</p>

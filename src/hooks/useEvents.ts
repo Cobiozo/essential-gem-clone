@@ -45,11 +45,45 @@ export const useEvents = () => {
       if (error) throw error;
 
       // Parse buttons from JSONB
-      const parsedEvents = (data || []).map(event => ({
+      const parsedEvents: any[] = (data || []).map(event => ({
         ...event,
         buttons: (Array.isArray(event.buttons) ? event.buttons : []) as unknown as EventButton[],
         event_type: event.event_type as EventType,
       }));
+
+      // Pobierz paid_events oznaczone do wyświetlenia w kalendarzu pulpitu
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: paidData } = await (supabase as any)
+        .from('paid_events')
+        .select('id, slug, title, banner_url, location, event_date, event_end_date, show_in_dashboard_calendar, is_active, is_published')
+        .eq('show_in_dashboard_calendar', true)
+        .eq('is_active', true)
+        .eq('is_published', true)
+        .gte('event_date', dayAgo);
+
+      const paidAsEvents: any[] = (paidData || []).map((pe: any) => {
+        const start = pe.event_date;
+        const end = pe.event_end_date
+          ? pe.event_end_date
+          : new Date(new Date(pe.event_date).getTime() + 2 * 60 * 60 * 1000).toISOString();
+        return {
+          id: `paid_${pe.id}`,
+          title: pe.title,
+          event_type: 'paid_event' as any,
+          start_time: start,
+          end_time: end,
+          location: pe.location,
+          banner_url: pe.banner_url,
+          is_active: true,
+          is_published: true,
+          is_registered: false,
+          buttons: [] as EventButton[],
+          _paid_event: true,
+          _event_slug: pe.slug,
+          _paid_event_id: pe.id,
+        };
+      });
+      parsedEvents.push(...paidAsEvents);
 
       // If user is logged in, check their registrations and fetch host/participant profiles
       if (user) {

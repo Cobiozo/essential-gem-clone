@@ -6328,6 +6328,7 @@ export type Database = {
           payment_method_payu: boolean
           payment_method_transfer: boolean
           short_description: string | null
+          show_in_dashboard_calendar: boolean
           slug: string
           stream_url: string | null
           tickets_sold: number | null
@@ -6359,6 +6360,7 @@ export type Database = {
           payment_method_payu?: boolean
           payment_method_transfer?: boolean
           short_description?: string | null
+          show_in_dashboard_calendar?: boolean
           slug: string
           stream_url?: string | null
           tickets_sold?: number | null
@@ -6390,6 +6392,7 @@ export type Database = {
           payment_method_payu?: boolean
           payment_method_transfer?: boolean
           short_description?: string | null
+          show_in_dashboard_calendar?: boolean
           slug?: string
           stream_url?: string | null
           tickets_sold?: number | null

@@ -3,12 +3,13 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import DualBrandHeader from '@/components/branding/DualBrandHeader';
 
 const EventFormConfirmPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<'loading' | 'ok' | 'already' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [eventTitle, setEventTitle] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -17,6 +18,8 @@ const EventFormConfirmPage: React.FC = () => {
         const { data, error } = await supabase.functions.invoke('confirm-event-form-email', { body: { token } });
         if (error) throw error;
         if (data?.success) {
+          setBannerUrl(data?.banner_url ?? null);
+          setEventTitle(data?.event_title ?? null);
           setState(data.already_confirmed ? 'already' : 'ok');
         } else {
           setState('error');
@@ -36,7 +39,14 @@ const EventFormConfirmPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-lg w-full overflow-hidden">
-        <DualBrandHeader />
+        {bannerUrl && (
+          <img
+            src={bannerUrl}
+            alt={eventTitle || 'Baner wydarzenia'}
+            className="w-full h-auto object-cover"
+            loading="eager"
+          />
+        )}
         <CardContent className="pt-8 pb-8 text-center space-y-4">
           {state === 'loading' && (
             <>
