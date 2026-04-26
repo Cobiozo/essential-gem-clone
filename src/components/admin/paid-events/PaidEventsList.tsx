@@ -152,10 +152,16 @@ export const PaidEventsList: React.FC = () => {
   });
 
   const handleSubmit = () => {
+    // Treat datetime-local inputs as Europe/Warsaw wall-clock and convert to UTC ISO before saving.
+    const payload: Partial<PaidEvent> = {
+      ...formData,
+      event_date: formData.event_date ? (localInputToISO(formData.event_date) ?? formData.event_date) : formData.event_date,
+      event_end_date: formData.event_end_date ? localInputToISO(formData.event_end_date) : null,
+    };
     if (editingEvent) {
-      updateMutation.mutate({ id: editingEvent.id, data: formData });
+      updateMutation.mutate({ id: editingEvent.id, data: payload });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(payload);
     }
   };
 
