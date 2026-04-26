@@ -327,7 +327,7 @@ const MaintenanceModeManagement: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="planned-end">{t('admin.maintenance.plannedEndLabel')}</Label>
+            <Label htmlFor="planned-end">{t('admin.maintenance.plannedEndLabel')} <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span></Label>
             <Input
               id="planned-end"
               type="datetime-local"
