@@ -562,7 +562,7 @@ export const ImportantInfoManagement: React.FC = () => {
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <CalendarX className="h-4 w-4" />
-                        Data wygaśnięcia
+                        Data wygaśnięcia <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span>
                       </Label>
                       <Input
                         type="datetime-local"
