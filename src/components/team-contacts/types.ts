@@ -82,6 +82,21 @@ export interface EventRegistrationInfo {
   event_category?: string;
 }
 
+// Status zgłoszenia partnera w formularzu rejestracji na płatne wydarzenie
+// (zakładka „Z zaproszeń na eventy")
+export interface EventInviteSubmissionInfo {
+  submission_id: string;
+  event_id: string;
+  event_title: string;
+  event_date: string | null;
+  status: string;                     // 'active' | 'cancelled' | …
+  payment_status: string;             // 'pending' | 'paid' | …
+  email_confirmed_at: string | null;  // gość kliknął link potwierdzający
+  cancelled_at: string | null;
+  requires_payment?: boolean;
+  created_at: string;
+}
+
 export interface EventGroup {
   event_id: string;
   title: string;
