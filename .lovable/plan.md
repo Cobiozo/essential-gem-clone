@@ -1,58 +1,46 @@
 ## Problem
 
-W zakładce **Eventy → Formularze → Zgłoszenia → Partnerzy** ten sam partner (np. Sebastian Snopek) pojawia się wielokrotnie. Weryfikacja w bazie potwierdza:
+Okno „Pozycjonowanie zdjęcia" (`ImageUploadInput.tsx`) ma tylko: wybór proporcji (21:9, 16:9, 4:3, …), zoom oraz przesuwanie kadru myszą. Brakuje precyzyjnego pozycjonowania, dlatego trudno trafić w docelowy kadr bannera, który na stronie wydarzenia jest **responsywny** (`16:9` na mobile → `2:1` na tablet → `21:9` na desktop). Innymi słowy: nawet jeśli skadrujesz idealnie pod 16:9, na desktopie i tak część obrazu zostanie ucięta.
 
-| Email | Liczba wpisów |
-|---|---|
-| sebastiansnopek87@gmail.com | 6 |
-| sebastiansnopek.eqology@gmail.com | 2 |
-| dawidkowalczyk.king@gmail.com | 2 |
-| byk1023@wp.pl | 2 |
-| xdawidkowalczyk@gmail.com | 2 |
+## Rozwiązanie — więcej narzędzi pozycjonowania w jednym oknie
 
-**Przyczyna**: każde kliknięcie „Kup bilet / Zarezerwuj" przez tę samą osobę tworzy nowy rekord w `paid_event_orders`, a backfill mirrored każde zamówienie do `event_form_submissions` jako osobny wpis. Dodatkowo brak ograniczenia unikalności pozwalał na duplikaty.
+### 1. Tryb „Banner wydarzenia" (kluczowy)
 
-Wbrew temu co sugeruje wiadomość — funkcja „Wyślij ponownie e-mail" (ikona koperty) **nie tworzy** nowego wpisu, ona aktualizuje istniejący. Ale problem efektywnie ten sam: lista pokazuje wielokrotnie tego samego partnera/gościa.
+Nowy preset/tryb specjalnie dla banerów wydarzeń, który zamiast jednej proporcji pokazuje **trzy nakładki bezpiecznych obszarów** jednocześnie:
 
-## Rozwiązanie
+- pełny kadr **16:9** (zdjęcie zawsze widoczne na mobile),
+- środkowy obszar **2:1** (przycięcie na tablecie),
+- środkowy obszar **21:9** (przycięcie na desktopie) — oznaczony jako „strefa zawsze widoczna".
 
-Jedna pozycja na unikalną parę **(formularz, e-mail)** — niezależnie od liczby zamówień, ponowień maila czy rejestracji.
+Tylko zawartość w wąskim pasie 21:9 jest gwarantowana na każdym urządzeniu — użytkownik od razu widzi, co przepadnie na większych ekranach i może umieścić logo/napis w bezpiecznej strefie.
 
-### 1. Deduplikacja istniejących danych (migracja)
+### 2. Precyzyjne kontrolki w oknie
 
-Dla każdej pary `(form_id, lower(email))`:
-- zachować **najnowszy** wpis (`created_at DESC`),
-- agregować na nim metadane wszystkich zamówień (lista `order_ids` w `submitted_data`),
-- usunąć pozostałe duplikaty,
-- przeliczyć `submission_count` na `paid_event_partner_links`.
+- **Zoom**: ręczne pole liczbowe (0.3–3, krok 0.05) obok suwaka + przyciski `−` / `+` / `Reset`.
+- **Pozycja X / Y**: dwa suwaki (lewo↔prawo, góra↕dół) z polami liczbowymi w procentach kadru.
+- **Obrót**: suwak −180°…+180° z polem stopni i przyciskami `↺ −90°`, `↻ +90°`, `Reset`. (`react-easy-crop` natywnie obsługuje `rotation` — wystarczy przekazać prop.)
+- **Lustro**: przyciski `↔ Odbij poziomo` i `↕ Odbij pionowo` (canvas flip w `getCroppedImg`).
+- **Wyrównaj do**: 9 przycisków siatki 3×3 (góra-lewo, góra-środek, …) — szybkie pozycjonowanie kadru.
+- **Dopasuj**: dwa skróty — `Wypełnij` (cover, domyślne) i `Zmieść` (contain, dodaje pusty pas).
 
-### 2. Unikalny indeks bazodanowy
+### 3. Drobne usprawnienia UX
 
-```sql
-CREATE UNIQUE INDEX event_form_submissions_form_email_unique
-  ON event_form_submissions (form_id, lower(email));
-```
+- Zwiększenie wysokości obszaru kadrowania z `h-64` na `h-80 md:h-96`, żeby było widać więcej.
+- Strzałki klawiatury (←↑↓→) przesuwają kadr o 1px (Shift = 10px) gdy okno jest aktywne.
+- Pasek statusu pod cropperem: `Zoom: 1.20 ×  •  Pozycja: 12% × −5%  •  Obrót: 0°`.
+- Podgląd „na stronie wydarzenia" pozostaje, ale dodatkowo dostaje **przełącznik urządzenia** (Mobile 16:9 / Tablet 2:1 / Desktop 21:9), żeby zobaczyć każdy wariant osobno bez czekania na resize okna.
 
-Twardy bezpiecznik — od tego momentu baza fizycznie nie pozwoli na drugi wpis tej samej osoby w tym samym formularzu.
+### 4. Zachowanie wstecznej kompatybilności
 
-### 3. Idempotentne mirrorowanie zamówień (Edge Function)
-
-W `register-event-transfer-order/index.ts`:
-- zamiast `insert` użyć `upsert` z `onConflict: 'form_id,email'` (po dodaniu unikalnego indeksu),
-- jeśli wpis istnieje — **nie inkrementować** `submission_count` partnera (to ten sam partner/gość),
-- aktualizować jedynie `submitted_data.order_ids` (dopisanie nowego `order_id` do listy), tak aby admin miał wgląd we wszystkie powiązane zamówienia tej osoby.
-
-### 4. Brak zmian w resendzie
-
-`send-event-form-confirmation` już teraz tylko aktualizuje istniejący rekord — zostawiamy bez zmian. Po pkt 1–3 ponowne wysłanie maila nigdy nie wygeneruje nowej pozycji.
+- Wszystkie obecne presety (21:9, 16:9, 4:3, 9:16, 3:4, kwadrat, koło, owale, dowolny) zostają.
+- Nowe pola (`rotation`, `flipH`, `flipV`) są opcjonalne — jeśli nie zostaną zmienione, wynik będzie identyczny jak dziś.
+- `getCroppedImg` w `src/lib/cropImage.ts` rozszerzony o opcje `rotation`, `flipH`, `flipV`; domyślne zachowanie bez zmian.
 
 ## Pliki
 
-- nowa migracja: `supabase/migrations/<ts>_dedupe_event_form_submissions.sql`
-  - dedup + unique index + przeliczenie liczników
-- `supabase/functions/register-event-transfer-order/index.ts`
-  - zamiana `insert` na `upsert`/`select-then-update`, warunkowy increment licznika
+- `src/components/partner-page/ImageUploadInput.tsx` — nowe kontrolki, tryb „Banner wydarzenia", trójwarstwowy podgląd, skróty klawiaturowe.
+- `src/lib/cropImage.ts` — obsługa rotacji i lustra w canvas (`ctx.translate` + `ctx.rotate` + `ctx.scale`).
 
-## Efekt po wdrożeniu
+## Efekt
 
-W zakładce „Partnerzy" widoczne będą 4 unikalne osoby (zamiast 12), liczniki partnerów będą poprawne, a każde kolejne kliknięcie „Kup bilet" lub „Wyślij ponownie e-mail" przez tę samą osobę zaktualizuje istniejący wiersz, nigdy nie utworzy nowego.
+Jedno okno daje pełną kontrolę: precyzyjny zoom liczbowy, X/Y w procentach, rotację, lustro, snap do 9 punktów siatki oraz tryb „Banner wydarzenia" pokazujący od razu co zostanie obcięte na desktopie. Wystarczy raz ustawić zdjęcie, żeby na mobile, tablecie i desktopie banner wyglądał tak jak zaplanowane.
