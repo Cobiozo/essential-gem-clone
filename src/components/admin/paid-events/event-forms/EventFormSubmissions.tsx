@@ -530,7 +530,18 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                   <TableRow key={s.id}>
                     <TableCell className="text-xs">{new Date(s.created_at).toLocaleString('pl-PL')}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{s.first_name} {s.last_name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{s.first_name} {s.last_name}</span>
+                        {isPartnerSubmission(s) ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">
+                            <Shield className="w-2.5 h-2.5 mr-0.5" /> Partner
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/40 text-muted-foreground">
+                            <UserIcon className="w-2.5 h-2.5 mr-0.5" /> Gość
+                          </Badge>
+                        )}
+                      </div>
                       {fieldsConfig.length > 0 && (
                         <details className="text-xs text-muted-foreground mt-1">
                           <summary className="cursor-pointer hover:text-foreground">Dodatkowe dane</summary>
