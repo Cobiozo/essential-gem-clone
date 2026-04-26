@@ -70,8 +70,7 @@ const MaintenanceModeManagement: React.FC = () => {
         setIsEnabled(data.is_enabled || false);
         setTitle(data.title || t('admin.maintenance.defaultTitle'));
         setMessage(data.message || t('admin.maintenance.defaultMessage'));
-        setPlannedEndTime(data.planned_end_time ? 
-          format(new Date(data.planned_end_time), "yyyy-MM-dd'T'HH:mm") : '');
+        setPlannedEndTime(isoToLocalInput(data.planned_end_time));
         setBypassKey(data.bypass_key || null);
       }
     } catch (error) {
