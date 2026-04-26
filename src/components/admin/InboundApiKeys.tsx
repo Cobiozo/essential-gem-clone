@@ -88,7 +88,7 @@ export const InboundApiKeys: React.FC = () => {
       body: {
         name: name.trim(),
         scopes: selectedScopes,
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        expires_at: expiresAt ? localInputToISO(expiresAt) : null,
       },
     });
     setCreating(false);
