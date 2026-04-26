@@ -53,7 +53,7 @@ const EventFormConfirmPage: React.FC = () => {
               </h1>
               <p className="text-muted-foreground leading-relaxed">
                 Teraz oczekujemy na płatność na dane wskazane w wysłanym e‑mailu.
-                Po zaksięgowaniu wpłaty otrzymasz finalne potwierdzenie udziału.
+                Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
               </p>
               {state === 'already' && (
                 <p className="text-xs text-muted-foreground italic">
