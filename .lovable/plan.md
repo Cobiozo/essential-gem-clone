@@ -1,19 +1,17 @@
-## Cel
-Na liście wydarzeń (`/paid-events`), w karcie wydarzenia (np. „BUSINESS OPPORTUNITY MEETEING – KRAKÓW"), przed kafelkiem z datą (10 MAJ) ma być wyświetlana miniaturka ustawionego dla wydarzenia banera (`banner_url`).
+## Problem
+W edytorze sekcji wydarzenia (zakładka „Sekcje") treść jest wprowadzana w polu `<Textarea>` jako zwykły tekst — z Enterami, akapitami i wcięciami. Na publicznej stronie wydarzenia treść renderowana jest przez `dangerouslySetInnerHTML` w kontenerze `prose`, który traktuje wejście jako HTML. W HTML zwykłe znaki nowej linii są zwijane do pojedynczej spacji — przez to akapity „sklejają się" w jeden blok tekstu i wygląd różni się od podglądu w polu edycji.
+
+## Rozwiązanie
+W komponencie renderującym treść sekcji dodać klasę `whitespace-pre-wrap`, aby przeglądarka zachowała znaki nowej linii i wcięcia wpisane w edytorze. Dzięki temu:
+- Entery (nowe linie) z textarea pojawiają się jako rzeczywiste przejścia do nowej linii.
+- Wcięcia/spacje są zachowane.
+- Tagi HTML (np. `<b>`, `<a>`) nadal działają normalnie (`pre-wrap` nie wyłącza HTML).
+- Wygląd na stronie wydarzenia odpowiada temu, co administrator widzi w polu edycji.
 
 ## Zakres zmian
 
-**Plik:** `src/components/paid-events/PaidEventCard.tsx`
+**Plik:** `src/components/paid-events/public/PaidEventSection.tsx`
 
-Dodać nowy element przed istniejącym kwadratem z datą:
-- Miniaturka banera wczytywana z pola `event.banner_url` (już dostępne w propsach – nie trzeba zmieniać query w `PaidEventsListPage.tsx`).
-- Rozmiar dopasowany do wysokości karty (np. `w-28 h-16` na mobile, `sm:w-40 sm:h-20` na większych ekranach), zaokrąglone rogi (`rounded-lg`), `object-cover` aby zachować proporcje.
-- Fallback: gdy `banner_url` jest puste, miniaturka się nie pojawia (kafelek z datą zostaje jak teraz, układ bez zmian).
-- `loading="lazy"` + `alt={event.title}` dla dostępności i wydajności.
+W kontenerze treści (`<div className="prose prose-lg max-w-none dark:prose-invert" ...>`) dodać klasę `whitespace-pre-wrap`.
 
-Układ docelowy karty (od lewej do prawej):
-```
-[ MINIATURKA BANERA ] [ KAFELEK Z DATĄ ] [ TYTUŁ + OPIS + INFO ] [ PRZYCISK „Zobacz" ]
-```
-
-Bez zmian w danych, zapytaniach, typach ani innych komponentach. Stosuje się też do sekcji „Zakończone wydarzenia" (ten sam komponent karty).
+Brak innych zmian (edytor, baza danych, typy bez modyfikacji).

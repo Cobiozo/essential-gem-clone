@@ -53,10 +53,12 @@ export const PaidEventSection: React.FC<PaidEventSectionProps> = ({
           <h2 className="text-2xl md:text-3xl font-bold">{title}</h2>
         </div>
 
-        {/* HTML Content */}
+        {/* HTML Content — `whitespace-pre-wrap` preserves the line breaks and
+            indentation typed in the editor textarea, so the public page matches
+            exactly what the admin sees while editing (Entery, wcięcia itd.). */}
         {content && (
           <div
-            className="prose prose-lg max-w-none dark:prose-invert"
+            className="prose prose-lg max-w-none dark:prose-invert whitespace-pre-wrap"
             dangerouslySetInnerHTML={{ __html: content }}
           />
         )}
