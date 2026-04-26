@@ -67,20 +67,21 @@ async function notifyAndUpdateCRM(supabase: any, submissionId: string) {
       metadata: { submission_id: sub.id, event_id: sub.event_id, email: sub.email },
     });
 
-    // Znajdź lub utwórz wpis CRM
+    // Znajdź lub utwórz wpis CRM (bez duplikatów — bierzemy ostatni pasujący)
     const emailLower = (sub.email || "").toLowerCase();
-    const { data: contact } = await supabase
+    const { data: contacts } = await supabase
       .from("team_contacts")
-      .select("id, notes")
+      .select("id, notes, created_at")
       .eq("user_id", sub.partner_user_id)
-      .eq("email", emailLower)
-      .maybeSingle();
+      .ilike("email", emailLower)
+      .order("created_at", { ascending: false });
 
     const noteLine = `[${nowStamp()}] ✅ Potwierdził rejestrację na: ${eventTitle}`;
 
-    if (contact) {
-      const newNotes = contact.notes ? `${contact.notes}\n${noteLine}` : noteLine;
-      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", contact.id);
+    if (contacts && contacts.length > 0) {
+      const target = contacts[0];
+      const newNotes = target.notes ? `${target.notes}\n${noteLine}` : noteLine;
+      await supabase.from("team_contacts").update({ notes: newNotes }).eq("id", target.id);
     } else {
       await supabase.from("team_contacts").insert({
         user_id: sub.partner_user_id,
