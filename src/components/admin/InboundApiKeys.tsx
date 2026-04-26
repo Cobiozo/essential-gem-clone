@@ -178,7 +178,7 @@ export const InboundApiKeys: React.FC = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="expires">Data wygaśnięcia (opcjonalnie)</Label>
+                <Label htmlFor="expires">Data wygaśnięcia (opcjonalnie) <span className="text-xs text-muted-foreground font-normal">(czas Europe/Warsaw)</span></Label>
                 <Input id="expires" type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               </div>
             </div>
