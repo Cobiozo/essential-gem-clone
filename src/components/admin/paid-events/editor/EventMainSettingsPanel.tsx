@@ -280,6 +280,15 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
                   />
                   <span className="text-sm">Opublikowane</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.show_in_dashboard_calendar ?? false}
+                    onCheckedChange={(checked) => handleFieldChange('show_in_dashboard_calendar', checked)}
+                  />
+                  <span className="text-sm" title="Wydarzenie pojawi się w kalendarzu na pulpicie głównym z czerwoną kropką (kategoria EVENT).">
+                    Pokaż w kalendarzu pulpitu
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2 pt-2">
