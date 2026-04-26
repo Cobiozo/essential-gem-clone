@@ -1,58 +1,58 @@
 ## Problem
 
-Partner Sebastian (sebastiansnopek.eqology@gmail.com) registered for the Kraków event and received the confirmation email, but does not appear in **Eventy → Formularze → Zgłoszenia → Partnerzy**.
+W zakładce **Eventy → Formularze → Zgłoszenia → Partnerzy** ten sam partner (np. Sebastian Snopek) pojawia się wielokrotnie. Weryfikacja w bazie potwierdza:
 
-### Root cause
+| Email | Liczba wpisów |
+|---|---|
+| sebastiansnopek87@gmail.com | 6 |
+| sebastiansnopek.eqology@gmail.com | 2 |
+| dawidkowalczyk.king@gmail.com | 2 |
+| byk1023@wp.pl | 2 |
+| xdawidkowalczyk@gmail.com | 2 |
 
-The platform has two parallel registration paths for paid events:
+**Przyczyna**: każde kliknięcie „Kup bilet / Zarezerwuj" przez tę samą osobę tworzy nowy rekord w `paid_event_orders`, a backfill mirrored każde zamówienie do `event_form_submissions` jako osobny wpis. Dodatkowo brak ograniczenia unikalności pozwalał na duplikaty.
 
-1. **Form path** (`event_form_submissions`) — used by the public `/e/...` form (`submit_event_form` RPC). Always creates a row in `event_form_submissions`.
-2. **Ticket order path** (`paid_event_orders`) — used by the "Buy ticket / Transfer" flow (`register-event-transfer-order` edge function). Creates a row in `paid_event_orders` only.
+Wbrew temu co sugeruje wiadomość — funkcja „Wyślij ponownie e-mail" (ikona koperty) **nie tworzy** nowego wpisu, ona aktualizuje istniejący. Ale problem efektywnie ten sam: lista pokazuje wielokrotnie tego samego partnera/gościa.
 
-The admin **Zgłoszenia / Partnerzy** tab reads only from `event_form_submissions`, so any registration done through the ticket-order flow is invisible there — even though the partner gets the confirmation email.
+## Rozwiązanie
 
-Sebastian has 2 records in `paid_event_orders` for the Kraków event (status `awaiting_transfer`) and **0** records in `event_form_submissions`. That's why he is missing from the Partners tab. He DOES appear in the **Zamówienia** tab.
+Jedna pozycja na unikalną parę **(formularz, e-mail)** — niezależnie od liczby zamówień, ponowień maila czy rejestracji.
 
-### Fix
+### 1. Deduplikacja istniejących danych (migracja)
 
-Make `register-event-transfer-order` mirror the order into `event_form_submissions` so logged-in partners (and guests) buying a ticket are also visible in the Formularze → Zgłoszenia view, with correct partner attribution.
+Dla każdej pary `(form_id, lower(email))`:
+- zachować **najnowszy** wpis (`created_at DESC`),
+- agregować na nim metadane wszystkich zamówień (lista `order_ids` w `submitted_data`),
+- usunąć pozostałe duplikaty,
+- przeliczyć `submission_count` na `paid_event_partner_links`.
 
-## Plan
+### 2. Unikalny indeks bazodanowy
 
-### 1. Edge function `register-event-transfer-order`
+```sql
+CREATE UNIQUE INDEX event_form_submissions_form_email_unique
+  ON event_form_submissions (form_id, lower(email));
+```
 
-After successfully inserting into `paid_event_orders`, additionally insert a row into `event_form_submissions`:
+Twardy bezpiecznik — od tego momentu baza fizycznie nie pozwoli na drugi wpis tej samej osoby w tym samym formularzu.
 
-- Look up the active `event_registration_forms` for this `event_id` (use `is_active = true`, take the first one). If none — skip mirroring (nothing to mirror to).
-- Resolve `partner_user_id` and `partner_link_id` from `paid_event_partner_links` using:
-  - The provided `ref_code` if present, OR
-  - For a logged-in user, fall back to a link where `partner_user_id = current user`. (Auto-attribution — the partner registered themselves.)
-- Insert into `event_form_submissions` with:
-  - `form_id`, `event_id`, `first_name`, `last_name`, `email` (lowercased), `phone`
-  - `partner_user_id`, `partner_link_id`
-  - `payment_status = 'pending'` (transfer not yet confirmed; admin can mark `paid` later)
-  - `email_status = 'sent'` (the function already sent the confirmation email)
-  - `submitted_data` = `{ source: 'ticket_order', order_id, ticket_id, quantity, total_amount }`
-- Wrap in try/catch — must NEVER fail the order if mirroring fails (log and continue).
-- Bump `paid_event_partner_links.submission_count` when partner_link_id resolved (mirror RPC behavior).
+### 3. Idempotentne mirrorowanie zamówień (Edge Function)
 
-### 2. Backfill existing orders
+W `register-event-transfer-order/index.ts`:
+- zamiast `insert` użyć `upsert` z `onConflict: 'form_id,email'` (po dodaniu unikalnego indeksu),
+- jeśli wpis istnieje — **nie inkrementować** `submission_count` partnera (to ten sam partner/gość),
+- aktualizować jedynie `submitted_data.order_ids` (dopisanie nowego `order_id` do listy), tak aby admin miał wgląd we wszystkie powiązane zamówienia tej osoby.
 
-Migration: for every row in `paid_event_orders` where the event has an active `event_registration_forms` AND no matching submission exists in `event_form_submissions` (matched by lowercased email + form_id), insert a mirroring submission row. This covers Sebastian's 2 existing orders and any other historical case.
+### 4. Brak zmian w resendzie
 
-For partner attribution during backfill, use the same fallback (ref_code on order is not stored, so resolve via `paid_event_partner_links.partner_user_id = paid_event_orders.user_id` for logged-in users).
+`send-event-form-confirmation` już teraz tylko aktualizuje istniejący rekord — zostawiamy bez zmian. Po pkt 1–3 ponowne wysłanie maila nigdy nie wygeneruje nowej pozycji.
 
-### 3. No UI changes required
+## Pliki
 
-The existing `EventFormSubmissions.tsx` already reads everything from `event_form_submissions`, so once the rows exist, Sebastian will show up under the **Partnerzy** tab automatically (because his submission will have `email` matching a profile and `partner_user_id` set to his own user_id).
+- nowa migracja: `supabase/migrations/<ts>_dedupe_event_form_submissions.sql`
+  - dedup + unique index + przeliczenie liczników
+- `supabase/functions/register-event-transfer-order/index.ts`
+  - zamiana `insert` na `upsert`/`select-then-update`, warunkowy increment licznika
 
-## Files
+## Efekt po wdrożeniu
 
-- `supabase/functions/register-event-transfer-order/index.ts` — add mirror insert after order insert.
-- New migration `supabase/migrations/<ts>_mirror_paid_orders_to_event_form_submissions.sql` — backfill existing orders.
-
-## Out of scope
-
-- Not changing the order flow itself (PayU / transfer logic stays).
-- Not unifying the two tables (would be a larger refactor).
-- Not touching `event_registrations` (different feature: webinars / team trainings).
+W zakładce „Partnerzy" widoczne będą 4 unikalne osoby (zamiast 12), liczniki partnerów będą poprawne, a każde kolejne kliknięcie „Kup bilet" lub „Wyślij ponownie e-mail" przez tę samą osobę zaktualizuje istniejący wiersz, nigdy nie utworzy nowego.
