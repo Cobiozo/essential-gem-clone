@@ -17,7 +17,7 @@ interface MyEventFormReferralsProps {
  * Polityka SELECT na event_form_submissions: auth.uid() = partner_user_id
  * (gwarantuje, że partner widzi wyłącznie swoich poleconych).
  *
- * Dane PII są częściowo maskowane — pełen rejestr ma tylko admin.
+ * Partner widzi pełne dane swoich poleconych — RLS wymusza izolację.
  */
 export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ formId, eventId }) => {
   const { user } = useAuth();
@@ -99,8 +99,8 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
               <td className="py-2 pr-2 font-medium">
                 {[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}
               </td>
-              <td className="py-2 pr-2 text-muted-foreground">{maskEmail(r.email)}</td>
-              <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">{maskPhone(r.phone)}</td>
+              <td className="py-2 pr-2 text-muted-foreground break-all">{r.email || '—'}</td>
+              <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">{r.phone || '—'}</td>
               <td className="py-2 pr-2">
                 {r.email_confirmed_at ? (
                   <Badge variant="outline" className="border-green-600 text-green-700">Tak</Badge>
@@ -113,9 +113,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
           ))}
         </tbody>
       </table>
-      <p className="text-[10px] text-muted-foreground mt-2">
-        Dane osobowe są częściowo zamaskowane. Pełen rejestr widzi administrator.
-      </p>
     </div>
   );
 };
