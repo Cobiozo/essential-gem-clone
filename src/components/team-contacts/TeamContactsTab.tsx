@@ -288,13 +288,17 @@ export const TeamContactsTab: React.FC = () => {
   // Partner page contacts that haven't been moved to own list
   const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska' && !(c as any).moved_to_own_list);
   // Paid event registrations referred via partner's event form link
-  const paidEventInviteContacts = privateContacts.filter(c => c.contact_source === 'event_invite' && !(c as any).moved_to_own_list);
+  // Każda rejestracja = osobny wpis; contact_source ma format 'event_invite: <tytuł> (<data>)'
+  // (legacy: czysty 'event_invite' też wspierany)
+  const isEventInviteSource = (src: string | null | undefined) =>
+    !!src && (src === 'event_invite' || src.startsWith('event_invite'));
+  const paidEventInviteContacts = privateContacts.filter(c => isEventInviteSource(c.contact_source) && !(c as any).moved_to_own_list);
   
   // Own list: exclude event contacts (unless moved) AND exclude partner page contacts (unless moved)
   const ownContacts = privateContacts.filter(c => {
     const isEventContact = eventContactIds.has(c.id);
     const isPartnerPage = c.contact_source === 'Strona partnerska';
-    const isPaidEventInvite = c.contact_source === 'event_invite';
+    const isPaidEventInvite = isEventInviteSource(c.contact_source);
     const movedToOwn = (c as any).moved_to_own_list;
     
     // Show in own list if: (not from events AND not from partner page AND not from paid event invite) OR explicitly moved
