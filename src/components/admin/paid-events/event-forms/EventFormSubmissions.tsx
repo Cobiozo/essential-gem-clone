@@ -63,6 +63,32 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
 
+  // Identify which submissions belong to registered users (partners) vs guests by email match
+  const submissionEmails = Array.from(new Set(
+    submissions.map(s => (s.email || '').toLowerCase()).filter(Boolean)
+  ));
+  const { data: registeredEmailsSet } = useQuery({
+    queryKey: ['event-form-submission-registered-emails', form.id, submissionEmails.sort().join(',')],
+    enabled: submissionEmails.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('email', submissionEmails);
+      if (error) throw error;
+      return new Set((data || []).map((p: any) => (p.email || '').toLowerCase()));
+    },
+  });
+  const registeredEmails = registeredEmailsSet || new Set<string>();
+  const isPartnerSubmission = (s: any) => registeredEmails.has((s.email || '').toLowerCase());
+
+  // Audience counts (independent of payment/search filter so user always sees totals)
+  const audienceCounts = {
+    all: submissions.length,
+    partners: submissions.filter(isPartnerSubmission).length,
+    guests: submissions.filter(s => !isPartnerSubmission(s)).length,
+  };
+
   const updatePayment = useMutation({
     mutationFn: async ({ submissionId, paymentStatus }: { submissionId: string; paymentStatus: string }) => {
       const { data, error } = await supabase.functions.invoke('admin-mark-event-payment', {
