@@ -1,64 +1,102 @@
-## Diagnoza (3 problemy zgłoszone przez Ciebie)
+## Cel
 
-### 1. Brak banera wydarzenia w mailu dla zalogowanego
-Funkcja `register-event-transfer-order` używa stałego nagłówka (logo Pure Life + Eqology) i nigdzie nie pobiera `paid_events.banner_url`. Email wygląda tak samo dla zalogowanego i gościa — bez banera wydarzenia u góry.
+Wszystkie czasy wydarzeń wpisywane przez admina są w strefie **Europe/Warsaw (CET/CEST)**. W bazie zapisujemy je jako prawidłowy moment UTC, dzięki czemu każdy użytkownik (w PL, DE, NO, ES, USA itd.) widzi wydarzenie poprawnie skonwertowane na swoją lokalną strefę przez przeglądarkę.
 
-### 2. Brak danych kontaktowych osoby zapraszającej / upline
-W mailu jest tylko zdanie „W razie pytań prosimy o kontakt mailowy z osobą zapraszającą lub organizatorem." — bez żadnych konkretnych danych. Funkcja:
-- nie pobiera danych partnera (`partnerUserId` jest tylko używane do CRM/notyfikacji, ale jego profil nie jest ładowany),
-- dla zalogowanego nie czyta jego upline z `profiles` (`upline_eq_id`, `upline_first_name`, `upline_last_name`).
+## Diagnoza
 
-### 3. Nie wiadomo, kto z zalogowanych się zarejestrował
-Tabela `paid_event_orders` ma kolumnę `user_id`, ale funkcja **nigdy jej nie wypełnia** — sprawdziłem 8 ostatnich rekordów w bazie, wszędzie `user_id = NULL`, nawet dla Twoich własnych rejestracji jako zalogowany. Powód: funkcja odczytuje tylko body requestu i nie pobiera użytkownika z `Authorization` header.
+W bazie `paid_events` rekord `bom-krakow` wygląda tak:
 
-Dodatkowo: panel admina (`PaidEventsOrders.tsx`) nie pokazuje rozróżnienia „zalogowany vs gość" w liście zamówień.
+```
+event_date     = 2026-05-10 16:00:00+00   (UTC)
+event_end_date = 2026-05-10 18:00:00+00   (UTC)
+```
 
----
+Admin wpisał 16:00–18:00 czasu polskiego, ale wartość z `<input type="datetime-local">` ("2026-05-10T16:00", bez offsetu) trafiła wprost do `timestamptz` w Postgres i została zinterpretowana jako UTC. Polski użytkownik w przeglądarce (CEST = UTC+2) widzi więc 18:00–20:00.
 
-## Plan zmian
+Ten sam wzorzec dotyczy obu edytorów `paid_events` oraz innych formularzy z `datetime-local` (webinary, szkolenia zespołowe, news ticker, tryb konserwacji, ważne info).
 
-### A. `supabase/functions/register-event-transfer-order/index.ts`
+## Plan
 
-1. **Odczyt zalogowanego użytkownika z requestu**
-   - Z nagłówka `Authorization` utworzyć dodatkowego klienta `supabaseAuth` z anon key i wywołać `auth.getUser(token)`.
-   - Jeśli użytkownik istnieje → ustawić `currentUserId = user.id` i pobrać jego profil (`first_name`, `last_name`, `email`, `phone_number`, `upline_eq_id`, `upline_first_name`, `upline_last_name`).
+### 1. Helpery konwersji (nowy plik)
 
-2. **Zapis `user_id` do `paid_event_orders`**
-   - Dołożyć `user_id: currentUserId` do `insert(...)` zamówienia. Service role bypassuje RLS, więc to wystarczy.
+`src/utils/datetimeLocal.ts`:
 
-3. **Pobranie banera wydarzenia**
-   - Rozszerzyć select w `paid_event_tickets`: `paid_events(..., banner_url)`.
+- `localInputToISO(value, tz = 'Europe/Warsaw')` — bierze `"2026-05-10T16:00"` i zwraca prawidłowy ISO UTC traktując wejście jako czas w `tz` (np. `"2026-05-10T14:00:00.000Z"` latem, `"2026-05-10T15:00:00.000Z"` zimą — uwzględnia DST).
+- `isoToLocalInput(iso, tz = 'Europe/Warsaw')` — bierze ISO z bazy i zwraca `"YYYY-MM-DDTHH:mm"` reprezentujący ten moment w strefie `tz`, gotowy do wstawienia jako `value` inputa.
 
-4. **Dane kontaktowe osoby zapraszającej**
-   - Jeśli `partnerUserId` (z `refCode`) → pobrać jego profil (`first_name`, `last_name`, `email`, `phone_number`) → to są dane do sekcji „Osoba zapraszająca" w mailu (głównie ścieżka gościa z linku partnerskiego).
-   - Jeśli zalogowany użytkownik **nie** wszedł z linku partnerskiego → użyć jego upline z `profiles.upline_*`. Wyszukać profil upline po `upline_eq_id` w `profiles` (jeśli istnieje pełny rekord) aby pozyskać telefon/email; jeśli nie znajdziemy — wyświetlić tylko imię/nazwisko z kolumn `upline_first_name`/`upline_last_name`.
+Implementacja oparta o `Intl.DateTimeFormat` z `timeZone` — bez zewnętrznych bibliotek, poprawnie obsługuje DST (CET/CEST).
 
-5. **`buildEmail` — przepisanie szablonu**
-   - **U góry maila baner wydarzenia** (`<img src="${banner_url}" style="width:100%;display:block;">`) zamiast/nad obecnym pasem z logo. Logo Pure Life + Eqology przeniesione pod baner w mniejszym pasku (spójność wizualna).
-   - **Na dole, przed stopką**, sekcja kontaktowa zależna od kontekstu:
-     - **Dla zalogowanego (z upline):** „**Twój opiekun w Pure Life:** {imię} {nazwisko}" + email (klikalny `mailto:`) + telefon (jeśli jest) + krótka informacja: „Skontaktuj się w razie pytań do wydarzenia."
-     - **Dla gościa (z `partnerUserId` z linku):** „**Osoba zapraszająca:** {imię} {nazwisko}" + email + telefon + „W razie dodatkowych pytań skontaktuj się bezpośrednio."
-     - Fallback (brak danych zarówno upline jak i partnera): obecne zdanie ogólne.
+### 2. Edytory paid_events
 
-6. **Bezpieczne fallbacki** — wszystkie pola opcjonalne; jeśli `banner_url` brak → email renderuje się bez banera (obecny pasek z logo zostaje jako zapas).
+W obu plikach zamienić ucinanie ISO na helper i opakować zapis konwersją:
 
-### B. `src/components/admin/paid-events/PaidEventsOrders.tsx` (drobne, opcjonalne, ale spina punkt 3)
-- Dodać w liście zamówień kolumnę/badge „Zalogowany / Gość" w oparciu o `user_id IS NOT NULL`.
-- Jeśli `user_id` istnieje → pokazać link/imię z `profiles` (już mamy join przez user_id).
+**`src/components/admin/paid-events/PaidEventsList.tsx`** (modal "Edytuj/Utwórz wydarzenie"):
+- input value → `isoToLocalInput(formData.event_date)` zamiast `.slice(0,16)`
+- przed insert/update w `createMutation` i `updateMutation`: `event_date: localInputToISO(data.event_date)`, analogicznie `event_end_date`.
 
-### C. Wywołanie z frontu — `PurchaseDrawer.tsx`
-**Brak zmian wymaganych.** `supabase.functions.invoke` automatycznie dołącza `Authorization: Bearer <session JWT>` jeśli użytkownik jest zalogowany — funkcja po stronie Edge wystarczy że sama go odczyta.
+**`src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx`** (panel "Data i godzina" w pełnym edytorze):
+- input value → `isoToLocalInput(...)`
+- w `handleSave` przed `updateMutation.mutate(formData)` zbudować payload z konwersją pól dat.
+- Etykieta inputów: dopisać hint "(czas Europe/Warsaw – CET/CEST)" żeby admin wiedział w jakiej strefie wpisuje.
 
-### D. Deploy
-Po zmianach: redeploy `register-event-transfer-order`. Wykonam testową rejestrację i sprawdzę logi (`[email] sent successfully`) oraz w bazie czy `user_id` jest wypełnione.
+### 3. Pozostałe edytory `datetime-local`
 
----
+Zastosować ten sam helper (zapis + odczyt) w:
+- `src/components/admin/WebinarForm.tsx`
+- `src/components/admin/TeamTrainingForm.tsx`
+- `src/components/admin/NewsTickerManagement.tsx`
+- `src/components/admin/ImportantInfoManagement.tsx`
+- `src/components/admin/MaintenanceModeManagement.tsx`
+- `src/components/admin/InboundApiKeys.tsx` (jeśli to pole `expires_at` — też ma sens trzymać w UTC interpretowany z czasu PL)
 
-## Czego NIE zmieniam
-- Logiki SMTP, kolejki, retry — to działa.
-- Schematu bazy danych — kolumna `user_id` już istnieje, kolumna `banner_url` w `paid_events` już istnieje.
-- Maila po opłaceniu (z biletem QR) — to inny flow (`admin-mark-event-payment`), poza zakresem tego zgłoszenia. Jeśli chcesz, mogę zająć się nim w osobnym kroku.
+Każdy z tych plików: input `value` → `isoToLocalInput(...)`, `onChange`/save → `localInputToISO(...)`. Etykieta z hintem "(czas Europe/Warsaw)".
 
-## Pliki do edycji
-- `supabase/functions/register-event-transfer-order/index.ts` (główne zmiany)
-- `src/components/admin/paid-events/PaidEventsOrders.tsx` (badge zalogowany/gość)
+### 4. Migracja istniejących danych w `paid_events`
+
+Aktualne rekordy mają "naiwny" czas PL zapisany jako UTC. Trzeba je przesunąć tak, żeby reprezentowały ten sam moment, co wpisał admin, ale w prawidłowym UTC.
+
+Operacja SQL:
+
+```sql
+UPDATE paid_events
+SET 
+  event_date     = (event_date::timestamp AT TIME ZONE 'Europe/Warsaw'),
+  event_end_date = CASE WHEN event_end_date IS NOT NULL
+    THEN (event_end_date::timestamp AT TIME ZONE 'Europe/Warsaw')
+    ELSE NULL END;
+```
+
+`event_date::timestamp` daje "naiwną" datę bez strefy (16:00), `AT TIME ZONE 'Europe/Warsaw'` interpretuje ją jako warszawską i zwraca `timestamptz` w UTC (14:00Z latem, 15:00Z zimą — z poprawnym uwzględnieniem DST per rekord).
+
+Przed wykonaniem pokażę Ci pełną listę rekordów `paid_events` (id, title, event_date, event_end_date) i poproszę o potwierdzenie zakresu — jeśli są wydarzenia, których nie powinno się ruszać, ograniczymy `WHERE`.
+
+### 5. Inne tabele z dotychczas błędnymi wartościami
+
+W ramach tego samego pełnego fixu rozszerzymy migrację o pozostałe tabele dotknięte tym samym wzorcem (np. `webinars.scheduled_at`, `team_trainings.starts_at`, news ticker, ważne info itp.). Najpierw zrobię `SELECT` próbki z każdej, pokażę Ci co planuję poprawić, i dopiero po Twoim "OK" wykonamy `UPDATE` — żeby nie ruszyć wpisów, które (ewentualnie) były zapisywane już poprawnie z innej ścieżki.
+
+### 6. Walidacja po wdrożeniu
+
+- Sprawdzenie w bazie: `bom-krakow` ma `event_date = 2026-05-10 14:00:00+00`, `event_end_date = 2026-05-10 16:00:00+00`.
+- Polski użytkownik w przeglądarce widzi "10 maja 2026, 16:00 – 18:00".
+- E-mail rejestracyjny pokazuje 16:00 – 18:00.
+- W edytorze admin nadal widzi 16:00 – 18:00 (helper konwertuje z UTC z powrotem na PL).
+- Symulacja innej strefy (DevTools → Sensors → Location/Timezone "Europe/Helsinki") — użytkownik widzi 17:00 – 19:00 (CEST→EEST).
+
+## Co dostaniesz po wdrożeniu
+
+- Wszystkie nowe i istniejące daty wydarzeń są spójne i interpretowane jako Europe/Warsaw przy wpisywaniu, a wyświetlane lokalnie u każdego odbiorcy.
+- Helper jest jeden i wykorzystywany konsekwentnie we wszystkich edytorach z `datetime-local`.
+- DST (zmiana czasu zima/lato) jest obsługiwane automatycznie.
+
+## Pliki do zmiany
+
+- `src/utils/datetimeLocal.ts` (nowy)
+- `src/components/admin/paid-events/PaidEventsList.tsx`
+- `src/components/admin/paid-events/editor/EventMainSettingsPanel.tsx`
+- `src/components/admin/WebinarForm.tsx`
+- `src/components/admin/TeamTrainingForm.tsx`
+- `src/components/admin/NewsTickerManagement.tsx`
+- `src/components/admin/ImportantInfoManagement.tsx`
+- `src/components/admin/MaintenanceModeManagement.tsx`
+- `src/components/admin/InboundApiKeys.tsx`
+- migracja SQL korygująca istniejące rekordy w `paid_events` (i opcjonalnie pozostałe tabele po Twoim potwierdzeniu)
