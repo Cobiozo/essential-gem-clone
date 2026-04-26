@@ -259,6 +259,7 @@ serve(async (req) => {
       confirmUrl,
       cancelUrl,
       publicBaseUrl,
+      partner,
     });
 
     const subject = form?.email_subject || "Potwierdzenie rejestracji";
