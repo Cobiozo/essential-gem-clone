@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
+import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
 
 interface EventMainSettingsPanelProps {
   eventId: string;
