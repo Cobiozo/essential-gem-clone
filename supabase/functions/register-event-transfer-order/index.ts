@@ -353,6 +353,113 @@ serve(async (req) => {
       });
     }
 
+    // Mirror this order into event_form_submissions so it shows up in the
+    // admin "Formularze → Zgłoszenia" view (Goście / Partnerzy tabs).
+    // Best-effort: never fail the order if mirroring fails.
+    try {
+      const { data: regForm } = await supabase
+        .from("event_registration_forms")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (regForm?.id) {
+        // Resolve partner_link_id + partner_user_id:
+        //  1. via refCode + form_id
+        //  2. fallback for logged-in users: their own link for this form
+        let mirrorPartnerLinkId: string | null = null;
+        let mirrorPartnerUserId: string | null = partnerUserId;
+
+        if (refCode) {
+          const { data: link } = await supabase
+            .from("paid_event_partner_links")
+            .select("id, partner_user_id")
+            .eq("ref_code", refCode)
+            .eq("form_id", regForm.id)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (link) {
+            mirrorPartnerLinkId = link.id;
+            mirrorPartnerUserId = link.partner_user_id;
+          }
+        }
+
+        // Fallback: logged-in user is a partner who registered themselves
+        if (!mirrorPartnerLinkId && currentUserId) {
+          const { data: ownLink } = await supabase
+            .from("paid_event_partner_links")
+            .select("id, partner_user_id")
+            .eq("partner_user_id", currentUserId)
+            .eq("form_id", regForm.id)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (ownLink) {
+            mirrorPartnerLinkId = ownLink.id;
+            mirrorPartnerUserId = ownLink.partner_user_id;
+          } else {
+            // Even if no link row exists, keep attribution to the user
+            mirrorPartnerUserId = currentUserId;
+          }
+        }
+
+        // Skip if a submission for this email + form already exists
+        const lowerEmail = buyer.email.trim().toLowerCase();
+        const { data: existingSub } = await supabase
+          .from("event_form_submissions")
+          .select("id")
+          .eq("form_id", regForm.id)
+          .eq("email", lowerEmail)
+          .maybeSingle();
+
+        if (!existingSub) {
+          const { error: subErr } = await supabase
+            .from("event_form_submissions")
+            .insert({
+              form_id: regForm.id,
+              event_id: eventId,
+              first_name: buyer.firstName.trim() || null,
+              last_name: buyer.lastName.trim() || null,
+              email: lowerEmail,
+              phone: buyer.phone?.trim() || null,
+              partner_user_id: mirrorPartnerUserId,
+              partner_link_id: mirrorPartnerLinkId,
+              payment_status: "pending",
+              email_status: "sent",
+              submitted_data: {
+                source: "ticket_order",
+                order_id: order.id,
+                ticket_id: ticketId,
+                quantity: 1,
+                total_amount: totalAmount,
+              },
+            });
+          if (subErr) {
+            console.error("[mirror] event_form_submissions insert failed", subErr);
+          } else if (mirrorPartnerLinkId) {
+            await supabase.rpc("increment_partner_link_submission" as any, {
+              _link_id: mirrorPartnerLinkId,
+            }).then(() => {}, async () => {
+              // RPC may not exist — fall back to manual increment
+              const { data: cur } = await supabase
+                .from("paid_event_partner_links")
+                .select("submission_count")
+                .eq("id", mirrorPartnerLinkId)
+                .maybeSingle();
+              await supabase
+                .from("paid_event_partner_links")
+                .update({ submission_count: (cur?.submission_count ?? 0) + 1 })
+                .eq("id", mirrorPartnerLinkId);
+            });
+          }
+        }
+      }
+    } catch (mirrorErr) {
+      console.error("[mirror] unexpected error mirroring order to event_form_submissions", mirrorErr);
+    }
+
     // Build the contact-person block:
     //  - logged-in user → use upline from profiles (look up full profile by upline_eq_id if possible)
     //  - guest with refCode → use partner profile
