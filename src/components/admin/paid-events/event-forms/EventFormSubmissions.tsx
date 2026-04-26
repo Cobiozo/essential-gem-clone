@@ -629,6 +629,18 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
                         <Mail className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Usuń zgłoszenie całkowicie"
+                        onClick={() => {
+                          const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                          if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
+                          deleteSubmission.mutate(s.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
