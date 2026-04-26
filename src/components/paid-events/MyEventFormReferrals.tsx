@@ -56,19 +56,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     );
   }
 
-  const maskEmail = (e: string) => {
-    if (!e || !e.includes('@')) return e;
-    const [name, domain] = e.split('@');
-    if (name.length <= 2) return `${name[0] || '•'}•@${domain}`;
-    return `${name.slice(0, 2)}${'•'.repeat(Math.max(2, name.length - 2))}@${domain}`;
-  };
-
-  const maskPhone = (p: string | null) => {
-    if (!p) return '—';
-    const digits = p.replace(/\D/g, '');
-    if (digits.length < 4) return '•••';
-    return `••• ••• ${digits.slice(-3)}`;
-  };
 
   const paymentBadge = (s: string, status: string) => {
     if (status === 'cancelled') return <Badge variant="destructive">Anulowane</Badge>;
