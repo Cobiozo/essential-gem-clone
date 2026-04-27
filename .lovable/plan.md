@@ -1,39 +1,47 @@
-## Problem
+## Cel
 
-Na ekranie „Moje linki partnerskie do formularzy rejestracyjnych" pojawia się czerwony błąd:
-> „Uzupełnij EQID w swoim profilu, aby wygenerować link partnerski."
+1. W module Zdrowa Wiedza zmienić nazwę zakładki widocznej dla użytkownika z **"Testymoniale"** na **"Prawdziwe Historie"**.
+2. Naprawić problem: filmy dodane do testymoniali nie odtwarzają się po kliknięciu "Podgląd".
 
-— mimo że partner ma uzupełniony EQID. Dotyczy wszystkich urządzeń (na iPhone było po prostu testowane), nie tylko mobilnych.
+## Dlaczego filmy się nie odtwarzają (diagnoza)
 
-## Przyczyna
+W `src/components/testimonials/TestimonialPreviewDialog.tsx` (komponent uruchamiany dla każdego materiału z kategorii "Testymoniale") karuzela renderuje WYŁĄCZNIE tagi `<img>` dla `media_url` + `gallery_urls`, niezależnie od tego, czy materiał ma `content_type === 'video'`.
 
-W pliku `src/components/paid-events/MyEventFormLinks.tsx` (linia ~90), zapytanie pobierające EQID partnera używa złej kolumny:
+Skutek: po kliknięciu "Podgląd" przy testymonialu wideo widać tylko miniaturkę (poster) jako obrazek — nie ma elementu `<video>`, więc film nigdy się nie uruchamia. Standardowy dialog (dla nie‑testymoniali) używa komponentu `SecureMedia`, który poprawnie odtwarza wideo/audio — i tej samej logiki brakuje w dialogu testymoniali.
 
-```ts
-.from('profiles')
-.select('eq_id')
-.eq('id', user.id)        // ← BŁĄD
-.maybeSingle();
-```
+## Zmiany
 
-W tabeli `profiles`:
-- `id` — to klucz główny wiersza (UUID rekordu)
-- `user_id` — to referencja do `auth.users.id`
+### 1. Zmiana nazwy zakładki (widok użytkownika)
 
-Sprawdzenie w bazie potwierdza, że dla wszystkich 224 profili `id <> user_id`, więc filtr `.eq('id', user.id)` nigdy nie zwróci wiersza, `profile?.eq_id` jest `undefined`, i kod rzuca komunikat „Uzupełnij EQID...".
+Plik: `src/pages/HealthyKnowledge.tsx` (linia 259)
 
-Wszystkie inne miejsca w projekcie (np. `LeaderLandingEditorView`, `TOTPSetup`, `PaidEventPage`) prawidłowo używają `.eq('user_id', user.id)`.
+- `tf('hk.tabTestimonials', 'Testymoniale')` → `tf('hk.tabTestimonials', 'Prawdziwe Historie')`
 
-## Zmiana
+Uwaga: pozostawiamy wewnętrzną nazwę kategorii w bazie danych jako `'Testymoniale'` (używana w wielu miejscach jako klucz logiczny, m.in. RLS, edytor admina, filtry). Zmieniamy wyłącznie etykietę widoczną dla użytkownika końcowego w Zdrowej Wiedzy. Panel admina (CMS) nie jest objęty zmianą — tam pozostaje "Testymoniale" jako techniczna nazwa kategorii.
 
-Jednoliniowa poprawka w `src/components/paid-events/MyEventFormLinks.tsx`:
+### 2. Fix odtwarzania wideo w podglądzie testymoniali
 
-```ts
-.eq('user_id', user.id)   // zamiast .eq('id', user.id)
-```
+Plik: `src/components/testimonials/TestimonialPreviewDialog.tsx`
 
-Po zmianie kliknięcie „Wygeneruj mój link" poprawnie odczyta EQID z profilu zalogowanego partnera i utworzy/zaktualizuje wpis w `paid_event_partner_links`.
+- Rozróżnić typ materiału po `material.content_type`:
+  - `'video'` → renderować `<SecureMedia mediaType="video" ... />` (jak w standardowym dialogu) zamiast `<img>`.
+  - `'audio'` → renderować `<SecureMedia mediaType="audio" ... />`.
+  - `'image'` (oraz fallback) → zostawić obecną karuzelę zdjęć z `media_url` + `gallery_urls`.
+  - `'document'` → przycisk "Otwórz dokument" (link do `media_url`).
+- `gallery_urls` traktować jako dodatkowe zdjęcia tylko dla materiałów typu image (lub gdy istnieją oprócz głównego wideo — wtedy zachować je w sekcji galerii pod wideo).
+- Zaimportować `SecureMedia` z tego samego źródła co w `HealthyKnowledge.tsx`.
 
-## Pliki
+### 3. (Opcjonalne, drobne) Spójność tekstu na karcie listy
 
-- `src/components/paid-events/MyEventFormLinks.tsx` — zmiana filtra w zapytaniu o `eq_id`.
+W `HealthyKnowledge.tsx` na karcie testymonialu wyświetlany jest badge `Testymoniale` (z `material.category`). Etykietę widoczną dla użytkownika można zamienić na "Prawdziwa historia" tylko wizualnie — bez zmiany wartości w bazie. Do potwierdzenia z użytkownikiem (patrz pytanie poniżej).
+
+## Pytanie do potwierdzenia
+
+Czy zmienić również etykiety pojawiające się w innych miejscach widocznych dla użytkownika (np. badge "Testymoniale" na karcie materiału, teksty „opinia/opinii" itp. — pozostają), czy wyłącznie nazwę zakładki głównej? Domyślnie zakładam: tylko zakładkę + badge na karcie.
+
+## Pliki do edycji
+
+- `src/pages/HealthyKnowledge.tsx` — zmiana etykiety zakładki (i opcjonalnie wyświetlanej etykiety badge dla kategorii Testymoniale).
+- `src/components/testimonials/TestimonialPreviewDialog.tsx` — obsługa wideo/audio przez `SecureMedia` zamiast wyłącznie `<img>`.
+
+Brak zmian w bazie danych, RLS, panelu admina i kluczach kategorii.
