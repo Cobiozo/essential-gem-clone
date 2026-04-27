@@ -3,7 +3,7 @@ import { useOmegaTestReminderLog } from '@/hooks/useOmegaTestReminderLog';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Mail, User, AlertCircle, CheckCircle2, MinusCircle, Loader2 } from 'lucide-react';
+import { Bell, Mail, User, AlertCircle, CheckCircle2, MinusCircle, Loader2, MailCheck, MailX } from 'lucide-react';
 
 interface Props {
   testId?: string | null;
@@ -20,10 +20,14 @@ const channelMeta = (c: 'in_app' | 'email_partner' | 'email_client') => {
   }
 };
 
-const statusMeta = (s: 'sent' | 'failed' | 'skipped') => {
+type Status = 'sent' | 'delivered' | 'failed' | 'bounced' | 'skipped';
+
+const statusMeta = (s: Status) => {
   switch (s) {
-    case 'sent': return { label: 'Wysłano', variant: 'default' as const, icon: CheckCircle2, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' };
+    case 'sent': return { label: 'Wysłano', variant: 'default' as const, icon: CheckCircle2, className: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30' };
+    case 'delivered': return { label: 'Dostarczono', variant: 'default' as const, icon: MailCheck, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' };
     case 'failed': return { label: 'Błąd', variant: 'destructive' as const, icon: AlertCircle, className: '' };
+    case 'bounced': return { label: 'Odbito', variant: 'destructive' as const, icon: MailX, className: '' };
     case 'skipped': return { label: 'Pominięto', variant: 'secondary' as const, icon: MinusCircle, className: '' };
   }
 };
@@ -86,18 +90,27 @@ export const ReminderHistoryList: React.FC<Props> = ({ testId, clientId }) => {
               </Badge>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              <span>{format(parseISO(entry.sent_at), 'dd MMM yyyy, HH:mm', { locale: pl })}</span>
+              <span title={format(parseISO(entry.sent_at), 'PPPPpppp', { locale: pl })}>
+                {format(parseISO(entry.sent_at), 'dd MMM yyyy, HH:mm:ss', { locale: pl })}
+              </span>
               <span>•</span>
               <span>{kindLabel(entry.kind)}</span>
               {entry.recipient && (
                 <>
                   <span>•</span>
-                  <span className="truncate max-w-[220px]">{entry.recipient}</span>
+                  <span className="truncate max-w-[220px]" title={entry.recipient}>{entry.recipient}</span>
                 </>
               )}
             </div>
             {errLabel && (
-              <p className="text-[11px] italic text-muted-foreground/80">Powód: {errLabel}</p>
+              <div className="text-[11px] mt-1">
+                <span className={entry.status === 'skipped' ? 'italic text-muted-foreground/80' : 'text-destructive'}>
+                  {entry.status === 'skipped' ? 'Powód: ' : 'Komunikat: '}{errLabel}
+                </span>
+                {entry.error && entry.error !== errLabel && (
+                  <code className="block mt-0.5 text-[10px] text-muted-foreground/70 break-all">{entry.error}</code>
+                )}
+              </div>
             )}
           </div>
         );

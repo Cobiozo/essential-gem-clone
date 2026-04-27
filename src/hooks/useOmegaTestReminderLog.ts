@@ -9,7 +9,7 @@ export interface OmegaTestReminderLogEntry {
   kind: '25d' | '120d';
   channel: 'in_app' | 'email_partner' | 'email_client';
   recipient: string | null;
-  status: 'sent' | 'failed' | 'skipped';
+  status: 'sent' | 'delivered' | 'failed' | 'bounced' | 'skipped';
   error: string | null;
   sent_at: string;
 }
