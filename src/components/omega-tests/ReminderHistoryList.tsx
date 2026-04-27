@@ -90,18 +90,27 @@ export const ReminderHistoryList: React.FC<Props> = ({ testId, clientId }) => {
               </Badge>
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-              <span>{format(parseISO(entry.sent_at), 'dd MMM yyyy, HH:mm', { locale: pl })}</span>
+              <span title={format(parseISO(entry.sent_at), 'PPPPpppp', { locale: pl })}>
+                {format(parseISO(entry.sent_at), 'dd MMM yyyy, HH:mm:ss', { locale: pl })}
+              </span>
               <span>•</span>
               <span>{kindLabel(entry.kind)}</span>
               {entry.recipient && (
                 <>
                   <span>•</span>
-                  <span className="truncate max-w-[220px]">{entry.recipient}</span>
+                  <span className="truncate max-w-[220px]" title={entry.recipient}>{entry.recipient}</span>
                 </>
               )}
             </div>
             {errLabel && (
-              <p className="text-[11px] italic text-muted-foreground/80">Powód: {errLabel}</p>
+              <div className="text-[11px] mt-1">
+                <span className={entry.status === 'skipped' ? 'italic text-muted-foreground/80' : 'text-destructive'}>
+                  {entry.status === 'skipped' ? 'Powód: ' : 'Komunikat: '}{errLabel}
+                </span>
+                {entry.error && entry.error !== errLabel && (
+                  <code className="block mt-0.5 text-[10px] text-muted-foreground/70 break-all">{entry.error}</code>
+                )}
+              </div>
             )}
           </div>
         );
