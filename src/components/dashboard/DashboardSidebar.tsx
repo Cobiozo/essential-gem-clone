@@ -416,7 +416,7 @@ export const DashboardSidebar: React.FC = () => {
     ...(() => {
       const pureBoxSubs = [
         { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
-        { id: 'moje-testy', labelKey: 'Moje Testy', path: '/moje-testy', icon: Heart },
+        { id: 'moje-testy', labelKey: 'Baza testów', path: '/moje-testy', icon: Heart },
       ].filter(sub => isPureBoxVisible(sub.id));
       if (pureBoxSubs.length === 0) return [];
       return [{
