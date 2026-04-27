@@ -5615,47 +5615,118 @@ export type Database = {
           },
         ]
       }
+      omega_test_clients: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          is_active: boolean
+          last_name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          is_active?: boolean
+          last_name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       omega_tests: {
         Row: {
           aa: number | null
+          client_id: string | null
           created_at: string | null
           dha: number | null
           epa: number | null
           id: string
           la: number | null
           notes: string | null
+          notify_client_email: boolean
+          notify_partner_email: boolean
           omega3_index: number | null
           omega6_3_ratio: number | null
+          reminder_120d_enabled: boolean
+          reminder_120d_sent_at: string | null
+          reminder_25d_enabled: boolean
+          reminder_25d_sent_at: string | null
           test_date: string
+          test_handed_date: string | null
           user_id: string
         }
         Insert: {
           aa?: number | null
+          client_id?: string | null
           created_at?: string | null
           dha?: number | null
           epa?: number | null
           id?: string
           la?: number | null
           notes?: string | null
+          notify_client_email?: boolean
+          notify_partner_email?: boolean
           omega3_index?: number | null
           omega6_3_ratio?: number | null
+          reminder_120d_enabled?: boolean
+          reminder_120d_sent_at?: string | null
+          reminder_25d_enabled?: boolean
+          reminder_25d_sent_at?: string | null
           test_date: string
+          test_handed_date?: string | null
           user_id: string
         }
         Update: {
           aa?: number | null
+          client_id?: string | null
           created_at?: string | null
           dha?: number | null
           epa?: number | null
           id?: string
           la?: number | null
           notes?: string | null
+          notify_client_email?: boolean
+          notify_partner_email?: boolean
           omega3_index?: number | null
           omega6_3_ratio?: number | null
+          reminder_120d_enabled?: boolean
+          reminder_120d_sent_at?: string | null
+          reminder_25d_enabled?: boolean
+          reminder_25d_sent_at?: string | null
           test_date?: string
+          test_handed_date?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "omega_tests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "omega_test_clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organization_tree_settings: {
         Row: {
