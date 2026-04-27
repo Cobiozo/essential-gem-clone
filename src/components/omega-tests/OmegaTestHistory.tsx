@@ -119,6 +119,11 @@ export const OmegaTestHistory: React.FC<OmegaTestHistoryProps> = ({ tests, onDel
                     {format(parseISO(test.test_date), 'dd MMMM yyyy', { locale: pl })}
                   </span>
                   <div className="flex gap-0.5">
+                    {showReminderHistoryButton && (
+                      <Button variant="ghost" size="icon" className="h-6 w-6" title="Historia powiadomień" onClick={() => setReminderTestId(test.id)}>
+                        <Bell className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                      </Button>
+                    )}
                     {onEdit && (
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => startEdit(test)}>
                         <Pencil className="h-3 w-3 text-muted-foreground hover:text-primary" />
