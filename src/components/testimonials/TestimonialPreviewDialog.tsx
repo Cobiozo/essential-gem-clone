@@ -14,6 +14,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
+import { SecureMedia } from '@/components/SecureMedia';
+import { FileText } from 'lucide-react';
 
 interface TestimonialPreviewDialogProps {
   material: HealthyKnowledge | null;
@@ -41,9 +43,10 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   const [existingComment, setExistingComment] = useState<TestimonialComment | null>(null);
   const [hasAnyComment, setHasAnyComment] = useState(false);
 
-  const allImages = material
+  const isImageContent = !material || material.content_type === 'image';
+  const allImages = material && isImageContent
     ? [material.media_url, ...(material.gallery_urls || [])].filter(Boolean) as string[]
-    : [];
+    : (material?.gallery_urls || []).filter(Boolean) as string[];
 
   const approvedComments = comments.filter(c => c.status === 'approved');
   const avgRating = approvedComments.length > 0
@@ -149,6 +152,30 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           <X className="w-4 h-4" />
         </button>
 
+        {/* Video / Audio playback for non-image testimonials */}
+        {material.media_url && (material.content_type === 'video' || material.content_type === 'audio') && (
+          <div className="bg-black">
+            <SecureMedia
+              mediaUrl={material.media_url}
+              mediaType={material.content_type}
+              className="w-full max-h-[55vh]"
+            />
+          </div>
+        )}
+
+        {/* Document link */}
+        {material.media_url && material.content_type === 'document' && (
+          <div className="px-6 pt-4">
+            <Button asChild className="w-full">
+              <a href={material.media_url} target="_blank" rel="noopener noreferrer">
+                <FileText className="w-4 h-4 mr-2" />
+                {tf('hk.openDocument', 'Otwórz dokument')}
+              </a>
+            </Button>
+          </div>
+        )}
+
+        {/* Image carousel — main media for image content, or supplementary gallery for video/audio */}
         {allImages.length > 0 && (
           <div className="relative bg-black/5">
             <Carousel opts={{ loop: true }} setApi={setApi} className="w-full">
