@@ -14,6 +14,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
+import { SecureMedia } from '@/components/SecureMedia';
+import { FileText } from 'lucide-react';
+import { Button as UIButton } from '@/components/ui/button';
 
 interface TestimonialPreviewDialogProps {
   material: HealthyKnowledge | null;
