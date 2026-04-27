@@ -156,6 +156,15 @@ export const OmegaTestHistory: React.FC<OmegaTestHistoryProps> = ({ tests, onDel
           })}
         </div>
       )}
+
+      <Dialog open={!!reminderTestId} onOpenChange={(o) => !o && setReminderTestId(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Historia powiadomień testu</DialogTitle>
+          </DialogHeader>
+          {reminderTestId && <ReminderHistoryList testId={reminderTestId} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
