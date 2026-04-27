@@ -5654,6 +5654,60 @@ export type Database = {
         }
         Relationships: []
       }
+      omega_test_reminder_log: {
+        Row: {
+          channel: string
+          client_id: string | null
+          error: string | null
+          id: string
+          kind: string
+          recipient: string | null
+          sent_at: string
+          status: string
+          test_id: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          client_id?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          recipient?: string | null
+          sent_at?: string
+          status: string
+          test_id: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          client_id?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          recipient?: string | null
+          sent_at?: string
+          status?: string
+          test_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omega_test_reminder_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "omega_test_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omega_test_reminder_log_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "omega_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       omega_tests: {
         Row: {
           aa: number | null

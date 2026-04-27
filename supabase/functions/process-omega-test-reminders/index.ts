@@ -201,9 +201,26 @@ serve(async (req) => {
       ? `Minęło 25 dni od testu klienta ${fullName}. Wynik powinien już być dostępny — skontaktuj się z klientem i wprowadź wartości w Bazie testów.`
       : `Minęły 4 miesiące (120 dni) od pierwszego testu klienta ${fullName}. To dobry moment na test porównawczy — pełen obraz efektu kuracji omega‑3.`;
 
+    const logEntry = async (channel: 'in_app'|'email_partner'|'email_client', recipient: string|null, status: 'sent'|'failed'|'skipped', error?: string) => {
+      try {
+        await supabase.from('omega_test_reminder_log').insert({
+          test_id: item.test_id,
+          client_id: item.client_id,
+          user_id: item.user_id,
+          kind: item.kind,
+          channel,
+          recipient,
+          status,
+          error: error ?? null,
+        });
+      } catch (e) {
+        console.error('[reminder-log] insert failed', e);
+      }
+    };
+
     // 1) In-app notification for the partner
     try {
-      await supabase.from('user_notifications').insert({
+      const { error: notifErr } = await supabase.from('user_notifications').insert({
         user_id: item.user_id,
         notification_type: item.kind === '25d' ? 'omega_test_pickup_due' : 'omega_test_comparative_due',
         source_module: 'omega_tests',
@@ -212,14 +229,22 @@ serve(async (req) => {
         link: '/moje-testy',
         metadata: { test_id: item.test_id, client_id: item.client_id, kind: item.kind },
       });
+      await logEntry('in_app', null, notifErr ? 'failed' : 'sent', notifErr?.message);
     } catch (e) {
       console.error('[notif] insert failed', e);
+      await logEntry('in_app', null, 'failed', String(e));
     }
 
     // 2) Email to partner
-    if (item.notify_partner_email && smtpReady) {
+    if (!item.notify_partner_email) {
+      await logEntry('email_partner', null, 'skipped', 'opt_out');
+    } else if (!smtpReady) {
+      await logEntry('email_partner', null, 'skipped', 'smtp_not_configured');
+    } else {
       const partnerEmail = partnerEmailById.get(item.user_id);
-      if (partnerEmail) {
+      if (!partnerEmail) {
+        await logEntry('email_partner', null, 'skipped', 'no_partner_email');
+      } else {
         const html = emailHtml({
           heading: partnerTitle,
           lead: 'Przypomnienie z Bazy testów Omega',
@@ -227,12 +252,19 @@ serve(async (req) => {
           ctaText: 'Otwórz Bazę testów',
           ctaUrl: 'https://purelife.lovable.app/moje-testy',
         });
-        await sendSmtp(smtp as SmtpSettings, partnerEmail, partnerTitle, html);
+        const ok = await sendSmtp(smtp as SmtpSettings, partnerEmail, partnerTitle, html);
+        await logEntry('email_partner', partnerEmail, ok ? 'sent' : 'failed', ok ? undefined : 'smtp_send_failed');
       }
     }
 
     // 3) Email to client (opt-in + email present)
-    if (item.notify_client_email && smtpReady && client.email) {
+    if (!item.notify_client_email) {
+      await logEntry('email_client', null, 'skipped', 'opt_out');
+    } else if (!smtpReady) {
+      await logEntry('email_client', null, 'skipped', 'smtp_not_configured');
+    } else if (!client.email) {
+      await logEntry('email_client', null, 'skipped', 'no_client_email');
+    } else {
       const clientSubject = item.kind === '25d'
         ? `Twój wynik testu Omega powinien być już gotowy`
         : `Czas na test porównawczy Omega‑3`;
@@ -248,7 +280,8 @@ serve(async (req) => {
         lead: '„Testuję, nie zgaduję" — przypomnienie',
         body: clientBody,
       });
-      await sendSmtp(smtp as SmtpSettings, client.email, clientSubject, html);
+      const ok = await sendSmtp(smtp as SmtpSettings, client.email, clientSubject, html);
+      await logEntry('email_client', client.email, ok ? 'sent' : 'failed', ok ? undefined : 'smtp_send_failed');
     }
 
     // 4) Mark as sent
