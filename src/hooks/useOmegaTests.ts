@@ -6,7 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 export interface OmegaTest {
   id: string;
   user_id: string;
+  client_id: string | null;
   test_date: string;
+  test_handed_date: string | null;
   omega3_index: number | null;
   omega6_3_ratio: number | null;
   aa: number | null;
@@ -14,11 +16,19 @@ export interface OmegaTest {
   dha: number | null;
   la: number | null;
   notes: string | null;
+  reminder_25d_enabled: boolean;
+  reminder_120d_enabled: boolean;
+  notify_partner_email: boolean;
+  notify_client_email: boolean;
+  reminder_25d_sent_at: string | null;
+  reminder_120d_sent_at: string | null;
   created_at: string;
 }
 
 export interface OmegaTestInput {
   test_date: string;
+  client_id?: string | null;
+  test_handed_date?: string | null;
   omega3_index?: number | null;
   omega6_3_ratio?: number | null;
   aa?: number | null;
@@ -26,25 +36,53 @@ export interface OmegaTestInput {
   dha?: number | null;
   la?: number | null;
   notes?: string | null;
+  reminder_25d_enabled?: boolean;
+  reminder_120d_enabled?: boolean;
+  notify_partner_email?: boolean;
+  notify_client_email?: boolean;
 }
 
-export const useOmegaTests = () => {
+interface UseOmegaTestsOptions {
+  /** 'self' = user's own tests (client_id IS NULL); 'client' = tests for a specific client */
+  scope?: 'self' | 'client';
+  clientId?: string | null;
+}
+
+export const useOmegaTests = (options: UseOmegaTestsOptions = {}) => {
+  const { scope = 'self', clientId = null } = options;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const queryKey = ['omega-tests', user?.id, scope, clientId];
+
   const { data: tests = [], isLoading } = useQuery({
-    queryKey: ['omega-tests', user?.id],
+    queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('omega_tests')
         .select('*')
         .order('test_date', { ascending: true });
+
+      if (scope === 'self') {
+        query = query.is('client_id', null);
+      } else if (scope === 'client' && clientId) {
+        query = query.eq('client_id', clientId);
+      } else if (scope === 'client' && !clientId) {
+        return [] as OmegaTest[];
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data as OmegaTest[];
+      return (data as OmegaTest[]) ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && (scope === 'self' || !!clientId),
   });
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['omega-tests'] });
+    queryClient.invalidateQueries({ queryKey: ['omega-test-clients'] });
+  };
 
   const addTest = useMutation({
     mutationFn: async (input: OmegaTestInput) => {
@@ -55,7 +93,7 @@ export const useOmegaTests = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['omega-tests'] });
+      invalidateAll();
       toast({ title: 'Zapisano nowy wynik testu' });
     },
     onError: () => {
@@ -64,12 +102,12 @@ export const useOmegaTests = () => {
   });
 
   const updateTest = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string } & OmegaTestInput) => {
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<OmegaTestInput>) => {
       const { error } = await supabase.from('omega_tests').update(data).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['omega-tests'] });
+      invalidateAll();
       toast({ title: 'Zaktualizowano wynik testu' });
     },
     onError: () => {
@@ -83,7 +121,7 @@ export const useOmegaTests = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['omega-tests'] });
+      invalidateAll();
       toast({ title: 'Usunięto wynik testu' });
     },
   });
