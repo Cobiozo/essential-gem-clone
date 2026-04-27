@@ -256,7 +256,7 @@ const HealthyKnowledgePage: React.FC = () => {
         <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'materials' | 'testimonials'); setSelectedCategory(null); }}>
           <TabsList>
             <TabsTrigger value="materials">{tf('hk.tabMaterials', 'Materiały')}</TabsTrigger>
-            <TabsTrigger value="testimonials">{tf('hk.tabTestimonials', 'Testymoniale')}</TabsTrigger>
+            <TabsTrigger value="testimonials">{tf('hk.tabTestimonials', 'Prawdziwe Historie')}</TabsTrigger>
           </TabsList>
         </Tabs>
 
