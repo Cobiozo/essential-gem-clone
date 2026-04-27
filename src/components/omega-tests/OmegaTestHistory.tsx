@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import { OmegaTest, OmegaTestInput } from '@/hooks/useOmegaTests';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Trash2, Pencil, Check, X } from 'lucide-react';
+import { Trash2, Pencil, Check, X, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getRatioThreshold, getIndexThreshold } from './OmegaThresholds';
+import { ReminderHistoryList } from './ReminderHistoryList';
 
 interface OmegaTestHistoryProps {
   tests: OmegaTest[];
   onDelete?: (id: string) => void;
   onEdit?: (id: string, data: OmegaTestInput) => void;
+  showReminderHistoryButton?: boolean;
 }
 
-export const OmegaTestHistory: React.FC<OmegaTestHistoryProps> = ({ tests, onDelete, onEdit }) => {
+export const OmegaTestHistory: React.FC<OmegaTestHistoryProps> = ({ tests, onDelete, onEdit, showReminderHistoryButton }) => {
   const reversed = [...tests].reverse();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<OmegaTestInput>({ test_date: '' });
+  const [reminderTestId, setReminderTestId] = useState<string | null>(null);
 
   const startEdit = (test: OmegaTest) => {
     setEditingId(test.id);
