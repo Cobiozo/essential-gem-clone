@@ -87,7 +87,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('eq_id')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .maybeSingle();
       if (profileErr) throw profileErr;
       const eqId = (profile?.eq_id || '').trim();
