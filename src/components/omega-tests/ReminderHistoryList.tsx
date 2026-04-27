@@ -3,7 +3,7 @@ import { useOmegaTestReminderLog } from '@/hooks/useOmegaTestReminderLog';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Mail, User, AlertCircle, CheckCircle2, MinusCircle, Loader2 } from 'lucide-react';
+import { Bell, Mail, User, AlertCircle, CheckCircle2, MinusCircle, Loader2, MailCheck, MailX } from 'lucide-react';
 
 interface Props {
   testId?: string | null;
@@ -20,10 +20,14 @@ const channelMeta = (c: 'in_app' | 'email_partner' | 'email_client') => {
   }
 };
 
-const statusMeta = (s: 'sent' | 'failed' | 'skipped') => {
+type Status = 'sent' | 'delivered' | 'failed' | 'bounced' | 'skipped';
+
+const statusMeta = (s: Status) => {
   switch (s) {
-    case 'sent': return { label: 'Wysłano', variant: 'default' as const, icon: CheckCircle2, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' };
+    case 'sent': return { label: 'Wysłano', variant: 'default' as const, icon: CheckCircle2, className: 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30' };
+    case 'delivered': return { label: 'Dostarczono', variant: 'default' as const, icon: MailCheck, className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' };
     case 'failed': return { label: 'Błąd', variant: 'destructive' as const, icon: AlertCircle, className: '' };
+    case 'bounced': return { label: 'Odbito', variant: 'destructive' as const, icon: MailX, className: '' };
     case 'skipped': return { label: 'Pominięto', variant: 'secondary' as const, icon: MinusCircle, className: '' };
   }
 };
