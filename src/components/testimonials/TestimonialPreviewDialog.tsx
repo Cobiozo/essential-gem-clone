@@ -43,9 +43,10 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   const [existingComment, setExistingComment] = useState<TestimonialComment | null>(null);
   const [hasAnyComment, setHasAnyComment] = useState(false);
 
-  const allImages = material
+  const isImageContent = !material || material.content_type === 'image';
+  const allImages = material && isImageContent
     ? [material.media_url, ...(material.gallery_urls || [])].filter(Boolean) as string[]
-    : [];
+    : (material?.gallery_urls || []).filter(Boolean) as string[];
 
   const approvedComments = comments.filter(c => c.status === 'approved');
   const avgRating = approvedComments.length > 0
