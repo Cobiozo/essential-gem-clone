@@ -1,71 +1,39 @@
-## Cel
+## Problem
 
-W zakładce **„Z zaproszeń na eventy"** każdy kontakt-gość ma pokazywać status swojej rejestracji na konkretne wydarzenie:
+Na ekranie „Moje linki partnerskie do formularzy rejestracyjnych" pojawia się czerwony błąd:
+> „Uzupełnij EQID w swoim profilu, aby wygenerować link partnerski."
 
-- ✅ **Potwierdzony** — gość kliknął w link potwierdzający w mailu (`email_confirmed_at IS NOT NULL`)
-- ⏳ **Oczekuje potwierdzenia** — submission istnieje, ale brak `email_confirmed_at`
-- ❌ **Anulowany** — gość anulował rejestrację (`status = 'cancelled'` lub `cancelled_at IS NOT NULL`)
-- 💰 **Opłacony** — admin oznaczył opłatę (`payment_status = 'paid'`)
-- 💳 **Brak płatności** — `payment_status = 'pending'` (pokazujemy tylko jeśli wydarzenie wymaga płatności)
+— mimo że partner ma uzupełniony EQID. Dotyczy wszystkich urządzeń (na iPhone było po prostu testowane), nie tylko mobilnych.
 
-Statusy dotyczą **wyłącznie** kontaktów z `contact_source LIKE 'event_invite%'`. Inne zakładki (auto-webinary BO/HC, strona partnerska, materiały ZW) — bez zmian.
+## Przyczyna
 
-## Źródło danych
+W pliku `src/components/paid-events/MyEventFormLinks.tsx` (linia ~90), zapytanie pobierające EQID partnera używa złej kolumny:
 
-Tabela `event_form_submissions`:
-- `partner_user_id = auth.uid()` (RLS już zezwala partnerowi na SELECT po tym warunku — sprawdzone w `pg_policies`).
-- Pola: `status`, `payment_status`, `email_confirmed_at`, `cancelled_at`, `email`, `event_id`, `created_at`.
-- Tytuł i data wydarzenia: JOIN do `paid_events (id, title, event_date)`.
+```ts
+.from('profiles')
+.select('eq_id')
+.eq('id', user.id)        // ← BŁĄD
+.maybeSingle();
+```
 
-Matchowanie kontaktu ↔ submission odbywa się po **(`lower(contact.email)`, `partner_user_id`)** — jeden kontakt może mieć wiele submission (różne wydarzenia), więc to lista per kontakt.
+W tabeli `profiles`:
+- `id` — to klucz główny wiersza (UUID rekordu)
+- `user_id` — to referencja do `auth.users.id`
 
-## Implementacja
+Sprawdzenie w bazie potwierdza, że dla wszystkich 224 profili `id <> user_id`, więc filtr `.eq('id', user.id)` nigdy nie zwróci wiersza, `profile?.eq_id` jest `undefined`, i kod rzuca komunikat „Uzupełnij EQID...".
 
-### 1. `src/components/team-contacts/types.ts`
+Wszystkie inne miejsca w projekcie (np. `LeaderLandingEditorView`, `TOTPSetup`, `PaidEventPage`) prawidłowo używają `.eq('user_id', user.id)`.
 
-Nowy typ `EventInviteSubmissionInfo` z polami: `submission_id`, `event_id`, `event_title`, `event_date`, `status`, `payment_status`, `email_confirmed_at`, `cancelled_at`, `created_at`.
+## Zmiana
 
-### 2. `src/hooks/useTeamContacts.ts`
+Jednoliniowa poprawka w `src/components/paid-events/MyEventFormLinks.tsx`:
 
-- Nowy fetch (`fetchEventInviteSubmissions`) wywoływany razem z `fetchContacts` / `fetchEventContactIds`:
-  ```ts
-  supabase
-    .from('event_form_submissions')
-    .select('id, event_id, status, payment_status, email_confirmed_at, cancelled_at, email, created_at, paid_events(title, event_date, requires_payment)')
-    .eq('partner_user_id', user.id)
-  ```
-- Buduje `Map<contactId, EventInviteSubmissionInfo[]>` — match po `lower(email)` z kontaktami z `contact_source LIKE 'event_invite%'`.
-- Eksport: `eventInviteSubmissions` w return obok `eventContactDetails`.
+```ts
+.eq('user_id', user.id)   // zamiast .eq('id', user.id)
+```
 
-### 3. `src/components/team-contacts/TeamContactAccordion.tsx`
+Po zmianie kliknięcie „Wygeneruj mój link" poprawnie odczyta EQID z profilu zalogowanego partnera i utworzy/zaktualizuje wpis w `paid_event_partner_links`.
 
-- Nowa propa: `eventInviteSubmissions?: Map<string, EventInviteSubmissionInfo[]>`.
-- W bloku po „Event badges" (linia ~249) dodajemy nowy fragment renderowany wyłącznie dla kontaktów z `contact_source` zaczynającym się od `event_invite`:
-  - Per submission: tytuł wydarzenia + data + zestaw badge'ów statusu (kolory: zielony=potwierdzony/opłacony, czerwony=anulowany, żółty=oczekuje, niebieski=brak płatności).
-- Dodatkowo: jeżeli wszystkie submission gościa mają `status='cancelled'`, w nagłówku karty pokazujemy globalny badge „❌ Anulowano".
+## Pliki
 
-### 4. `src/components/team-contacts/TeamContactsTab.tsx`
-
-- Pobranie `eventInviteSubmissions` z hooka i przekazanie do `TeamContactAccordion` (oraz analogicznie do `TeamContactsTable`, jeśli tam też ma być widoczne — minimalnie: tylko akordeon w pierwszej iteracji).
-
-### 5. (Opcjonalnie) `TeamContactsTable.tsx`
-
-Dodanie kolumny „Status zaproszenia" widocznej tylko gdy `privateSubTab === 'event-invites'`. Jeśli widok tabeli nie jest priorytetem, pominiemy w tej iteracji.
-
-## Pliki do zmiany
-
-- `src/components/team-contacts/types.ts` — nowy interfejs `EventInviteSubmissionInfo`
-- `src/hooks/useTeamContacts.ts` — pobieranie submissions partnera + budowanie mapy
-- `src/components/team-contacts/TeamContactAccordion.tsx` — nowa propa + render badge'ów statusu
-- `src/components/team-contacts/TeamContactsTab.tsx` — przekazanie nowej propy do akordeonu
-
-## Efekt
-
-Sebastian (partner) otwiera zakładkę „Z zaproszeń na eventy" i obok karty Janeusza widzi:
-- 📅 BUSINESS OPPORTUNITY MEETING – KRAKÓW (10.05.2026)
-- ✅ Potwierdzony · 💳 Brak płatności
-
-a obok kartki innego gościa, który anulował:
-- ❌ Anulowano
-
-Wszystko bazuje na danych już dostępnych dzięki istniejącej polityce RLS — nie potrzeba migracji bazy.
+- `src/components/paid-events/MyEventFormLinks.tsx` — zmiana filtra w zapytaniu o `eq_id`.
