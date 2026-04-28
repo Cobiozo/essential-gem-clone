@@ -55,6 +55,7 @@ const defaultEvent: Partial<PaidEvent> = {
   stream_url: '',
   banner_url: '',
   max_tickets: null,
+  show_last_spots_label: false,
   is_active: true,
   is_published: false,
   visible_to_partners: true,
