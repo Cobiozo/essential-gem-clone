@@ -234,7 +234,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
           </>
         )}
 
-        {availableSpots !== null && availableSpots < 10 && availableSpots > 0 && (
+        {availableSpots !== null && availableSpots < 10 && availableSpots > 0 && !showLastSpotsLabel && (
           <p className="text-xs text-center text-destructive">
             Zostało tylko {availableSpots} {availableSpots === 1 ? 'miejsce' : 'miejsc'}!
           </p>
