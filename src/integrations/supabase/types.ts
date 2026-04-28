@@ -6463,6 +6463,7 @@ export type Database = {
           payment_method_transfer: boolean
           short_description: string | null
           show_in_dashboard_calendar: boolean
+          show_last_spots_label: boolean
           slug: string
           stream_url: string | null
           tickets_sold: number | null
@@ -6495,6 +6496,7 @@ export type Database = {
           payment_method_transfer?: boolean
           short_description?: string | null
           show_in_dashboard_calendar?: boolean
+          show_last_spots_label?: boolean
           slug: string
           stream_url?: string | null
           tickets_sold?: number | null
@@ -6527,6 +6529,7 @@ export type Database = {
           payment_method_transfer?: boolean
           short_description?: string | null
           show_in_dashboard_calendar?: boolean
+          show_last_spots_label?: boolean
           slug?: string
           stream_url?: string | null
           tickets_sold?: number | null

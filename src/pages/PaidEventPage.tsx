@@ -67,6 +67,7 @@ interface PaidEvent {
   guests_show_speakers: boolean | null;
   guests_show_tickets: boolean | null;
   guests_show_schedule: boolean | null;
+  show_last_spots_label?: boolean | null;
   updated_at?: string | null;
 }
 
@@ -110,6 +111,22 @@ const PaidEventPage: React.FC = () => {
       return data as ContentSection[];
     },
     enabled: !!event?.id,
+  });
+
+  // Fetch number of active form submissions for this event (used to compute available spots)
+  const { data: activeSubmissionsCount = 0 } = useQuery({
+    queryKey: ['paid-event-active-submissions', event?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('event_form_submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', event!.id)
+        .eq('status', 'active');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!event?.id,
+    staleTime: 30_000,
   });
 
   // Fetch tickets
@@ -462,7 +479,8 @@ const PaidEventPage: React.FC = () => {
                 }))}
                 eventDate={event.event_date}
                 maxTickets={event.max_tickets}
-                ticketsSold={event.tickets_sold}
+                ticketsSold={(event.tickets_sold ?? 0) + (activeSubmissionsCount ?? 0)}
+                showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 formUrl={
                   registrationForm

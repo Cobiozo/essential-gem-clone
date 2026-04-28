@@ -30,6 +30,8 @@ interface PaidEventSidebarProps {
   formUrl?: string | null;
   /** Optional helper text shown under the CTA when the user is a logged-in partner. */
   helperText?: string | null;
+  /** When true, replace the numeric availability with a red "Ostatnie wolne miejsca!" label. */
+  showLastSpotsLabel?: boolean;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
@@ -43,6 +45,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   currency = 'PLN',
   formUrl = null,
   helperText = null,
+  showLastSpotsLabel = false,
 }) => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
@@ -117,11 +120,17 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
         {availableSpots !== null && (
           <div className="flex items-center gap-2 text-sm mt-1">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-              {availableSpots > 0 
-                ? `Dostępnych miejsc: ${availableSpots}` 
-                : 'Brak miejsc'}
-            </span>
+            {availableSpots <= 0 ? (
+              <span className="text-destructive font-medium">Brak miejsc</span>
+            ) : showLastSpotsLabel ? (
+              <span className="text-destructive font-bold uppercase tracking-wide">
+                Ostatnie wolne miejsca!
+              </span>
+            ) : (
+              <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                Dostępnych miejsc: {availableSpots}
+              </span>
+            )}
           </div>
         )}
       </CardHeader>
@@ -225,7 +234,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
           </>
         )}
 
-        {availableSpots !== null && availableSpots < 10 && availableSpots > 0 && (
+        {availableSpots !== null && availableSpots < 10 && availableSpots > 0 && !showLastSpotsLabel && (
           <p className="text-xs text-center text-destructive">
             Zostało tylko {availableSpots} {availableSpots === 1 ? 'miejsce' : 'miejsc'}!
           </p>
