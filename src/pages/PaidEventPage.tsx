@@ -479,7 +479,8 @@ const PaidEventPage: React.FC = () => {
                 }))}
                 eventDate={event.event_date}
                 maxTickets={event.max_tickets}
-                ticketsSold={event.tickets_sold}
+                ticketsSold={(event.tickets_sold ?? 0) + (activeSubmissionsCount ?? 0)}
+                showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 formUrl={
                   registrationForm
