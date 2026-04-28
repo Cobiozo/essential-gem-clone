@@ -443,6 +443,22 @@ export const PaidEventsList: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <Switch
+                id="show_last_spots_label"
+                checked={!!formData.show_last_spots_label}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_last_spots_label: checked })}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="show_last_spots_label" className="cursor-pointer">
+                  Pokazuj "Ostatnie wolne miejsca" zamiast licznika
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Gdy włączone, na stronie publicznej zamiast liczby wolnych miejsc pojawi się czerwony napis "OSTATNIE WOLNE MIEJSCA!".
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <Switch
