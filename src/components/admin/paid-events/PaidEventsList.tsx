@@ -32,6 +32,7 @@ interface PaidEvent {
   banner_url: string | null;
   max_tickets: number | null;
   tickets_sold: number | null;
+  show_last_spots_label: boolean | null;
   is_active: boolean | null;
   is_published: boolean | null;
   visible_to_partners: boolean | null;
