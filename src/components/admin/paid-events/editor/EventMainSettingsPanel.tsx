@@ -247,6 +247,22 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
                   placeholder="Brak limitu"
                 />
               </div>
+
+              <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="show_last_spots_label" className="cursor-pointer">
+                    Pokaż „Ostatnie wolne miejsca"
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Zamiast liczby dostępnych miejsc wyświetli się czerwony, pogrubiony napis zachęcający do szybkiej rejestracji.
+                  </p>
+                </div>
+                <Switch
+                  id="show_last_spots_label"
+                  checked={!!formData.show_last_spots_label}
+                  onCheckedChange={(checked) => handleFieldChange('show_last_spots_label', checked)}
+                />
+              </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
