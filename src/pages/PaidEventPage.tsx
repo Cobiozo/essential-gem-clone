@@ -67,6 +67,7 @@ interface PaidEvent {
   guests_show_speakers: boolean | null;
   guests_show_tickets: boolean | null;
   guests_show_schedule: boolean | null;
+  show_last_spots_label?: boolean | null;
   updated_at?: string | null;
 }
 
