@@ -32,6 +32,7 @@ interface PaidEvent {
   banner_url: string | null;
   max_tickets: number | null;
   tickets_sold: number | null;
+  show_last_spots_label: boolean | null;
   is_active: boolean | null;
   is_published: boolean | null;
   visible_to_partners: boolean | null;
@@ -54,6 +55,7 @@ const defaultEvent: Partial<PaidEvent> = {
   stream_url: '',
   banner_url: '',
   max_tickets: null,
+  show_last_spots_label: false,
   is_active: true,
   is_published: false,
   visible_to_partners: true,
@@ -438,6 +440,22 @@ export const PaidEventsList: React.FC = () => {
                   })}
                   placeholder="Brak limitu"
                 />
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <Switch
+                id="show_last_spots_label"
+                checked={!!formData.show_last_spots_label}
+                onCheckedChange={(checked) => setFormData({ ...formData, show_last_spots_label: checked })}
+              />
+              <div className="space-y-1">
+                <Label htmlFor="show_last_spots_label" className="cursor-pointer">
+                  Pokazuj "Ostatnie wolne miejsca" zamiast licznika
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Gdy włączone, na stronie publicznej zamiast liczby wolnych miejsc pojawi się czerwony napis "OSTATNIE WOLNE MIEJSCA!".
+                </p>
               </div>
             </div>
 
