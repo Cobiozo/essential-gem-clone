@@ -30,6 +30,8 @@ interface PaidEventSidebarProps {
   formUrl?: string | null;
   /** Optional helper text shown under the CTA when the user is a logged-in partner. */
   helperText?: string | null;
+  /** When true, replace the numeric availability with a red "Ostatnie wolne miejsca!" label. */
+  showLastSpotsLabel?: boolean;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
