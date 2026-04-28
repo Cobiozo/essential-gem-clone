@@ -113,6 +113,22 @@ const PaidEventPage: React.FC = () => {
     enabled: !!event?.id,
   });
 
+  // Fetch number of active form submissions for this event (used to compute available spots)
+  const { data: activeSubmissionsCount = 0 } = useQuery({
+    queryKey: ['paid-event-active-submissions', event?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('event_form_submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', event!.id)
+        .eq('status', 'active');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!event?.id,
+    staleTime: 30_000,
+  });
+
   // Fetch tickets
   const { data: tickets = [] } = useQuery({
     queryKey: ['paid-event-tickets', event?.id],
