@@ -1,56 +1,80 @@
+## Diagnoza problemu
+
+Licznik **„Dostępnych miejsc: 100"** na stronie publicznej wydarzenia liczy się jako:
+
+```
+availableSpots = max_tickets - tickets_sold
+```
+
+Pole `paid_events.tickets_sold` **nigdy nie jest aktualizowane** po nowej rejestracji. Sprawdziłem:
+- W `event_form_submissions` mamy aktywne zgłoszenia (np. **6** dla Krakowa, **1** dla Łodzi).
+- W `paid_events.tickets_sold` dla obu wydarzeń wartość = **0**.
+- Na tabeli `event_form_submissions` **nie ma żadnego triggera**, który by inkrementował/dekrementował `tickets_sold`.
+
+Stąd licznik nie spada. Płatne bilety (PayU) prawdopodobnie aktualizują `tickets_sold` w innym miejscu, ale rejestracje przez formularz (event_form_submissions) — nie.
+
 ## Cel
-W formularzu „Dodaj klienta" / „Edytuj klienta" w **Bazie testów Omega** dodać 3 nowe **opcjonalne** pola:
-1. **Numer testu** (np. ID/sygnatura testu nadana przez laboratorium)
-2. **Numer listu przewozowego** (tracking number)
-3. **Przewoźnik** — wybór z listy popularnych przewoźników i usługodawców pocztowych/kurierskich, z możliwością wpisania własnego.
+
+1. Naprawić odliczanie miejsc tak, by uwzględniało **aktywne rejestracje formularzowe** (status `active`) — bez wymagania ręcznej synchronizacji.
+2. Dodać w panelu admina przełącznik **„Pokazuj 'Ostatnie wolne miejsca' zamiast liczby"** — gdy włączony, w miejscu „Dostępnych miejsc: N" pojawia się czerwony napis **„Ostatnie wolne miejsca!"**.
 
 ## Zakres zmian
 
 ### 1. Baza danych — migracja
-Dodanie 3 nowych nullowalnych kolumn do `public.omega_test_clients`:
+Dodanie nowego pola w `public.paid_events`:
 
 ```sql
-ALTER TABLE public.omega_test_clients
-  ADD COLUMN IF NOT EXISTS test_number       text,
-  ADD COLUMN IF NOT EXISTS tracking_number   text,
-  ADD COLUMN IF NOT EXISTS carrier           text;
+ALTER TABLE public.paid_events
+  ADD COLUMN IF NOT EXISTS show_last_spots_label boolean NOT NULL DEFAULT false;
 ```
 
-Bez zmian w RLS (istniejące polityki obejmują wszystkie kolumny).
+(Bez zmian struktury `tickets_sold` — pozostaje jako licznik PayU. Zliczanie aktywnych zgłoszeń formularzowych dodam w warstwie aplikacji, by nie tworzyć podwójnej logiki triggerów.)
 
-### 2. Lista przewoźników (stała w kodzie)
-Plik: `src/lib/carriers.ts` (nowy) — stała lista posortowana alfabetycznie:
+### 2. Hook publiczny — pobranie liczby aktywnych zgłoszeń
+W `src/pages/PaidEventPage.tsx` dodać dodatkowe zapytanie (równoległe z `paid-event`):
 
-- **Polska poczta i kurierzy:** Poczta Polska, InPost (Paczkomat), InPost Kurier, DPD, DHL Express, DHL Parcel, GLS, UPS, FedEx, TNT, Pocztex, Orlen Paczka, Geis, X-press Couriers, Patron Service, Raben.
-- **Międzynarodowe:** DHL, FedEx, UPS, TNT, Aramex, PostNL, Royal Mail, Deutsche Post, La Poste, Hermes, Yodel, USPS, Canada Post, Australia Post.
-- Specjalna pozycja **„Inny / wpisz ręcznie"** — pokazuje pole tekstowe do wpisania nazwy.
+```ts
+const { data: submissionsCount } = useQuery({
+  queryKey: ['paid-event-submissions-count', event?.id],
+  queryFn: async () => {
+    const { count } = await supabase
+      .from('event_form_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_id', event!.id)
+      .eq('status', 'active');
+    return count ?? 0;
+  },
+  enabled: !!event?.id,
+});
+```
 
-### 3. UI — `ClientFormDialog.tsx`
-- Dodać sekcję „Wysyłka testu (opcjonalnie)" pod polem Telefon, nad Notatką.
-- Dwie kolumny: **Numer testu** | **Numer listu przewozowego** (Inputy).
-- Pole **Przewoźnik** jako `Select` z listy + opcja „Inny / wpisz ręcznie" → po wybraniu wyświetla `Input` na własną nazwę.
-- Logika edycji: jeśli wczytany `carrier` nie znajduje się na liście → automatycznie ustaw tryb „Inny" i wypełnij Input wartością z bazy.
-- Wszystkie pola opcjonalne — `canSave` bez zmian (tylko imię + nazwisko wymagane).
-- Trim i `null` dla pustych stringów przy zapisie.
+Następnie do `<PaidEventSidebar>` przekazać:
+```tsx
+ticketsSold={(event.tickets_sold ?? 0) + (submissionsCount ?? 0)}
+showLastSpotsLabel={event.show_last_spots_label}
+```
 
-### 4. Hook — `src/hooks/useOmegaTestClients.ts`
-- Rozszerzyć interfejsy `OmegaTestClient` i `OmegaTestClientInput` o pola:
-  - `test_number: string | null`
-  - `tracking_number: string | null`
-  - `carrier: string | null`
-- Mutacje `addClient` / `updateClient` przekazują nowe pola bez modyfikacji (spread `...input` już to obsłuży).
+### 3. UI — `PaidEventSidebar.tsx`
+- Dodać prop `showLastSpotsLabel?: boolean`.
+- W sekcji „Availability" zastąpić tekst:
+  - jeśli `showLastSpotsLabel === true` **i** `availableSpots > 0` → pokaż czerwony, pogrubiony napis **„Ostatnie wolne miejsca!"** (klasa `text-destructive font-semibold`).
+  - jeśli `availableSpots === 0` → nadal „Brak miejsc".
+  - w pozostałych przypadkach — bez zmian (`Dostępnych miejsc: N`, czerwony gdy <10).
+- Również ukryć dodatkowy dolny komunikat „Zostało tylko N miejsc!" gdy tryb „ostatnie miejsca" jest aktywny (jeden komunikat zamiast dwóch).
 
-### 5. Wyświetlanie (opcjonalnie, drobne)
-W `ClientDetailDrawer.tsx` (jeśli sekcja danych klienta istnieje) — dodać podgląd 3 nowych pól, jeśli wypełnione. Sprawdzę plik przy implementacji; jeśli wyświetlenie wykracza poza prosty wgląd, ograniczę się do samego formularza i pominiemy renderowanie w drawerze (zgodnie z zakresem prośby — sama prośba dotyczy formularza dodawania).
+### 4. Panel admina — formularz edycji wydarzenia
+Sprawdzę plik `src/components/admin/paid-events/PaidEventForm.tsx` (lub odpowiednik). Dodać w sekcji ustawień rejestracji **Switch**:
+- Etykieta: **„Pokazuj 'Ostatnie wolne miejsca' zamiast licznika"**
+- Helper: „Zamiast liczby dostępnych miejsc wyświetli się czerwony napis zachęcający do szybkiej rejestracji."
+- Zapis pola `show_last_spots_label` do `paid_events`.
 
-## Pliki do utworzenia / edycji
-- `supabase/migrations/<timestamp>_add_shipping_fields_to_omega_test_clients.sql` (nowy)
-- `src/lib/carriers.ts` (nowy)
-- `src/components/omega-tests/ClientFormDialog.tsx` (edycja)
-- `src/hooks/useOmegaTestClients.ts` (edycja — typy)
-- ewentualnie `src/components/omega-tests/ClientDetailDrawer.tsx` (edycja — podgląd)
+## Pliki
+- `supabase/migrations/<timestamp>_add_show_last_spots_label_to_paid_events.sql` (nowy)
+- `src/components/paid-events/public/PaidEventSidebar.tsx` (edycja)
+- `src/pages/PaidEventPage.tsx` (edycja — query + interface + props)
+- `src/components/admin/paid-events/PaidEventForm.tsx` (edycja — Switch + zapis)
 
 ## Uwagi
-- Po migracji typy `src/integrations/supabase/types.ts` zostaną zregenerowane automatycznie.
-- Lista przewoźników jest zaszyta w kodzie (proste, bez dodatkowej tabeli) — łatwa do rozszerzenia w przyszłości.
-- Pola pozostają opcjonalne — istniejący przepływ dodawania klienta nie zostaje zmieniony pod kątem walidacji.
+- Liczenie zgłoszeń w warstwie aplikacji (zamiast triggera) jest świadomą decyzją: jest natychmiast spójne z danymi, nie wymaga utrzymywania triggerów oraz nie koliduje z istniejącą logiką PayU. Koszt: 1 dodatkowy lekki COUNT przy wejściu na stronę wydarzenia.
+- `tickets_sold` z PayU pozostaje doliczane do sumy — uwzględniamy oba kanały sprzedaży.
+- Jeśli w przyszłości pojawi się potrzeba real-time aktualizacji licznika, można dodać subskrypcję realtime na `event_form_submissions` (poza zakresem tej iteracji).
