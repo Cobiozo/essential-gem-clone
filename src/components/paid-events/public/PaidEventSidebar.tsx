@@ -45,6 +45,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   currency = 'PLN',
   formUrl = null,
   helperText = null,
+  showLastSpotsLabel = false,
 }) => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
