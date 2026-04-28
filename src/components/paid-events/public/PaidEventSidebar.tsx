@@ -120,11 +120,17 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
         {availableSpots !== null && (
           <div className="flex items-center gap-2 text-sm mt-1">
             <Users className="w-4 h-4 text-muted-foreground" />
-            <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-              {availableSpots > 0 
-                ? `Dostępnych miejsc: ${availableSpots}` 
-                : 'Brak miejsc'}
-            </span>
+            {availableSpots <= 0 ? (
+              <span className="text-destructive font-medium">Brak miejsc</span>
+            ) : showLastSpotsLabel ? (
+              <span className="text-destructive font-bold uppercase tracking-wide">
+                Ostatnie wolne miejsca!
+              </span>
+            ) : (
+              <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                Dostępnych miejsc: {availableSpots}
+              </span>
+            )}
           </div>
         )}
       </CardHeader>
