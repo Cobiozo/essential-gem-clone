@@ -11,6 +11,9 @@ export interface OmegaTestClient {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  test_number: string | null;
+  tracking_number: string | null;
+  carrier: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -22,6 +25,9 @@ export interface OmegaTestClientInput {
   email?: string | null;
   phone?: string | null;
   notes?: string | null;
+  test_number?: string | null;
+  tracking_number?: string | null;
+  carrier?: string | null;
   is_active?: boolean;
 }
 

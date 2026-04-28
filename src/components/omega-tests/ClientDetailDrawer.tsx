@@ -8,7 +8,7 @@ import { OmegaTestHistory } from './OmegaTestHistory';
 import { OmegaTrendChart } from './OmegaTrendChart';
 import { OmegaGaugeCharts } from './OmegaGaugeCharts';
 import { ReminderHistoryList } from './ReminderHistoryList';
-import { Mail, Phone, StickyNote } from 'lucide-react';
+import { Mail, Phone, StickyNote, Truck, Hash, Package } from 'lucide-react';
 
 interface ClientDetailDrawerProps {
   client: OmegaTestClient | null;
@@ -36,6 +36,19 @@ export const ClientDetailDrawer: React.FC<ClientDetailDrawerProps> = ({ client, 
             {client.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{client.email}</span>}
             {client.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{client.phone}</span>}
           </div>
+          {(client.test_number || client.tracking_number || client.carrier) && (
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-2">
+              {client.test_number && (
+                <span className="flex items-center gap-1"><Hash className="h-3 w-3" />Test: {client.test_number}</span>
+              )}
+              {client.tracking_number && (
+                <span className="flex items-center gap-1"><Package className="h-3 w-3" />List: {client.tracking_number}</span>
+              )}
+              {client.carrier && (
+                <span className="flex items-center gap-1"><Truck className="h-3 w-3" />{client.carrier}</span>
+              )}
+            </div>
+          )}
           {client.notes && (
             <p className="text-xs text-muted-foreground italic flex items-start gap-1 mt-2">
               <StickyNote className="h-3 w-3 mt-0.5" />„{client.notes}"
