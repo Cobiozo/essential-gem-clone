@@ -5617,6 +5617,7 @@ export type Database = {
       }
       omega_test_clients: {
         Row: {
+          carrier: string | null
           created_at: string
           email: string | null
           first_name: string
@@ -5625,10 +5626,13 @@ export type Database = {
           last_name: string
           notes: string | null
           phone: string | null
+          test_number: string | null
+          tracking_number: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          carrier?: string | null
           created_at?: string
           email?: string | null
           first_name: string
@@ -5637,10 +5641,13 @@ export type Database = {
           last_name: string
           notes?: string | null
           phone?: string | null
+          test_number?: string | null
+          tracking_number?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          carrier?: string | null
           created_at?: string
           email?: string | null
           first_name?: string
@@ -5649,6 +5656,8 @@ export type Database = {
           last_name?: string
           notes?: string | null
           phone?: string | null
+          test_number?: string | null
+          tracking_number?: string | null
           updated_at?: string
           user_id?: string
         }
