@@ -308,15 +308,16 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Attendees Section */}
-              {totalSeats > 1 && (
+              {/* Attendees Section - extra attendees beyond the buyer */}
+              {extraSeats > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <h3 className="font-medium">Uczestnicy ({totalSeats})</h3>
+                    <h3 className="font-medium">Dodatkowi uczestnicy ({extraSeats})</h3>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Każdy uczestnik dostanie własny kod QR. Podaj imię i nazwisko osoby, dla której bilet jest przeznaczony.
+                    Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później —
+                    z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.
                   </p>
 
                   <div className="space-y-3">
@@ -324,31 +325,22 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                       <div key={idx} className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Uczestnik {idx + 1}
+                            Uczestnik {idx + 2}
                           </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs gap-1"
-                            onClick={() => copyBuyerToAttendee(idx)}
-                          >
-                            <Copy className="w-3 h-3" />
-                            Skopiuj kupującego
-                          </Button>
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                            opcjonalnie
+                          </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
                             value={a.firstName}
                             onChange={(e) => updateAttendee(idx, { firstName: e.target.value })}
-                            placeholder="Imię *"
-                            required
+                            placeholder="Imię"
                           />
                           <Input
                             value={a.lastName}
                             onChange={(e) => updateAttendee(idx, { lastName: e.target.value })}
-                            placeholder="Nazwisko *"
-                            required
+                            placeholder="Nazwisko"
                           />
                         </div>
                         <Input
