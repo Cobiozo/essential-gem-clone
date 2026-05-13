@@ -29,6 +29,7 @@ interface Ticket {
   is_featured: boolean | null;
   position: number;
   benefits: string[] | null;
+  seats_per_ticket: number | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
@@ -259,16 +260,33 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor={`quantity-${ticket.id}`}>Dostępna ilość</Label>
-                  <Input
-                    id={`quantity-${ticket.id}`}
-                    type="number"
-                    min="0"
-                    value={getEditingValue(ticket.id, 'quantity_available', ticket.quantity_available) || ''}
-                    onChange={(e) => setEditingValue(ticket.id, 'quantity_available', e.target.value ? parseInt(e.target.value) : null)}
-                    placeholder="Bez limitu"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor={`quantity-${ticket.id}`}>Dostępna ilość</Label>
+                    <Input
+                      id={`quantity-${ticket.id}`}
+                      type="number"
+                      min="0"
+                      value={getEditingValue(ticket.id, 'quantity_available', ticket.quantity_available) || ''}
+                      onChange={(e) => setEditingValue(ticket.id, 'quantity_available', e.target.value ? parseInt(e.target.value) : null)}
+                      placeholder="Bez limitu"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`seats-${ticket.id}`}>Osób na 1 bilet</Label>
+                    <Input
+                      id={`seats-${ticket.id}`}
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={getEditingValue(ticket.id, 'seats_per_ticket', ticket.seats_per_ticket ?? 1) || 1}
+                      onChange={(e) => setEditingValue(ticket.id, 'seats_per_ticket', Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                      placeholder="1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Bilet zbiorowy: ile osób wchodzi na 1 sztukę
+                    </p>
+                  </div>
                 </div>
 
                 {/* Benefits */}

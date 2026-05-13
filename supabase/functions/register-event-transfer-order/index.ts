@@ -15,12 +15,20 @@ interface BuyerData {
   phone: string;
 }
 
+interface AttendeeInput {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 interface ReqBody {
   eventId: string;
   ticketId: string;
   buyer: BuyerData;
   acceptMarketing?: boolean;
   refCode?: string | null;
+  quantity?: number;
+  attendees?: AttendeeInput[];
 }
 
 interface SmtpSettings {
@@ -180,8 +188,17 @@ function buildEmail(opts: {
   contact: ContactPerson | null;
   confirmUrl?: string | null;
   cancelUrl?: string | null;
+  attendees?: Array<{ firstName: string; lastName: string }>;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
+
+  const attendeesHtml = opts.attendees && opts.attendees.length > 1
+    ? `<h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">👥 Uczestnicy (${opts.attendees.length})</h3>
+       <ol style="padding-left:20px;font-size:14px;line-height:1.7;color:#333;margin:0 0 16px;">
+         ${opts.attendees.map(a => `<li>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</li>`).join("")}
+       </ol>
+       <p style="font-size:13px;color:#666;margin:0 0 16px;">Po zaksięgowaniu wpłaty każdy uczestnik dostanie własny kod QR.</p>`
+    : '';
 
   // Banner wydarzenia jako jedyny nagłówek graficzny (bez złotego paska Pure Life / Eqology).
   const bannerHtml = opts.bannerUrl
@@ -221,6 +238,8 @@ function buildEmail(opts: {
 
       ${confirmCtaHtml}
 
+      ${attendeesHtml}
+
       <h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">💳 Dane do przelewu</h3>
       ${transferHtml}
 
@@ -245,6 +264,8 @@ serve(async (req) => {
   try {
     const body: ReqBody = await req.json();
     const { eventId, ticketId, buyer, refCode } = body;
+    const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
+    const attendeesInput: AttendeeInput[] = Array.isArray(body.attendees) ? body.attendees : [];
 
     if (!eventId || !ticketId || !buyer?.email || !buyer?.firstName || !buyer?.lastName) {
       return new Response(JSON.stringify({ error: "missing_fields" }), {
@@ -340,8 +361,33 @@ serve(async (req) => {
       }
     }
 
+    const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
+    const totalSeats = quantity * seatsPerTicket;
+
+    // Validate attendees count if provided. If empty, fall back to buyer as single attendee.
+    let attendeesNormalized: AttendeeInput[] = attendeesInput
+      .map(a => ({
+        firstName: (a.firstName || "").trim(),
+        lastName: (a.lastName || "").trim(),
+        email: (a.email || "").trim() || null,
+      }))
+      .filter(a => a.firstName && a.lastName);
+
+    if (attendeesNormalized.length === 0) {
+      attendeesNormalized = [
+        { firstName: buyer.firstName.trim(), lastName: buyer.lastName.trim(), email: buyer.email.trim().toLowerCase() },
+      ];
+    }
+
+    if (attendeesNormalized.length !== totalSeats) {
+      return new Response(
+        JSON.stringify({ error: "attendees_count_mismatch", expected: totalSeats, received: attendeesNormalized.length }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const ticketCode = generateTicketCode();
-    const totalAmount = Number(ticket.price_pln) || 0; // grosze
+    const totalAmount = (Number(ticket.price_pln) || 0) * quantity; // grosze
 
     // Insert order — now stores user_id when the buyer is logged in
     const { data: order, error: orderErr } = await supabase
@@ -354,7 +400,7 @@ serve(async (req) => {
         first_name: buyer.firstName.trim(),
         last_name: buyer.lastName.trim(),
         phone: buyer.phone?.trim() || null,
-        quantity: 1,
+        quantity,
         total_amount: totalAmount,
         status: "awaiting_transfer",
         payment_provider: "transfer",
@@ -369,6 +415,23 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Insert per-attendee rows (one QR code per seat). Best-effort.
+    const attendeeRows = attendeesNormalized.map((a, idx) => ({
+      order_id: order.id,
+      event_id: eventId,
+      seat_index: idx + 1,
+      first_name: a.firstName,
+      last_name: a.lastName,
+      email: a.email,
+      ticket_code: generateTicketCode(),
+    }));
+    const { error: attErr } = await supabase
+      .from("paid_event_order_attendees")
+      .insert(attendeeRows);
+    if (attErr) {
+      console.error("attendees insert failed (continuing)", attErr);
     }
 
     // Mirror this order into event_form_submissions so it shows up in the
@@ -631,6 +694,7 @@ serve(async (req) => {
             contact,
             confirmUrl,
             cancelUrl,
+            attendees: attendeesNormalized.map(a => ({ firstName: a.firstName, lastName: a.lastName })),
           });
           await sendSmtp(
             smtpSettings,

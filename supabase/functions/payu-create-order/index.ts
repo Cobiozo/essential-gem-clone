@@ -12,11 +12,20 @@ interface BuyerData {
   phone: string;
 }
 
+interface AttendeeInput {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 interface OrderRequest {
   eventId: string;
   ticketId: string;
   quantity: number;
   buyer: BuyerData;
+  attendees?: AttendeeInput[];
+  refCode?: string | null;
+  acceptMarketing?: boolean;
 }
 
 function generateTicketCode(): string {
@@ -64,10 +73,13 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { eventId, ticketId, quantity, buyer }: OrderRequest = await req.json();
+    const body: OrderRequest = await req.json();
+    const { eventId, ticketId, buyer } = body;
+    const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
+    const attendeesInput: AttendeeInput[] = Array.isArray(body.attendees) ? body.attendees : [];
 
     // Validate input
-    if (!eventId || !ticketId || !quantity || !buyer?.email) {
+    if (!eventId || !ticketId || !buyer?.email) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -124,6 +136,28 @@ Deno.serve(async (req) => {
 
     const totalAmount = ticket.price_pln * quantity;
     const ticketCode = generateTicketCode();
+    const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
+    const totalSeats = quantity * seatsPerTicket;
+
+    // Normalize attendees; fall back to buyer if not provided
+    let attendeesNormalized: AttendeeInput[] = attendeesInput
+      .map(a => ({
+        firstName: (a.firstName || '').trim(),
+        lastName: (a.lastName || '').trim(),
+        email: (a.email || '').trim() || null,
+      }))
+      .filter(a => a.firstName && a.lastName);
+
+    if (attendeesNormalized.length === 0) {
+      attendeesNormalized = [{ firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email }];
+    }
+
+    if (attendeesNormalized.length !== totalSeats) {
+      return new Response(
+        JSON.stringify({ error: 'attendees_count_mismatch', expected: totalSeats, received: attendeesNormalized.length }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Create order in database
     const { data: order, error: orderError } = await supabase
@@ -153,6 +187,23 @@ Deno.serve(async (req) => {
     }
 
     console.log('Order created:', order.id);
+
+    // Insert per-attendee rows (one QR code per seat).
+    const attendeeRows = attendeesNormalized.map((a, idx) => ({
+      order_id: order.id,
+      event_id: eventId,
+      seat_index: idx + 1,
+      first_name: a.firstName,
+      last_name: a.lastName,
+      email: a.email,
+      ticket_code: generateTicketCode(),
+    }));
+    const { error: attErr } = await supabase
+      .from('paid_event_order_attendees')
+      .insert(attendeeRows);
+    if (attErr) {
+      console.error('attendees insert failed (continuing)', attErr);
+    }
 
     // Get PayU access token
     const accessToken = await getPayUAccessToken();

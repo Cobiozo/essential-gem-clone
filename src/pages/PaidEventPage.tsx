@@ -42,6 +42,7 @@ interface Ticket {
   available_quantity: number | null;
   max_per_order: number | null;
   is_active: boolean | null;
+  seats_per_ticket: number;
 }
 
 interface PaidEvent {
@@ -154,6 +155,7 @@ const PaidEventPage: React.FC = () => {
         available_quantity: ticket.quantity_available ?? null,
         max_per_order: null,
         is_active: ticket.is_active ?? true,
+        seats_per_ticket: Math.max(1, Number((ticket as any).seats_per_ticket) || 1),
       })) as Ticket[];
     },
     enabled: !!event?.id,
@@ -339,6 +341,8 @@ const PaidEventPage: React.FC = () => {
       id: ticket.id,
       name: ticket.name,
       price: ticket.price,
+      seats_per_ticket: ticket.seats_per_ticket,
+      available_quantity: ticket.available_quantity,
     };
   }, [selectedTicketId, tickets]);
 
