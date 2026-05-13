@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Globe, ArrowRight, Users } from 'lucide-react';
+import { Calendar, MapPin, Globe, ArrowRight, Users, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { MyEventFormLinks } from './MyEventFormLinks';
 
 interface PaidEvent {
   id: string;
@@ -26,9 +27,11 @@ interface PaidEvent {
 interface PaidEventCardProps {
   event: PaidEvent;
   isPast?: boolean;
+  /** When true, renders the partner registration-form panel inside the card. */
+  showPartnerForm?: boolean;
 }
 
-export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false }) => {
+export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false, showPartnerForm = false }) => {
   const navigate = useNavigate();
   const { tf, language } = useLanguage();
   const dateLocale = getAppDateLocale(language);
@@ -42,11 +45,17 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
   const isSoldOut = spotsLeft !== null && spotsLeft <= 0;
 
   return (
-    <Card 
-      className={`group hover:shadow-md transition-all cursor-pointer ${isPast ? 'opacity-60' : ''}`}
-      onClick={() => navigate(`/events/${event.slug}`)}
+    <Card
+      className={
+        isPast
+          ? 'group transition-all opacity-60 grayscale'
+          : 'group hover:shadow-lg hover:-translate-y-0.5 transition-all border-l-4 border-l-primary bg-card'
+      }
     >
-      <CardContent className="p-4">
+      <CardContent
+        className="p-4 cursor-pointer"
+        onClick={() => navigate(`/events/${event.slug}`)}
+      >
         <div className="flex flex-col sm:flex-row gap-4">
           {event.banner_url && (
             <div className="flex-shrink-0">
@@ -72,9 +81,22 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                {event.title}
-              </h3>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {isPast ? (
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {tf('events.endedBadge', 'Zakończone')}
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[10px] uppercase tracking-wider bg-green-500/15 text-green-600 hover:bg-green-500/15 border-0">
+                      {tf('events.upcomingBadge', 'Nadchodzi')}
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                  {event.title}
+                </h3>
+              </div>
               {!isPast && event.lowest_price && (
                 <Badge variant="secondary" className="flex-shrink-0 whitespace-nowrap">
                   {tf('events.from', 'od')} {formatPrice(event.lowest_price)}
@@ -139,6 +161,20 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
           )}
         </div>
       </CardContent>
+
+      {!isPast && showPartnerForm && (
+        <div className="border-t bg-muted/30 px-4 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 className="h-4 w-4 text-primary" />
+            <h4 className="text-sm font-semibold">
+              {tf('events.partnerLinkTitle', 'Twój link partnerski do tego wydarzenia')}
+            </h4>
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>
+            <MyEventFormLinks eventId={event.id} compact />
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

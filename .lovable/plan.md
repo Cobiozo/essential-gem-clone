@@ -1,35 +1,69 @@
-# Poprawki formularza kontaktów prywatnych
+## Cel
 
-## 1. Brak wychodzenia danych poza okna (PrivateContactForm + dialog)
-Plik: `src/components/team-contacts/PrivateContactForm.tsx`, `TeamContactsTab.tsx`
-- Wszystkie kontenery sekcji: dodać `min-w-0 overflow-hidden`, kolumny grid `min-w-0`.
-- `Input`, `Select`, `Textarea`: `w-full max-w-full`, `Textarea` z `resize-none` lub `resize-y` w stałej szerokości (`w-full`).
-- Wrapper grid: `grid-cols-1 lg:grid-cols-12 gap-4` z `min-w-0` na każdym dziecku, sekcje `lg:col-span-6 min-w-0`.
-- Sekcja „Pierwszy / drugi kontakt" i „Przypomnienia": pola dat + select godzin w `flex flex-wrap gap-2 min-w-0`, każdy element `flex-1 min-w-[140px]`.
-- DialogContent: zostawić `w-[96vw] h-[92vh]`, dodać wewnątrz `min-w-0` na content area i `overflow-x-hidden` na sekcji scrollowanej (tylko `overflow-y-auto`).
-- Pola własne: input label `flex-1 min-w-0`, textarea `w-full`, przycisk usuń `shrink-0`.
+Przeprojektować stronę `/paid-events` tak aby:
+1. Sekcja **Nadchodzące** była wizualnie mocno wyeksponowana, a **Zakończone** wyraźnie zdegradowane.
+2. Formularz partnerski (link ref) pojawiał się **bezpośrednio pod / obok wydarzenia, którego dotyczy** — zamiast osobnej listy na dole.
 
-## 2. Filtr priorytetu (gwiazdki) w panelu Filtry
-Plik: `src/components/team-contacts/TeamContactsTab.tsx` (sekcja Filtry) + `src/hooks/useTeamContacts.ts` (lub miejsce filtrowania klienckiego — sprawdzę przy implementacji).
-- Dodać nowy filtr `priorityFilter: 'all' | '0' | '1' | '2' | '3' | '4' | '5'`.
-- UI: `Select` „Priorytet" obok „Status relacji" z opcjami: „Wszystkie", „Bez priorytetu (0)", „1 ⭐", „2 ⭐⭐", … „5 ⭐⭐⭐⭐⭐".
-- Logika: `contact.priority_level === Number(priorityFilter)` (gdy != 'all').
-- Reset filtru w przycisku „Wyczyść filtry" jeśli istnieje.
+Zakres: wyłącznie warstwa prezentacji (`PaidEventsListPage.tsx`, `PaidEventCard.tsx`, `MyEventFormLinks.tsx`). Bez zmian w DB, RLS, edge functions, logice generowania linków, statystykach kliknięć i CRM.
 
-## 3. Gwiazdki widoczne przy kontakcie
-Plik: `src/components/team-contacts/TeamContactAccordion.tsx` (nagłówek karty kontaktu).
-- Obok imienia/nazwiska i Badge statusu renderować read-only `RatingElement` w mniejszym wariancie (gwiazdki 4×4 zamiast 6×6).
-- Mały refactor `RatingElement`: dodać prop `size?: 'sm' | 'md'` (sm = `w-4 h-4`, md = obecne `w-6 h-6`), bez zmiany domyślnego zachowania.
-- Pokazywać tylko gdy `priority_level > 0`; w innym przypadku nic (żeby nie zaśmiecać kart bez priorytetu).
-- Widok rozwinięty (`ContactExpandedDetails.tsx`): pełne 5 gwiazdek (md) z labelem „Poziom zainteresowania" + lista pól własnych (`custom_fields`).
+## Nowa struktura strony
 
-## Pliki do zmiany
-- `src/components/team-contacts/PrivateContactForm.tsx` — overflow fix
-- `src/components/team-contacts/TeamContactsTab.tsx` — filtr priorytetu + dialog overflow
-- `src/components/team-contacts/TeamContactAccordion.tsx` — gwiazdki w nagłówku karty
-- `src/components/team-contacts/ContactExpandedDetails.tsx` — gwiazdki + pola własne w detalach
-- `src/hooks/useTeamContacts.ts` — obsługa nowego filtru (jeśli filtrowanie tam)
-- `src/components/elements/RatingElement.tsx` — opcjonalny prop `size`
+```
+[Header: ikona + "Eventy" + opis]
 
-## Nienaruszalność
-Bez zmian: schemat DB, RLS, edge functions, logika zapisu, kontakty `team_member`, eksporty, historia. Wyłącznie warstwa prezentacji + 1 nowy filtr kliencki.
+╔═══════════════════════════════════════╗
+║ ● NADCHODZĄCE WYDARZENIA  (badge: 2)  ║   <- duży nagłówek z akcentem
+╚═══════════════════════════════════════╝
+
+┌───────────────────────────────────────┐
+│  [Banner]  31 MAJ                     │
+│            BUSINESS OPPORTUNITY ŁÓDŹ  │  <- karta wydarzenia (większa, primary border)
+│            opis · data · lokalizacja  │
+│            [Od 35 zł]      [Zobacz →] │
+├───────────────────────────────────────┤
+│  ▾ Twój link partnerski (1)           │  <- zagnieżdżony panel ref-link
+│    [input z URL] [kopiuj] · 50 klik. │
+└───────────────────────────────────────┘
+
+┌───────────────────────────────────────┐
+│  [kolejne nadchodzące wydarzenie]     │
+│  ▾ formularz pod nim                  │
+└───────────────────────────────────────┘
+
+──────────────────────────────────────────
+○ Zakończone wydarzenia                       <- mniejszy, wyciszony nagłówek
+──────────────────────────────────────────
+[karta past — opacity-50, grayscale, bez CTA, bez panelu formularza]
+```
+
+## Zmiany per plik
+
+### `PaidEventsListPage.tsx`
+- Usunąć osobną sekcję `<MyEventFormLinks />` na dole.
+- Dodać pobranie listy aktywnych formularzy (jeden query) + zmapować `event_id → forms[]`, przekazać do `PaidEventCard` jako prop `partnerForms`.
+- Sekcja **Nadchodzące**: 
+  - nagłówek `text-2xl font-bold` z zieloną kropką-pulse, badge z liczbą.
+  - jeśli pusta → dotychczasowy empty-state.
+- Sekcja **Zakończone**:
+  - separator + nagłówek `text-base text-muted-foreground`, ikona `Archive`.
+  - kontener `opacity-60`, brak panelu partnerskiego.
+- Layout pojedyncza kolumna (max-w-4xl), rytm pionowy `space-y-4`.
+
+### `PaidEventCard.tsx`
+- Nowy prop `partnerForms?: Form[]` (przekazywany tylko dla nadchodzących).
+- Wizualnie wyraźniejsze odróżnienie:
+  - **upcoming**: `border-l-4 border-primary`, hover ring, pełna kolorystyka, badge "NADCHODZI" (subtelny, primary/10).
+  - **past**: `grayscale opacity-60`, badge "ZAKOŃCZONE" (muted), brak `Zobacz →`, klik nadal działa (otwiera detal).
+- Pod treścią karty: jeśli `partnerForms?.length`, render `<MyEventFormLinks eventId={event.id} compact />` w wewnętrznej sekcji `border-t bg-muted/30 p-4` z nagłówkiem "Twój link partnerski" + ikona `Link2`. Wykorzystanie istniejącego trybu `compact` + `eventId` (już zaimplementowane).
+- Zachować obecne pola (data-block, banner, cena, miejsca, sold-out, klik nawigujący).
+
+### `MyEventFormLinks.tsx`
+- Bez zmian funkcjonalnych. Sprawdzić tylko, że tryb `compact + eventId` poprawnie filtruje (już tak działa w queryKey).
+- Drobny tweak stylu: gdy `compact`, mniejsze paddingi (`pt-3` zamiast `pt-5`), aby ładnie siadał wewnątrz karty wydarzenia.
+
+## Gwarancje nienaruszalności
+- DB / RLS / edge functions / `paid_event_partner_links` / `event_form_submissions` — bez zmian.
+- Logika `generateLink`, `copy`, statystyki kliknięć i zapisanych — bez zmian.
+- Komponent `MyEventFormLinks` zachowuje API; nadal użyteczny solo na innych stronach (np. `MyPartnerPage`).
+- Routing i nawigacja do `/events/:slug` — bez zmian.
+- Tłumaczenia `tf(...)` zachowane; nowe etykiety dodane z fallbackiem PL.

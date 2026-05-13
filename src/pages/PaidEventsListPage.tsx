@@ -1,11 +1,13 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { PaidEventCard } from '@/components/paid-events/PaidEventCard';
-import { MyEventFormLinks } from '@/components/paid-events/MyEventFormLinks';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Ticket, CalendarX } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Ticket, CalendarX, Archive } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PaidEvent {
@@ -25,6 +27,9 @@ interface PaidEvent {
 
 const PaidEventsListPage: React.FC = () => {
   const { tf } = useLanguage();
+  const { user, isPartner, isAdmin } = useAuth();
+  const canSeeForms = !!user && (isPartner || isAdmin);
+
   const { data: events, isLoading } = useQuery({
     queryKey: ['paid-events-list'],
     queryFn: async () => {
@@ -62,13 +67,29 @@ const PaidEventsListPage: React.FC = () => {
     },
   });
 
+  // Map event_id -> has at least one active form (so we know whether to render the embedded panel)
+  const { data: formsByEvent } = useQuery({
+    queryKey: ['paid-events-has-forms', canSeeForms],
+    enabled: canSeeForms,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_registration_forms')
+        .select('event_id')
+        .eq('is_active', true);
+      if (error) throw error;
+      const set = new Set<string>();
+      (data || []).forEach((r: any) => r.event_id && set.add(r.event_id));
+      return set;
+    },
+  });
+
   const now = new Date();
   const upcomingEvents = events?.filter(e => new Date(e.event_date) >= now) || [];
   const pastEvents = events?.filter(e => new Date(e.event_date) < now) || [];
 
   if (isLoading) {
     return (
-      <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
+      <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="flex items-center justify-center min-h-[400px]">
           <LoadingSpinner />
         </div>
@@ -77,8 +98,9 @@ const PaidEventsListPage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
-      <div className="space-y-6">
+    <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-lg bg-primary/10">
             <Ticket className="h-6 w-6 text-primary" />
@@ -91,16 +113,33 @@ const PaidEventsListPage: React.FC = () => {
           </div>
         </div>
 
+        {/* UPCOMING — exposed */}
         <section>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            {tf('events.upcoming', 'Nadchodzące wydarzenia')}
-          </h2>
-          
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                {tf('events.upcoming', 'Nadchodzące wydarzenia')}
+              </h2>
+              {upcomingEvents.length > 0 && (
+                <Badge className="bg-green-500/15 text-green-600 hover:bg-green-500/15 border-0">
+                  {upcomingEvents.length}
+                </Badge>
+              )}
+            </div>
+          </div>
+
           {upcomingEvents.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
+            <div className="space-y-4">
               {upcomingEvents.map((event) => (
-                <PaidEventCard key={event.id} event={event} />
+                <PaidEventCard
+                  key={event.id}
+                  event={event}
+                  showPartnerForm={canSeeForms && !!formsByEvent?.has(event.id)}
+                />
               ))}
             </div>
           ) : (
@@ -116,22 +155,27 @@ const PaidEventsListPage: React.FC = () => {
           )}
         </section>
 
+        {/* PAST — clearly de-emphasized */}
         {pastEvents.length > 0 && (
           <section>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
-              {tf('events.past', 'Zakończone wydarzenia')}
-            </h2>
-            
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 opacity-70">
+            <Separator className="mb-6" />
+            <div className="flex items-center gap-2 mb-4">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                {tf('events.past', 'Zakończone wydarzenia')}
+              </h2>
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                {pastEvents.length}
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
               {pastEvents.slice(0, 6).map((event) => (
                 <PaidEventCard key={event.id} event={event} isPast />
               ))}
             </div>
           </section>
         )}
-
-        <MyEventFormLinks />
       </div>
     </DashboardLayout>
   );
