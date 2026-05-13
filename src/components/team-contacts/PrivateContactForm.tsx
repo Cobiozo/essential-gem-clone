@@ -36,7 +36,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   children,
   className,
 }) => (
-  <div className={`rounded-xl border border-border bg-card/40 p-4 sm:p-5 space-y-4 ${className || ''}`}>
+  <div className={`rounded-xl border border-border bg-card/40 p-4 sm:p-5 space-y-4 min-w-0 overflow-hidden ${className || ''}`}>
     <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
         {icon}
