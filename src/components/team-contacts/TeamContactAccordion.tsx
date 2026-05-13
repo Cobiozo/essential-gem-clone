@@ -390,6 +390,33 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     )}
 
+                    {/* Priorytet (gwiazdki) — prywatny */}
+                    {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" /> Poziom zainteresowania
+                        </h4>
+                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="md" />
+                      </div>
+                    )}
+
+                    {/* Pola własne — prywatny */}
+                    {contactType === 'private' && Array.isArray(contact.custom_fields) && contact.custom_fields.length > 0 && (
+                      <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" /> Dodatkowe pola
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {(contact.custom_fields as Array<{ label: string; value: string }>).map((f, i) => (
+                            <div key={i} className="text-sm rounded-md border border-border/60 bg-muted/30 p-2 min-w-0">
+                              <div className="text-xs text-muted-foreground truncate">{f.label}</div>
+                              <div className="whitespace-pre-wrap break-words">{f.value || '—'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Źródło kontaktu - dla kontaktów prywatnych */}
                     {contactType === 'private' && (contact.contact_source || contact.contact_reason) && (
                       <div className="space-y-2">
