@@ -238,6 +238,8 @@ function buildEmail(opts: {
 
       ${confirmCtaHtml}
 
+      ${attendeesHtml}
+
       <h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">💳 Dane do przelewu</h3>
       ${transferHtml}
 
