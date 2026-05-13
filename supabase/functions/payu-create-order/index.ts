@@ -12,11 +12,20 @@ interface BuyerData {
   phone: string;
 }
 
+interface AttendeeInput {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 interface OrderRequest {
   eventId: string;
   ticketId: string;
   quantity: number;
   buyer: BuyerData;
+  attendees?: AttendeeInput[];
+  refCode?: string | null;
+  acceptMarketing?: boolean;
 }
 
 function generateTicketCode(): string {
