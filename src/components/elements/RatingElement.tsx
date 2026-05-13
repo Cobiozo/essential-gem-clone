@@ -46,11 +46,11 @@ export const RatingElement: React.FC<RatingElementProps> = ({
         )}
       >
         {isFilled ? (
-          <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+          <Star className={`${starSize} fill-yellow-400 text-yellow-400`} />
         ) : isHalfFilled ? (
-          <StarHalf className="w-6 h-6 fill-yellow-400 text-yellow-400" />
+          <StarHalf className={`${starSize} fill-yellow-400 text-yellow-400`} />
         ) : (
-          <Star className="w-6 h-6 text-muted" />
+          <Star className={`${starSize} text-muted`} />
         )}
       </button>
     );
