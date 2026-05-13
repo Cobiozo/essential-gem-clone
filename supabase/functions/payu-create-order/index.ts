@@ -73,10 +73,13 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { eventId, ticketId, quantity, buyer }: OrderRequest = await req.json();
+    const body: OrderRequest = await req.json();
+    const { eventId, ticketId, buyer } = body;
+    const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
+    const attendeesInput: AttendeeInput[] = Array.isArray(body.attendees) ? body.attendees : [];
 
     // Validate input
-    if (!eventId || !ticketId || !quantity || !buyer?.email) {
+    if (!eventId || !ticketId || !buyer?.email) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
