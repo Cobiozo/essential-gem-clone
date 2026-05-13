@@ -27,6 +27,8 @@ interface PaidEvent {
 interface PaidEventCardProps {
   event: PaidEvent;
   isPast?: boolean;
+  /** When true, renders the partner registration-form panel inside the card. */
+  showPartnerForm?: boolean;
 }
 
 export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false }) => {
