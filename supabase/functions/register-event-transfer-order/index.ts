@@ -350,8 +350,33 @@ serve(async (req) => {
       }
     }
 
+    const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
+    const totalSeats = quantity * seatsPerTicket;
+
+    // Validate attendees count if provided. If empty, fall back to buyer as single attendee.
+    let attendeesNormalized: AttendeeInput[] = attendeesInput
+      .map(a => ({
+        firstName: (a.firstName || "").trim(),
+        lastName: (a.lastName || "").trim(),
+        email: (a.email || "").trim() || null,
+      }))
+      .filter(a => a.firstName && a.lastName);
+
+    if (attendeesNormalized.length === 0) {
+      attendeesNormalized = [
+        { firstName: buyer.firstName.trim(), lastName: buyer.lastName.trim(), email: buyer.email.trim().toLowerCase() },
+      ];
+    }
+
+    if (attendeesNormalized.length !== totalSeats) {
+      return new Response(
+        JSON.stringify({ error: "attendees_count_mismatch", expected: totalSeats, received: attendeesNormalized.length }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const ticketCode = generateTicketCode();
-    const totalAmount = Number(ticket.price_pln) || 0; // grosze
+    const totalAmount = (Number(ticket.price_pln) || 0) * quantity; // grosze
 
     // Insert order — now stores user_id when the buyer is logged in
     const { data: order, error: orderErr } = await supabase
@@ -364,7 +389,7 @@ serve(async (req) => {
         first_name: buyer.firstName.trim(),
         last_name: buyer.lastName.trim(),
         phone: buyer.phone?.trim() || null,
-        quantity: 1,
+        quantity,
         total_amount: totalAmount,
         status: "awaiting_transfer",
         payment_provider: "transfer",
@@ -379,6 +404,23 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Insert per-attendee rows (one QR code per seat). Best-effort.
+    const attendeeRows = attendeesNormalized.map((a, idx) => ({
+      order_id: order.id,
+      event_id: eventId,
+      seat_index: idx + 1,
+      first_name: a.firstName,
+      last_name: a.lastName,
+      email: a.email,
+      ticket_code: generateTicketCode(),
+    }));
+    const { error: attErr } = await supabase
+      .from("paid_event_order_attendees")
+      .insert(attendeeRows);
+    if (attErr) {
+      console.error("attendees insert failed (continuing)", attErr);
     }
 
     // Mirror this order into event_form_submissions so it shows up in the
