@@ -253,6 +253,8 @@ serve(async (req) => {
   try {
     const body: ReqBody = await req.json();
     const { eventId, ticketId, buyer, refCode } = body;
+    const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
+    const attendeesInput: AttendeeInput[] = Array.isArray(body.attendees) ? body.attendees : [];
 
     if (!eventId || !ticketId || !buyer?.email || !buyer?.firstName || !buyer?.lastName) {
       return new Response(JSON.stringify({ error: "missing_fields" }), {
