@@ -1,90 +1,77 @@
+# Przebudowa formularza "Dodaj kontakt prywatny"
+
 ## Cel
+Bardziej profesjonalny, przejrzysty, jednostronicowy formularz na całą szerokość okna w desktopie, z gwiazdkami priorytetu kontaktu oraz możliwością dodania do 3 własnych pól (dowolna nazwa + dowolna treść).
 
-Rozdzielić w Bazie testów Omega dwie zupełnie różne kategorie danych i umożliwić zarządzanie wieloma numerami ID testu Vitas dla jednego klienta:
+## Zakres zmian (tylko UI/frontend + minimalna migracja DB)
 
-1. **Numery ID testu laboratoryjnego (Vitas Oslo)** — może być **wiele** dla jednego klienta (każdy kolejny test wykonany w laboratorium dostaje swój nowy numer). Każdy dodawany **wynik klienta** można powiązać z konkretnym numerem ID testu.
-2. **Wysyłka testu** — numer listu przewozowego + przewoźnik (transport zestawu/próbki). Pozostaje pojedynczy zestaw pól na kliencie (logistyka kuriera nie ma związku z laboratorium).
+### 1. Layout dialogu (desktop fullscreen, mobile bez zmian)
+Plik: `src/components/team-contacts/TeamContactsTab.tsx` (linie 978 i 994)
+- `DialogContent` zmieniamy z `max-w-2xl max-h-[90vh]` na pełnoekranowy w desktop:
+  `max-w-[min(1400px,96vw)] w-[96vw] h-[92vh] max-h-[92vh] overflow-y-auto p-0 sm:p-0`
+- Wewnątrz pojawia się sticky header (tytuł + opis + przycisk zamknięcia) i sticky footer (Zapisz / Anuluj). Treść formularza w środku, scrollowalna.
 
-## Model danych
+### 2. Nowy układ formularza – jedna strona, kolumny
+Plik: `src/components/team-contacts/PrivateContactForm.tsx` – pełna refaktoryzacja prezentacji (logika walidacji i submitu bez zmian).
 
-### Nowa tabela: `omega_test_lab_numbers`
-Lista numerów ID testu Vitas powiązanych z klientem.
+Sekcje w siatce `lg:grid-cols-12` z czytelnymi nagłówkami:
+- **Dane kontaktu** (col-span 6): Imię*, Nazwisko*, Telefon, Email, Zawód, Adres
+- **Klasyfikacja** (col-span 6):
+  - **Priorytet kontaktu** – komponent gwiazdek 1–5 (`RatingElement`, label „Poziom zainteresowania" – jak na zrzucie)
+  - Status relacji
+  - Skąd jest kontakt
+  - Zainteresowanie produktami
+- **Pierwszy kontakt / Drugi kontakt** (col-span 6): Data utworzenia (read-only), Data pierwszego kontaktu, Wynik pierwszego kontaktu, Data drugiego kontaktu, Adnotacja po pierwszym kontakcie
+- **Przypomnienie i kolejny kontakt** (col-span 6): Data kolejnego kontaktu, Data + godzina przypomnienia, Treść przypomnienia
+- **Notatki z rozmów** (col-span 12): Textarea
+- **Dodatkowe pola własne** (col-span 12): patrz pkt 4
+- **Historia zaproszeń na eventy** (col-span 12, tylko w trybie edycji): bez zmian funkcjonalnie
 
-| kolumna | typ | uwagi |
-|---|---|---|
-| `id` | uuid PK | gen_random_uuid() |
-| `client_id` | uuid FK → omega_test_clients(id) ON DELETE CASCADE | nie null |
-| `user_id` | uuid | właściciel (partner) — do RLS |
-| `lab_number` | text | nie null, np. „VIT-2026-12345" |
-| `lab_name` | text | domyślnie „Vitas Oslo" |
-| `issued_date` | date | opcjonalnie — data wydania/otrzymania numeru |
-| `notes` | text | opcjonalnie |
-| `created_at` / `updated_at` | timestamptz | |
+W mobile wszystko spada do jednej kolumny (`grid-cols-1`).
 
-UNIQUE `(client_id, lab_number)` — nie da się dodać tego samego numeru dwa razy temu samemu klientowi.
+### 3. Gwiazdki priorytetu
+- Wykorzystujemy istniejący `src/components/elements/RatingElement.tsx` (`readonly={false}`, `max=5`).
+- Nowe pole stanu `priority_level: number` (0–5, 0 = niezdefiniowane).
+- Etykieta: „Poziom zainteresowania" (zgodnie ze zrzutem).
 
-**RLS:** identyczna jak w `omega_test_clients` — dostęp tylko właściciela (`user_id = auth.uid()`) + admin.
+### 4. Pola własne (max 3)
+- Nowy stan `custom_fields: Array<{ label: string; value: string }>` (max 3 wpisy).
+- UI: lista wierszy (label input + textarea/value input + przycisk usuń) + przycisk „Dodaj pole" (ukryty po osiągnięciu limitu 3, z licznikiem „X/3").
+- Walidacja: jeśli wiersz istnieje, `label` jest wymagany (max 60 zn.), `value` max 1000 zn.; puste wiersze są filtrowane przed zapisem.
 
-### Modyfikacja istniejącej tabeli: `omega_tests`
-Dodajemy:
-- `lab_number_id uuid NULL REFERENCES omega_test_lab_numbers(id) ON DELETE SET NULL`
+### 5. Zapis – mapowanie do TeamContact
+- `priority_level` i `custom_fields` zapisywane jako kolumny w `team_contacts` (patrz migracja).
+- W payloadzie submitu dokładamy oba pola; reszta logiki (`handleSubmit`, walidacja dat, reminder) bez zmian.
 
-Powiązanie wyniku testu z konkretnym numerem ID. Pole opcjonalne (stare wyniki bez numeru pozostają poprawne).
+### 6. Wyświetlanie
+- `TeamContactsTable` / `TeamContactAccordion` / `ContactExpandedDetails`: dodać niewielkie pokazywanie gwiazdek priorytetu obok imienia (read-only `RatingElement`) oraz w widoku szczegółów listy pól własnych (label: value). To minimalne zmiany prezentacyjne, nie ruszamy filtrów ani logiki listy.
 
-### Stare pole na kliencie
-Pole `omega_test_clients.test_number` zostaje **w bazie** (wsteczna kompatybilność dla istniejących rekordów), ale w UI jest **usuwane z formularza klienta**. Po wdrożeniu w UI używamy wyłącznie nowej tabeli `omega_test_lab_numbers`. (Migrację treści ze starego pola do nowej tabeli wykonamy automatycznie w migracji SQL — dla każdego klienta z niepustym `test_number` utworzymy jeden wpis w `omega_test_lab_numbers`.)
+## Migracja bazy danych (minimalna, addytywna, nie narusza istniejących funkcji)
+Tabela: `team_contacts`
+```sql
+ALTER TABLE public.team_contacts
+  ADD COLUMN IF NOT EXISTS priority_level smallint NOT NULL DEFAULT 0
+    CHECK (priority_level BETWEEN 0 AND 5),
+  ADD COLUMN IF NOT EXISTS custom_fields jsonb NOT NULL DEFAULT '[]'::jsonb;
+```
+- Pola opcjonalne, z bezpiecznymi defaultami → istniejące rekordy działają bez zmian.
+- RLS: dziedziczy istniejące policies tabeli `team_contacts` (brak zmian).
+- `custom_fields` walidowane po stronie klienta (max 3 elementy, max długości pól). Edge functions i CRON nie korzystają z tych pól, więc pozostają nietknięte.
 
-## Zmiany w UI
+## Gwarancja nienaruszalności
+- Nie zmieniamy: logiki `useTeamContacts`, `TeamContactsTab` (poza rozmiarem dialogu), filtrów, eksportów, akordeonów, usuwania, historii, integracji z eventami, kontaktów typu `team_member` ani formularza `TeamContactForm`.
+- Wszystkie nowe pola są opcjonalne.
+- Stary `RatingElement` jest re-używany bez modyfikacji.
 
-### 1. `src/components/omega-tests/ClientFormDialog.tsx`
-- Usuwamy z formularza pole „Numer testu" (przeniesione do osobnej sekcji w drawerze klienta).
-- Sekcja „Wysyłka testu (opcjonalnie)" zostaje, ale zawiera już TYLKO `tracking_number` + `carrier`. Ikona `Truck`, opis: „Dane kuriera dla wysyłki zestawu testowego do/z laboratorium".
+## Pliki do zmiany
+- `src/components/team-contacts/PrivateContactForm.tsx` – refactor UI + nowe pola
+- `src/components/team-contacts/TeamContactsTab.tsx` – rozmiar `DialogContent` (2 miejsca)
+- `src/components/team-contacts/types.ts` – `priority_level`, `custom_fields` w `TeamContact`
+- `src/components/team-contacts/TeamContactAccordion.tsx` / `ContactExpandedDetails.tsx` – pokazanie gwiazdek + listy pól własnych (read-only)
+- Migracja SQL: dwie nowe kolumny w `team_contacts`
 
-### 2. `src/components/omega-tests/ClientDetailDrawer.tsx`
-W nagłówku drawera dodajemy/zmieniamy:
-- Usuwamy stary chip „Test: …" (był z pojedynczego pola).
-- Pozostawiamy chipy „List: …" + przewoźnik.
-
-Dodajemy **nową zakładkę** lub **panel sekcji** w zakładce „Testy i wyniki":
-
-**Sekcja „Numery ID testu — Vitas Oslo"** (nad formularzem dodawania wyniku):
-- Lista wszystkich numerów ID testu klienta (karty/wiersze).
-- Każdy wiersz: ikona `FlaskConical`, numer, opcjonalna data wydania, liczba przypisanych wyników, przyciski Edytuj / Usuń.
-- Przycisk „+ Dodaj numer ID testu" → mały dialog z polami `Numer ID testu` (wymagany), `Data wydania` (opcjonalnie), `Notatka` (opcjonalnie). Stała etykieta laboratorium: „Vitas Oslo".
-- Krótki opis sekcji: *„Identyfikatory badań nadane przez laboratorium Vitas w Oslo, w którym wykonywane są wszystkie testy Omega. Możesz dodać wiele numerów — przy zapisie wyniku wybierzesz, którego dotyczy."*
-
-### 3. `src/components/omega-tests/ClientTestForm.tsx` (formularz dodawania wyniku klienta)
-Dodajemy **nowe pole na samej górze** formularza:
-- `Select` „Numer ID testu (Vitas Oslo)" z opcjami z `omega_test_lab_numbers` dla bieżącego klienta + opcja „— bez przypisania —" + opcja „➕ Dodaj nowy numer ID testu…" (otwiera ten sam dialog co w sekcji wyżej, po zapisaniu auto-wybiera nowy numer).
-- Wybrana wartość → `lab_number_id` w `OmegaTestInput`.
-- Jeśli klient nie ma jeszcze żadnego numeru, pokazujemy delikatny komunikat zachęcający do dodania (ale pole pozostaje opcjonalne).
-
-### 4. `src/components/omega-tests/OmegaTestHistory.tsx`
-Każdy wiersz historii wyniku klienta dostaje dodatkowy badge: ikona `FlaskConical` + numer ID testu (jeśli przypisany). W trybie edycji wyniku można zmienić przypisanie do innego numeru lub odpiąć.
-
-## Nowy hook: `src/hooks/useOmegaTestLabNumbers.ts`
-- `useOmegaTestLabNumbers(clientId)` — lista numerów dla klienta + statystyka „ile wyników jest do tego numeru przypisanych".
-- Mutacje: `addLabNumber`, `updateLabNumber`, `deleteLabNumber`.
-- React Query, invalidacja kluczy `['omega-tests', …]` po zmianach (bo statystyka zależy od wyników).
-
-## Zmiany w istniejących hookach
-- `useOmegaTests`: rozszerzyć `OmegaTest` i `OmegaTestInput` o `lab_number_id?: string | null`.
-- `useOmegaTestClients`: usunąć z formularza obsługę `test_number` (pole zostaje w typie tylko jako legacy/optional, nie wystawiamy w UI).
-
-## Migracja SQL
-Jedna migracja:
-1. `CREATE TABLE public.omega_test_lab_numbers (…)` + indeksy + UNIQUE.
-2. `ALTER TABLE omega_tests ADD COLUMN lab_number_id uuid NULL REFERENCES omega_test_lab_numbers(id) ON DELETE SET NULL`.
-3. RLS + policies (select/insert/update/delete dla `auth.uid() = user_id`, plus admin via `has_role`).
-4. Trigger `updated_at` (standard pattern z innych tabel).
-5. Backfill: dla każdego rekordu w `omega_test_clients` z niepustym `test_number` utworzyć wpis w `omega_test_lab_numbers` (lab_name = 'Vitas Oslo'). Następnie dla każdego `omega_tests.client_id` przypisać `lab_number_id` do tego nowo utworzonego wpisu (jeden klient → jeden zachowany numer).
-
-## Bez zmian
-- Logika przypomnień +25d / +120d.
-- Schemat pól wyników (omega3_index, omega6_3_ratio itp.).
-- Lista przewoźników `src/lib/carriers.ts`.
-
-## Rezultat
-- Numer ID testu Vitas to osobna, jasno opisana kategoria laboratoryjna (nie myli się z kurierem).
-- Klient może mieć wiele numerów (kolejne badania w czasie).
-- Każdy zapisany wynik można powiązać z konkretnym numerem → pełna identyfikowalność „który wynik z którego badania w Vitas".
+## Kolejność realizacji
+1. Migracja DB (oczekuje zatwierdzenia).
+2. Aktualizacja typów + formularza (gwiazdki, pola własne, fullscreen layout).
+3. Lekkie zmiany prezentacyjne na liście kontaktów.
+4. Test wizualny w preview + sanity-check zapisu i edycji.
