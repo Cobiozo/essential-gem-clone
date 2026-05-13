@@ -31,7 +31,7 @@ interface PaidEventCardProps {
   showPartnerForm?: boolean;
 }
 
-export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false }) => {
+export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false, showPartnerForm = false }) => {
   const navigate = useNavigate();
   const { tf, language } = useLanguage();
   const dateLocale = getAppDateLocale(language);
@@ -45,11 +45,17 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
   const isSoldOut = spotsLeft !== null && spotsLeft <= 0;
 
   return (
-    <Card 
-      className={`group hover:shadow-md transition-all cursor-pointer ${isPast ? 'opacity-60' : ''}`}
-      onClick={() => navigate(`/events/${event.slug}`)}
+    <Card
+      className={
+        isPast
+          ? 'group transition-all opacity-60 grayscale'
+          : 'group hover:shadow-lg hover:-translate-y-0.5 transition-all border-l-4 border-l-primary bg-card'
+      }
     >
-      <CardContent className="p-4">
+      <CardContent
+        className="p-4 cursor-pointer"
+        onClick={() => navigate(`/events/${event.slug}`)}
+      >
         <div className="flex flex-col sm:flex-row gap-4">
           {event.banner_url && (
             <div className="flex-shrink-0">
