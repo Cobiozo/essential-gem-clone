@@ -541,17 +541,18 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             ) : (
               <div className="space-y-3">
                 {customFields.map((field, idx) => (
-                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start rounded-lg border border-border/60 bg-background/40 p-3">
-                    <div className="sm:col-span-4 space-y-1.5">
+                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start rounded-lg border border-border/60 bg-background/40 p-3 min-w-0">
+                    <div className="sm:col-span-4 space-y-1.5 min-w-0">
                       <Label className="text-xs">Nazwa pola</Label>
                       <Input
                         value={field.label}
                         onChange={(e) => updateCustomField(idx, { label: e.target.value })}
                         placeholder="np. Hobby, Dzieci, Ulubiona kawa"
                         maxLength={60}
+                        className="w-full"
                       />
                     </div>
-                    <div className="sm:col-span-7 space-y-1.5">
+                    <div className="sm:col-span-7 space-y-1.5 min-w-0">
                       <Label className="text-xs">Treść</Label>
                       <Textarea
                         value={field.value}
@@ -559,9 +560,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                         placeholder="Dowolna treść..."
                         rows={2}
                         maxLength={1000}
+                        className="w-full resize-y"
                       />
                     </div>
-                    <div className="sm:col-span-1 flex sm:justify-end pt-0 sm:pt-6">
+                    <div className="sm:col-span-1 flex sm:justify-end pt-0 sm:pt-6 shrink-0">
                       <Button
                         type="button"
                         variant="ghost"
