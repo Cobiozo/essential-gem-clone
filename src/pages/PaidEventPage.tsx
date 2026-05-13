@@ -341,6 +341,8 @@ const PaidEventPage: React.FC = () => {
       id: ticket.id,
       name: ticket.name,
       price: ticket.price,
+      seats_per_ticket: ticket.seats_per_ticket,
+      available_quantity: ticket.available_quantity,
     };
   }, [selectedTicketId, tickets]);
 
