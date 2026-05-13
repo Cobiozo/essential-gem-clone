@@ -139,24 +139,29 @@ Deno.serve(async (req) => {
     const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
     const totalSeats = quantity * seatsPerTicket;
 
-    // Normalize attendees; fall back to buyer if not provided
-    let attendeesNormalized: AttendeeInput[] = attendeesInput
-      .map(a => ({
-        firstName: (a.firstName || '').trim(),
-        lastName: (a.lastName || '').trim(),
-        email: (a.email || '').trim() || null,
-      }))
-      .filter(a => a.firstName && a.lastName);
-
-    if (attendeesNormalized.length === 0) {
-      attendeesNormalized = [{ firstName: buyer.firstName, lastName: buyer.lastName, email: buyer.email }];
-    }
-
-    if (attendeesNormalized.length !== totalSeats) {
-      return new Response(
-        JSON.stringify({ error: 'attendees_count_mismatch', expected: totalSeats, received: attendeesNormalized.length }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Normalize attendees: pad up to totalSeats; allow empty names (placeholder used).
+    // Position 0 = buyer (always filled). Positions 1..N may be empty and will be filled later.
+    const rawAttendees: AttendeeInput[] = attendeesInput.map(a => ({
+      firstName: (a.firstName || '').trim(),
+      lastName: (a.lastName || '').trim(),
+      email: (a.email || '').trim() || null,
+    }));
+    const attendeesNormalized: AttendeeInput[] = [];
+    for (let i = 0; i < totalSeats; i++) {
+      const a = rawAttendees[i];
+      if (i === 0) {
+        attendeesNormalized.push({
+          firstName: a?.firstName || buyer.firstName,
+          lastName: a?.lastName || buyer.lastName,
+          email: a?.email || buyer.email,
+        });
+      } else {
+        attendeesNormalized.push({
+          firstName: a?.firstName || 'Uczestnik',
+          lastName: a?.lastName || `#${i + 1}`,
+          email: a?.email || null,
+        });
+      }
     }
 
     // Create order in database
