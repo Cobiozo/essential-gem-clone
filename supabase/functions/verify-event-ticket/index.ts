@@ -109,19 +109,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if already checked in
-    if (order.checked_in) {
+    // Per-attendee check (group ticket) takes precedence; fallback to order-level check.
+    const isAlreadyCheckedIn = attendee ? !!attendee.checked_in : !!order.checked_in;
+    const checkedInAt = attendee ? attendee.checked_in_at : order.checked_in_at;
+    const seatFirstName = attendee ? attendee.first_name : order.first_name;
+    const seatLastName = attendee ? attendee.last_name : order.last_name;
+    const seatEmail = attendee ? (attendee.email || order.email) : order.email;
+
+    if (isAlreadyCheckedIn) {
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
+        JSON.stringify({
+          valid: false,
           error: 'Ticket already used',
           code: 'ALREADY_CHECKED_IN',
-          checkedInAt: order.checked_in_at,
-          attendee: {
-            firstName: order.first_name,
-            lastName: order.last_name,
-            email: order.email,
-          }
+          checkedInAt,
+          attendee: { firstName: seatFirstName, lastName: seatLastName, email: seatEmail },
+          seatIndex: attendee?.seat_index ?? null,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -130,53 +133,53 @@ Deno.serve(async (req) => {
     // Check event date (allow check-in from 2 hours before to end of event)
     const now = new Date();
     const eventDate = new Date(order.paid_events.event_date);
-    const eventEndDate = order.paid_events.event_end_date 
+    const eventEndDate = order.paid_events.event_end_date
       ? new Date(order.paid_events.event_end_date)
-      : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000); // Default: 24h after start
+      : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
 
-    const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+    const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000);
 
     if (now < checkInStart) {
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: 'Check-in not yet available',
-          code: 'TOO_EARLY',
-          checkInStartsAt: checkInStart.toISOString()
-        }),
+        JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (now > eventEndDate) {
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: 'Event has ended',
-          code: 'EVENT_ENDED'
-        }),
+        JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Mark as checked in if requested and user is admin
     if (markAsCheckedIn && isAdmin) {
-      const { error: updateError } = await supabase
-        .from('paid_event_orders')
-        .update({
-          checked_in: true,
-          checked_in_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-
-      if (updateError) {
-        console.error('Failed to mark check-in:', updateError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to mark check-in' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (attendee) {
+        const { error: updateError } = await supabase
+          .from('paid_event_order_attendees')
+          .update({ checked_in: true, checked_in_at: new Date().toISOString() })
+          .eq('id', attendee.id);
+        if (updateError) {
+          console.error('Failed to mark attendee check-in:', updateError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to mark check-in' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } else {
+        const { error: updateError } = await supabase
+          .from('paid_event_orders')
+          .update({ checked_in: true, checked_in_at: new Date().toISOString() })
+          .eq('id', order.id);
+        if (updateError) {
+          console.error('Failed to mark check-in:', updateError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to mark check-in' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
-
       console.log('Ticket checked in:', ticketCode);
     }
 
@@ -191,10 +194,16 @@ Deno.serve(async (req) => {
           ticketCode: order.ticket_code,
         },
         attendee: {
+          firstName: seatFirstName,
+          lastName: seatLastName,
+          email: seatEmail,
+          phone: order.phone,
+        },
+        seatIndex: attendee?.seat_index ?? null,
+        buyer: {
           firstName: order.first_name,
           lastName: order.last_name,
           email: order.email,
-          phone: order.phone,
         },
         event: {
           id: order.paid_events.id,
