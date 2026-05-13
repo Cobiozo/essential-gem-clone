@@ -81,9 +81,22 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                {event.title}
-              </h3>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {isPast ? (
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {tf('events.endedBadge', 'Zakończone')}
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[10px] uppercase tracking-wider bg-green-500/15 text-green-600 hover:bg-green-500/15 border-0">
+                      {tf('events.upcomingBadge', 'Nadchodzi')}
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                  {event.title}
+                </h3>
+              </div>
               {!isPast && event.lowest_price && (
                 <Badge variant="secondary" className="flex-shrink-0 whitespace-nowrap">
                   {tf('events.from', 'od')} {formatPrice(event.lowest_price)}
