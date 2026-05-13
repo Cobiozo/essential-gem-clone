@@ -36,10 +36,11 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       search: '',
       userId: '',
       contactType,
+      priorityLevel: '',
     });
   };
 
-  const hasFilters = filters.role || filters.status || filters.dateFrom || filters.dateTo || filters.search || filters.userId;
+  const hasFilters = filters.role || filters.status || filters.dateFrom || filters.dateTo || filters.search || filters.userId || filters.priorityLevel;
 
   return (
     <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-4">
@@ -121,23 +122,47 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
         </div>
 
         {/* Date Range */}
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <Label className="text-xs">{tf('teamContacts.dateRange', 'Zakres dat')}</Label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 min-w-0">
             <Input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
-              className="flex-1"
+              className="flex-1 min-w-0"
             />
             <Input
               type="date"
               value={filters.dateTo}
               onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
-              className="flex-1"
+              className="flex-1 min-w-0"
             />
           </div>
         </div>
+
+        {/* Priority (only for private) */}
+        {contactType === 'private' && (
+          <div className="space-y-2 min-w-0">
+            <Label className="text-xs">Priorytet (gwiazdki)</Label>
+            <Select
+              value={filters.priorityLevel || 'all'}
+              onValueChange={(value) => onFiltersChange({ ...filters, priorityLevel: value === 'all' ? '' : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Wszystkie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Wszystkie</SelectItem>
+                <SelectItem value="0">Bez priorytetu</SelectItem>
+                <SelectItem value="1">★</SelectItem>
+                <SelectItem value="2">★★</SelectItem>
+                <SelectItem value="3">★★★</SelectItem>
+                <SelectItem value="4">★★★★</SelectItem>
+                <SelectItem value="5">★★★★★</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Admin-only: Filter by user */}

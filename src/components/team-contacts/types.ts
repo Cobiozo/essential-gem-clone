@@ -146,6 +146,7 @@ export interface TeamContactFilters {
   userId?: string; // For admin filtering by user
   relationshipStatus?: string;
   contactType?: ContactType; // Filter by contact type
+  priorityLevel?: string; // '' = all, '0'..'5'
 }
 
 export interface UplineInfo {

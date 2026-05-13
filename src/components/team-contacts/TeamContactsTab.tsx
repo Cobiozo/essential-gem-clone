@@ -313,16 +313,25 @@ export const TeamContactsTab: React.FC = () => {
   const eventContactsGeneral = privateContacts.filter(c => eventContactIdsGeneral.has(c.id) && !(c as any).moved_to_own_list);
   
   const filteredContacts = (() => {
+    let list: TeamContact[];
     if (activeTab === 'private') {
-      if (privateSubTab === 'events-bo') return eventContactsBO;
-      if (privateSubTab === 'events-hc') return eventContactsHC;
-      if (privateSubTab === 'events-general') return eventContactsGeneral;
-      if (privateSubTab === 'event-invites') return paidEventInviteContacts;
-      if (privateSubTab === 'partner-page') return partnerPageContacts;
-      return ownContacts;
+      if (privateSubTab === 'events-bo') list = eventContactsBO;
+      else if (privateSubTab === 'events-hc') list = eventContactsHC;
+      else if (privateSubTab === 'events-general') list = eventContactsGeneral;
+      else if (privateSubTab === 'event-invites') list = paidEventInviteContacts;
+      else if (privateSubTab === 'partner-page') list = partnerPageContacts;
+      else list = ownContacts;
+    } else if (activeTab === 'team') {
+      list = contacts.filter(c => c.contact_type === 'team_member');
+    } else {
+      list = contacts;
     }
-    if (activeTab === 'team') return contacts.filter(c => c.contact_type === 'team_member');
-    return contacts;
+    // Client-side priority filter
+    if (filters.priorityLevel !== undefined && filters.priorityLevel !== '') {
+      const want = Number(filters.priorityLevel);
+      list = list.filter(c => (c.priority_level ?? 0) === want);
+    }
+    return list;
   })();
 
   const isTeamMemberTab = activeTab === 'team';

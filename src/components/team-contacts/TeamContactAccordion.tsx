@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users, Save, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users, Save, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { RatingElement } from '@/components/elements/RatingElement';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -199,6 +200,9 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       <h3 className="font-semibold text-foreground truncate max-w-[200px] sm:max-w-none">
                         {contact.first_name} {contact.last_name}
                       </h3>
+                      {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
+                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="sm" />
+                      )}
                       {contactType !== 'private' && getRoleBadge(contact.role)}
                        {getStatusBadge(contact, contactType === 'team_member')}
                        {/* Source badge for moved contacts on own list */}
@@ -382,6 +386,33 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           {contact.second_contact_date && (
                             <p><span className="text-muted-foreground">Drugi kontakt:</span> {formatDate(contact.second_contact_date)}</p>
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Priorytet (gwiazdki) — prywatny */}
+                    {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" /> Poziom zainteresowania
+                        </h4>
+                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="md" />
+                      </div>
+                    )}
+
+                    {/* Pola własne — prywatny */}
+                    {contactType === 'private' && Array.isArray(contact.custom_fields) && contact.custom_fields.length > 0 && (
+                      <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" /> Dodatkowe pola
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {(contact.custom_fields as Array<{ label: string; value: string }>).map((f, i) => (
+                            <div key={i} className="text-sm rounded-md border border-border/60 bg-muted/30 p-2 min-w-0">
+                              <div className="text-xs text-muted-foreground truncate">{f.label}</div>
+                              <div className="whitespace-pre-wrap break-words">{f.value || '—'}</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

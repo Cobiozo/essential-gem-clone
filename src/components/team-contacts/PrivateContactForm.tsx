@@ -36,7 +36,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   children,
   className,
 }) => (
-  <div className={`rounded-xl border border-border bg-card/40 p-4 sm:p-5 space-y-4 ${className || ''}`}>
+  <div className={`rounded-xl border border-border bg-card/40 p-4 sm:p-5 space-y-4 min-w-0 overflow-hidden ${className || ''}`}>
     <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
         {icon}
@@ -225,10 +225,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full">
+    <form onSubmit={handleSubmit} className="flex flex-col h-full min-w-0">
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
-        <div className="grid gap-5 lg:grid-cols-12">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-5 min-w-0">
+        <div className="grid gap-5 lg:grid-cols-12 min-w-0">
           {/* Dane kontaktu */}
           <Section
             title={tf('teamContacts.contactData', 'Dane kontaktu')}
@@ -459,22 +459,22 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                   onChange={(e) => setFormData({ ...formData, next_contact_date: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="reminder_date">{tf('teamContacts.reminderDate', 'Data i godzina przypomnienia')}</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 min-w-0">
                   <Input
                     id="reminder_date"
                     type="date"
                     value={formData.reminder_date}
                     onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
-                    className="flex-1"
+                    className="flex-1 min-w-[140px]"
                   />
                   <Select
                     value={formData.reminder_hour}
                     onValueChange={(value) => setFormData({ ...formData, reminder_hour: value })}
                     disabled={!formData.reminder_date}
                   >
-                    <SelectTrigger className="w-[72px]"><SelectValue placeholder="Godz." /></SelectTrigger>
+                    <SelectTrigger className="w-[72px] shrink-0"><SelectValue placeholder="Godz." /></SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 24 }, (_, i) => {
                         const h = String(i).padStart(2, '0');
@@ -487,7 +487,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                     onValueChange={(value) => setFormData({ ...formData, reminder_minute: value })}
                     disabled={!formData.reminder_date}
                   >
-                    <SelectTrigger className="w-[72px]"><SelectValue placeholder="Min." /></SelectTrigger>
+                    <SelectTrigger className="w-[72px] shrink-0"><SelectValue placeholder="Min." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="00">00</SelectItem>
                       <SelectItem value="30">30</SelectItem>
@@ -541,17 +541,18 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             ) : (
               <div className="space-y-3">
                 {customFields.map((field, idx) => (
-                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start rounded-lg border border-border/60 bg-background/40 p-3">
-                    <div className="sm:col-span-4 space-y-1.5">
+                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start rounded-lg border border-border/60 bg-background/40 p-3 min-w-0">
+                    <div className="sm:col-span-4 space-y-1.5 min-w-0">
                       <Label className="text-xs">Nazwa pola</Label>
                       <Input
                         value={field.label}
                         onChange={(e) => updateCustomField(idx, { label: e.target.value })}
                         placeholder="np. Hobby, Dzieci, Ulubiona kawa"
                         maxLength={60}
+                        className="w-full"
                       />
                     </div>
-                    <div className="sm:col-span-7 space-y-1.5">
+                    <div className="sm:col-span-7 space-y-1.5 min-w-0">
                       <Label className="text-xs">Treść</Label>
                       <Textarea
                         value={field.value}
@@ -559,9 +560,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                         placeholder="Dowolna treść..."
                         rows={2}
                         maxLength={1000}
+                        className="w-full resize-y"
                       />
                     </div>
-                    <div className="sm:col-span-1 flex sm:justify-end pt-0 sm:pt-6">
+                    <div className="sm:col-span-1 flex sm:justify-end pt-0 sm:pt-6 shrink-0">
                       <Button
                         type="button"
                         variant="ghost"
