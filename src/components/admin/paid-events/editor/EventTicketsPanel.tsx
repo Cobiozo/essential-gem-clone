@@ -29,6 +29,7 @@ interface Ticket {
   is_featured: boolean | null;
   position: number;
   benefits: string[] | null;
+  seats_per_ticket: number | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
