@@ -62,7 +62,13 @@ export interface TeamContact {
   first_contact_result: string | null;
   
   is_active: boolean;
-  
+
+  // Priority/interest level (0-5 stars, 0 = not set)
+  priority_level?: number;
+
+  // Custom user-defined fields (max 3)
+  custom_fields?: any;
+
   // Deleted user tracking
   linked_user_deleted_at: string | null;
   

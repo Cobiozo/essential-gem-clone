@@ -8334,6 +8334,7 @@ export type Database = {
           contact_upline_first_name: string | null
           contact_upline_last_name: string | null
           created_at: string | null
+          custom_fields: Json
           deleted_at: string | null
           email: string | null
           eq_id: string | null
@@ -8350,6 +8351,7 @@ export type Database = {
           notes: string | null
           partner_status: string | null
           phone_number: string | null
+          priority_level: number
           products: string | null
           profession: string | null
           purchase_date: string | null
@@ -8377,6 +8379,7 @@ export type Database = {
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
           created_at?: string | null
+          custom_fields?: Json
           deleted_at?: string | null
           email?: string | null
           eq_id?: string | null
@@ -8393,6 +8396,7 @@ export type Database = {
           notes?: string | null
           partner_status?: string | null
           phone_number?: string | null
+          priority_level?: number
           products?: string | null
           profession?: string | null
           purchase_date?: string | null
@@ -8420,6 +8424,7 @@ export type Database = {
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
           created_at?: string | null
+          custom_fields?: Json
           deleted_at?: string | null
           email?: string | null
           eq_id?: string | null
@@ -8436,6 +8441,7 @@ export type Database = {
           notes?: string | null
           partner_status?: string | null
           phone_number?: string | null
+          priority_level?: number
           products?: string | null
           profession?: string | null
           purchase_date?: string | null
