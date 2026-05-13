@@ -36,10 +36,11 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       search: '',
       userId: '',
       contactType,
+      priorityLevel: '',
     });
   };
 
-  const hasFilters = filters.role || filters.status || filters.dateFrom || filters.dateTo || filters.search || filters.userId;
+  const hasFilters = filters.role || filters.status || filters.dateFrom || filters.dateTo || filters.search || filters.userId || filters.priorityLevel;
 
   return (
     <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-4">
