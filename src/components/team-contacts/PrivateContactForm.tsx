@@ -459,22 +459,22 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                   onChange={(e) => setFormData({ ...formData, next_contact_date: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="reminder_date">{tf('teamContacts.reminderDate', 'Data i godzina przypomnienia')}</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 min-w-0">
                   <Input
                     id="reminder_date"
                     type="date"
                     value={formData.reminder_date}
                     onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
-                    className="flex-1"
+                    className="flex-1 min-w-[140px]"
                   />
                   <Select
                     value={formData.reminder_hour}
                     onValueChange={(value) => setFormData({ ...formData, reminder_hour: value })}
                     disabled={!formData.reminder_date}
                   >
-                    <SelectTrigger className="w-[72px]"><SelectValue placeholder="Godz." /></SelectTrigger>
+                    <SelectTrigger className="w-[72px] shrink-0"><SelectValue placeholder="Godz." /></SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 24 }, (_, i) => {
                         const h = String(i).padStart(2, '0');
@@ -487,7 +487,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                     onValueChange={(value) => setFormData({ ...formData, reminder_minute: value })}
                     disabled={!formData.reminder_date}
                   >
-                    <SelectTrigger className="w-[72px]"><SelectValue placeholder="Min." /></SelectTrigger>
+                    <SelectTrigger className="w-[72px] shrink-0"><SelectValue placeholder="Min." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="00">00</SelectItem>
                       <SelectItem value="30">30</SelectItem>
