@@ -9,6 +9,7 @@ interface RatingElementProps {
   readonly?: boolean;
   onChange?: (value: number) => void;
   className?: string;
+  size?: 'sm' | 'md';
 }
 
 export const RatingElement: React.FC<RatingElementProps> = ({
@@ -18,7 +19,9 @@ export const RatingElement: React.FC<RatingElementProps> = ({
   readonly = true,
   onChange,
   className,
+  size = 'md',
 }) => {
+  const starSize = size === 'sm' ? 'w-4 h-4' : 'w-6 h-6';
   const handleClick = (index: number) => {
     if (!readonly && onChange) {
       onChange(index + 1);
