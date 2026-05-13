@@ -188,8 +188,17 @@ function buildEmail(opts: {
   contact: ContactPerson | null;
   confirmUrl?: string | null;
   cancelUrl?: string | null;
+  attendees?: Array<{ firstName: string; lastName: string }>;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
+
+  const attendeesHtml = opts.attendees && opts.attendees.length > 1
+    ? `<h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">👥 Uczestnicy (${opts.attendees.length})</h3>
+       <ol style="padding-left:20px;font-size:14px;line-height:1.7;color:#333;margin:0 0 16px;">
+         ${opts.attendees.map(a => `<li>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</li>`).join("")}
+       </ol>
+       <p style="font-size:13px;color:#666;margin:0 0 16px;">Po zaksięgowaniu wpłaty każdy uczestnik dostanie własny kod QR.</p>`
+    : '';
 
   // Banner wydarzenia jako jedyny nagłówek graficzny (bez złotego paska Pure Life / Eqology).
   const bannerHtml = opts.bannerUrl
