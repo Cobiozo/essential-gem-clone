@@ -67,7 +67,7 @@ export interface TeamContact {
   priority_level?: number;
 
   // Custom user-defined fields (max 3)
-  custom_fields?: Array<{ label: string; value: string }>;
+  custom_fields?: any;
 
   // Deleted user tracking
   linked_user_deleted_at: string | null;
