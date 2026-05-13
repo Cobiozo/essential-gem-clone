@@ -15,12 +15,20 @@ interface BuyerData {
   phone: string;
 }
 
+interface AttendeeInput {
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 interface ReqBody {
   eventId: string;
   ticketId: string;
   buyer: BuyerData;
   acceptMarketing?: boolean;
   refCode?: string | null;
+  quantity?: number;
+  attendees?: AttendeeInput[];
 }
 
 interface SmtpSettings {
