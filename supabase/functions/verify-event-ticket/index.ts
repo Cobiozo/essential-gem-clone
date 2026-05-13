@@ -54,31 +54,46 @@ Deno.serve(async (req) => {
 
     console.log('Verifying ticket:', ticketCode);
 
-    // Find order by ticket code
-    const { data: order, error: orderError } = await supabase
-      .from('paid_event_orders')
-      .select(`
-        *,
-        paid_events (
-          id, title, slug, event_date, event_end_date, location, is_online
-        ),
-        paid_event_tickets (
-          id, name, description
-        )
-      `)
-      .eq('ticket_code', ticketCode.toUpperCase())
-      .single();
+    const codeUpper = ticketCode.toUpperCase();
 
-    if (orderError || !order) {
-      console.error('Ticket not found:', ticketCode, orderError);
-      return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: 'Ticket not found',
-          code: 'NOT_FOUND'
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // 1) Try the per-attendee table first (group tickets — one QR per seat).
+    const { data: attendee } = await supabase
+      .from('paid_event_order_attendees')
+      .select('*')
+      .eq('ticket_code', codeUpper)
+      .maybeSingle();
+
+    let order: any = null;
+
+    if (attendee) {
+      const { data: ord, error: orderErr } = await supabase
+        .from('paid_event_orders')
+        .select(`*, paid_events ( id, title, slug, event_date, event_end_date, location, is_online ), paid_event_tickets ( id, name, description )`)
+        .eq('id', attendee.order_id)
+        .single();
+      if (orderErr || !ord) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Order not found', code: 'NOT_FOUND' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      order = ord;
+    } else {
+      // 2) Fallback to legacy single-ticket lookup on the order itself.
+      const { data: ord, error: orderError } = await supabase
+        .from('paid_event_orders')
+        .select(`*, paid_events ( id, title, slug, event_date, event_end_date, location, is_online ), paid_event_tickets ( id, name, description )`)
+        .eq('ticket_code', codeUpper)
+        .single();
+
+      if (orderError || !ord) {
+        console.error('Ticket not found:', ticketCode, orderError);
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Ticket not found', code: 'NOT_FOUND' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      order = ord;
     }
 
     // Check payment status
