@@ -694,6 +694,7 @@ serve(async (req) => {
             contact,
             confirmUrl,
             cancelUrl,
+            attendees: attendeesNormalized.map(a => ({ firstName: a.firstName, lastName: a.lastName })),
           });
           await sendSmtp(
             smtpSettings,
