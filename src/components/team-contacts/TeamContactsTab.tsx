@@ -991,8 +991,10 @@ export const TeamContactsTab: React.FC = () => {
 
       {/* Edit Contact Dialog */}
       <Dialog open={!!editingContact} onOpenChange={() => setEditingContact(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className={editingContact?.contact_type === 'team_member'
+          ? 'max-w-2xl max-h-[90vh] overflow-y-auto'
+          : 'max-w-[min(1400px,96vw)] w-[96vw] h-[92vh] max-h-[92vh] p-0 gap-0 flex flex-col overflow-hidden'}>
+          <DialogHeader className={editingContact?.contact_type === 'team_member' ? '' : 'px-4 sm:px-6 pt-5 pb-3 border-b border-border shrink-0'}>
             <DialogTitle>
               {editingContact?.contact_type === 'team_member' ? tf('teamContacts.teamMemberPreview', 'Podgląd członka zespołu') : tf('teamContacts.editContact', 'Edytuj kontakt')}
             </DialogTitle>
