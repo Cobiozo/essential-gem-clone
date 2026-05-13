@@ -188,6 +188,23 @@ Deno.serve(async (req) => {
 
     console.log('Order created:', order.id);
 
+    // Insert per-attendee rows (one QR code per seat).
+    const attendeeRows = attendeesNormalized.map((a, idx) => ({
+      order_id: order.id,
+      event_id: eventId,
+      seat_index: idx + 1,
+      first_name: a.firstName,
+      last_name: a.lastName,
+      email: a.email,
+      ticket_code: generateTicketCode(),
+    }));
+    const { error: attErr } = await supabase
+      .from('paid_event_order_attendees')
+      .insert(attendeeRows);
+    if (attErr) {
+      console.error('attendees insert failed (continuing)', attErr);
+    }
+
     // Get PayU access token
     const accessToken = await getPayUAccessToken();
     const posId = Deno.env.get('PAYU_MERCHANT_POS_ID');
