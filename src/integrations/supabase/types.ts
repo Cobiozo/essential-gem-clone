@@ -6140,6 +6140,66 @@ export type Database = {
           },
         ]
       }
+      paid_event_order_attendees: {
+        Row: {
+          checked_in: boolean
+          checked_in_at: string | null
+          created_at: string
+          email: string | null
+          event_id: string
+          first_name: string
+          id: string
+          last_name: string
+          order_id: string
+          seat_index: number
+          ticket_code: string
+          updated_at: string
+        }
+        Insert: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          created_at?: string
+          email?: string | null
+          event_id: string
+          first_name: string
+          id?: string
+          last_name: string
+          order_id: string
+          seat_index: number
+          ticket_code: string
+          updated_at?: string
+        }
+        Update: {
+          checked_in?: boolean
+          checked_in_at?: string | null
+          created_at?: string
+          email?: string | null
+          event_id?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          order_id?: string
+          seat_index?: number
+          ticket_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paid_event_order_attendees_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_event_order_attendees_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "paid_event_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paid_event_orders: {
         Row: {
           checked_in: boolean | null
@@ -6393,6 +6453,7 @@ export type Database = {
           quantity_sold: number | null
           sale_end: string | null
           sale_start: string | null
+          seats_per_ticket: number
           updated_at: string
         }
         Insert: {
@@ -6411,6 +6472,7 @@ export type Database = {
           quantity_sold?: number | null
           sale_end?: string | null
           sale_start?: string | null
+          seats_per_ticket?: number
           updated_at?: string
         }
         Update: {
@@ -6429,6 +6491,7 @@ export type Database = {
           quantity_sold?: number | null
           sale_end?: string | null
           sale_start?: string | null
+          seats_per_ticket?: number
           updated_at?: string
         }
         Relationships: [
