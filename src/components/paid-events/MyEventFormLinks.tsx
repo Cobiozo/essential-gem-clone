@@ -157,7 +157,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
           const url = link ? `${window.location.origin}/event-form/${form.slug}?ref=${link.ref_code}` : null;
           return (
             <Card key={form.id}>
-              <CardContent className="pt-5 space-y-3">
+              <CardContent className={compact ? 'pt-3 pb-3 space-y-2' : 'pt-5 space-y-3'}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
