@@ -98,16 +98,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     }
   }, [open]);
 
-  // Resize attendees array when totalSeats changes (preserve existing entries)
+  // Extra attendees beyond the buyer (buyer counts as seat #1)
+  const extraSeats = Math.max(0, totalSeats - 1);
+
+  // Resize attendees array when extraSeats changes (preserve existing entries)
   useEffect(() => {
     setAttendees(prev => {
-      const next = prev.slice(0, totalSeats);
-      while (next.length < totalSeats) {
+      const next = prev.slice(0, extraSeats);
+      while (next.length < extraSeats) {
         next.push({ firstName: '', lastName: '', email: '' });
       }
       return next;
     });
-  }, [totalSeats]);
+  }, [extraSeats]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('pl-PL', {
@@ -121,14 +124,6 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     setAttendees(prev => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
   };
 
-  const copyBuyerToAttendee = (idx: number) => {
-    updateAttendee(idx, {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-    });
-  };
-
   const validate = (): boolean => {
     if (!ticket) return false;
     if (!formData.firstName || !formData.lastName || !formData.email) {
@@ -138,19 +133,6 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     if (!formData.acceptTerms) {
       toast({ title: 'Akceptacja regulaminu', description: 'Musisz zaakceptować regulamin aby kontynuować', variant: 'destructive' });
       return false;
-    }
-    if (totalSeats > 1) {
-      for (let i = 0; i < attendees.length; i++) {
-        const a = attendees[i];
-        if (!a.firstName.trim() || !a.lastName.trim()) {
-          toast({
-            title: `Uczestnik ${i + 1}`,
-            description: 'Podaj imię i nazwisko każdego uczestnika',
-            variant: 'destructive',
-          });
-          return false;
-        }
-      }
     }
     return true;
   };
