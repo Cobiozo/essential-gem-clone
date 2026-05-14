@@ -596,7 +596,8 @@ serve(async (req) => {
                 order_id: order.id,
                 order_ids: [order.id],
                 ticket_id: ticketId,
-                quantity: 1,
+                quantity,
+                total_seats: totalSeats,
                 total_amount: totalAmount,
               },
             })
