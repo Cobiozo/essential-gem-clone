@@ -391,7 +391,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                       <div key={idx} className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Uczestnik {idx + 2}
+                            {buyerIsAttendee ? `Uczestnik ${idx + 2}` : `Gość ${idx + 1}`}
                           </span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
                             opcjonalnie
