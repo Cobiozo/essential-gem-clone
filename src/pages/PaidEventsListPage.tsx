@@ -114,6 +114,9 @@ const PaidEventsListPage: React.FC = () => {
           </div>
         </div>
 
+        {/* My ticket orders — visible to logged-in buyers */}
+        <MyTicketOrders />
+
         {/* UPCOMING — exposed */}
         <section>
           <div className="flex items-center justify-between mb-4">
