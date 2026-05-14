@@ -43,6 +43,26 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     },
   });
 
+  // Buyer's own paid_event_orders (with attendees) for this event scope.
+  const { data: myOrders = [] } = useQuery({
+    queryKey: ['my-event-form-referrals-orders', user?.id, eventId ?? 'all'],
+    enabled: !!user?.id && !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select(`
+          id, quantity, total_amount, status, created_at, first_name, last_name, email,
+          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
+          attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
+        `)
+        .eq('user_id', user!.id)
+        .eq('event_id', eventId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
@@ -51,7 +71,7 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     );
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && myOrders.length === 0) {
     return (
       <div className="text-xs text-muted-foreground py-3 flex items-center gap-2">
         <Users className="h-3 w-3" /> Brak zapisanych przez Twój link.
