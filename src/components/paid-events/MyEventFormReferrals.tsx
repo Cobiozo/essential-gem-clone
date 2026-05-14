@@ -88,6 +88,56 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
   };
 
   return (
+    <div className="space-y-4">
+      {myOrders.length > 0 && (
+        <div className="rounded-md border bg-primary/5 p-3 space-y-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center gap-1">
+            <Ticket className="h-3 w-3" /> Twoje zakupione bilety
+          </div>
+          {myOrders.map((o: any) => {
+            const seatsPer = Math.max(1, Number(o.ticket?.seats_per_ticket) || 1);
+            const qty = Math.max(1, Number(o.quantity) || 1);
+            const totalSeats = qty * seatsPer;
+            const attendees = [...(o.attendees || [])].sort((a: any, b: any) => a.seat_index - b.seat_index);
+            return (
+              <div key={o.id} className="text-xs space-y-1 border-l-2 border-primary/40 pl-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{o.ticket?.name || 'Bilet'}</span>
+                  <Badge variant="outline" className="text-[10px]">{qty} × bilet</Badge>
+                  <Badge variant="outline" className="text-[10px]">{totalSeats} uczestników</Badge>
+                  <span className="text-primary font-bold">{formatPrice(o.total_amount)}</span>
+                  {o.status === 'paid' || o.status === 'completed' ? (
+                    <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[10px]">Oczekuje płatności</Badge>
+                  )}
+                </div>
+                {attendees.length > 0 ? (
+                  <ul className="text-muted-foreground space-y-0.5">
+                    {attendees.map((a: any) => {
+                      const isBuyer = a.seat_index === 1 && (a.email || '').toLowerCase() === (user?.email || '').toLowerCase();
+                      const isPlaceholder = (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
+                      return (
+                        <li key={a.id} className="flex flex-wrap items-center gap-1">
+                          <span className={isPlaceholder ? 'italic' : 'text-foreground'}>
+                            {a.seat_index}. {a.first_name} {a.last_name}
+                          </span>
+                          {isBuyer && <Badge variant="outline" className="text-[10px] border-primary text-primary">Ty</Badge>}
+                          {isPlaceholder && <span className="text-amber-600">— uzupełnij dane</span>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="text-muted-foreground italic">Brak danych uczestników.</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {rows.length > 0 && (
     <div className="overflow-x-auto -mx-2 px-2">
       <table className="w-full text-xs">
         <thead>
