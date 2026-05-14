@@ -276,8 +276,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 )}
 
+                {quantity > 1 && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Cena za bilet:</span>
+                    <span>{quantity} × {formatPrice(ticket?.price ?? 0)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between pt-2 border-t border-border/50">
-                  <span className="font-medium">Do zapłaty:</span>
+                  <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
                   <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
                 </div>
               </div>
