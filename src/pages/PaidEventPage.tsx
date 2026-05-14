@@ -415,6 +415,12 @@ const PaidEventPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {user && (
+          <div className="mb-6">
+            <MyTicketOrders eventId={event.id} />
+          </div>
+        )}
+
         <div className={cn(
           'flex flex-col gap-8',
           showTickets && 'lg:flex-row'
