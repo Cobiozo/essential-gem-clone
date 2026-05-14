@@ -174,6 +174,8 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
         </tbody>
       </table>
     </div>
+      )}
+    </div>
   );
 };
 
