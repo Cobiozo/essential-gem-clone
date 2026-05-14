@@ -200,7 +200,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
                     <ol className="space-y-1.5">
                       {attendees.map((a) => {
                         const isBuyer = a.seat_index === 1;
-                        const isPlaceholder = !isBuyer && a.first_name === 'Uczestnik' && /^#\d+$/.test(a.last_name);
+                        const isPlaceholder = !isBuyer && (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
                         const fullName = `${a.first_name} ${a.last_name}`.trim();
                         return (
                           <li key={a.id} className="flex items-center justify-between gap-3 text-sm border-l-2 border-primary/40 pl-3 py-1">
