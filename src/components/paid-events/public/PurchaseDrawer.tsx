@@ -8,7 +8,7 @@ import { Loader2, CreditCard, ArrowRight, Shield, Banknote, CheckCircle2, Mail, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface TicketInfo {
   id: string;
@@ -55,6 +55,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 }) => {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const qc = useQueryClient();
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -238,6 +239,9 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
             });
           }
         }
+        // Refresh "Moje bilety" so the new order shows up immediately
+        qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
+        qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
         setTransferSuccess(true);
       } else {
         throw new Error(data?.error || 'Nie udało się zarejestrować rezerwacji');
