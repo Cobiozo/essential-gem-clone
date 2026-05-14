@@ -68,6 +68,25 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   });
   const [attendees, setAttendees] = useState<Attendee[]>([]);
 
+  // Detect if the logged-in partner already has a (non-cancelled) ticket for this event.
+  // If yes — they cannot buy themselves a second ticket; the drawer switches to "guest-only" mode.
+  const { data: hasOwnTicket = false } = useQuery({
+    queryKey: ['my-event-ticket-exists', user?.id, eventId],
+    enabled: !!user?.id && !!eventId && open,
+    queryFn: async () => {
+      const userEmail = (user!.email || '').toLowerCase();
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select('id, status')
+        .eq('event_id', eventId)
+        .or(`user_id.eq.${user!.id}${userEmail ? `,email.eq.${userEmail}` : ''}`)
+        .not('status', 'in', '("cancelled","refunded")')
+        .limit(1);
+      if (error) return false;
+      return (data?.length ?? 0) > 0;
+    },
+  });
+
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
   const totalSeats = quantity * seatsPerTicket;
   const totalPrice = (ticket?.price ?? 0) * quantity;
