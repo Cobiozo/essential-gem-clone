@@ -8,6 +8,7 @@ import { Loader2, CreditCard, ArrowRight, Shield, Banknote, CheckCircle2, Mail, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface TicketInfo {
   id: string;
@@ -67,6 +68,25 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   });
   const [attendees, setAttendees] = useState<Attendee[]>([]);
 
+  // Detect if the logged-in partner already has a (non-cancelled) ticket for this event.
+  // If yes — they cannot buy themselves a second ticket; the drawer switches to "guest-only" mode.
+  const { data: hasOwnTicket = false } = useQuery({
+    queryKey: ['my-event-ticket-exists', user?.id, eventId],
+    enabled: !!user?.id && !!eventId && open,
+    queryFn: async () => {
+      const userEmail = (user!.email || '').toLowerCase();
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select('id, status')
+        .eq('event_id', eventId)
+        .or(`user_id.eq.${user!.id}${userEmail ? `,email.eq.${userEmail}` : ''}`)
+        .not('status', 'in', '("cancelled","refunded")')
+        .limit(1);
+      if (error) return false;
+      return (data?.length ?? 0) > 0;
+    },
+  });
+
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
   const totalSeats = quantity * seatsPerTicket;
   const totalPrice = (ticket?.price ?? 0) * quantity;
@@ -98,19 +118,21 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     }
   }, [open]);
 
-  // Extra attendees beyond the buyer (buyer counts as seat #1)
-  const extraSeats = Math.max(0, totalSeats - 1);
+  // When the buyer already has their own ticket for this event, EVERY seat is for a guest.
+  // Otherwise, seat #1 is the buyer themselves and only the remaining seats are extras.
+  const buyerIsAttendee = !hasOwnTicket;
+  const guestSeatsCount = buyerIsAttendee ? Math.max(0, totalSeats - 1) : totalSeats;
 
-  // Resize attendees array when extraSeats changes (preserve existing entries)
+  // Resize attendees array when guest count changes (preserve existing entries)
   useEffect(() => {
     setAttendees(prev => {
-      const next = prev.slice(0, extraSeats);
-      while (next.length < extraSeats) {
+      const next = prev.slice(0, guestSeatsCount);
+      while (next.length < guestSeatsCount) {
         next.push({ firstName: '', lastName: '', email: '' });
       }
       return next;
     });
-  }, [extraSeats]);
+  }, [guestSeatsCount]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('pl-PL', {
@@ -138,16 +160,21 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   };
 
   const buildPayload = () => {
-    const buyerAttendee = {
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      email: formData.email.trim() || null,
-    };
-    const extras = attendees.map(a => ({
+    const guests = attendees.map(a => ({
       firstName: a.firstName.trim(),
       lastName: a.lastName.trim(),
       email: a.email?.trim() || null,
     }));
+    const attendeesPayload = buyerIsAttendee
+      ? [
+          {
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            email: formData.email.trim() || null,
+          },
+          ...guests,
+        ]
+      : guests;
     return {
       eventId,
       ticketId: ticket!.id,
@@ -158,7 +185,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         lastName: formData.lastName,
         phone: formData.phone || '',
       },
-      attendees: [buyerAttendee, ...extras],
+      attendees: attendeesPayload,
+      buyerIsAttendee,
       acceptMarketing: formData.acceptMarketing,
       refCode: refCode || null,
     };
@@ -262,6 +290,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
             </div>
           ) : (
             <form onSubmit={(e) => e.preventDefault()} className="px-4 space-y-4">
+              {hasOwnTicket && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                  <div className="font-medium text-primary mb-1">Masz już bilet na to wydarzenie</div>
+                  <div className="text-xs text-muted-foreground">
+                    Kolejny zakup nie przypisze biletu Tobie — wszystkie bilety będą dla gości. Dane gości możesz uzupełnić tu lub później w sekcji „Moje bilety".
+                  </div>
+                </div>
+              )}
               {/* Order Summary */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
@@ -343,16 +379,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Attendees Section - extra attendees beyond the buyer */}
-              {extraSeats > 0 && (
+              {/* Attendees Section - guests (everyone except the buyer when buyer takes seat 1) */}
+              {guestSeatsCount > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <h3 className="font-medium">Dodatkowi uczestnicy ({extraSeats})</h3>
+                    <h3 className="font-medium">
+                      {buyerIsAttendee ? `Dodatkowi uczestnicy (${guestSeatsCount})` : `Uczestnicy / goście (${guestSeatsCount})`}
+                    </h3>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później —
-                    z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.
+                    {buyerIsAttendee
+                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później — z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.'
+                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dane gości możesz uzupełnić teraz lub później w sekcji „Moje bilety". Każdy gość dostanie własny kod QR.'}
                   </p>
 
                   <div className="space-y-3">
@@ -360,7 +399,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                       <div key={idx} className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Uczestnik {idx + 2}
+                            {buyerIsAttendee ? `Uczestnik ${idx + 2}` : `Gość ${idx + 1}`}
                           </span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
                             opcjonalnie
