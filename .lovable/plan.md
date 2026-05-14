@@ -1,41 +1,55 @@
-## Cel
+## Diagnoza
 
-Uprościć formularz uczestników przy zakupie biletu zbiorowego i pozwolić uzupełnić dane uczestników później, gdy kupujący jeszcze nie wie kogo zabierze.
+Sprawdziłem zamówienie w bazie (`sebastiansnopek87@gmail.com`, BOM Łódź):
 
-## Zmiany w UI (PurchaseDrawer)
+- W bazie: `quantity = 1`, `seats_per_ticket = 1`, `total_amount = 3500 gr (= 35 zł)`, **liczba uczestników w `paid_event_order_attendees` = 0**.
+- W emailu: pojedyncza linia „Bilet: …", kwota 35 zł, brak sekcji uczestników.
+- W UI potwierdzenia: „otrzymasz 2 biletów QR" — tylko dlatego że frontend obliczał `totalSeats` z lokalnego `quantity`, a kliknięcie „+" nie zostało wysłane do backendu (lub funkcja nie była przedeployowana po ostatnich zmianach).
 
-1. **Kupujący = pierwszy uczestnik**
-   - Usuwam osobne pole "Uczestnik 1" — dane kupującego (Imię/Nazwisko/Email) automatycznie liczą się jako pierwszy uczestnik i pierwszy kod QR.
-   - Lista dodatkowych uczestników renderuje `(quantity * seats_per_ticket) - 1` pozycji, ponumerowanych od "Uczestnik 2".
-   - Przykład: bilet dla 3 osób + ilość 1 → kupujący + 2 dodatkowych uczestników.
+Czyli realnie: w bazie zapisany jest **1 bilet za 35 zł**, a użytkownik był w UI przekonany, że bierze 2. Trzy realne problemy do naprawy:
 
-2. **Opcjonalne dane dodatkowych uczestników**
-   - Imię/Nazwisko/Email dla "Uczestnik 2..N" stają się **opcjonalne** przy zakupie.
-   - Pod nagłówkiem sekcji info: "Możesz uzupełnić dane uczestników teraz lub później — z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR."
-   - Jeśli pole zostanie puste, w bazie zapisujemy `first_name = "Uczestnik"`, `last_name = "#<seat_index>"` jako placeholder (kod QR generowany od razu, dane do uzupełnienia).
+1. **Email nie pokazuje liczby biletów ani uczestników** — nawet gdy `quantity > 1` lub gdy mamy więcej miejsc, treść maila wygląda identycznie jak dla 1 biletu.
+2. **Tabela `paid_event_order_attendees` jest pusta** dla tego zamówienia — albo funkcja nie była przedeployowana, albo insert padł cicho. Wymaga redeploy + log check + walidacji.
+3. **Niespójność „2 biletów QR" w UI vs `quantity=1` w backendzie** — UI pokazuje sukces zanim backend potwierdzi co realnie zapisał.
 
-3. **Usunięcie przycisku "Skopiuj kupującego"** w każdej karcie uczestnika.
+## Zakres zmian
 
-## Zmiany w przepływie danych
+### 1. `supabase/functions/register-event-transfer-order/index.ts`
 
-- `PurchaseDrawer` zawsze wysyła do edge functions tablicę `attendees` o długości `quantity * seats_per_ticket`:
-  - pozycja 0 = dane kupującego (z formularza "Dane kupującego"),
-  - pozycje 1..N = dane z sekcji "Dodatkowi uczestnicy" (mogą być puste → backend wypełnia placeholderem).
-- Walidacja przy submit: wymagamy tylko danych kupującego; pozostałe pola mogą być puste.
+- Email: zawsze pokazuj sekcję „Podsumowanie zamówienia" z trzema liniami:
+  - `Bilet: <ticket.name>`
+  - `Liczba biletów: <quantity> × <cena> = <łączna kwota>` (gdy `quantity > 1` lub `seats_per_ticket > 1`)
+  - `Liczba uczestników: <totalSeats>` (gdy `totalSeats > 1`)
+- Lista uczestników: rendering przy `totalSeats > 1` (nie tylko `attendees.length > 1`) — gwarantuje że nawet gdy w `attendeesNormalized` jest sam kupujący jako placeholder, sekcja się pokaże z poprawnym opisem „1. Jan Kowalski (kupujący)" + pozostałe „Uczestnik #N — dane do uzupełnienia".
+- Logowanie: jeśli `attendeeRows.length !== totalSeats` lub insert do `paid_event_order_attendees` zwraca błąd — log ERROR + zwróć ostrzeżenie w odpowiedzi (nie blokuj zamówienia).
+- Temat maila: dodaj liczbę biletów gdy > 1 (`Rezerwacja przyjęta – N biletów – <event>`).
 
-## Edge functions
+### 2. `supabase/functions/payu-create-order/index.ts`
 
-- `payu-create-order` i `register-event-transfer-order`: bez zmian w kontrakcie API. Dodajemy normalizację — jeśli `firstName`/`lastName` puste, zapisujemy `Uczestnik` / `#<seat_index>` w `paid_event_order_attendees`. Email opcjonalny (już jest).
-- `verify-event-ticket`: bez zmian — kod QR działa od razu, na bramce widać placeholder lub uzupełnione dane.
+Identyczna logika walidacji liczby uczestników i logowania — żeby zachować spójność, ale bez zmian w treści maila (PayU nie wysyła rezerwacji-emaila).
 
-## Późniejsze uzupełnianie danych (poza zakresem tej iteracji)
+### 3. `src/components/paid-events/public/PurchaseDrawer.tsx`
 
-Edycja danych uczestnika po zakupie (np. na stronie "Moje zamówienia") to osobny krok — zaproponuję go w kolejnym planie po zatwierdzeniu tej zmiany. Tutaj dostarczamy fundament: placeholder + indywidualne kody QR.
+- Po sukcesie: pokaż w komunikacie potwierdzenia dokładnie tę liczbę co poszła do backendu — `quantity` i `totalSeats` z payloadu, nie z lokalnego state.
+- Przy `quantity > 1` lub `seats_per_ticket > 1` pokaż w „Podsumowaniu zamówienia" rozbicie: `<quantity> × <cena> = <łączna kwota>`.
+- Mała walidacja przy submit: jeśli wybrano > 1 bilet, dodaj subtelne potwierdzenie „Rezerwujesz 2 bilety za 70 zł — kontynuować?" (toast info, nie blokujący modal).
+
+### 4. Redeploy + weryfikacja
+
+- Przedeployować `register-event-transfer-order` i `payu-create-order` po zmianach.
+- Po deploy: zrobić testową rezerwację 2 biletów i sprawdzić:
+  - `paid_event_orders.quantity = 2`
+  - `paid_event_order_attendees` ma 2 rekordy z unikalnymi `ticket_code`
+  - email zawiera „Liczba biletów: 2 × 35,00 zł = 70,00 zł" i listę uczestników
+
+## Co NIE wchodzi w zakres
+
+- Zmiany schematu bazy (nie potrzebne).
+- Edycja danych uczestników po rezerwacji (osobna iteracja).
+- Naprawa już istniejącego zamówienia `2848e86d…` — to było 1 bilet w bazie. Jeśli użytkownik chciał faktycznie 2, trzeba ręcznie dorzucić drugiego uczestnika lub utworzyć drugą rezerwację.
 
 ## Pliki do edycji
 
-- `src/components/paid-events/public/PurchaseDrawer.tsx` — UI uczestników, walidacja, mapowanie kupującego na seat 1, usunięcie przycisku kopiowania.
-- `supabase/functions/payu-create-order/index.ts` — normalizacja pustych imion/nazwisk.
-- `supabase/functions/register-event-transfer-order/index.ts` — j.w. + email rezerwacji wyświetla placeholder gdy brak danych.
-
-Brak zmian w schemacie bazy.
+- `supabase/functions/register-event-transfer-order/index.ts` — sekcja `buildEmail` + walidacja attendees + temat maila
+- `supabase/functions/payu-create-order/index.ts` — walidacja + log
+- `src/components/paid-events/public/PurchaseDrawer.tsx` — rozbicie ceny + komunikat sukcesu

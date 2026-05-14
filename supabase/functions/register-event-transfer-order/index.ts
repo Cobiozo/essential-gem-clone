@@ -182,13 +182,16 @@ function buildEmail(opts: {
   eventDate: string;
   ticketName: string;
   amountFormatted: string;
+  unitPriceFormatted?: string;
+  quantity?: number;
+  totalSeats?: number;
   transferDetails: string;
   ticketCode: string;
   bannerUrl?: string | null;
   contact: ContactPerson | null;
   confirmUrl?: string | null;
   cancelUrl?: string | null;
-  attendees?: Array<{ firstName: string; lastName: string }>;
+  attendees?: Array<{ firstName: string; lastName: string; isPlaceholder?: boolean; isBuyer?: boolean }>;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
 
