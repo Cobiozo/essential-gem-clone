@@ -482,10 +482,16 @@ serve(async (req) => {
       .from("paid_event_order_attendees")
       .insert(attendeeRows);
     if (attErr) {
-      console.error(`[attendees] INSERT FAILED order=${order.id} totalSeats=${totalSeats}`, attErr);
-    } else {
-      console.log(`[attendees] inserted ${attendeeRows.length} rows for order=${order.id} (qty=${quantity}, seats_per_ticket=${seatsPerTicket})`);
+      console.error(`[attendees] INSERT FAILED order=${order.id} totalSeats=${totalSeats} qty=${quantity}`, JSON.stringify(attErr));
+      // Roll back the order so the buyer can retry — otherwise we'd send an email
+      // for an order with no attendee rows (and no QR codes after payment).
+      await supabase.from("paid_event_orders").delete().eq("id", order.id);
+      return new Response(
+        JSON.stringify({ error: "attendees_insert_failed", details: attErr.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+    console.log(`[attendees] inserted ${attendeeRows.length} rows for order=${order.id} (qty=${quantity}, seats_per_ticket=${seatsPerTicket})`);
 
     // Mirror this order into event_form_submissions so it shows up in the
     // admin "Formularze → Zgłoszenia" view (Goście / Partnerzy tabs).
@@ -596,7 +602,8 @@ serve(async (req) => {
                 order_id: order.id,
                 order_ids: [order.id],
                 ticket_id: ticketId,
-                quantity: 1,
+                quantity,
+                total_seats: totalSeats,
                 total_amount: totalAmount,
               },
             })
