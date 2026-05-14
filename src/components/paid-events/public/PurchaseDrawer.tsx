@@ -8,6 +8,7 @@ import { Loader2, CreditCard, ArrowRight, Shield, Banknote, CheckCircle2, Mail, 
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface TicketInfo {
   id: string;
