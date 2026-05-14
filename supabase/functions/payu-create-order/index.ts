@@ -141,8 +141,27 @@ Deno.serve(async (req) => {
     const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
     const totalSeats = quantity * seatsPerTicket;
 
-    // Normalize attendees: pad up to totalSeats; allow empty names (placeholder used).
-    // Position 0 = buyer (always filled). Positions 1..N may be empty and will be filled later.
+    // Determine whether the buyer takes seat #1. If a matching email already has a
+    // non-cancelled order for this event, force guest-only mode.
+    let buyerIsAttendee = body.buyerIsAttendee !== false;
+    if (buyerIsAttendee) {
+      const lowerBuyerEmail = (buyer.email || '').trim().toLowerCase();
+      if (lowerBuyerEmail) {
+        const { data: existingForBuyer } = await supabase
+          .from('paid_event_orders')
+          .select('id, status')
+          .eq('event_id', eventId)
+          .eq('email', lowerBuyerEmail)
+          .not('status', 'in', '("cancelled","refunded")')
+          .limit(1);
+        if ((existingForBuyer?.length ?? 0) > 0) {
+          buyerIsAttendee = false;
+          console.log(`[buyer-dedup] buyer already has a ticket for event=${eventId}; switching to guest-only mode`);
+        }
+      }
+    }
+
+    // Normalize attendees: pad up to totalSeats.
     const rawAttendees: AttendeeInput[] = attendeesInput.map(a => ({
       firstName: (a.firstName || '').trim(),
       lastName: (a.lastName || '').trim(),
@@ -151,7 +170,7 @@ Deno.serve(async (req) => {
     const attendeesNormalized: AttendeeInput[] = [];
     for (let i = 0; i < totalSeats; i++) {
       const a = rawAttendees[i];
-      if (i === 0) {
+      if (i === 0 && buyerIsAttendee) {
         attendeesNormalized.push({
           firstName: a?.firstName || buyer.firstName,
           lastName: a?.lastName || buyer.lastName,
@@ -159,7 +178,7 @@ Deno.serve(async (req) => {
         });
       } else {
         attendeesNormalized.push({
-          firstName: a?.firstName || 'Uczestnik',
+          firstName: a?.firstName || 'Gość',
           lastName: a?.lastName || `#${i + 1}`,
           email: a?.email || null,
         });
