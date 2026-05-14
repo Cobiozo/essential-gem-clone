@@ -105,7 +105,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
       const { error } = await supabase
         .from('paid_event_order_attendees')
         .update({
-          first_name: editForm.first_name.trim() || 'Uczestnik',
+          first_name: editForm.first_name.trim() || 'Gość',
           last_name: editForm.last_name.trim() || `#${editAttendee.seat_index}`,
           email: editForm.email.trim() || null,
         })
