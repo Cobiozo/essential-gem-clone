@@ -168,7 +168,9 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     if (!validate() || !ticket) return;
     setLoadingMode('payu');
     try {
-      const { data, error } = await supabase.functions.invoke('payu-create-order', { body: buildPayload() });
+      const payload = buildPayload();
+      console.log('[purchase] payu payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      const { data, error } = await supabase.functions.invoke('payu-create-order', { body: payload });
       if (error) throw error;
       if (data?.redirectUri) {
         window.location.href = data.redirectUri;
