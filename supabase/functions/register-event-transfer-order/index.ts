@@ -29,6 +29,8 @@ interface ReqBody {
   refCode?: string | null;
   quantity?: number;
   attendees?: AttendeeInput[];
+  /** When false, no seat is auto-filled with buyer data — all seats are guests. */
+  buyerIsAttendee?: boolean;
 }
 
 interface SmtpSettings {
