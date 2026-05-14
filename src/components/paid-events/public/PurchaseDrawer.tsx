@@ -118,19 +118,21 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     }
   }, [open]);
 
-  // Extra attendees beyond the buyer (buyer counts as seat #1)
-  const extraSeats = Math.max(0, totalSeats - 1);
+  // When the buyer already has their own ticket for this event, EVERY seat is for a guest.
+  // Otherwise, seat #1 is the buyer themselves and only the remaining seats are extras.
+  const buyerIsAttendee = !hasOwnTicket;
+  const guestSeatsCount = buyerIsAttendee ? Math.max(0, totalSeats - 1) : totalSeats;
 
-  // Resize attendees array when extraSeats changes (preserve existing entries)
+  // Resize attendees array when guest count changes (preserve existing entries)
   useEffect(() => {
     setAttendees(prev => {
-      const next = prev.slice(0, extraSeats);
-      while (next.length < extraSeats) {
+      const next = prev.slice(0, guestSeatsCount);
+      while (next.length < guestSeatsCount) {
         next.push({ firstName: '', lastName: '', email: '' });
       }
       return next;
     });
-  }, [extraSeats]);
+  }, [guestSeatsCount]);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('pl-PL', {
@@ -158,16 +160,21 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   };
 
   const buildPayload = () => {
-    const buyerAttendee = {
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      email: formData.email.trim() || null,
-    };
-    const extras = attendees.map(a => ({
+    const guests = attendees.map(a => ({
       firstName: a.firstName.trim(),
       lastName: a.lastName.trim(),
       email: a.email?.trim() || null,
     }));
+    const attendeesPayload = buyerIsAttendee
+      ? [
+          {
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            email: formData.email.trim() || null,
+          },
+          ...guests,
+        ]
+      : guests;
     return {
       eventId,
       ticketId: ticket!.id,
@@ -178,7 +185,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         lastName: formData.lastName,
         phone: formData.phone || '',
       },
-      attendees: [buyerAttendee, ...extras],
+      attendees: attendeesPayload,
+      buyerIsAttendee,
       acceptMarketing: formData.acceptMarketing,
       refCode: refCode || null,
     };
