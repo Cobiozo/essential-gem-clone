@@ -1,6 +1,7 @@
 import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { PaidEventCard } from '@/components/paid-events/PaidEventCard';
+import { MyTicketOrders } from '@/components/paid-events/MyTicketOrders';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -112,6 +113,9 @@ const PaidEventsListPage: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* My ticket orders — visible to logged-in buyers */}
+        <MyTicketOrders />
 
         {/* UPCOMING — exposed */}
         <section>

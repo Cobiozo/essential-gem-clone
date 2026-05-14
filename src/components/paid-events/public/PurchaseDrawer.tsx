@@ -168,7 +168,9 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     if (!validate() || !ticket) return;
     setLoadingMode('payu');
     try {
-      const { data, error } = await supabase.functions.invoke('payu-create-order', { body: buildPayload() });
+      const payload = buildPayload();
+      console.log('[purchase] payu payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      const { data, error } = await supabase.functions.invoke('payu-create-order', { body: payload });
       if (error) throw error;
       if (data?.redirectUri) {
         window.location.href = data.redirectUri;
@@ -187,9 +189,27 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     if (!validate() || !ticket) return;
     setLoadingMode('transfer');
     try {
-      const { data, error } = await supabase.functions.invoke('register-event-transfer-order', { body: buildPayload() });
+      const payload = buildPayload();
+      console.log('[purchase] transfer payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      const { data, error } = await supabase.functions.invoke('register-event-transfer-order', { body: payload });
       if (error) throw error;
       if (data?.success) {
+        // Verify what actually got persisted (helps detect quantity/attendees mismatches)
+        if (data?.orderId) {
+          const { data: saved } = await supabase
+            .from('paid_event_orders')
+            .select('quantity, total_amount')
+            .eq('id', data.orderId)
+            .maybeSingle();
+          console.log('[purchase] saved order', saved, 'expected qty=', payload.quantity);
+          if (saved && saved.quantity !== payload.quantity) {
+            toast({
+              title: 'Uwaga: rozbieżność',
+              description: `Wybrano ${payload.quantity} biletów, ale w bazie zapisano ${saved.quantity}. Skontaktuj się z administratorem.`,
+              variant: 'destructive',
+            });
+          }
+        }
         setTransferSuccess(true);
       } else {
         throw new Error(data?.error || 'Nie udało się zarejestrować rezerwacji');
