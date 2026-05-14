@@ -165,6 +165,12 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
         </div>
       </CardContent>
 
+      {!isPast && user && (
+        <div className="border-t bg-muted/20 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <MyEventTicketsInline eventId={event.id} />
+        </div>
+      )}
+
       {!isPast && showPartnerForm && (
         <div className="border-t bg-muted/30 px-4 py-4">
           <div className="flex items-center gap-2 mb-3">
