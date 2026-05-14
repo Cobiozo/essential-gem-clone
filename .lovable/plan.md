@@ -1,55 +1,70 @@
-## Diagnoza
 
-Sprawdziłem zamówienie w bazie (`sebastiansnopek87@gmail.com`, BOM Łódź):
+## Cel
 
-- W bazie: `quantity = 1`, `seats_per_ticket = 1`, `total_amount = 3500 gr (= 35 zł)`, **liczba uczestników w `paid_event_order_attendees` = 0**.
-- W emailu: pojedyncza linia „Bilet: …", kwota 35 zł, brak sekcji uczestników.
-- W UI potwierdzenia: „otrzymasz 2 biletów QR" — tylko dlatego że frontend obliczał `totalSeats` z lokalnego `quantity`, a kliknięcie „+" nie zostało wysłane do backendu (lub funkcja nie była przedeployowana po ostatnich zmianach).
+1. Kupujący zawsze widzi swoje zamówienia bilet po bilecie — z liczbą biletów, kwotą i listą uczestników (z możliwością uzupełnienia danych).
+2. Naprawić ścieżkę zapisu quantity > 1 (Twoje ostatnie zamówienie ma quantity=1, total=35 zł i 0 uczestników w `paid_event_order_attendees` — coś po drodze się gubi).
 
-Czyli realnie: w bazie zapisany jest **1 bilet za 35 zł**, a użytkownik był w UI przekonany, że bierze 2. Trzy realne problemy do naprawy:
+## Diagnoza obecnego stanu
 
-1. **Email nie pokazuje liczby biletów ani uczestników** — nawet gdy `quantity > 1` lub gdy mamy więcej miejsc, treść maila wygląda identycznie jak dla 1 biletu.
-2. **Tabela `paid_event_order_attendees` jest pusta** dla tego zamówienia — albo funkcja nie była przedeployowana, albo insert padł cicho. Wymaga redeploy + log check + walidacji.
-3. **Niespójność „2 biletów QR" w UI vs `quantity=1` w backendzie** — UI pokazuje sukces zanim backend potwierdzi co realnie zapisał.
+- `paid_event_orders` dla Twojego maila — wszystkie ostatnie rekordy mają quantity=1 i total=3500 gr.
+- `paid_event_order_attendees` — 0 wierszy dla każdego z tych zamówień.
+- Brak logów edge function `register-event-transfer-order` w analytics → funkcja prawdopodobnie nie była przedeploy'owana po ostatnich zmianach albo wywołanie wraca błędem przed insertem attendees.
+- W UI nie ma żadnego widoku „moich zamówień" — `MyEventFormReferrals` pokazuje tylko `event_form_submissions` (zapisy przez link partnerski), nie zakupy biletów.
 
 ## Zakres zmian
 
-### 1. `supabase/functions/register-event-transfer-order/index.ts`
+### 1. Diagnostyka i fix zapisu quantity (backend + frontend)
 
-- Email: zawsze pokazuj sekcję „Podsumowanie zamówienia" z trzema liniami:
-  - `Bilet: <ticket.name>`
-  - `Liczba biletów: <quantity> × <cena> = <łączna kwota>` (gdy `quantity > 1` lub `seats_per_ticket > 1`)
-  - `Liczba uczestników: <totalSeats>` (gdy `totalSeats > 1`)
-- Lista uczestników: rendering przy `totalSeats > 1` (nie tylko `attendees.length > 1`) — gwarantuje że nawet gdy w `attendeesNormalized` jest sam kupujący jako placeholder, sekcja się pokaże z poprawnym opisem „1. Jan Kowalski (kupujący)" + pozostałe „Uczestnik #N — dane do uzupełnienia".
-- Logowanie: jeśli `attendeeRows.length !== totalSeats` lub insert do `paid_event_order_attendees` zwraca błąd — log ERROR + zwróć ostrzeżenie w odpowiedzi (nie blokuj zamówienia).
-- Temat maila: dodaj liczbę biletów gdy > 1 (`Rezerwacja przyjęta – N biletów – <event>`).
+**`PurchaseDrawer.tsx`**
+- Dodać `console.log('[purchase] payload', payload)` tuż przed `invoke` — łatwa weryfikacja w konsoli przeglądarki, czy quantity=2 faktycznie wychodzi z UI.
+- Po sukcesie pobrać świeży rekord z bazy (`paid_event_orders` + `paid_event_order_attendees` po `order.id`) i pokazać w ekranie sukcesu RZECZYWISTE wartości z bazy (nie z lokalnego state'u). Dzięki temu od razu widać, czy zapis był prawidłowy.
 
-### 2. `supabase/functions/payu-create-order/index.ts`
+**`register-event-transfer-order/index.ts` i `payu-create-order/index.ts`**
+- Twardy log na wejściu: `console.log('[order] received', { quantity, attendeesLen: attendeesInput.length, totalSeats })`.
+- Po insercie attendees: weryfikacja `select count(*) from paid_event_order_attendees where order_id=...` i log z porównaniem `expected vs actual`.
+- Jeśli `attendeeRows.length !== totalSeats` — zwrócić w odpowiedzi `warning: 'attendees_mismatch'`, żeby UI mógł to ujawnić.
+- Redeploy obu funkcji (najczęstsza przyczyna „naprawiłem ale nic się nie zmieniło").
 
-Identyczna logika walidacji liczby uczestników i logowania — żeby zachować spójność, ale bez zmian w treści maila (PayU nie wysyła rezerwacji-emaila).
+### 2. Nowa sekcja „Moje bilety" na `/paid-events`
 
-### 3. `src/components/paid-events/public/PurchaseDrawer.tsx`
+Nowy komponent `MyTicketOrders.tsx` osadzony na górze `PaidEventsListPage`, pod nagłówkiem strony. Widoczny dla każdego zalogowanego użytkownika.
 
-- Po sukcesie: pokaż w komunikacie potwierdzenia dokładnie tę liczbę co poszła do backendu — `quantity` i `totalSeats` z payloadu, nie z lokalnego state.
-- Przy `quantity > 1` lub `seats_per_ticket > 1` pokaż w „Podsumowaniu zamówienia" rozbicie: `<quantity> × <cena> = <łączna kwota>`.
-- Mała walidacja przy submit: jeśli wybrano > 1 bilet, dodaj subtelne potwierdzenie „Rezerwujesz 2 bilety za 70 zł — kontynuować?" (toast info, nie blokujący modal).
+**Co pokazuje (per zamówienie):**
+- Tytuł wydarzenia + data + lokalizacja (JOIN do `paid_events`)
+- Bilet: nazwa, liczba biletów, łączna kwota, status płatności (badge: Oczekuje płatności / Opłacone / Anulowane)
+- Sposób płatności (PayU / Przelew) + jeśli przelew + status oczekujący → przycisk „Pokaż dane do przelewu"
+- Lista uczestników z `paid_event_order_attendees` (np. „1. Sebastian Snopek (kupujący)", „2. Uczestnik #2 — uzupełnij dane")
+- Przy każdym uczestniku innym niż kupujący — przycisk „Edytuj dane uczestnika" otwierający mały dialog z polami imię/nazwisko/email; zapis do `paid_event_order_attendees` (z RLS: tylko właściciel zamówienia po e-mailu zalogowanego usera).
 
-### 4. Redeploy + weryfikacja
+**Zapytanie:**
+```ts
+supabase.from('paid_event_orders')
+  .select('id, quantity, total_amount, status, payment_provider, ticket:paid_event_tickets(name, price_pln, seats_per_ticket), event:paid_events(title, slug, event_date, location), attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)')
+  .eq('email', user.email).order('created_at', desc)
+```
 
-- Przedeployować `register-event-transfer-order` i `payu-create-order` po zmianach.
-- Po deploy: zrobić testową rezerwację 2 biletów i sprawdzić:
-  - `paid_event_orders.quantity = 2`
-  - `paid_event_order_attendees` ma 2 rekordy z unikalnymi `ticket_code`
-  - email zawiera „Liczba biletów: 2 × 35,00 zł = 70,00 zł" i listę uczestników
+### 3. RLS dla `paid_event_orders` i `paid_event_order_attendees`
 
-## Co NIE wchodzi w zakres
+Dodać/zweryfikować polityki:
+- SELECT na `paid_event_orders`: `email = (auth.jwt() ->> 'email')` (kupujący widzi swoje zamówienia po e-mailu, niezależnie od tego, że gość może też kupować).
+- SELECT/UPDATE na `paid_event_order_attendees`: dozwolone gdy `order_id` należy do zamówienia o `email = (auth.jwt() ->> 'email')`. UPDATE ograniczony do kolumn `first_name`, `last_name`, `email` (przez politykę WITH CHECK + brak grant na pozostałe lub trigger blokujący zmianę `seat_index`/`ticket_code`).
 
-- Zmiany schematu bazy (nie potrzebne).
-- Edycja danych uczestników po rezerwacji (osobna iteracja).
-- Naprawa już istniejącego zamówienia `2848e86d…` — to było 1 bilet w bazie. Jeśli użytkownik chciał faktycznie 2, trzeba ręcznie dorzucić drugiego uczestnika lub utworzyć drugą rezerwację.
+### 4. Niewidoczne dla obecnej sesji rekordy ze starych zamówień
 
-## Pliki do edycji
+Stare zamówienia (np. z 14.05 19:46) mają quantity=1 — po naprawie nowe zamówienia będą poprawne, ale tego konkretnego rekordu nie modyfikujemy (po stronie UX po prostu pokaże 1 bilet z 1 uczestnikiem). Jeżeli chcesz, mogę osobno dopisać ten rekord ręcznie do quantity=2 + dorzucić attendee — wymagałoby to migracji danych i Twojego potwierdzenia.
 
-- `supabase/functions/register-event-transfer-order/index.ts` — sekcja `buildEmail` + walidacja attendees + temat maila
-- `supabase/functions/payu-create-order/index.ts` — walidacja + log
-- `src/components/paid-events/public/PurchaseDrawer.tsx` — rozbicie ceny + komunikat sukcesu
+## Pliki
+
+- `src/components/paid-events/PurchaseDrawer.tsx` (logi + odczyt po sukcesie)
+- `src/components/paid-events/MyTicketOrders.tsx` (nowy)
+- `src/components/paid-events/MyTicketOrderAttendeeEditDialog.tsx` (nowy)
+- `src/pages/PaidEventsListPage.tsx` (osadzenie sekcji)
+- `supabase/functions/register-event-transfer-order/index.ts` (logi + warning)
+- `supabase/functions/payu-create-order/index.ts` (logi + warning)
+- migracja SQL: polityki RLS na `paid_event_orders` i `paid_event_order_attendees`
+
+## Poza zakresem
+
+- Zmiany w `event_form_submissions` (panel partnera).
+- Email — był już naprawiany w poprzedniej iteracji.
+- Migracja istniejących zamówień (ręczna korekta starych rekordów) — osobna decyzja.
