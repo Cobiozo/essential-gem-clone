@@ -203,11 +203,16 @@ Deno.serve(async (req) => {
       email: a.email,
       ticket_code: generateTicketCode(),
     }));
+    if (attendeeRows.length !== totalSeats) {
+      console.error(`[attendees] mismatch: rows=${attendeeRows.length} expected=${totalSeats} order=${order.id}`);
+    }
     const { error: attErr } = await supabase
       .from('paid_event_order_attendees')
       .insert(attendeeRows);
     if (attErr) {
-      console.error('attendees insert failed (continuing)', attErr);
+      console.error(`[attendees] INSERT FAILED order=${order.id} totalSeats=${totalSeats}`, attErr);
+    } else {
+      console.log(`[attendees] inserted ${attendeeRows.length} rows for order=${order.id} (qty=${quantity}, seats_per_ticket=${seatsPerTicket})`);
     }
 
     // Get PayU access token
