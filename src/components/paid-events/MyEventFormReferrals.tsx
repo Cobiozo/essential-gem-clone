@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Ticket, Users } from 'lucide-react';
+
+const formatPrice = (gr: number) =>
+  new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format((gr || 0) / 100);
 
 interface MyEventFormReferralsProps {
   /** Limit results to a single form (when shown under a form card). */
