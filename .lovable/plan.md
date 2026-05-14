@@ -1,33 +1,46 @@
-## Plan naprawy
+## Stan obecny
 
-1. **Naprawić zapis zakupu 2 biletów**
-   - Wymusić, żeby `PurchaseDrawer` zawsze wysyłał aktualną liczbę biletów i blokował wysłanie, jeśli backend zapisał inną ilość.
-   - Po zakupie odświeżać dane `Moje bilety`, żeby sekcja pojawiła się od razu bez ręcznego przeładowania.
+- ✅ Wyższy plan Supabase włączony
+- ✅ Wdrożone `register-event-transfer-order` i `payu-create-order` z poprawkami:
+  - prawdziwa `quantity` w mirrorze do `event_form_submissions` (zamiast hardcoded `1`)
+  - twardy błąd, jeśli insert do `paid_event_order_attendees` się nie powiedzie (rollback zamówienia)
+  - wymuszenie trybu „guest-only", jeśli kupujący ma już bilet
+- ✅ `PurchaseDrawer` odświeża listę „Moje bilety" po zakupie
+- ✅ Sekcja „Moje bilety" pokazuje listę uczestników z opcją edycji gości
 
-2. **Naprawić mail po zakupie przelewem**
-   - Zaktualizować `register-event-transfer-order`, aby email budował treść wyłącznie z realnie zapisanego zamówienia (`quantity`, `total_amount`) i zapisanych uczestników, nie z domyślnej wartości `1`.
-   - Poprawić mirror do `event_form_submissions`: zamiast `quantity: 1` zapisywać faktyczną liczbę biletów, faktyczną kwotę i listę `order_ids`.
-   - W treści maila pokazać: `Liczba biletów: 2 × 35,00 zł`, `Kwota do zapłaty: 70,00 zł` oraz listę uczestników/gości.
+## Co jeszcze trzeba zrobić
 
-3. **Naprawić brak rekordów uczestników**
-   - Przy tworzeniu zamówienia uczestnicy muszą zapisywać się jako rekordy w `paid_event_order_attendees`; jeśli insert uczestników się nie uda, funkcja nie może po cichu wysyłać błędnego maila.
-   - Dodać czytelny błąd/log i przerwać zakup, jeśli liczba zapisanych uczestników nie zgadza się z liczbą biletów.
+### 1. Naprawa istniejących błędnych zamówień (SQL migracja)
 
-4. **Widoczność w sekcji z ekranu („Pokaż zapisanych”)**
-   - Rozszerzyć `MyEventFormReferrals`, żeby przy zgłoszeniu z zakupu biletów pokazywał dane z powiązanych `paid_event_orders` i `paid_event_order_attendees`.
-   - Przy Twoim własnym zakupie jako partner pokazać Ciebie jako kupującego/uczestnika oraz liczbę i kwotę zakupionych biletów.
-   - Jeśli kupujesz kolejne bilety już po posiadaniu własnego biletu, w tej liście pokazać gości z możliwością rozpoznania, które dane trzeba uzupełnić.
+Twoje ostatnie zamówienie `sebastiansnopek87@gmail.com` ma `quantity=1, total_amount=3500`, choć kupowałeś 2 bilety za 70 zł. Plus brak rekordów w `paid_event_order_attendees`.
 
-5. **Sekcja „Moje bilety”**
-   - Upewnić się, że na `/paid-events` nie znika przy pustej liście przez RLS lub brak uczestników.
-   - Dla zamówień bez rekordów uczestników pokazać zamówienie i komunikat do uzupełnienia/naprawy, zamiast ukrywać całą sekcję.
+Migracja:
+- Zaktualizuje to zamówienie: `quantity = 2`, `total_amount = 7000`
+- Utworzy 2 brakujące rekordy uczestników (seat 1 = kupujący, seat 2 = `Gość #2` do uzupełnienia)
+- Zsynchronizuje `event_form_submissions.submitted_data` (`quantity`, `total_seats`, `total_amount_pln`)
+- Wygeneruje unikalne `ticket_code` dla brakujących uczestników
 
-6. **Naprawa istniejących błędnych danych**
-   - Przygotować operację danych dla Twoich najnowszych błędnych zamówień: zamówienie, które miało być na 2 bilety, ustawić na `quantity = 2`, `total_amount = 7000`, oraz utworzyć brakujące rekordy uczestników.
-   - Zsynchronizować `event_form_submissions.submitted_data`, aby panel „Pokaż zapisanych” i maile odzwierciedlały 2 bilety.
+Najpierw potwierdzę ID konkretnego zamówienia zapytaniem SQL, potem dopiero migracja.
 
-## Technicznie
+### 2. Sekcja „Pokaż zapisanych" na karcie eventu (`MyEventFormReferrals.tsx`)
 
-- Pliki do zmiany: `PurchaseDrawer.tsx`, `MyTicketOrders.tsx`, `MyEventFormReferrals.tsx`, `register-event-transfer-order/index.ts`.
-- Możliwa migracja/operacja SQL: uzupełnienie brakujących uczestników oraz naprawa konkretnych istniejących zamówień.
-- Po zmianach trzeba wdrożyć `register-event-transfer-order`; poprzednia próba wdrożenia funkcji miała limit funkcji Supabase, więc jeśli limit nadal blokuje deploy, trzeba będzie usunąć nieużywaną funkcję albo wdrożyć tylko tę jedną krytyczną funkcję.
+Obecnie ta sekcja ciągnie tylko z `event_form_submissions` i nie pokazuje rzeczywistych uczestników z zakupów biletów.
+
+Zmiana: dla każdego zgłoszenia powiązanego z zakupem biletów (po `event_id` + email kupującego) dociągnąć rekordy z `paid_event_orders` + `paid_event_order_attendees` i wyświetlić:
+- Ciebie jako kupującego/uczestnika z badge „Ty" (gdy `email = auth.user.email`)
+- Listę gości z imieniem/nazwiskiem (lub etykietą „Gość #N — uzupełnij")
+- Liczbę i kwotę biletów obok imienia kupującego
+
+### 3. (Opcjonalnie) Test end-to-end
+
+Po naprawie danych — przejście na `/paid-events` powinno pokazać sekcję „Moje bilety" z poprawnym zamówieniem (2 bilety, 70 zł, lista uczestników z edycją).
+
+## Pliki do zmiany
+
+- `supabase/migrations/<timestamp>_fix_broken_ticket_orders.sql` — naprawa danych
+- `src/components/paid-events/MyEventFormReferrals.tsx` — integracja z `paid_event_orders`
+
+## Uwagi
+
+- Edge functions już są wdrożone, więc każdy nowy zakup od teraz zapisze się prawidłowo (2 bilety = 2 rekordy uczestników, prawidłowy `total_amount`, prawidłowy mail).
+- Migracja naprawi tylko historyczne, błędne zamówienie/zamówienia.
