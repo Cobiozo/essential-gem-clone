@@ -660,12 +660,15 @@ serve(async (req) => {
         })
       : "";
 
-    const amountFormatted = new Intl.NumberFormat("pl-PL", {
+    const fmtPrice = (grosze: number) => new Intl.NumberFormat("pl-PL", {
       style: "currency",
       currency: "PLN",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(totalAmount / 100);
+    }).format(grosze / 100);
+
+    const amountFormatted = fmtPrice(totalAmount);
+    const unitPriceFormatted = fmtPrice(Number(ticket.price_pln) || 0);
 
     // Run side-effects (email, notifications, CRM upsert) in the background.
     const sideEffects = (async () => {
