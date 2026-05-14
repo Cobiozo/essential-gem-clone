@@ -55,7 +55,12 @@ const statusBadge = (status: string) => {
   }
 };
 
-export const MyTicketOrders: React.FC = () => {
+interface MyTicketOrdersProps {
+  /** When provided, only show orders for this specific event. */
+  eventId?: string;
+}
+
+export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -65,20 +70,22 @@ export const MyTicketOrders: React.FC = () => {
   const [showTransferOrderId, setShowTransferOrderId] = useState<string | null>(null);
 
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['my-ticket-orders', user?.id],
+    queryKey: ['my-ticket-orders', user?.id, eventId ?? null],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('paid_event_orders')
         .select(`
           id, quantity, total_amount, status, payment_provider, created_at,
-          first_name, last_name, email,
+          first_name, last_name, email, event_id,
           ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, price_pln, seats_per_ticket),
           event:paid_events!paid_event_orders_event_id_fkey(title, slug, event_date, location, transfer_payment_details),
           attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)
         `)
         .order('created_at', { ascending: false })
         .limit(20);
+      if (eventId) q = q.eq('event_id', eventId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data as any) as OrderRow[];
     },

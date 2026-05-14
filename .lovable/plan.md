@@ -1,70 +1,57 @@
-
 ## Cel
+Naprawić proces biletów tak, aby zalogowany partner:
+- widział swoje zamówienia i uczestników bezpośrednio na stronie wydarzenia `/events/bom-lodz`,
+- mógł edytować dane gości,
+- mógł kupić bilet dla siebie tylko raz na dane wydarzenie,
+- przy kolejnych zakupach kupował już wyłącznie bilety dla gości, bez automatycznego przypisywania pierwszego biletu do siebie.
 
-1. Kupujący zawsze widzi swoje zamówienia bilet po bilecie — z liczbą biletów, kwotą i listą uczestników (z możliwością uzupełnienia danych).
-2. Naprawić ścieżkę zapisu quantity > 1 (Twoje ostatnie zamówienie ma quantity=1, total=35 zł i 0 uczestników w `paid_event_order_attendees` — coś po drodze się gubi).
+## Co znalazłem
+- Sekcja `Moje bilety` została dodana tylko na stronie `/paid-events`, dlatego nie widzisz jej na aktualnej stronie `/events/bom-lodz`.
+- Formularz zakupu zawsze tworzy pierwszego uczestnika z danych kupującego, więc każdy kolejny zakup partnera ponownie przypisuje pierwszy bilet do niego.
+- W bazie obecne zamówienia dla `bom-lodz` mają `attendees_count = 0`, więc obecnie nie ma jeszcze danych uczestników do edycji dla tych zamówień.
 
-## Diagnoza obecnego stanu
+## Plan zmian
 
-- `paid_event_orders` dla Twojego maila — wszystkie ostatnie rekordy mają quantity=1 i total=3500 gr.
-- `paid_event_order_attendees` — 0 wierszy dla każdego z tych zamówień.
-- Brak logów edge function `register-event-transfer-order` w analytics → funkcja prawdopodobnie nie była przedeploy'owana po ostatnich zmianach albo wywołanie wraca błędem przed insertem attendees.
-- W UI nie ma żadnego widoku „moich zamówień" — `MyEventFormReferrals` pokazuje tylko `event_form_submissions` (zapisy przez link partnerski), nie zakupy biletów.
+### 1. Pokazać „Moje bilety” na stronie konkretnego wydarzenia
+- Dodać komponent `MyTicketOrders` również do `PaidEventPage.tsx`, nad treścią lub nad panelem rejestracji.
+- Dodać opcjonalny filtr `eventId`, żeby na stronie `/events/bom-lodz` pokazywać tylko bilety do tego wydarzenia.
+- Zmienić zachowanie komponentu tak, aby przy braku uczestników pokazywał jasny komunikat i ewentualną akcję uzupełniania/naprawy danych, a nie znikał lub wyglądał jak pusty.
 
-## Zakres zmian
+### 2. Umożliwić edycję gości w „Moje bilety”
+- Zachować obecny dialog edycji uczestnika.
+- Dodać obsługę sytuacji, gdy stare zamówienie nie ma rekordów uczestników: użytkownik zobaczy informację, że zamówienie wymaga wygenerowania listy uczestników.
+- Dla nowych zamówień lista uczestników będzie widoczna od razu i goście będą edytowalni.
 
-### 1. Diagnostyka i fix zapisu quantity (backend + frontend)
+### 3. Rozdzielić „kupującego” od „uczestnika”
+- W `PurchaseDrawer.tsx` dodać logikę sprawdzającą, czy zalogowany użytkownik ma już bilet dla siebie na dane wydarzenie.
+- Jeśli nie ma biletu dla siebie: pierwszy bilet pozostaje przypisany do kupującego, jak dotychczas.
+- Jeśli już ma bilet dla siebie: formularz przełącza się w tryb „kupuję dla gości”:
+  - dane kupującego nadal służą do zamówienia i emaila,
+  - żaden uczestnik nie jest automatycznie ustawiany jako kupujący,
+  - wszystkie miejsca są formularzami gości,
+  - teksty typu „Kupujący jest zapisany jako Uczestnik 1” zostają zastąpione komunikatem „Masz już bilet dla siebie — te bilety będą dla gości”.
 
-**`PurchaseDrawer.tsx`**
-- Dodać `console.log('[purchase] payload', payload)` tuż przed `invoke` — łatwa weryfikacja w konsoli przeglądarki, czy quantity=2 faktycznie wychodzi z UI.
-- Po sukcesie pobrać świeży rekord z bazy (`paid_event_orders` + `paid_event_order_attendees` po `order.id`) i pokazać w ekranie sukcesu RZECZYWISTE wartości z bazy (nie z lokalnego state'u). Dzięki temu od razu widać, czy zapis był prawidłowy.
+### 4. Wzmocnić zabezpieczenie po stronie Edge Functions
+- W `register-event-transfer-order` i `payu-create-order` wykrywać zalogowanego użytkownika z tokenu.
+- Przed zapisem sprawdzić, czy użytkownik ma już własny bilet na to wydarzenie.
+- Jeśli ma już własny bilet, backend nie przypisze pierwszego uczestnika do kupującego; użyje danych gościa z formularza albo placeholderów do późniejszego uzupełnienia.
+- Jeśli frontend lub ktoś ręcznie wyśle błędny payload, backend nadal zachowa poprawną regułę.
 
-**`register-event-transfer-order/index.ts` i `payu-create-order/index.ts`**
-- Twardy log na wejściu: `console.log('[order] received', { quantity, attendeesLen: attendeesInput.length, totalSeats })`.
-- Po insercie attendees: weryfikacja `select count(*) from paid_event_order_attendees where order_id=...` i log z porównaniem `expected vs actual`.
-- Jeśli `attendeeRows.length !== totalSeats` — zwrócić w odpowiedzi `warning: 'attendees_mismatch'`, żeby UI mógł to ujawnić.
-- Redeploy obu funkcji (najczęstsza przyczyna „naprawiłem ale nic się nie zmieniło").
+### 5. Uporządkować dane zapisywane w bazie dla nowych zamówień
+- Nowe zamówienia będą zapisywać `user_id`, `quantity`, `total_amount` i rekordy uczestników zgodne z liczbą miejsc.
+- Po zapisie funkcja zwróci informację o liczbie zapisanych uczestników, żeby frontend mógł od razu odświeżyć `Moje bilety`.
 
-### 2. Nowa sekcja „Moje bilety" na `/paid-events`
+### 6. Naprawa starych zamówień
+- Przygotuję osobną migrację/operację danych dla istniejących zamówień bez uczestników, aby utworzyć brakujące rekordy uczestników na podstawie `quantity` i danych kupującego.
+- Dla Twojego ostatniego zamówienia, które system zapisał jako `quantity = 1`, nie da się automatycznie odtworzyć pełnych danych drugiej osoby z bazy, bo nie zostały zapisane. Można jednak umożliwić ręczne uzupełnienie gościa po wygenerowaniu miejsca/uczestnika.
 
-Nowy komponent `MyTicketOrders.tsx` osadzony na górze `PaidEventsListPage`, pod nagłówkiem strony. Widoczny dla każdego zalogowanego użytkownika.
+## Pliki do zmiany
+- `src/pages/PaidEventPage.tsx`
+- `src/components/paid-events/MyTicketOrders.tsx`
+- `src/components/paid-events/public/PurchaseDrawer.tsx`
+- `supabase/functions/register-event-transfer-order/index.ts`
+- `supabase/functions/payu-create-order/index.ts`
+- migracja SQL dla brakujących danych uczestników / ewentualnych polityk RLS, jeśli obecne okażą się niewystarczające
 
-**Co pokazuje (per zamówienie):**
-- Tytuł wydarzenia + data + lokalizacja (JOIN do `paid_events`)
-- Bilet: nazwa, liczba biletów, łączna kwota, status płatności (badge: Oczekuje płatności / Opłacone / Anulowane)
-- Sposób płatności (PayU / Przelew) + jeśli przelew + status oczekujący → przycisk „Pokaż dane do przelewu"
-- Lista uczestników z `paid_event_order_attendees` (np. „1. Sebastian Snopek (kupujący)", „2. Uczestnik #2 — uzupełnij dane")
-- Przy każdym uczestniku innym niż kupujący — przycisk „Edytuj dane uczestnika" otwierający mały dialog z polami imię/nazwisko/email; zapis do `paid_event_order_attendees` (z RLS: tylko właściciel zamówienia po e-mailu zalogowanego usera).
-
-**Zapytanie:**
-```ts
-supabase.from('paid_event_orders')
-  .select('id, quantity, total_amount, status, payment_provider, ticket:paid_event_tickets(name, price_pln, seats_per_ticket), event:paid_events(title, slug, event_date, location), attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)')
-  .eq('email', user.email).order('created_at', desc)
-```
-
-### 3. RLS dla `paid_event_orders` i `paid_event_order_attendees`
-
-Dodać/zweryfikować polityki:
-- SELECT na `paid_event_orders`: `email = (auth.jwt() ->> 'email')` (kupujący widzi swoje zamówienia po e-mailu, niezależnie od tego, że gość może też kupować).
-- SELECT/UPDATE na `paid_event_order_attendees`: dozwolone gdy `order_id` należy do zamówienia o `email = (auth.jwt() ->> 'email')`. UPDATE ograniczony do kolumn `first_name`, `last_name`, `email` (przez politykę WITH CHECK + brak grant na pozostałe lub trigger blokujący zmianę `seat_index`/`ticket_code`).
-
-### 4. Niewidoczne dla obecnej sesji rekordy ze starych zamówień
-
-Stare zamówienia (np. z 14.05 19:46) mają quantity=1 — po naprawie nowe zamówienia będą poprawne, ale tego konkretnego rekordu nie modyfikujemy (po stronie UX po prostu pokaże 1 bilet z 1 uczestnikiem). Jeżeli chcesz, mogę osobno dopisać ten rekord ręcznie do quantity=2 + dorzucić attendee — wymagałoby to migracji danych i Twojego potwierdzenia.
-
-## Pliki
-
-- `src/components/paid-events/PurchaseDrawer.tsx` (logi + odczyt po sukcesie)
-- `src/components/paid-events/MyTicketOrders.tsx` (nowy)
-- `src/components/paid-events/MyTicketOrderAttendeeEditDialog.tsx` (nowy)
-- `src/pages/PaidEventsListPage.tsx` (osadzenie sekcji)
-- `supabase/functions/register-event-transfer-order/index.ts` (logi + warning)
-- `supabase/functions/payu-create-order/index.ts` (logi + warning)
-- migracja SQL: polityki RLS na `paid_event_orders` i `paid_event_order_attendees`
-
-## Poza zakresem
-
-- Zmiany w `event_form_submissions` (panel partnera).
-- Email — był już naprawiany w poprzedniej iteracji.
-- Migracja istniejących zamówień (ręczna korekta starych rekordów) — osobna decyzja.
+## Efekt dla użytkownika
+Po wejściu na `/events/bom-lodz` zobaczysz sekcję `Moje bilety` z zamówieniami, liczbą biletów, uczestnikami i edycją gości. Przy kolejnym zakupie, jeśli masz już własny bilet, system nie dopisze Cię drugi raz jako uczestnika — kupisz bilety wyłącznie dla gości.
