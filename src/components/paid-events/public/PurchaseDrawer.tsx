@@ -371,16 +371,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Attendees Section - extra attendees beyond the buyer */}
-              {extraSeats > 0 && (
+              {/* Attendees Section - guests (everyone except the buyer when buyer takes seat 1) */}
+              {guestSeatsCount > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    <h3 className="font-medium">Dodatkowi uczestnicy ({extraSeats})</h3>
+                    <h3 className="font-medium">
+                      {buyerIsAttendee ? `Dodatkowi uczestnicy (${guestSeatsCount})` : `Uczestnicy / goście (${guestSeatsCount})`}
+                    </h3>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później —
-                    z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.
+                    {buyerIsAttendee
+                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później — z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.'
+                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dane gości możesz uzupełnić teraz lub później w sekcji „Moje bilety". Każdy gość dostanie własny kod QR.'}
                   </p>
 
                   <div className="space-y-3">
