@@ -205,7 +205,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
                   </Button>
                 )}
 
-                {link && subs > 0 && (
+                {link && (
                   <Collapsible>
                     <CollapsibleTrigger asChild>
                       <Button variant="ghost" size="sm" className="text-xs h-7 px-2 -ml-2 group">
@@ -214,7 +214,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <MyEventFormReferrals formId={form.id} />
+                      <MyEventFormReferrals formId={form.id} eventId={form.event_id} />
                     </CollapsibleContent>
                   </Collapsible>
                 )}

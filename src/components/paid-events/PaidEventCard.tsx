@@ -7,7 +7,9 @@ import { Calendar, MapPin, Globe, ArrowRight, Users, Link2 } from 'lucide-react'
 import { format } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { MyEventFormLinks } from './MyEventFormLinks';
+import { MyEventTicketsInline } from './MyEventTicketsInline';
 
 interface PaidEvent {
   id: string;
@@ -34,6 +36,7 @@ interface PaidEventCardProps {
 export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false, showPartnerForm = false }) => {
   const navigate = useNavigate();
   const { tf, language } = useLanguage();
+  const { user } = useAuth();
   const dateLocale = getAppDateLocale(language);
   
   const formatPrice = (priceInGrosze: number) => {
@@ -161,6 +164,12 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
           )}
         </div>
       </CardContent>
+
+      {!isPast && user && (
+        <div className="border-t bg-muted/20 px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <MyEventTicketsInline eventId={event.id} />
+        </div>
+      )}
 
       {!isPast && showPartnerForm && (
         <div className="border-t bg-muted/30 px-4 py-4">
