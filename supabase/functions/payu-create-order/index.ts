@@ -26,6 +26,8 @@ interface OrderRequest {
   attendees?: AttendeeInput[];
   refCode?: string | null;
   acceptMarketing?: boolean;
+  /** When false, no seat is auto-filled with buyer data — all seats are guests. */
+  buyerIsAttendee?: boolean;
 }
 
 function generateTicketCode(): string {
