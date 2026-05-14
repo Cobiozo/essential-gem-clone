@@ -182,20 +182,32 @@ function buildEmail(opts: {
   eventDate: string;
   ticketName: string;
   amountFormatted: string;
+  unitPriceFormatted?: string;
+  quantity?: number;
+  totalSeats?: number;
   transferDetails: string;
   ticketCode: string;
   bannerUrl?: string | null;
   contact: ContactPerson | null;
   confirmUrl?: string | null;
   cancelUrl?: string | null;
-  attendees?: Array<{ firstName: string; lastName: string }>;
+  attendees?: Array<{ firstName: string; lastName: string; isPlaceholder?: boolean; isBuyer?: boolean }>;
 }): string {
   const transferHtml = `<pre style="background:#fdf8ec;border-left:4px solid #D4AF37;padding:18px 22px;border-radius:8px;margin:20px 0;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;color:#333;">${escapeHtml(opts.transferDetails)}</pre>`;
 
-  const attendeesHtml = opts.attendees && opts.attendees.length > 1
-    ? `<h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">👥 Uczestnicy (${opts.attendees.length})</h3>
-       <ol style="padding-left:20px;font-size:14px;line-height:1.7;color:#333;margin:0 0 16px;">
-         ${opts.attendees.map(a => `<li>${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}</li>`).join("")}
+  const qty = Math.max(1, Number(opts.quantity) || 1);
+  const seats = Math.max(qty, Number(opts.totalSeats) || qty);
+  const showBreakdown = qty > 1 && opts.unitPriceFormatted;
+
+  const attendeesHtml = seats > 1 && opts.attendees && opts.attendees.length > 0
+    ? `<h3 style="font-size:16px;color:#D4AF37;margin:24px 0 8px;">👥 Uczestnicy (${seats})</h3>
+       <ol style="padding-left:20px;font-size:14px;line-height:1.7;color:#333;margin:0 0 8px;">
+         ${opts.attendees.map((a) => {
+           const name = `${escapeHtml(a.firstName)} ${escapeHtml(a.lastName)}`.trim();
+           if (a.isBuyer) return `<li><strong>${name}</strong> <span style="color:#888;font-size:12px;">(kupujący)</span></li>`;
+           if (a.isPlaceholder) return `<li style="color:#888;"><em>${name}</em> <span style="font-size:12px;">— dane do uzupełnienia</span></li>`;
+           return `<li>${name}</li>`;
+         }).join("")}
        </ol>
        <p style="font-size:13px;color:#666;margin:0 0 16px;">Po zaksięgowaniu wpłaty każdy uczestnik dostanie własny kod QR.</p>`
     : '';
@@ -219,6 +231,14 @@ function buildEmail(opts: {
        </p>`
     : '';
 
+  const ticketLineHtml = showBreakdown
+    ? `Bilet: <strong>${escapeHtml(opts.ticketName)}</strong><br/>
+       Liczba biletów: <strong>${qty} × ${escapeHtml(opts.unitPriceFormatted!)}</strong><br/>
+       ${seats > qty ? `Liczba uczestników: <strong>${seats}</strong><br/>` : ''}
+       Kwota do zapłaty: <strong style="color:#D4AF37;font-size:18px;">${escapeHtml(opts.amountFormatted)}</strong><br/>`
+    : `Bilet: <strong>${escapeHtml(opts.ticketName)}</strong>${seats > 1 ? ` <span style="color:#888;font-size:13px;">(${seats} uczestników)</span>` : ''}<br/>
+       Kwota do zapłaty: <strong style="color:#D4AF37;font-size:18px;">${escapeHtml(opts.amountFormatted)}</strong><br/>`;
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#333;">
@@ -231,8 +251,7 @@ function buildEmail(opts: {
         Dziękujemy za rejestrację na wydarzenie <strong>${escapeHtml(opts.eventTitle)}</strong>${opts.eventDate ? ` (${escapeHtml(opts.eventDate)})` : ""}.
       </p>
       <p style="font-size:15px;line-height:1.6;">
-        Bilet: <strong>${escapeHtml(opts.ticketName)}</strong><br/>
-        Kwota do zapłaty: <strong style="color:#D4AF37;font-size:18px;">${escapeHtml(opts.amountFormatted)}</strong><br/>
+        ${ticketLineHtml}
         Numer rezerwacji: <code style="background:#f3f3f3;padding:2px 6px;border-radius:4px;">${escapeHtml(opts.ticketCode)}</code>
       </p>
 
@@ -430,11 +449,16 @@ serve(async (req) => {
       email: a.email,
       ticket_code: generateTicketCode(),
     }));
+    if (attendeeRows.length !== totalSeats) {
+      console.error(`[attendees] mismatch: rows=${attendeeRows.length} expected=${totalSeats} order=${order.id}`);
+    }
     const { error: attErr } = await supabase
       .from("paid_event_order_attendees")
       .insert(attendeeRows);
     if (attErr) {
-      console.error("attendees insert failed (continuing)", attErr);
+      console.error(`[attendees] INSERT FAILED order=${order.id} totalSeats=${totalSeats}`, attErr);
+    } else {
+      console.log(`[attendees] inserted ${attendeeRows.length} rows for order=${order.id} (qty=${quantity}, seats_per_ticket=${seatsPerTicket})`);
     }
 
     // Mirror this order into event_form_submissions so it shows up in the
@@ -636,12 +660,15 @@ serve(async (req) => {
         })
       : "";
 
-    const amountFormatted = new Intl.NumberFormat("pl-PL", {
+    const fmtPrice = (grosze: number) => new Intl.NumberFormat("pl-PL", {
       style: "currency",
       currency: "PLN",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(totalAmount / 100);
+    }).format(grosze / 100);
+
+    const amountFormatted = fmtPrice(totalAmount);
+    const unitPriceFormatted = fmtPrice(Number(ticket.price_pln) || 0);
 
     // Run side-effects (email, notifications, CRM upsert) in the background.
     const sideEffects = (async () => {
@@ -691,18 +718,27 @@ serve(async (req) => {
             eventDate: eventDateStr,
             ticketName: ticket.name,
             amountFormatted,
+            unitPriceFormatted,
+            quantity,
+            totalSeats,
             transferDetails,
             ticketCode,
             bannerUrl: event.banner_url,
             contact,
             confirmUrl,
             cancelUrl,
-            attendees: attendeesNormalized.map(a => ({ firstName: a.firstName, lastName: a.lastName })),
+            attendees: attendeesNormalized.map((a, idx) => ({
+              firstName: a.firstName,
+              lastName: a.lastName,
+              isBuyer: idx === 0,
+              isPlaceholder: idx > 0 && a.firstName === "Uczestnik" && /^#\d+$/.test(a.lastName),
+            })),
           });
+          const subjectQty = totalSeats > 1 ? ` – ${totalSeats} biletów` : '';
           await sendSmtp(
             smtpSettings,
             buyer.email,
-            `Rezerwacja przyjęta – ${event.title} – dane do przelewu`,
+            `Rezerwacja przyjęta${subjectQty} – ${event.title} – dane do przelewu`,
             html
           );
           console.log(`[email] sent successfully to ${buyer.email}`);

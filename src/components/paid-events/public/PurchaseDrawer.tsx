@@ -222,6 +222,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               <div className="flex flex-col items-center text-center py-6 gap-3">
                 <CheckCircle2 className="w-16 h-16 text-primary" />
                 <h3 className="text-lg font-semibold">Dziękujemy za rejestrację!</h3>
+                <div className="bg-muted/50 rounded-lg p-3 text-sm w-full max-w-sm space-y-1">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Bilet:</span><span className="font-medium">{ticket.name}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Liczba biletów:</span><span className="font-medium">{quantity}</span></div>
+                  {totalSeats > quantity && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Liczba uczestników:</span><span className="font-medium">{totalSeats}</span></div>
+                  )}
+                  <div className="flex justify-between border-t border-border/50 pt-1 mt-1"><span className="text-muted-foreground">Do zapłaty:</span><span className="font-bold text-primary">{formatPrice(totalPrice)}</span></div>
+                </div>
                 <p className="text-sm text-muted-foreground max-w-sm">
                   Twoja rezerwacja została zapisana. Wysłaliśmy email z danymi do przelewu na adres{' '}
                   <strong>{formData.email}</strong>. Po zaksięgowaniu wpłaty otrzymasz {totalSeats > 1 ? `${totalSeats} biletów QR — po jednym dla każdego uczestnika.` : 'bilet z kodem QR.'}
@@ -276,8 +284,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 )}
 
+                {quantity > 1 && (
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Cena za bilet:</span>
+                    <span>{quantity} × {formatPrice(ticket?.price ?? 0)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between pt-2 border-t border-border/50">
-                  <span className="font-medium">Do zapłaty:</span>
+                  <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
                   <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
                 </div>
               </div>
