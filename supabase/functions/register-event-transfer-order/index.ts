@@ -718,18 +718,27 @@ serve(async (req) => {
             eventDate: eventDateStr,
             ticketName: ticket.name,
             amountFormatted,
+            unitPriceFormatted,
+            quantity,
+            totalSeats,
             transferDetails,
             ticketCode,
             bannerUrl: event.banner_url,
             contact,
             confirmUrl,
             cancelUrl,
-            attendees: attendeesNormalized.map(a => ({ firstName: a.firstName, lastName: a.lastName })),
+            attendees: attendeesNormalized.map((a, idx) => ({
+              firstName: a.firstName,
+              lastName: a.lastName,
+              isBuyer: idx === 0,
+              isPlaceholder: idx > 0 && a.firstName === "Uczestnik" && /^#\d+$/.test(a.lastName),
+            })),
           });
+          const subjectQty = totalSeats > 1 ? ` – ${totalSeats} biletów` : '';
           await sendSmtp(
             smtpSettings,
             buyer.email,
-            `Rezerwacja przyjęta – ${event.title} – dane do przelewu`,
+            `Rezerwacja przyjęta${subjectQty} – ${event.title} – dane do przelewu`,
             html
           );
           console.log(`[email] sent successfully to ${buyer.email}`);
