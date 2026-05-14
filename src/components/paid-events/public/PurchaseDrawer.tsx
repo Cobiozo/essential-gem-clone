@@ -290,6 +290,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
             </div>
           ) : (
             <form onSubmit={(e) => e.preventDefault()} className="px-4 space-y-4">
+              {hasOwnTicket && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                  <div className="font-medium text-primary mb-1">Masz już bilet na to wydarzenie</div>
+                  <div className="text-xs text-muted-foreground">
+                    Kolejny zakup nie przypisze biletu Tobie — wszystkie bilety będą dla gości. Dane gości możesz uzupełnić tu lub później w sekcji „Moje bilety".
+                  </div>
+                </div>
+              )}
               {/* Order Summary */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
