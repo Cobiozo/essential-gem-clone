@@ -45,7 +45,12 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
   onRetry,
   isBuffering = false,
   playbackRate = 1,
+  allowedPlaybackRates,
 }) => {
+  const visibleSpeedOptions = allowedPlaybackRates && allowedPlaybackRates.length > 0
+    ? SPEED_OPTIONS.filter(o => allowedPlaybackRates.includes(o.value))
+    : SPEED_OPTIONS;
+  const showSpeedControl = visibleSpeedOptions.length > 1;
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
