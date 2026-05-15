@@ -137,6 +137,40 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
   return (
     <div className="rounded-md border bg-primary/5 p-3 space-y-3" data-testid="my-event-tickets-inline">
+      {!isLoading && (
+        activeOrdersCount > 0 ? (
+          <div
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            data-testid="my-event-registration-summary"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <Ticket className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-primary">Jesteś zarejestrowany na to wydarzenie</div>
+                <div className="text-muted-foreground">
+                  Zarezerwowałeś {activeSeats} {pluralPL(activeSeats, ['miejsce', 'miejsca', 'miejsc'])}
+                  {' '}w {activeOrdersCount} {pluralPL(activeOrdersCount, ['rezerwacji', 'rezerwacjach', 'rezerwacjach'])}
+                  {inactiveTickets > 0 && (
+                    <span className="text-muted-foreground/80"> (+{inactiveTickets} anulowanych)</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0">
+              {statusBadge(activeOrders[0].status)}
+            </div>
+          </div>
+        ) : (
+          <div
+            className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground italic flex items-center gap-2"
+            data-testid="my-event-registration-summary"
+          >
+            <Ticket className="h-4 w-4 shrink-0" />
+            Nie jesteś jeszcze zarejestrowany na to wydarzenie.
+          </div>
+        )
+      )}
+
       <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center justify-between gap-2">
         <span className="flex items-center gap-1">
           <Ticket className="h-3 w-3" /> Twoje bilety na to wydarzenie
