@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, CreditCard, ArrowRight, Shield, Banknote, CheckCircle2, Mail, Minus, Plus, Users } from 'lucide-react';
+import { Loader2, CreditCard, ArrowRight, Shield, Banknote, CheckCircle2, Mail, Minus, Plus, Users, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -117,12 +117,16 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     }));
   }, [open, user, profile, hasOwnTicket]);
 
-  // Reactive clear: if registration is detected after fields were already filled, wipe them.
+  // Reactive clear: re-assert empty buyer fields whenever the user is detected as already
+  // registered. Re-runs on every relevant state change so any stray autofill (browser,
+  // future code paths) is wiped before submit.
   useEffect(() => {
-    if (hasOwnTicket) {
-      setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
-    }
-  }, [hasOwnTicket]);
+    if (!hasOwnTicket) return;
+    setFormData(prev => {
+      if (!prev.firstName && !prev.lastName && !prev.email && !prev.phone) return prev;
+      return { ...prev, firstName: '', lastName: '', email: '', phone: '' };
+    });
+  }, [hasOwnTicket, open, quantity]);
 
   // Reset state when drawer closes
   useEffect(() => {
@@ -386,12 +390,22 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 )}
 
-                {quantity > 1 && (
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                {/* Detailed cost breakdown — always visible */}
+                <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                  <div className="flex justify-between">
                     <span>Cena za bilet:</span>
-                    <span>{quantity} × {formatPrice(ticket?.price ?? 0)}</span>
+                    <span>{formatPrice(ticket?.price ?? 0)}</span>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
+                    <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
+                  </div>
+                  {hasOwnTicket && (
+                    <div className="text-[11px] italic pt-1">
+                      Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex justify-between pt-2 border-t border-border/50">
                   <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
@@ -399,8 +413,22 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Buyer Data — hidden when user already has a ticket (data auto-filled from profile) */}
-              {!hasOwnTicket && (
+              {/* Buyer Data — locked & empty when user already has a ticket */}
+              {hasOwnTicket ? (
+                <div className="rounded-md bg-muted/30 border border-border/50 p-3 flex gap-3 items-start">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <div className="font-medium text-foreground mb-0.5">Twoje dane są już zapisane</div>
+                    <div className="text-muted-foreground">
+                      Powiązaliśmy zamówienie z Twoim kontem
+                      {((profile as any)?.email || user?.email) && (
+                        <> (<span className="font-mono text-foreground/80">{(profile as any)?.email || user?.email}</span>)</>
+                      )}
+                      . Pola kupującego są zablokowane — wypełnij tylko dane gości poniżej.
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   <h3 className="font-medium">Dane kupującego</h3>
 

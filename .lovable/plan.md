@@ -1,32 +1,39 @@
-## Problem
+## Cel
 
-Po wykryciu, że użytkownik jest już zarejestrowany (`hasOwnTicket === true`), formularz „Dane kupującego" jest ukrywany, ale `formData` (firstName/lastName/email/phone) jest wciąż wypełniane przez `useEffect` autouzupełnienia (linie 106–115). To znaczy, że dane kupującego nadal lecą w `buildPayload().buyer` — co przy nieuwadze może doprowadzić do ponownej rejestracji tej samej osoby.
+Po wykryciu, że użytkownik ma już własną rejestrację (`hasOwnTicket === true`):
+1. Pola „Dane kupującego" mają zostać trwale zablokowane i puste — nie tylko ukryte, ale też wizualnie zaprezentowane jako zablokowane (na wypadek gdyby przeglądarka próbowała autofillować).
+2. Drawer ma pokazać czytelne podsumowanie kosztów: ile gości × cena za bilet = suma, oraz jak zmienia się kwota wraz ze zwiększaniem liczby biletów.
 
 ## Zmiany w `src/components/paid-events/public/PurchaseDrawer.tsx`
 
-1. **Autouzupełnianie pomija buyera, gdy `hasOwnTicket`** (useEffect, linie 106–115):
-   - Jeśli `hasOwnTicket === true`, NIE wypełniać `firstName/lastName/email/phone` z profilu.
-   - Jeśli wcześniej (przed sprawdzeniem) zostały wypełnione, wyczyścić je natychmiast po wykryciu rejestracji.
+### 1. Trwałe czyszczenie pól kupującego
 
-2. **Reaktywne czyszczenie po wykryciu** — nowy `useEffect` zależny od `hasOwnTicket`:
-   ```ts
-   useEffect(() => {
-     if (hasOwnTicket) {
-       setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
-     }
-   }, [hasOwnTicket]);
-   ```
+- **`useEffect` czyszczący** (już istnieje) — rozszerzyć zależności o `quantity`, `attendees.length` i `open`, żeby przy każdej zmianie ilości / panelu re-asercja czyściła `firstName/lastName/email/phone`. Również w trakcie `transferSuccess === false`.
+- **Defensywny guard w `setFormData`** dla pól buyer: stworzyć helper `setBuyerField(key, value)`, który ignoruje set gdy `hasOwnTicket`. (Aktualne onChange'e są już ukryte — pozostaje to zabezpieczenie na wypadek refaktoru / przyszłych zmian.)
+- **`buildPayload()`** — już używa `profile` zamiast `formData` w trybie `hasOwnTicket`. Dodatkowo zatrzymać submit z bezpiecznikiem: jeżeli `hasOwnTicket` a `formData.firstName/lastName/email` jest niepuste → wymusić clear przed wysłaniem (assert + ponowny `setFormData`).
 
-3. **`buildPayload()` w trybie „guest-only"** (linie 168–199):
-   - Gdy `hasOwnTicket`, pole `buyer` ustawiane wyłącznie z `user.email` / `profile` (bez wartości z formularza), wyłącznie do powiązania zamówienia z kontem użytkownika i wysłania emaila potwierdzającego do nabywcy.
-   - `attendees` zawiera WYŁĄCZNIE gości — bez kupującego (`buyerIsAttendee = false` już to zapewnia).
+### 2. Wizualny „lock" zamiast pustki
 
-4. **Walidacja** (`validate()`):
-   - W trybie `hasOwnTicket` wymagać tylko `acceptTerms` i danych każdego gościa (imię + nazwisko). Pomija sprawdzanie `formData.firstName/lastName/email`.
-   - Wymagać też, żeby `guestSeatsCount > 0` — w przeciwnym razie nie ma kogo zarejestrować (UI: zablokować przyciski płatności i pokazać hint „Dodaj przynajmniej jednego gościa lub zwiększ liczbę biletów").
+Tam, gdzie obecnie sekcja „Dane kupującego" jest po prostu ukrywana, dodać krótki, niepełny placeholder z ikoną kłódki i napisem:
+- Tytuł: „Twoje dane są już zapisane"
+- Podtytuł: „Powiązaliśmy zamówienie z Twoim kontem (`<email z profilu>`). Pola kupującego są zablokowane."
+- Prezentacja: dyskretny `bg-muted/30` box z `Lock` icon (lucide-react), bez żadnych inputów.
 
-5. **Bez zmian**: edge functions, RLS, schemat bazy, `MyEventTicketsInline.tsx`.
+### 3. Rozszerzone podsumowanie kosztów
 
-## Uwagi
+W bloku „Order Summary" (obecnie linie ~313–365), pod selektorem ilości i przed total-em, zawsze pokazywać szczegółowy breakdown:
+- Linia: `Liczba uczestników: {totalSeats}` (jeśli `seatsPerTicket > 1` lub `quantity > 1`).
+- Linia: `Cena za bilet: {formatPrice(price)}`.
+- Linia: `Bilety: {quantity} × {formatPrice(price)} = {formatPrice(totalPrice)}` (zawsze gdy `quantity ≥ 1`, nie tylko `> 1`).
+- W trybie `hasOwnTicket`: zamiast „Bilety" napisać `Bilety dla gości: {quantity} × {formatPrice(price)} = {formatPrice(totalPrice)}`, plus mała linia hint: `Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.`
+- Zachować dotychczasowy total „Do zapłaty" jako pogrubiony wiersz na końcu (bez zmian).
 
-Tryb anonimowy / niezalogowany pozostaje bez zmian — `hasOwnTicket` wymaga `user?.id`.
+### 4. Bez zmian
+
+- Edge functions, RLS, schemat bazy.
+- Tryb anonimowy (niezalogowany) — `hasOwnTicket` wymaga `user?.id`.
+- `MyEventTicketsInline.tsx`.
+
+## Uwagi techniczne
+
+Dodać import `Lock` z `lucide-react` razem z istniejącymi ikonami w linii 7.
