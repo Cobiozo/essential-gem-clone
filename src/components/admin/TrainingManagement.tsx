@@ -2596,6 +2596,27 @@ const LessonForm = ({
         </p>
       </div>
 
+      {formData.media_type === 'video' && (
+        <div className="flex items-start space-x-2 p-3 rounded-lg border bg-muted/30">
+          <Checkbox
+            id="lesson-playback-speed"
+            checked={!!formData.playback_speed_enabled}
+            onCheckedChange={(checked) =>
+              setFormData(prev => ({ ...prev, playback_speed_enabled: checked as boolean }))
+            }
+            className="mt-1"
+          />
+          <div className="flex-1">
+            <Label htmlFor="lesson-playback-speed" className="cursor-pointer">
+              Pozwól na przyspieszenie odtwarzania (1.5x)
+            </Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gdy włączone, użytkownik zobaczy w playerze przełącznik 1x / 1.5x. Zaliczenie lekcji bazuje na pozycji wideo (currentTime), więc działa poprawnie niezależnie od prędkości odtwarzania.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <Checkbox
