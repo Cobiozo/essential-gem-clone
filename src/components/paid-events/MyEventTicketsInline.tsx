@@ -92,10 +92,25 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   };
 
   return (
-    <div className="rounded-md border bg-primary/5 p-3 space-y-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center gap-1">
-        <Ticket className="h-3 w-3" /> Twoje bilety na to wydarzenie
+    <div className="rounded-md border bg-primary/5 p-3 space-y-3" data-testid="my-event-tickets-inline">
+      <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1">
+          <Ticket className="h-3 w-3" /> Twoje bilety na to wydarzenie
+        </span>
+        <Badge variant="outline" className="text-[10px]">{totalTickets} {totalTickets === 1 ? 'bilet' : 'biletów'}</Badge>
       </div>
+
+      {isLoading && (
+        <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+          <Loader2 className="h-3 w-3 animate-spin" /> Ładowanie biletów…
+        </div>
+      )}
+
+      {!isLoading && orders.length === 0 && (
+        <div className="text-xs text-muted-foreground italic">
+          Nie masz jeszcze biletów na to wydarzenie.
+        </div>
+      )}
 
       {orders.map((o: any) => {
         const seatsPer = Math.max(1, Number(o.ticket?.seats_per_ticket) || 1);
