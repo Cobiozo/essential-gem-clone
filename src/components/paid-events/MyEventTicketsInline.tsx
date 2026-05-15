@@ -187,6 +187,24 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
               {statusBadge(activeOrders[0].status)}
             </div>
           </div>
+        ) : formSubmission ? (
+          <div
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            data-testid="my-event-registration-summary"
+          >
+            <div className="flex items-start gap-2 min-w-0">
+              <Ticket className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-semibold text-primary">Jesteś zarejestrowany na to wydarzenie</div>
+                <div className="text-muted-foreground">
+                  Twoja rejestracja{formSubmission.email_confirmed_at ? ' została potwierdzona' : ' oczekuje na potwierdzenie e-mail'}.
+                </div>
+              </div>
+            </div>
+            <div className="shrink-0">
+              {statusBadge(formSubmission.payment_status === 'paid' ? 'paid' : 'awaiting_transfer')}
+            </div>
+          </div>
         ) : (
           <div
             className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground italic flex items-center gap-2"
