@@ -151,21 +151,21 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         const qty = Math.max(1, Number(o.quantity) || 1);
         const totalSeats = qty * seatsPer;
         const attendees: Attendee[] = [...(o.attendees || [])].sort((a: any, b: any) => a.seat_index - b.seat_index);
-        const isPaid = o.status === 'paid' || o.status === 'completed';
+        const isInactive = INACTIVE.has(o.status);
+        const canEdit = !isInactive;
 
         return (
-          <div key={o.id} className="text-xs space-y-1.5 border-l-2 border-primary/40 pl-2">
+          <div key={o.id} className={`text-xs space-y-1.5 border-l-2 pl-2 ${isInactive ? 'border-muted-foreground/30 opacity-60' : 'border-primary/40'}`}>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{o.ticket?.name || 'Bilet'}</span>
+              <span className={`font-medium ${isInactive ? 'line-through' : ''}`}>{o.ticket?.name || 'Bilet'}</span>
               <Badge variant="outline" className="text-[10px]">{qty} × bilet</Badge>
               <Badge variant="outline" className="text-[10px] gap-1">
                 <Users className="h-2.5 w-2.5" /> {totalSeats}
               </Badge>
               <span className="text-primary font-bold">{formatPrice(o.total_amount)}</span>
-              {isPaid ? (
-                <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>
-              ) : (
-                <Badge variant="secondary" className="text-[10px]">Oczekuje płatności</Badge>
+              {statusBadge(o.status)}
+              {o.checked_in && (
+                <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Zameldowany</Badge>
               )}
             </div>
 
