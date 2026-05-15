@@ -61,12 +61,27 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   if (!user) return null;
 
   const INACTIVE = new Set(['cancelled', 'refunded', 'failed', 'expired']);
-  const activeTickets = orders
-    .filter((o: any) => !INACTIVE.has(o.status))
+  const activeOrders = orders.filter((o: any) => !INACTIVE.has(o.status));
+  const activeTickets = activeOrders
     .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
   const inactiveTickets = orders
     .filter((o: any) => INACTIVE.has(o.status))
     .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
+  const activeSeats = activeOrders.reduce(
+    (sum: number, o: any) =>
+      sum + (Number(o.quantity) || 0) * Math.max(1, Number(o.ticket?.seats_per_ticket) || 1),
+    0,
+  );
+  const activeOrdersCount = activeOrders.length;
+
+  const pluralPL = (n: number, forms: [string, string, string]) => {
+    const abs = Math.abs(n);
+    if (abs === 1) return forms[0];
+    const mod10 = abs % 10;
+    const mod100 = abs % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
+    return forms[2];
+  };
 
   const statusBadge = (status: string) => {
     switch (status) {
