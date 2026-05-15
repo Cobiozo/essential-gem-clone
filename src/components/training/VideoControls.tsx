@@ -21,6 +21,10 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
+  // NEW: Optional playback rate selector (admin-enabled per lesson)
+  playbackRate?: number;
+  onSpeedChange?: (rate: number) => void;
+  allowedPlaybackRates?: number[];
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
