@@ -1145,7 +1145,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {HEALTHY_KNOWLEDGE_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          <SelectItem key={cat} value={cat}>{cat === 'Testymoniale' ? 'Prawdziwe historie' : cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
