@@ -39,24 +39,35 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '' });
   const [saving, setSaving] = useState(false);
 
+  const email = user?.email?.toLowerCase() ?? null;
+
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['my-event-tickets-inline', user?.id, eventId],
+    queryKey: ['my-event-tickets-inline', user?.id, email, eventId],
     enabled: !!user?.id && !!eventId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('paid_event_orders')
         .select(`
           id, quantity, total_amount, status, created_at, email,
           ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
           attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
         `)
-        .eq('user_id', user!.id)
         .eq('event_id', eventId)
         .order('created_at', { ascending: false });
+
+      if (email) {
+        q = q.or(`user_id.eq.${user!.id},email.eq.${email}`);
+      } else {
+        q = q.eq('user_id', user!.id);
+      }
+
+      const { data, error } = await q;
       if (error) throw error;
-      return (data as any[]) || [];
+      const rows = (data as any[]) || [];
+      return Array.from(new Map(rows.map((o) => [o.id, o])).values());
     },
   });
+
 
   if (!user) return null;
 
