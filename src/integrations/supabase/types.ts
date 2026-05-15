@@ -8742,6 +8742,7 @@ export type Database = {
           media_url: string | null
           min_time_seconds: number | null
           module_id: string
+          playback_speed_enabled: boolean
           position: number
           title: string
           updated_at: string
@@ -8761,6 +8762,7 @@ export type Database = {
           media_url?: string | null
           min_time_seconds?: number | null
           module_id: string
+          playback_speed_enabled?: boolean
           position?: number
           title: string
           updated_at?: string
@@ -8780,6 +8782,7 @@ export type Database = {
           media_url?: string | null
           min_time_seconds?: number | null
           module_id?: string
+          playback_speed_enabled?: boolean
           position?: number
           title?: string
           updated_at?: string
