@@ -1104,6 +1104,7 @@ const TrainingModule = () => {
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}
                       pauseRequested={isNotesDialogOpen}
+                      allowedPlaybackRates={currentLesson.playback_speed_enabled ? [1, 1.5] : [1]}
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
                       <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
