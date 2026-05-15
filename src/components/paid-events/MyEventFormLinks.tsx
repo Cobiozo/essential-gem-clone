@@ -64,18 +64,22 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
     },
   });
 
-  // Submission counts per form for current partner
+  // Submission counts per form for current partner (excl. own self-registrations)
   const { data: subCounts = {} } = useQuery({
-    queryKey: ['my-event-form-sub-counts', user?.id],
+    queryKey: ['my-event-form-sub-counts', user?.id, user?.email],
     enabled: !!user?.id,
     queryFn: async () => {
+      const ownEmail = (user?.email || '').trim().toLowerCase();
       const { data, error } = await supabase
         .from('event_form_submissions')
-        .select('form_id')
+        .select('form_id, email')
         .eq('partner_user_id', user!.id);
       if (error) throw error;
       const map: Record<string, number> = {};
-      (data || []).forEach((r: any) => { map[r.form_id] = (map[r.form_id] || 0) + 1; });
+      (data || []).forEach((r: any) => {
+        if ((r.email || '').trim().toLowerCase() === ownEmail) return;
+        map[r.form_id] = (map[r.form_id] || 0) + 1;
+      });
       return map;
     },
   });
