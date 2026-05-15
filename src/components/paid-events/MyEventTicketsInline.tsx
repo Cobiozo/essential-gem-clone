@@ -32,20 +32,23 @@ interface Props {
  * with inline editing for guest seats.
  */
 export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editAttendee, setEditAttendee] = useState<Attendee | null>(null);
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '' });
   const [saving, setSaving] = useState(false);
 
-  const email = user?.email?.toLowerCase() ?? null;
+  const authEmail = user?.email?.toLowerCase() ?? null;
+  const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
+  const emails = Array.from(new Set([authEmail, profileEmail].filter(Boolean) as string[]));
 
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['my-event-tickets-inline', user?.id, email, eventId],
+    queryKey: ['my-event-tickets-inline', user?.id, emails.join('|'), eventId],
     enabled: !!user?.id && !!eventId,
     queryFn: async () => {
-      let q = supabase
+      const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
+      const { data, error } = await supabase
         .from('paid_event_orders')
         .select(`
           id, quantity, total_amount, status, created_at, email,
@@ -53,18 +56,31 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
           attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
         `)
         .eq('event_id', eventId)
+        .or(orParts.join(','))
         .order('created_at', { ascending: false });
 
-      if (email) {
-        q = q.or(`user_id.eq.${user!.id},email.eq.${email}`);
-      } else {
-        q = q.eq('user_id', user!.id);
-      }
-
-      const { data, error } = await q;
       if (error) throw error;
       const rows = (data as any[]) || [];
       return Array.from(new Map(rows.map((o) => [o.id, o])).values());
+    },
+  });
+
+  // Fallback: confirmed registration via event_form_submissions (in case orders are not yet visible)
+  const { data: formSubmission } = useQuery({
+    queryKey: ['my-event-registration-fallback', eventId, emails.join('|')],
+    enabled: !!user?.id && !!eventId && emails.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('event_form_submissions')
+        .select('id, status, email_confirmed_at, payment_status, first_name, last_name, created_at')
+        .eq('event_id', eventId)
+        .in('email', emails)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
     },
   });
 
