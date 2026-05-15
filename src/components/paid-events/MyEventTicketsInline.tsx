@@ -60,7 +60,36 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
   if (!user) return null;
 
-  const totalTickets = orders.reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
+  const INACTIVE = new Set(['cancelled', 'refunded', 'failed', 'expired']);
+  const activeTickets = orders
+    .filter((o: any) => !INACTIVE.has(o.status))
+    .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
+  const inactiveTickets = orders
+    .filter((o: any) => INACTIVE.has(o.status))
+    .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Potwierdzone</Badge>;
+      case 'awaiting_transfer':
+        return <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] text-white">Oczekuje przelewu</Badge>;
+      case 'pending':
+        return <Badge variant="secondary" className="text-[10px]">Zarezerwowane</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive" className="text-[10px]">Anulowane</Badge>;
+      case 'refunded':
+        return <Badge variant="outline" className="text-[10px]">Zwrócone</Badge>;
+      case 'failed':
+        return <Badge variant="destructive" className="text-[10px]">Płatność nieudana</Badge>;
+      case 'expired':
+        return <Badge variant="outline" className="text-[10px]">Rezerwacja wygasła</Badge>;
+      default:
+        return <Badge variant="secondary" className="text-[10px]">{status || 'Nieznany'}</Badge>;
+    }
+  };
 
   const openEdit = (a: Attendee) => {
     setEditAttendee(a);
