@@ -575,7 +575,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                     {loadingMode === 'transfer' ? (
                       <><Loader2 className="w-4 h-4 animate-spin" />Rejestrowanie...</>
                     ) : (
-                      <><Banknote className="w-4 h-4" />Zarejestruj mnie i wyślij dane do przelewu</>
+                      <><Banknote className="w-4 h-4" />{hasOwnTicket ? 'Zarejestruj gości i wyślij dane do przelewu' : 'Zarejestruj mnie i wyślij dane do przelewu'}</>
                     )}
                   </Button>
                 )}
