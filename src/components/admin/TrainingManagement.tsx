@@ -2448,6 +2448,7 @@ const LessonForm = ({
     action_buttons: lesson?.action_buttons || [],
     position: lesson?.position ?? 0,
     completion_method: lesson?.completion_method || 'auto',
+    playback_speed_enabled: lesson?.playback_speed_enabled ?? false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
