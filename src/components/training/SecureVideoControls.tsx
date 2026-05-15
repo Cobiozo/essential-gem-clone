@@ -21,6 +21,7 @@ interface SecureVideoControlsProps {
   onRetry?: () => void;
   isBuffering?: boolean;
   playbackRate?: number;
+  allowedPlaybackRates?: number[];
 }
 
 const SPEED_OPTIONS = [
