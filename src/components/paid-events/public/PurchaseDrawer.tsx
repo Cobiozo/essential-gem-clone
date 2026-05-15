@@ -376,31 +376,33 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Buyer Data */}
-              <div className="space-y-3">
-                <h3 className="font-medium">Dane kupującego</h3>
+              {/* Buyer Data — hidden when user already has a ticket (data auto-filled from profile) */}
+              {!hasOwnTicket && (
+                <div className="space-y-3">
+                  <h3 className="font-medium">Dane kupującego</h3>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="firstName">Imię *</Label>
-                    <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Jan" required />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="firstName">Imię *</Label>
+                      <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Jan" required />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Nazwisko *</Label>
+                      <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Kowalski" required />
+                    </div>
                   </div>
+
                   <div>
-                    <Label htmlFor="lastName">Nazwisko *</Label>
-                    <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Kowalski" required />
+                    <Label htmlFor="email">Email *</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jan@example.com" required />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Telefon (opcjonalnie)</Label>
+                    <Input id="phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+48 123 456 789" />
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jan@example.com" required />
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Telefon (opcjonalnie)</Label>
-                  <Input id="phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+48 123 456 789" />
-                </div>
-              </div>
+              )}
 
               {/* Attendees Section - guests (everyone except the buyer when buyer takes seat 1) */}
               {guestSeatsCount > 0 && (
