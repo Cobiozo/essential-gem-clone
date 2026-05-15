@@ -267,7 +267,8 @@ const TrainingModule = () => {
         const mappedLessons = (lessonsData || []).map(lesson => ({
           ...lesson,
           action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[],
-          completion_method: (lesson as any).completion_method || 'auto'
+          completion_method: (lesson as any).completion_method || 'auto',
+          playback_speed_enabled: (lesson as any).playback_speed_enabled ?? false,
         }));
         setLessons(mappedLessons);
 
