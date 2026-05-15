@@ -1189,7 +1189,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Block playback rate changes that are not in allowedPlaybackRates
     // (protects against DevTools manipulation while still allowing admin-enabled speeds)
     const handleRateChange = () => {
-      if (!allowedPlaybackRates.includes(video.playbackRate)) {
+      if (!allowedPlaybackRatesRef.current.includes(video.playbackRate)) {
         video.playbackRate = 1;
         setPlaybackRate(1);
       }
