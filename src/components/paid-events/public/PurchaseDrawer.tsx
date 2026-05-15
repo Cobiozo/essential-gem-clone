@@ -154,9 +154,18 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const validate = (): boolean => {
     if (!ticket) return false;
-    if (!formData.firstName || !formData.lastName || !formData.email) {
-      toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
-      return false;
+    if (!hasOwnTicket) {
+      if (!formData.firstName || !formData.lastName || !formData.email) {
+        toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
+        return false;
+      }
+    } else {
+      // Guest-only mode: require name for each guest seat
+      const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
+      if (incomplete !== -1) {
+        toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
+        return false;
+      }
     }
     if (!formData.acceptTerms) {
       toast({ title: 'Akceptacja regulaminu', description: 'Musisz zaakceptować regulamin aby kontynuować', variant: 'destructive' });
@@ -302,10 +311,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           ) : (
             <form onSubmit={(e) => e.preventDefault()} className="px-4 space-y-4">
               {hasOwnTicket && (
-                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
-                  <div className="font-medium text-primary mb-1">Masz już bilet na to wydarzenie</div>
-                  <div className="text-xs text-muted-foreground">
-                    Kolejny zakup nie przypisze biletu Tobie — wszystkie bilety będą dla gości. Dane gości możesz uzupełnić tu lub później w sekcji „Moje bilety".
+                <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-4 text-sm flex gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-primary mb-1">Jesteś już zarejestrowany na to wydarzenie</div>
+                    <div className="text-xs text-muted-foreground">
+                      Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety".
+                    </div>
                   </div>
                 </div>
               )}
@@ -364,31 +376,33 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Buyer Data */}
-              <div className="space-y-3">
-                <h3 className="font-medium">Dane kupującego</h3>
+              {/* Buyer Data — hidden when user already has a ticket (data auto-filled from profile) */}
+              {!hasOwnTicket && (
+                <div className="space-y-3">
+                  <h3 className="font-medium">Dane kupującego</h3>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="firstName">Imię *</Label>
-                    <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Jan" required />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="firstName">Imię *</Label>
+                      <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Jan" required />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Nazwisko *</Label>
+                      <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Kowalski" required />
+                    </div>
                   </div>
+
                   <div>
-                    <Label htmlFor="lastName">Nazwisko *</Label>
-                    <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Kowalski" required />
+                    <Label htmlFor="email">Email *</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jan@example.com" required />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Telefon (opcjonalnie)</Label>
+                    <Input id="phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+48 123 456 789" />
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jan@example.com" required />
-                </div>
-
-                <div>
-                  <Label htmlFor="phone">Telefon (opcjonalnie)</Label>
-                  <Input id="phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+48 123 456 789" />
-                </div>
-              </div>
+              )}
 
               {/* Attendees Section - guests (everyone except the buyer when buyer takes seat 1) */}
               {guestSeatsCount > 0 && (
