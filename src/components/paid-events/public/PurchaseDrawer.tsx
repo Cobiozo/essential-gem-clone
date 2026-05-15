@@ -71,7 +71,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const [attendees, setAttendees] = useState<Attendee[]>([]);
 
   // Detect if the logged-in partner already has a (non-cancelled) ticket for this event.
-  // If yes — they cannot buy themselves a second ticket; the drawer switches to "guest-only" mode.
+  // Checks BOTH paid_event_orders AND event_form_submissions (mirrored registrations),
+  // mirroring MyEventTicketsInline so the drawer reliably switches to "guest-only" mode.
   const { data: hasOwnTicket = false } = useQuery({
     queryKey: ['my-event-ticket-exists', user?.id, profileEmail, eventId],
     enabled: !!user?.id && !!eventId && open,
@@ -81,15 +82,26 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         profileEmail || '',
       ].filter(Boolean)));
       const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
-      const { data, error } = await supabase
+      const { data: orders, error: ordersErr } = await supabase
         .from('paid_event_orders')
-        .select('id, status')
+        .select('id')
         .eq('event_id', eventId)
         .or(orParts.join(','))
         .not('status', 'in', '("cancelled","refunded","failed","expired")')
         .limit(1);
-      if (error) return false;
-      return (data?.length ?? 0) > 0;
+      if (!ordersErr && (orders?.length ?? 0) > 0) return true;
+
+      if (emails.length > 0) {
+        const { data: subs, error: subsErr } = await supabase
+          .from('event_form_submissions')
+          .select('id')
+          .eq('event_id', eventId)
+          .in('email', emails)
+          .eq('status', 'active')
+          .limit(1);
+        if (!subsErr && (subs?.length ?? 0) > 0) return true;
+      }
+      return false;
     },
   });
 
