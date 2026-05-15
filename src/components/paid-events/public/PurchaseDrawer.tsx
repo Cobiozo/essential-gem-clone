@@ -170,7 +170,10 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         return false;
       }
     } else {
-      // Guest-only mode: require name for each guest seat
+      if (guestSeatsCount === 0) {
+        toast({ title: 'Brak gości', description: 'Zwiększ liczbę biletów, aby zarejestrować gości', variant: 'destructive' });
+        return false;
+      }
       const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
       if (incomplete !== -1) {
         toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
@@ -182,6 +185,50 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       return false;
     }
     return true;
+  };
+
+  const buildPayload = () => {
+    const guests = attendees.map(a => ({
+      firstName: a.firstName.trim(),
+      lastName: a.lastName.trim(),
+      email: a.email?.trim() || null,
+    }));
+    const attendeesPayload = buyerIsAttendee
+      ? [
+          {
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            email: formData.email.trim() || null,
+          },
+          ...guests,
+        ]
+      : guests;
+    // In guest-only mode, buyer contact comes silently from the logged-in user's profile
+    // (NEVER from the now-empty formData) so the order is linked to their account
+    // and the confirmation email reaches them.
+    const buyer = hasOwnTicket
+      ? {
+          email: ((profile as any)?.email || user?.email || '').toString(),
+          firstName: ((profile as any)?.first_name || '').toString(),
+          lastName: ((profile as any)?.last_name || '').toString(),
+          phone: ((profile as any)?.phone_number || '').toString(),
+        }
+      : {
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || '',
+        };
+    return {
+      eventId,
+      ticketId: ticket!.id,
+      quantity,
+      buyer,
+      attendees: attendeesPayload,
+      buyerIsAttendee,
+      acceptMarketing: formData.acceptMarketing,
+      refCode: refCode || null,
+    };
   };
 
   const buildPayload = () => {
