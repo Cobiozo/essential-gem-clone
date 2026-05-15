@@ -1,13 +1,25 @@
-Znalazłem przyczynę: napis „Twoje bilety na to wydarzenie” jest obecnie renderowany tylko na liście `/paid-events`, w komponencie karty wydarzenia. Na stronie, którą teraz oglądasz (`/events/bom-lodz`), używany jest inny widok (`PaidEventPage`) i tam pokazuje się stary blok `Moje bilety`, więc dokładnie tej sekcji nie ma.
-
 Plan naprawy:
 
-1. Na stronie szczegółów wydarzenia (`/events/:slug`) zastąpić/ujednolicić obecny blok `Moje bilety` tak, aby używał tego samego widoku biletów co karta wydarzenia: `Twoje bilety na to wydarzenie`.
-2. Dopilnować, żeby sekcja była widoczna wysoko na stronie szczegółów wydarzenia, od razu pod hero/nawigacją i przed opisem wydarzenia.
-3. W sekcji pokazać wszystkie zakupione miejsca z jednego zamówienia, np. 2 uczestników: kupujący + gość, z możliwością edycji danych gościa.
-4. Zostawić oddzielnie grupę „zapisani przez mój link” tylko dla rejestracji partnerskich, bez mieszania jej z zakupionymi biletami.
+1. **Panel „Twoje bilety na to wydarzenie” ma być widoczny na tej samej karcie wydarzenia, obok/nad sekcją linku partnerskiego**
+   - Na `/paid-events` karta wydarzenia będzie najpierw pokazywać panel własnych biletów zalogowanego użytkownika.
+   - Dopiero osobno będzie pokazany panel „Twój link partnerski…” oraz „Pokaż zapisanych przez mój link”.
 
-Technicznie:
-- `PaidEventCard` już renderuje `MyEventTicketsInline`, dlatego tam tekst istnieje.
-- `PaidEventPage` obecnie importuje i renderuje `MyTicketOrders`, dlatego na `/events/bom-lodz` nie widzisz identycznego panelu.
-- Po akceptacji zmienię `PaidEventPage`, żeby renderował `MyEventTicketsInline eventId={event.id}` zamiast starego widoku dla tej konkretnej strony.
+2. **Nie mieszać kupującego z osobami z linku partnerskiego**
+   - Lista „Pokaż zapisanych przez mój link” będzie filtrować tylko prawdziwe polecenia.
+   - Jeśli wpis w `event_form_submissions` należy do tego samego zalogowanego użytkownika/kupującego, nie będzie widoczny jako „zapisany przez mój link”.
+   - Taki użytkownik ma być widoczny tylko w „Twoje bilety na to wydarzenie”.
+
+3. **Panel biletów ma pokazywać wszystkie miejsca z zamówienia**
+   - Dla zamówienia z ilością `2` pokaże dwa rekordy uczestników: kupujący + gość.
+   - Zachowam możliwość edycji danych gościa.
+   - Status `awaiting_transfer` dalej będzie pokazywany jako „Oczekuje płatności”, a nie ukrywany.
+
+4. **Usunąć mylący globalny blok „Moje bilety” z góry listy, jeśli dubluje widok**
+   - Na stronie `/paid-events` bilety mają być kontekstowo przy konkretnym wydarzeniu, nie jako osobna lista nad wydarzeniami.
+   - To odpowiada temu, czego oczekujesz na zrzucie: przy konkretnym evencie widzisz własne bilety oraz osobno zapisy z linku.
+
+Technicznie zmienię:
+- `src/components/paid-events/MyEventTicketsInline.tsx` — dopracowanie widoczności i statusów, ewentualnie fallback po e-mailu, jeśli RLS/user_id nie zwróci zamówienia.
+- `src/components/paid-events/MyEventFormReferrals.tsx` — odfiltrowanie własnej rejestracji/kupującego z listy poleconych.
+- `src/components/paid-events/MyEventFormLinks.tsx` — licznik „zapisanych” ma liczyć po tym samym filtrze, żeby nie pokazywał Ciebie jako poleconego.
+- `src/pages/PaidEventsListPage.tsx` — zostawić bilety przy karcie wydarzenia i usunąć/nie renderować dublującego blok „Moje bilety” nad listą.
