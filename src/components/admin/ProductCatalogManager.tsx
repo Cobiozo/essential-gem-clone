@@ -201,7 +201,7 @@ export const ProductCatalogManager: React.FC = () => {
                     onClick={() => setShowKnowledgeGraphicsPicker(true)}
                   >
                     <BookOpen className="w-4 h-4 mr-1" />
-                    Zasoby wiedzy
+                    Biblioteka
                   </Button>
                 </div>
                 {editingProduct.image_url && (
