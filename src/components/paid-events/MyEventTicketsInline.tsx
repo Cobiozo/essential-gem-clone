@@ -126,7 +126,12 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         <span className="flex items-center gap-1">
           <Ticket className="h-3 w-3" /> Twoje bilety na to wydarzenie
         </span>
-        <Badge variant="outline" className="text-[10px]">{totalTickets} {totalTickets === 1 ? 'bilet' : 'biletów'}</Badge>
+        <span className="flex items-center gap-1">
+          <Badge variant="outline" className="text-[10px]">{activeTickets} {activeTickets === 1 ? 'bilet' : 'biletów'}</Badge>
+          {inactiveTickets > 0 && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">+{inactiveTickets} anulowanych</Badge>
+          )}
+        </span>
       </div>
 
       {isLoading && (
