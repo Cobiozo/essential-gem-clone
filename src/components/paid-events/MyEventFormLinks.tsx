@@ -209,10 +209,10 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
                   </Button>
                 )}
 
-                {link && subs > 0 && (
+                {link && (
                   <Collapsible>
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-xs h-7 px-2 -ml-2 group">
+                      <Button variant="ghost" size="sm" className="text-xs h-7 px-2 -ml-2 group" data-testid="show-referrals-trigger">
                         <ChevronDown className="h-3 w-3 mr-1 transition-transform group-data-[state=open]:rotate-180" />
                         Pokaż zapisanych przez mój link ({subs})
                       </Button>

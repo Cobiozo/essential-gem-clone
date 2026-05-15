@@ -1,25 +1,29 @@
-Plan naprawy:
+## Plan
 
-1. **Panel „Twoje bilety na to wydarzenie” ma być widoczny na tej samej karcie wydarzenia, obok/nad sekcją linku partnerskiego**
-   - Na `/paid-events` karta wydarzenia będzie najpierw pokazywać panel własnych biletów zalogowanego użytkownika.
-   - Dopiero osobno będzie pokazany panel „Twój link partnerski…” oraz „Pokaż zapisanych przez mój link”.
+1. **Panel „Twoje bilety na to wydarzenie” zawsze widoczny dla zalogowanego użytkownika**
+   - Zmienić `MyEventTicketsInline`, żeby nie zwracał `null`, gdy nie ma zamówień.
+   - Panel ma zawsze pokazywać nagłówek i licznik: `0 biletów`, jeśli użytkownik nie ma jeszcze zamówienia.
+   - Jeśli są zamówienia, panel pokaże wszystkie bilety/uczestników: kupującego oraz gościa, np. `rere tete`.
+   - Dodać stan ładowania i stan pusty zamiast ukrywania całej zakładki.
 
-2. **Nie mieszać kupującego z osobami z linku partnerskiego**
-   - Lista „Pokaż zapisanych przez mój link” będzie filtrować tylko prawdziwe polecenia.
-   - Jeśli wpis w `event_form_submissions` należy do tego samego zalogowanego użytkownika/kupującego, nie będzie widoczny jako „zapisany przez mój link”.
-   - Taki użytkownik ma być widoczny tylko w „Twoje bilety na to wydarzenie”.
+2. **Panel „Pokaż zapisanych przez mój link” zawsze widoczny przy linku partnerskim**
+   - Zmienić `MyEventFormLinks`, żeby przy istniejącym linku zawsze renderował przycisk/zakładkę `Pokaż zapisanych przez mój link (0)` — nawet gdy nie ma nikogo zapisanego.
+   - Po rozwinięciu przy `0` ma pokazywać komunikat `Brak zapisanych przez Twój link.`.
+   - Licznik dalej ma wykluczać własną rejestrację użytkownika.
 
-3. **Panel biletów ma pokazywać wszystkie miejsca z zamówienia**
-   - Dla zamówienia z ilością `2` pokaże dwa rekordy uczestników: kupujący + gość.
-   - Zachowam możliwość edycji danych gościa.
-   - Status `awaiting_transfer` dalej będzie pokazywany jako „Oczekuje płatności”, a nie ukrywany.
+3. **Własna rejestracja nie trafia do poleconych**
+   - Zachować i wzmocnić filtrowanie w `MyEventFormReferrals`: własny email użytkownika nie może pojawić się w tabeli zapisanych przez mój link.
+   - Dane własnego zamówienia mają być prezentowane tylko w panelu biletów.
 
-4. **Usunąć mylący globalny blok „Moje bilety” z góry listy, jeśli dubluje widok**
-   - Na stronie `/paid-events` bilety mają być kontekstowo przy konkretnym wydarzeniu, nie jako osobna lista nad wydarzeniami.
-   - To odpowiada temu, czego oczekujesz na zrzucie: przy konkretnym evencie widzisz własne bilety oraz osobno zapisy z linku.
+4. **Testy regresji**
+   - Dodać konfigurację testów dla Vitest + React Testing Library, jeśli jej jeszcze nie ma.
+   - Dodać test dla `MyEventTicketsInline`, który sprawdza, że zamówienie na 2 miejsca pokazuje kupującego i gościa `rere tete` oraz status płatności.
+   - Dodać test dla pustego stanu panelu biletów: panel widoczny z licznikiem `0`, a nie ukryty.
+   - Dodać test dla `MyEventFormLinks`/`MyEventFormReferrals`, który sprawdza, że własna rejestracja nie jest liczona ani wyświetlana w „Pokaż zapisanych przez mój link”, a osoby z innym emailem są widoczne.
+   - Dodać test, że przy braku poleconych zakładka pokazuje `Pokaż zapisanych przez mój link (0)` i pusty komunikat.
 
-Technicznie zmienię:
-- `src/components/paid-events/MyEventTicketsInline.tsx` — dopracowanie widoczności i statusów, ewentualnie fallback po e-mailu, jeśli RLS/user_id nie zwróci zamówienia.
-- `src/components/paid-events/MyEventFormReferrals.tsx` — odfiltrowanie własnej rejestracji/kupującego z listy poleconych.
-- `src/components/paid-events/MyEventFormLinks.tsx` — licznik „zapisanych” ma liczyć po tym samym filtrze, żeby nie pokazywał Ciebie jako poleconego.
-- `src/pages/PaidEventsListPage.tsx` — zostawić bilety przy karcie wydarzenia i usunąć/nie renderować dublującego blok „Moje bilety” nad listą.
+## Technicznie
+
+- Zmieniane pliki: `src/components/paid-events/MyEventTicketsInline.tsx`, `src/components/paid-events/MyEventFormLinks.tsx`, `src/components/paid-events/MyEventFormReferrals.tsx`.
+- Nowe pliki testowe: przy komponentach albo w `src/test`, zgodnie z istniejącą strukturą projektu.
+- Konfiguracja: `vitest.config.ts`, `src/test/setup.ts`, aktualizacja `package.json` i `tsconfig.app.json`, jeśli potrzebne.
