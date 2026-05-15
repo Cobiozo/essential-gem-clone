@@ -450,7 +450,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
           <TabsTrigger value="materials">Materiały ({filteredMaterials.length})</TabsTrigger>
           <TabsTrigger value="testimonials">
             <MessageSquare className="w-4 h-4 mr-1" />
-            Testymoniale ({testimonialMaterials.length})
+            Prawdziwe historie ({testimonialMaterials.length})
           </TabsTrigger>
           <TabsTrigger value="codes">Kody OTP</TabsTrigger>
           <TabsTrigger value="statistics">
@@ -825,7 +825,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
             <Card>
               <CardContent className="py-8 text-center">
                 <Heart className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground text-sm">Brak testymoniali. Dodaj materiał z kategorią "Testymoniale".</p>
+                <p className="text-muted-foreground text-sm">Brak prawdziwych historii. Dodaj materiał z kategorią "Prawdziwe historie".</p>
               </CardContent>
             </Card>
           ) : (

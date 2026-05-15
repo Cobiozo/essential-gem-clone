@@ -130,7 +130,7 @@ export const DashboardSidebar: React.FC = () => {
   const menuLabelFallbacks: Record<string, string> = {
     'dashboard.menu.dashboard': 'Dashboard',
     'dashboard.menu.academy': 'Akademia',
-    'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza',
+    'dashboard.menu.healthyKnowledge': 'Baza wiedzy',
     'dashboard.menu.resources': 'Biblioteka',
     'dashboard.menu.pureContacts': 'Pure-Kontakty',
     'dashboard.menu.privateContacts': 'Kontakty prywatne',
