@@ -390,12 +390,22 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 )}
 
-                {quantity > 1 && (
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                {/* Detailed cost breakdown — always visible */}
+                <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                  <div className="flex justify-between">
                     <span>Cena za bilet:</span>
-                    <span>{quantity} × {formatPrice(ticket?.price ?? 0)}</span>
+                    <span>{formatPrice(ticket?.price ?? 0)}</span>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
+                    <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
+                  </div>
+                  {hasOwnTicket && (
+                    <div className="text-[11px] italic pt-1">
+                      Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex justify-between pt-2 border-t border-border/50">
                   <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
@@ -403,8 +413,22 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Buyer Data — hidden when user already has a ticket (data auto-filled from profile) */}
-              {!hasOwnTicket && (
+              {/* Buyer Data — locked & empty when user already has a ticket */}
+              {hasOwnTicket ? (
+                <div className="rounded-md bg-muted/30 border border-border/50 p-3 flex gap-3 items-start">
+                  <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <div className="font-medium text-foreground mb-0.5">Twoje dane są już zapisane</div>
+                    <div className="text-muted-foreground">
+                      Powiązaliśmy zamówienie z Twoim kontem
+                      {((profile as any)?.email || user?.email) && (
+                        <> (<span className="font-mono text-foreground/80">{(profile as any)?.email || user?.email}</span>)</>
+                      )}
+                      . Pola kupującego są zablokowane — wypełnij tylko dane gości poniżej.
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   <h3 className="font-medium">Dane kupującego</h3>
 
