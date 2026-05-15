@@ -23,6 +23,7 @@ interface MyEventFormReferralsProps {
  */
 export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ formId, eventId }) => {
   const { user } = useAuth();
+  const ownEmail = (user?.email || '').trim().toLowerCase();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['my-event-form-referrals', user?.id, formId ?? 'all', eventId ?? 'all'],
@@ -38,7 +39,8 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
       if (eventId) q = q.eq('event_id', eventId);
       const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      // Wyklucz własne rejestracje kupującego — pojawiają się w "Twoje bilety na to wydarzenie".
+      return (data || []).filter((r: any) => (r.email || '').trim().toLowerCase() !== ownEmail);
     },
   });
 
