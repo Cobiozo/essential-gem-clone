@@ -230,40 +230,6 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       refCode: refCode || null,
     };
   };
-
-  const buildPayload = () => {
-    const guests = attendees.map(a => ({
-      firstName: a.firstName.trim(),
-      lastName: a.lastName.trim(),
-      email: a.email?.trim() || null,
-    }));
-    const attendeesPayload = buyerIsAttendee
-      ? [
-          {
-            firstName: formData.firstName.trim(),
-            lastName: formData.lastName.trim(),
-            email: formData.email.trim() || null,
-          },
-          ...guests,
-        ]
-      : guests;
-    return {
-      eventId,
-      ticketId: ticket!.id,
-      quantity,
-      buyer: {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone || '',
-      },
-      attendees: attendeesPayload,
-      buyerIsAttendee,
-      acceptMarketing: formData.acceptMarketing,
-      refCode: refCode || null,
-    };
-  };
-
   const handlePayU = async () => {
     if (!validate() || !ticket) return;
     setLoadingMode('payu');
