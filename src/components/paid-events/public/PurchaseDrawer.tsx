@@ -102,9 +102,12 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     return Math.max(1, Math.min(MAX_TICKETS, qa && qa > 0 ? qa : MAX_TICKETS));
   }, [ticket?.available_quantity]);
 
-  // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input)
+  // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input).
+  // Skip auto-fill entirely if the user is already registered for this event — buyer fields
+  // must stay empty so the buyer cannot accidentally re-register themselves.
   useEffect(() => {
     if (!open || !user || !profile) return;
+    if (hasOwnTicket) return;
     setFormData(prev => ({
       ...prev,
       firstName: prev.firstName || (profile as any).first_name || '',
@@ -112,7 +115,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       email: prev.email || (profile as any).email || user.email || '',
       phone: prev.phone || (profile as any).phone_number || '',
     }));
-  }, [open, user, profile]);
+  }, [open, user, profile, hasOwnTicket]);
+
+  // Reactive clear: if registration is detected after fields were already filled, wipe them.
+  useEffect(() => {
+    if (hasOwnTicket) {
+      setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
+    }
+  }, [hasOwnTicket]);
 
   // Reset state when drawer closes
   useEffect(() => {
