@@ -179,6 +179,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const onPlayStateChangeRef = useRef(onPlayStateChange);
   const onDurationChangeRef = useRef(onDurationChange);
+  const allowedPlaybackRatesRef = useRef(allowedPlaybackRates);
   
   // Keep refs in sync with latest callbacks
   useEffect(() => {
@@ -192,6 +193,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => {
     onDurationChangeRef.current = onDurationChange;
   }, [onDurationChange]);
+
+  useEffect(() => {
+    allowedPlaybackRatesRef.current = allowedPlaybackRates;
+  }, [allowedPlaybackRates]);
 
   // Rewind 10 seconds (for restricted mode - backward seeking allowed)
   const handleRewind = useCallback(() => {
