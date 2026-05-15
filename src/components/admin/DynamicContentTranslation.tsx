@@ -393,7 +393,7 @@ export const DynamicContentTranslation: React.FC = () => {
         {[
           { key: 'training', label: 'Szkolenia' },
           { key: 'knowledge', label: 'Baza wiedzy' },
-          { key: 'healthy', label: 'Zdrowa Wiedza' },
+          { key: 'healthy', label: 'Baza wiedzy' },
         ].map(s => (
           <button
             key={s.key}

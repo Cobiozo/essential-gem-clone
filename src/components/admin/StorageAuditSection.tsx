@@ -57,8 +57,8 @@ const BUCKET_LABELS: Record<string, string> = {
   'cms-videos': 'Filmy CMS',
   'cms-images': 'Obrazy CMS',
   'training-media': 'Media szkoleniowe',
-  'healthy-knowledge': 'Zdrowa wiedza',
-  'knowledge-resources': 'Zasoby wiedzy',
+  'healthy-knowledge': 'Baza wiedzy',
+  'knowledge-resources': 'Biblioteka',
   'cms-files': 'Pliki CMS',
   'sidebar-icons': 'Ikony paska bocznego',
 };

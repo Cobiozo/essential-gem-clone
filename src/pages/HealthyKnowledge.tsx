@@ -235,7 +235,7 @@ const HealthyKnowledgePage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')} backTo={{ label: 'Strona główna', path: '/dashboard' }}>
+    <DashboardLayout title={tf('hk.title', 'Baza wiedzy')} backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -243,7 +243,7 @@ const HealthyKnowledgePage: React.FC = () => {
               <Heart className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{tf('hk.title', 'Zdrowa Wiedza')}</h1>
+              <h1 className="text-2xl font-bold">{tf('hk.title', 'Baza wiedzy')}</h1>
               <p className="text-muted-foreground text-sm">
                 {activeTab === 'testimonials'
                   ? tf('hk.testimonialsSubtitle', 'Opinie i efekty kuracji produktami Eqology')

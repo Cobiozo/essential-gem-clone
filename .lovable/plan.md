@@ -1,43 +1,47 @@
 ## Cel
-Zmiana wyświetlanych nazw czterech sekcji w panelach dashboard i CMS, aby były spójne z nową terminologią produktową.
+Spójność nazw „Biblioteka” (zamiast „Zasoby wiedzy”) i „Baza wiedzy” (zamiast „Zdrowa Wiedza”) we wszystkich widocznych miejscach (pasek boczny admina, nagłówki sekcji, pasek boczny dashboardu, strony publiczne i widgety).
 
-## Zmiany w kodzie
+## Diagnoza
+- W `AdminSidebar.tsx` pozycja menu `resources` (Biblioteka) korzysta z tłumaczenia `t('admin.sidebar.resources')`, które obecnie zwraca „Zasoby wiedzy”. Zmiana w `ProductCatalogManager` nie wpływa na pasek boczny.
+- Pozycja `healthyKnowledge` w `AdminSidebar` ma już hardcoded `'Baza wiedzy'`, ale nagłówek sekcji w `HealthyKnowledgeManagement.tsx` nadal pokazuje „Zdrowa Wiedza” (widoczne na screenie 2).
+- W kilku innych miejscach UI też widnieje „Zdrowa Wiedza” (widget, strony publiczne, player, tour) — wymagają ujednolicenia.
 
-### 1. Pasek boczny pulpitu głównego
-**Plik:** `src/components/dashboard/DashboardSidebar.tsx`  
-W fallback mapie menuLabelFallbacks zmienić:
-- `'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza'` → `'Baza wiedzy'`
+## Zmiany
 
-### 2. Pasek boczny panelu CMS (AdminSidebar)
-**Plik:** `src/components/admin/AdminSidebar.tsx`  
-W hardcodedLabels zmienić:
-- `healthyKnowledge: 'Zdrowa Wiedza'` → `'Baza wiedzy'`
+### 1. `src/components/admin/AdminSidebar.tsx`
+W mapie `hardcodedLabels` dodać:
+```
+resources: 'Biblioteka',
+```
+Dzięki temu pozycja paska bocznego pokaże „Biblioteka” niezależnie od tłumaczenia w bazie.
 
-### 3. Panel CMS — przycisk "Zasoby wiedzy"
-**Plik:** `src/components/admin/ProductCatalogManager.tsx:204`  
-Zmienić label przycisku z "Zasoby wiedzy" na "Biblioteka" (zgodnie z nazwą na pasku bocznym dashboardu).
+### 2. `src/components/admin/HealthyKnowledgeManagement.tsx` (linia 433)
+Zmienić nagłówek `<h2>Zdrowa Wiedza</h2>` → `<h2>Baza wiedzy</h2>`.
 
-### 4. Panel CMS administratora — sekcja Testymoniale
-**Plik:** `src/components/admin/HealthyKnowledgeManagement.tsx`  
-Zmienić wszystkie wyświetlane odniesienia do "Testymoniale" na "Prawdziwe historie" lub formy odmienione w kontekście:
-- Zakładka: `Testymoniale ({testimonialMaterials.length})` → `Prawdziwe historie ({...})`
-- Pusty stan: `Brak testymoniali. Dodaj materiał z kategorią "Testymoniale".` → `Brak historii...`
-- Badge kategorii na liście
-- Nagłówki i komunikaty w formularzu edycji
+### 3. `src/pages/HealthyKnowledge.tsx` (linie 238, 246)
+`tf('hk.title', 'Zdrowa Wiedza')` → `tf('hk.title', 'Baza wiedzy')` (zarówno tytuł layoutu, jak i nagłówek H1).
 
-## Uwaga techniczna: kategoria w bazie danych
-Aktualna wartość kategorii w bazie to `"Testymoniale"` (używana w filtrach i zapisach). Zmiana tego stringa w kodzie bez migracji bazy spowoduje, że istniejące rekordy przestaną pasować do filtrów.  
+### 4. `src/pages/HealthyKnowledgePlayer.tsx` (linie 165, 175, 188, 221)
+Wszystkie wystąpienia `'Zdrowa Wiedza'` (zarówno `title`, jak i `backTo.label`) → `'Baza wiedzy'`.
 
-**Rekomendowane podejście:** Wprowadzić warstwę mapowania display-label (np. `CATEGORY_DISPLAY_NAMES`), która pokazuje użytkownikowi "Prawdziwe historie", podczas gdy w bazie nadal zapisywana jest wartość `"Testymoniale"`. To zapewnia spójność UI bez ryzyka utraty danych.
+### 5. `src/pages/HealthyKnowledgePublicPage.tsx` (linie 253, 344)
+Tekst `Zdrowa Wiedza` → `Baza wiedzy` w nagłówku strony publicznej i karcie OTP.
 
-**Alternatywa:** Jeśli użytkownik wymaga zmiany wartości w bazie, konieczna będzie migracja aktualizująca istniejące rekordy w tabeli `healthy_knowledge`.
+### 6. `src/components/dashboard/widgets/HealthyKnowledgeWidget.tsx` (linie 90, 113)
+Fallback `t('dashboard.healthyKnowledge') || 'Zdrowa Wiedza'` → `|| 'Baza wiedzy'`.
 
-## Zakres poza kodem
-- Tabela `system_texts` w bazie — jeśli zawiera klucze tłumaczeń dla `healthyKnowledge`, wymagana jest ich aktualizacja w panelu administratora (System → Teksty) lub bezpośrednio w bazie.
-- Publiczna strona `/zdrowa-wiedza` (HealthyKnowledgePublicPage) oraz Player używają tf/tf z fallbackami — zmiana nazw tam leży poza tym zadaniem, chyba że użytkownik rozwinie scope.
+### 7. `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` (linie 426, 517)
+Etykiety `Zdrowa Wiedza` → `Baza wiedzy`.
 
-## Pliki do edycji (bez migracji)
-1. `src/components/dashboard/DashboardSidebar.tsx`
-2. `src/components/admin/AdminSidebar.tsx`
-3. `src/components/admin/ProductCatalogManager.tsx`
-4. `src/components/admin/HealthyKnowledgeManagement.tsx`
+### 8. `src/components/onboarding/tourSteps.ts` (linia 186)
+Tytuł kroku `🧬 Zdrowa Wiedza` → `🧬 Baza wiedzy`.
+
+### 9. `src/components/admin/StorageAuditSection.tsx` (linia 60)
+`'healthy-knowledge': 'Zdrowa wiedza'` → `'Baza wiedzy'` (etykieta bucketu w panelu storage).
+
+### 10. `src/components/admin/DynamicContentTranslation.tsx` (linia 396)
+`label: 'Zdrowa Wiedza'` → `'Baza wiedzy'`.
+
+## Poza zakresem
+- Komentarz w `src/types/healthyKnowledge.ts` i ścieżka `/zdrowa-wiedza/` w `ProfileCompletionGuard.tsx` — tylko kod/URL, nie UI.
+- Wartości w bazie (`system_texts`, kategorie `healthy_knowledge`) pozostają bez zmian — zmiany dotyczą wyłącznie warstwy prezentacji, więc nie ma ryzyka utraty danych.

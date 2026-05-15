@@ -183,7 +183,7 @@ export const tourSteps: TourStep[] = [
   {
     id: 'zdrowa-wiedza',
     targetSelector: '[data-tour="menu-healthy-knowledge"]',
-    title: '🧬 Zdrowa Wiedza',
+    title: '🧬 Baza wiedzy',
     description: 'Biblioteka materiałów o zdrowiu — artykuły, filmy i infografiki. Możesz je przeglądać i udostępniać swoim kontaktom za pomocą kodów OTP. Widget na dashboardzie pokazuje wyróżnione materiały.',
     position: 'right',
     visibleFor: partnerPlus,
