@@ -117,12 +117,16 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     }));
   }, [open, user, profile, hasOwnTicket]);
 
-  // Reactive clear: if registration is detected after fields were already filled, wipe them.
+  // Reactive clear: re-assert empty buyer fields whenever the user is detected as already
+  // registered. Re-runs on every relevant state change so any stray autofill (browser,
+  // future code paths) is wiped before submit.
   useEffect(() => {
-    if (hasOwnTicket) {
-      setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
-    }
-  }, [hasOwnTicket]);
+    if (!hasOwnTicket) return;
+    setFormData(prev => {
+      if (!prev.firstName && !prev.lastName && !prev.email && !prev.phone) return prev;
+      return { ...prev, firstName: '', lastName: '', email: '', phone: '' };
+    });
+  }, [hasOwnTicket, open, quantity]);
 
   // Reset state when drawer closes
   useEffect(() => {
