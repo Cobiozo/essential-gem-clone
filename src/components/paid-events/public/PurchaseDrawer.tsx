@@ -56,6 +56,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const qc = useQueryClient();
+  const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -72,16 +73,20 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   // Detect if the logged-in partner already has a (non-cancelled) ticket for this event.
   // If yes — they cannot buy themselves a second ticket; the drawer switches to "guest-only" mode.
   const { data: hasOwnTicket = false } = useQuery({
-    queryKey: ['my-event-ticket-exists', user?.id, eventId],
+    queryKey: ['my-event-ticket-exists', user?.id, profileEmail, eventId],
     enabled: !!user?.id && !!eventId && open,
     queryFn: async () => {
-      const userEmail = (user!.email || '').toLowerCase();
+      const emails = Array.from(new Set([
+        (user!.email || '').toLowerCase(),
+        profileEmail || '',
+      ].filter(Boolean)));
+      const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
       const { data, error } = await supabase
         .from('paid_event_orders')
         .select('id, status')
         .eq('event_id', eventId)
-        .or(`user_id.eq.${user!.id}${userEmail ? `,email.eq.${userEmail}` : ''}`)
-        .not('status', 'in', '("cancelled","refunded")')
+        .or(orParts.join(','))
+        .not('status', 'in', '("cancelled","refunded","failed","expired")')
         .limit(1);
       if (error) return false;
       return (data?.length ?? 0) > 0;
@@ -241,7 +246,9 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         }
         // Refresh "Moje bilety" so the new order shows up immediately
         qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
+        qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+        qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
         setTransferSuccess(true);
       } else {
         throw new Error(data?.error || 'Nie udało się zarejestrować rezerwacji');

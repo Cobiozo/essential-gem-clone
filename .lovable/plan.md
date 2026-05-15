@@ -1,71 +1,26 @@
-## Problem
+## Plan naprawy
 
-Panel „Twoje bilety na to wydarzenie" pokazuje 0 biletów i komunikat „Nie jesteś jeszcze zarejestrowany", mimo że zalogowany użytkownik faktycznie ma potwierdzone zamówienia (w tym rezerwację gościa).
+1. **Poprawię źródło danych w `MyEventTicketsInline.tsx`**
+   - Widok będzie pobierał zamówienia po aktualnym `auth.uid()` oraz po e-mailu zalogowanego użytkownika.
+   - Dodatkowo użyje danych z `profile.email`, bo w tym projekcie profile i sesja auth bywają rozdzielone.
+   - Zapytanie będzie uwzględniało statusy typu `awaiting_transfer`, `pending`, `paid`, `completed`, a nie tylko bilety opłacone.
 
-Przyczyna: w `MyEventTicketsInline.tsx` zapytanie do `paid_event_orders` filtruje **wyłącznie** po `user_id = auth.uid()`:
+2. **Dodam bezpieczny fallback na potwierdzoną rejestrację formularzową**
+   - Jeśli użytkownik ma wpis w `event_form_submissions` z potwierdzonym e-mailem, ale nie uda się jeszcze odczytać zamówień z `paid_event_orders`, komunikat nie będzie już mówił „Nie jesteś zarejestrowany”.
+   - Zamiast tego pokaże, że rejestracja została potwierdzona i poda jej status.
 
-```ts
-.eq('user_id', user!.id)
-.eq('event_id', eventId)
-```
+3. **Odświeżę panel natychmiast po zapisie**
+   - Po udanej rezerwacji przelewem unieważnię również cache `my-event-tickets-inline`, nie tylko `my-ticket-orders`.
+   - Dzięki temu komunikat nad zakładką „Twoje bilety na to wydarzenie” zmieni się od razu po zapisie, bez ręcznego odświeżania strony.
 
-Tymczasem polityka RLS i intencja produktu pozwalają widzieć własne zamówienia także przez dopasowanie e-maila zalogowanego konta:
+4. **Ujednolicę logikę „mam już bilet” w drawerze zakupu**
+   - Sprawdzanie istniejącej rezerwacji będzie używało tych samych identyfikatorów: `user.id`, `profile.user_id`, `user.email`, `profile.email`.
+   - To zapobiegnie sytuacji, w której system wie, że masz bilet podczas zakupu, ale panel pod wydarzeniem go nie pokazuje.
 
-```
-user_id = auth.uid() OR email = (auth.users.email of auth.uid()) OR is_admin()
-```
+## Szczegóły techniczne
 
-W bazie istnieją zamówienia dla obu kont Sebastiana (`sebastiansnopek.eqology@gmail.com` i `sebastiansnopek87@gmail.com`). Jeśli rezerwacja powstała na e-mail, ale `user_id` w zamówieniu odpowiada innemu kontu (lub jest puste, np. checkout gościa później dowiązany do konta), filtr `eq('user_id', …)` je gubi.
-
-## Zakres zmian
-
-Tylko frontend, jeden plik: `src/components/paid-events/MyEventTicketsInline.tsx`. Bez zmian w bazie, RLS, edge functions i innych panelach.
-
-## Co zostanie zmienione
-
-1. Pobieranie e-maila zalogowanego użytkownika z `useAuth()` (`user.email`) i znormalizowanie go do lowercase.
-
-2. Zmiana filtru zapytania z twardego `eq('user_id', …)` na warunek odpowiadający RLS — dopasowanie po `user_id` lub po `email`:
-
-   ```ts
-   let q = supabase
-     .from('paid_event_orders')
-     .select(`… (jak dotąd) …`)
-     .eq('event_id', eventId)
-     .order('created_at', { ascending: false });
-
-   const email = user?.email?.toLowerCase() ?? null;
-   if (email) {
-     q = q.or(`user_id.eq.${user!.id},email.eq.${email}`);
-   } else {
-     q = q.eq('user_id', user!.id);
-   }
-   ```
-
-   RLS i tak ograniczy zwracane wiersze do tych, do których użytkownik ma dostęp, więc dopisanie `email` po stronie klienta nie poszerza widoczności poza politykę.
-
-3. Deduplikacja po `id` zamówienia w wyniku (na wypadek gdyby `or` zwrócił to samo zamówienie dwukrotnie — w praktyce nie powinno, ale tania asekuracja):
-
-   ```ts
-   const unique = Array.from(new Map((data ?? []).map((o: any) => [o.id, o])).values());
-   ```
-
-4. Sortowanie wyniku malejąco po `created_at` (pozostaje bez zmian — robi to baza).
-
-5. `queryKey` rozszerzyć o `email`, żeby cache nie mieszał wyników między kontami:
-   `['my-event-tickets-inline', user?.id, email, eventId]`.
-
-## Co pozostaje bez zmian
-
-- Cała sekcja prezentacyjna (pasek „Jesteś zarejestrowany…", lista zamówień, dialog edycji uczestnika, badge statusów, liczniki `activeTickets`/`activeSeats`/`inactiveTickets`).
-- Sekcja „Pokaż zapisanych przez mój link" i `MyEventFormLinks`.
-- Polityki RLS na `paid_event_orders` i `paid_event_order_attendees`.
-
-## Efekt
-
-Po zmianie panel pokaże wszystkie zamówienia (zarezerwowane, oczekujące, opłacone, potwierdzone itd.) powiązane z zalogowanym kontem zarówno przez `user_id`, jak i przez e-mail. W konsekwencji pasek nad panelem poprawnie wykryje rejestrację i wyświetli liczbę zarezerwowanych miejsc oraz status najnowszego zamówienia, zamiast komunikatu „Nie jesteś jeszcze zarejestrowany".
-
-## Poza zakresem
-
-- Łączenie/migrowanie wielu kont użytkownika o różnych e-mailach (`sebastian…eqology` vs `sebastian…87`) — to decyzja produktowa, nie ten ticket.
-- Zmiany w przepływie potwierdzania e-mailem i statusach (`awaiting_transfer` → `paid` itd.).
+- Pliki do zmiany:
+  - `src/components/paid-events/MyEventTicketsInline.tsx`
+  - `src/components/paid-events/public/PurchaseDrawer.tsx`
+- Nie zmieniam struktury bazy ani RLS w tym kroku, bo dane zamówień istnieją i polityka już pozwala właścicielowi odczytać zamówienia po `user_id` lub e-mailu.
+- Po wdrożeniu sprawdzę zapytania w przeglądarce i potwierdzę, że panel nie pokazuje błędnego komunikatu „Nie jesteś jeszcze zarejestrowany” dla istniejącej rejestracji.
