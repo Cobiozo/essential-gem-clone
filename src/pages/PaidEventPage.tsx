@@ -15,7 +15,7 @@ import { PaidEventSidebar } from '@/components/paid-events/public/PaidEventSideb
 import { PaidEventSpeakers } from '@/components/paid-events/public/PaidEventSpeakers';
 import { PaidEventSchedule } from '@/components/paid-events/public/PaidEventSchedule';
 import { PurchaseDrawer } from '@/components/paid-events/public/PurchaseDrawer';
-import { MyTicketOrders } from '@/components/paid-events/MyTicketOrders';
+import { MyEventTicketsInline } from '@/components/paid-events/MyEventTicketsInline';
 
 
 interface ContentSection {
@@ -417,7 +417,7 @@ const PaidEventPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         {user && (
           <div className="mb-6">
-            <MyTicketOrders eventId={event.id} />
+            <MyEventTicketsInline eventId={event.id} />
           </div>
         )}
 
