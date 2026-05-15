@@ -136,6 +136,7 @@ interface TrainingLesson {
   language_code?: string | null;
   action_buttons?: LessonActionButton[];
   completion_method?: string;
+  playback_speed_enabled?: boolean;
 }
 
 interface LessonProgressDetail {
