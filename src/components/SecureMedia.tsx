@@ -79,7 +79,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   seekToTimeRef,
   pauseRequested = false,
   controlMode,
-  onVideoEnded
+  onVideoEnded,
+  allowedPlaybackRates = [1]
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
