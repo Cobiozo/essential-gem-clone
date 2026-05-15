@@ -102,9 +102,12 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     return Math.max(1, Math.min(MAX_TICKETS, qa && qa > 0 ? qa : MAX_TICKETS));
   }, [ticket?.available_quantity]);
 
-  // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input)
+  // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input).
+  // Skip auto-fill entirely if the user is already registered for this event — buyer fields
+  // must stay empty so the buyer cannot accidentally re-register themselves.
   useEffect(() => {
     if (!open || !user || !profile) return;
+    if (hasOwnTicket) return;
     setFormData(prev => ({
       ...prev,
       firstName: prev.firstName || (profile as any).first_name || '',
@@ -112,7 +115,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       email: prev.email || (profile as any).email || user.email || '',
       phone: prev.phone || (profile as any).phone_number || '',
     }));
-  }, [open, user, profile]);
+  }, [open, user, profile, hasOwnTicket]);
+
+  // Reactive clear: if registration is detected after fields were already filled, wipe them.
+  useEffect(() => {
+    if (hasOwnTicket) {
+      setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
+    }
+  }, [hasOwnTicket]);
 
   // Reset state when drawer closes
   useEffect(() => {
@@ -160,7 +170,10 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         return false;
       }
     } else {
-      // Guest-only mode: require name for each guest seat
+      if (guestSeatsCount === 0) {
+        toast({ title: 'Brak gości', description: 'Zwiększ liczbę biletów, aby zarejestrować gości', variant: 'destructive' });
+        return false;
+      }
       const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
       if (incomplete !== -1) {
         toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
@@ -190,23 +203,33 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           ...guests,
         ]
       : guests;
+    // In guest-only mode, buyer contact comes silently from the logged-in user's profile
+    // (NEVER from the now-empty formData) so the order is linked to their account
+    // and the confirmation email reaches them.
+    const buyer = hasOwnTicket
+      ? {
+          email: ((profile as any)?.email || user?.email || '').toString(),
+          firstName: ((profile as any)?.first_name || '').toString(),
+          lastName: ((profile as any)?.last_name || '').toString(),
+          phone: ((profile as any)?.phone_number || '').toString(),
+        }
+      : {
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone || '',
+        };
     return {
       eventId,
       ticketId: ticket!.id,
       quantity,
-      buyer: {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone || '',
-      },
+      buyer,
       attendees: attendeesPayload,
       buyerIsAttendee,
       acceptMarketing: formData.acceptMarketing,
       refCode: refCode || null,
     };
   };
-
   const handlePayU = async () => {
     if (!validate() || !ticket) return;
     setLoadingMode('payu');
