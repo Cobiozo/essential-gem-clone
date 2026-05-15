@@ -154,32 +154,34 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
 
-        {/* Speed control dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 min-w-[48px] sm:min-w-[60px]"
-              disabled={isBuffering}
-            >
-              <span className="text-xs">{currentSpeedLabel}</span>
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {SPEED_OPTIONS.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                onClick={() => onSpeedChange(option.value)}
-                className={playbackRate === option.value ? 'bg-accent' : ''}
+        {/* Speed control dropdown — only when more than one rate is allowed */}
+        {showSpeedControl && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 min-w-[48px] sm:min-w-[60px]"
+                disabled={isBuffering}
               >
-                {option.label}
-                {playbackRate === option.value && ' ✓'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <span className="text-xs">{currentSpeedLabel}</span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {visibleSpeedOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => onSpeedChange(option.value)}
+                  className={playbackRate === option.value ? 'bg-accent' : ''}
+                >
+                  {option.label}
+                  {playbackRate === option.value && ' ✓'}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Retry button */}
         {onRetry && (
