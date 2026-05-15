@@ -3,10 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Ticket, Users } from 'lucide-react';
-
-const formatPrice = (gr: number) =>
-  new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format((gr || 0) / 100);
+import { Loader2, Users } from 'lucide-react';
 
 interface MyEventFormReferralsProps {
   /** Limit results to a single form (when shown under a form card). */
@@ -20,7 +17,9 @@ interface MyEventFormReferralsProps {
  * Polityka SELECT na event_form_submissions: auth.uid() = partner_user_id
  * (gwarantuje, że partner widzi wyłącznie swoich poleconych).
  *
- * Partner widzi pełne dane swoich poleconych — RLS wymusza izolację.
+ * UWAGA: ten komponent pokazuje WYŁĄCZNIE poleconych przez link partnerski.
+ * Bilety zakupione przez samego użytkownika są renderowane osobno przez
+ * MyEventTicketsInline na karcie wydarzenia.
  */
 export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ formId, eventId }) => {
   const { user } = useAuth();
@@ -43,26 +42,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     },
   });
 
-  // Buyer's own paid_event_orders (with attendees) for this event scope.
-  const { data: myOrders = [] } = useQuery({
-    queryKey: ['my-event-form-referrals-orders', user?.id, eventId ?? 'all'],
-    enabled: !!user?.id && !!eventId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('paid_event_orders')
-        .select(`
-          id, quantity, total_amount, status, created_at, first_name, last_name, email,
-          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
-          attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
-        `)
-        .eq('user_id', user!.id)
-        .eq('event_id', eventId!)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
@@ -71,14 +50,13 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     );
   }
 
-  if (rows.length === 0 && myOrders.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="text-xs text-muted-foreground py-3 flex items-center gap-2">
         <Users className="h-3 w-3" /> Brak zapisanych przez Twój link.
       </div>
     );
   }
-
 
   const paymentBadge = (s: string, status: string) => {
     if (status === 'cancelled') return <Badge variant="destructive">Anulowane</Badge>;
@@ -88,56 +66,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
   };
 
   return (
-    <div className="space-y-4">
-      {myOrders.length > 0 && (
-        <div className="rounded-md border bg-primary/5 p-3 space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center gap-1">
-            <Ticket className="h-3 w-3" /> Twoje zakupione bilety
-          </div>
-          {myOrders.map((o: any) => {
-            const seatsPer = Math.max(1, Number(o.ticket?.seats_per_ticket) || 1);
-            const qty = Math.max(1, Number(o.quantity) || 1);
-            const totalSeats = qty * seatsPer;
-            const attendees = [...(o.attendees || [])].sort((a: any, b: any) => a.seat_index - b.seat_index);
-            return (
-              <div key={o.id} className="text-xs space-y-1 border-l-2 border-primary/40 pl-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{o.ticket?.name || 'Bilet'}</span>
-                  <Badge variant="outline" className="text-[10px]">{qty} × bilet</Badge>
-                  <Badge variant="outline" className="text-[10px]">{totalSeats} uczestników</Badge>
-                  <span className="text-primary font-bold">{formatPrice(o.total_amount)}</span>
-                  {o.status === 'paid' || o.status === 'completed' ? (
-                    <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px]">Oczekuje płatności</Badge>
-                  )}
-                </div>
-                {attendees.length > 0 ? (
-                  <ul className="text-muted-foreground space-y-0.5">
-                    {attendees.map((a: any) => {
-                      const isBuyer = a.seat_index === 1;
-                      const isPlaceholder = !isBuyer && (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
-                      return (
-                        <li key={a.id} className="flex flex-wrap items-center gap-1">
-                          <span className={isPlaceholder ? 'italic' : 'text-foreground'}>
-                            {a.seat_index}. {a.first_name} {a.last_name}
-                          </span>
-                          {isBuyer && <Badge variant="outline" className="text-[10px] border-primary text-primary">Ty</Badge>}
-                          {isPlaceholder && <span className="text-amber-600">— uzupełnij dane</span>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <div className="text-muted-foreground italic">Brak danych uczestników.</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {rows.length > 0 && (
     <div className="overflow-x-auto -mx-2 px-2">
       <table className="w-full text-xs">
         <thead>
@@ -173,8 +101,6 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
           ))}
         </tbody>
       </table>
-    </div>
-      )}
     </div>
   );
 };
