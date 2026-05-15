@@ -43,6 +43,8 @@ interface SecureMediaProps {
   controlMode?: 'native' | 'restricted' | 'secure';
   // Callback when video reaches the end (ended event)
   onVideoEnded?: () => void;
+  // Allowed playback rates (default [1] = locked at normal speed). Pass [1, 1.5] to enable speed selector.
+  allowedPlaybackRates?: number[];
 }
 
 // YouTube URL detection and ID extraction
