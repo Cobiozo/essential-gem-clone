@@ -1,29 +1,32 @@
-## Cel
+## Problem
 
-Gdy zalogowany użytkownik jest już zarejestrowany na dane wydarzenie i otwiera „Kup bilet", drawer NIE powinien pokazywać pól „Dane kupującego" z autouzupełnianiem. Zamiast tego ma wyświetlić wyraźną informację, że użytkownik jest już zarejestrowany, a kolejne bilety będą przypisane gościom (uczestnikom), których chce zaprosić.
+Po wykryciu, że użytkownik jest już zarejestrowany (`hasOwnTicket === true`), formularz „Dane kupującego" jest ukrywany, ale `formData` (firstName/lastName/email/phone) jest wciąż wypełniane przez `useEffect` autouzupełnienia (linie 106–115). To znaczy, że dane kupującego nadal lecą w `buildPayload().buyer` — co przy nieuwadze może doprowadzić do ponownej rejestracji tej samej osoby.
 
 ## Zmiany w `src/components/paid-events/public/PurchaseDrawer.tsx`
 
-1. **Ukrycie sekcji „Dane kupującego"** gdy `hasOwnTicket === true`:
-   - Cały blok `<div className="space-y-3">` z polami Imię/Nazwisko/Email/Telefon (linie ~367–391) renderowany tylko gdy `!hasOwnTicket`.
-   - Dane kupującego nadal wypełniane automatycznie z `profile`/`user` w istniejącym `useEffect` (linie 106–115) — wysyłane cicho do backendu, aby `buildPayload()` i `validate()` działały bez zmian.
+1. **Autouzupełnianie pomija buyera, gdy `hasOwnTicket`** (useEffect, linie 106–115):
+   - Jeśli `hasOwnTicket === true`, NIE wypełniać `firstName/lastName/email/phone` z profilu.
+   - Jeśli wcześniej (przed sprawdzeniem) zostały wypełnione, wyczyścić je natychmiast po wykryciu rejestracji.
 
-2. **Wzmocnienie istniejącego komunikatu** (linie 304–311):
-   - Zmiana treści na: „Jesteś już zarejestrowany na to wydarzenie. Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety"."
-   - Wizualnie bardziej widoczny (ikona CheckCircle2 + mocniejszy border).
+2. **Reaktywne czyszczenie po wykryciu** — nowy `useEffect` zależny od `hasOwnTicket`:
+   ```ts
+   useEffect(() => {
+     if (hasOwnTicket) {
+       setFormData(prev => ({ ...prev, firstName: '', lastName: '', email: '', phone: '' }));
+     }
+   }, [hasOwnTicket]);
+   ```
 
-3. **Walidacja** (`validate()`, linie 155–166):
-   - Gdy `hasOwnTicket`, pominąć sprawdzanie `firstName/lastName/email` (już są z profilu) — nadal wymagać `acceptTerms`.
-   - Dodatkowo: wymagać przynajmniej imienia i nazwiska dla każdego gościa (attendee), żeby nie zapisywać pustych biletów.
+3. **`buildPayload()` w trybie „guest-only"** (linie 168–199):
+   - Gdy `hasOwnTicket`, pole `buyer` ustawiane wyłącznie z `user.email` / `profile` (bez wartości z formularza), wyłącznie do powiązania zamówienia z kontem użytkownika i wysłania emaila potwierdzającego do nabywcy.
+   - `attendees` zawiera WYŁĄCZNIE gości — bez kupującego (`buyerIsAttendee = false` już to zapewnia).
 
-4. **Liczba biletów / opis płatności** — bez zmian. Gość-tylko-tryb (`buyerIsAttendee = false`) już działa poprawnie z istniejącej logiki.
+4. **Walidacja** (`validate()`):
+   - W trybie `hasOwnTicket` wymagać tylko `acceptTerms` i danych każdego gościa (imię + nazwisko). Pomija sprawdzanie `formData.firstName/lastName/email`.
+   - Wymagać też, żeby `guestSeatsCount > 0` — w przeciwnym razie nie ma kogo zarejestrować (UI: zablokować przyciski płatności i pokazać hint „Dodaj przynajmniej jednego gościa lub zwiększ liczbę biletów").
 
-## Bez zmian
-
-- `MyEventTicketsInline.tsx` (panel „Twoje bilety")
-- Edge functions / RLS / schemat bazy
-- Cache invalidation po płatności
+5. **Bez zmian**: edge functions, RLS, schemat bazy, `MyEventTicketsInline.tsx`.
 
 ## Uwagi
 
-Tryb anonimowy (niezalogowany) nie jest dotknięty — `hasOwnTicket` wymaga `user?.id`, więc dla gości formularz „Dane kupującego" pokazuje się jak dotąd.
+Tryb anonimowy / niezalogowany pozostaje bez zmian — `hasOwnTicket` wymaga `user?.id`.
