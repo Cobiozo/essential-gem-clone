@@ -115,8 +115,8 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
                 {attendees.length > 0 ? (
                   <ul className="text-muted-foreground space-y-0.5">
                     {attendees.map((a: any) => {
-                      const isBuyer = a.seat_index === 1 && (a.email || '').toLowerCase() === (user?.email || '').toLowerCase();
-                      const isPlaceholder = (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
+                      const isBuyer = a.seat_index === 1;
+                      const isPlaceholder = !isBuyer && (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
                       return (
                         <li key={a.id} className="flex flex-wrap items-center gap-1">
                           <span className={isPlaceholder ? 'italic' : 'text-foreground'}>
