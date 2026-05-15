@@ -121,7 +121,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
             {attendees.length > 0 ? (
               <ul className="space-y-1">
                 {attendees.map((a) => {
-                  const isBuyer = a.seat_index === 1 && (a.email || '').toLowerCase() === (user.email || '').toLowerCase();
+                  const isBuyer = a.seat_index === 1;
                   const isPlaceholder =
                     !isBuyer && (a.first_name === 'Uczestnik' || a.first_name === 'Gość') && /^#\d+$/.test(a.last_name);
                   return (
