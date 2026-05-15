@@ -243,13 +243,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setCurrentTime(safeTime);
   }, [videoElement, duration]);
 
-  // Speed change handler for secure mode
+  // Speed change handler — only allows rates from allowedPlaybackRates
   const handleSpeedChange = useCallback((rate: number) => {
     if (!videoElement) return;
+    if (!allowedPlaybackRates.includes(rate)) {
+      console.warn('[SecureMedia] Speed change rejected — rate not allowed:', rate);
+      return;
+    }
     console.log('[SecureMedia] Speed change:', { rate });
     videoElement.playbackRate = rate;
     setPlaybackRate(rate);
-  }, [videoElement]);
+  }, [videoElement, allowedPlaybackRates]);
 
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
