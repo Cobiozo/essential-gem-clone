@@ -423,7 +423,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
               )}
             </TabsTrigger>
             <TabsTrigger value="zdrowa-wiedza" className="text-xs sm:text-sm">
-              Zdrowa Wiedza
+              Baza wiedzy
               {hkCodes.length > 0 && (
                 <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-xs">
                   {hkCodes.length}
@@ -514,7 +514,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
 
           <TabsContent value="zdrowa-wiedza" className="mt-0 space-y-2">
             {hkCodes.length === 0 ? (
-              renderEmptyState('Zdrowa Wiedza')
+              renderEmptyState('Baza wiedzy')
             ) : (
               hkCodes.map((code) => {
                 const knowledge = code.healthy_knowledge as any;

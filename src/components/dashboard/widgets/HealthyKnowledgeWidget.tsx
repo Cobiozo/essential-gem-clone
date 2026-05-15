@@ -87,7 +87,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <Widget3DIcon icon={Heart} variant="pink" size="md" />
-            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Zdrowa Wiedza'}</CardTitle>
+            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Baza wiedzy'}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -110,7 +110,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Widget3DIcon icon={Heart} variant="pink" size="md" />
-            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Zdrowa Wiedza'}</CardTitle>
+            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Baza wiedzy'}</CardTitle>
           </div>
           <Button 
             variant="ghost" 

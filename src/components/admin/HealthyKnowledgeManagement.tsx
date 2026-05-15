@@ -430,7 +430,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
             <Heart className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Zdrowa Wiedza</h2>
+            <h2 className="text-2xl font-bold">Baza wiedzy</h2>
             <p className="text-muted-foreground text-sm">
               Zarządzaj materiałami edukacyjnymi
             </p>

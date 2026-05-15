@@ -250,7 +250,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
               <div className="p-2 rounded-lg bg-primary/10">
                 <Heart className="w-5 h-5 text-primary" />
               </div>
-              <span className="font-semibold">Zdrowa Wiedza</span>
+              <span className="font-semibold">Baza wiedzy</span>
             </div>
             {expiresAt && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
@@ -341,7 +341,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           <div className="mx-auto mb-4 p-3 rounded-full bg-primary/10 w-fit">
             <Heart className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Zdrowa Wiedza</CardTitle>
+          <CardTitle className="text-2xl">Baza wiedzy</CardTitle>
           <CardDescription>
             Wypełnij formularz i wprowadź kod dostępu, aby zobaczyć materiał
           </CardDescription>
