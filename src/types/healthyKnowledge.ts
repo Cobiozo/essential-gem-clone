@@ -78,6 +78,7 @@ export const HEALTHY_KNOWLEDGE_CATEGORIES = [
   'Webinary archiwalne',
   'Materiały eksperckie',
   'Testymoniale',
+  'Biznesowe',
   'Inne'
 ] as const;
 
