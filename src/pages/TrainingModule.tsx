@@ -52,6 +52,7 @@ interface TrainingLesson {
   position: number;
   action_buttons?: LessonActionButton[];
   completion_method?: string;
+  playback_speed_enabled?: boolean;
 }
 
 interface LessonProgress {
