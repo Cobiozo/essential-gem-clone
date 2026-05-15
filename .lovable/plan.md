@@ -1,29 +1,40 @@
-## Plan
+## Cel
 
-1. **Panel „Twoje bilety na to wydarzenie” zawsze widoczny dla zalogowanego użytkownika**
-   - Zmienić `MyEventTicketsInline`, żeby nie zwracał `null`, gdy nie ma zamówień.
-   - Panel ma zawsze pokazywać nagłówek i licznik: `0 biletów`, jeśli użytkownik nie ma jeszcze zamówienia.
-   - Jeśli są zamówienia, panel pokaże wszystkie bilety/uczestników: kupującego oraz gościa, np. `rere tete`.
-   - Dodać stan ładowania i stan pusty zamiast ukrywania całej zakładki.
+Powyżej panelu „Twoje bilety na to wydarzenie" pokazać wyraźny pasek z informacją o własnej rejestracji zalogowanego użytkownika i łącznej liczbie zarezerwowanych miejsc na danym evencie.
 
-2. **Panel „Pokaż zapisanych przez mój link” zawsze widoczny przy linku partnerskim**
-   - Zmienić `MyEventFormLinks`, żeby przy istniejącym linku zawsze renderował przycisk/zakładkę `Pokaż zapisanych przez mój link (0)` — nawet gdy nie ma nikogo zapisanego.
-   - Po rozwinięciu przy `0` ma pokazywać komunikat `Brak zapisanych przez Twój link.`.
-   - Licznik dalej ma wykluczać własną rejestrację użytkownika.
+## Zakres zmian
 
-3. **Własna rejestracja nie trafia do poleconych**
-   - Zachować i wzmocnić filtrowanie w `MyEventFormReferrals`: własny email użytkownika nie może pojawić się w tabeli zapisanych przez mój link.
-   - Dane własnego zamówienia mają być prezentowane tylko w panelu biletów.
+Tylko frontend, jeden plik: `src/components/paid-events/MyEventTicketsInline.tsx`. Bez zmian w bazie, RLS, edge functions ani innych panelach.
 
-4. **Testy regresji**
-   - Dodać konfigurację testów dla Vitest + React Testing Library, jeśli jej jeszcze nie ma.
-   - Dodać test dla `MyEventTicketsInline`, który sprawdza, że zamówienie na 2 miejsca pokazuje kupującego i gościa `rere tete` oraz status płatności.
-   - Dodać test dla pustego stanu panelu biletów: panel widoczny z licznikiem `0`, a nie ukryty.
-   - Dodać test dla `MyEventFormLinks`/`MyEventFormReferrals`, który sprawdza, że własna rejestracja nie jest liczona ani wyświetlana w „Pokaż zapisanych przez mój link”, a osoby z innym emailem są widoczne.
-   - Dodać test, że przy braku poleconych zakładka pokazuje `Pokaż zapisanych przez mój link (0)` i pusty komunikat.
+## Co zostanie dodane
 
-## Technicznie
+Nowy blok renderowany **nad** dotychczasowym nagłówkiem „TWOJE BILETY NA TO WYDARZENIE", korzystający z danych już pobieranych przez istniejące `useQuery` (brak dodatkowych zapytań):
 
-- Zmieniane pliki: `src/components/paid-events/MyEventTicketsInline.tsx`, `src/components/paid-events/MyEventFormLinks.tsx`, `src/components/paid-events/MyEventFormReferrals.tsx`.
-- Nowe pliki testowe: przy komponentach albo w `src/test`, zgodnie z istniejącą strukturą projektu.
-- Konfiguracja: `vitest.config.ts`, `src/test/setup.ts`, aktualizacja `package.json` i `tsconfig.app.json`, jeśli potrzebne.
+- Stan: zalogowany użytkownik bez aktywnych zamówień → pasek neutralny: „Nie jesteś jeszcze zarejestrowany na to wydarzenie."
+- Stan: zalogowany użytkownik z co najmniej jednym aktywnym zamówieniem → pasek w kolorze primary z ikoną i tekstem:
+  - linia 1 (mocna): „Jesteś zarejestrowany na to wydarzenie"
+  - linia 2 (mniejsza): „Zarezerwowałeś {N} {miejsc/miejsce/miejsca} w {M} {rezerwacji/rezerwacjach}" (poprawne formy PL)
+  - opcjonalny dodatek po przecinku, jeśli `inactiveTickets > 0`: „(+K anulowanych)"
+  - po prawej stronie: badge z najnowszym statusem (np. „Oczekuje przelewu", „Opłacone") wyliczony z `orders[0].status` przez istniejącą funkcję `statusBadge`
+
+`N` = suma `quantity * seats_per_ticket` po aktywnych zamówieniach (te same reguły INACTIVE co dziś). `M` = liczba aktywnych zamówień.
+
+Istniejące:
+- nagłówek „Twoje bilety na to wydarzenie" z licznikiem `{activeTickets} biletów`,
+- lista zamówień z atendantami i edycją gości,
+- dialog edycji uczestnika,
+
+pozostają bez zmian — pasek pojawia się jako pierwszy element wewnątrz głównego kontenera komponentu, nad istniejącym `div` nagłówka.
+
+## Szczegóły techniczne
+
+- Wykorzystać istniejące `orders`, `INACTIVE`, `activeTickets`, `inactiveTickets`.
+- Dodać helper `pluralPL(n, [one, few, many])` lokalnie w pliku do form „miejsce/miejsca/miejsc" i „rezerwacja/rezerwacje/rezerwacji".
+- Pasek: `rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs`, ikona `Ticket` z `lucide-react` (już importowana).
+- Nie renderować paska podczas `isLoading` (zostaje tylko dotychczasowy spinner) ani gdy `!user`.
+- Brak zmian w `data-testid` istniejących elementów; nowy element dostaje `data-testid="my-event-registration-summary"` na potrzeby ewentualnych testów.
+
+## Poza zakresem
+
+- Diagnoza dlaczego dla aktualnie zalogowanego konta widać „0 biletów" mimo rezerwacji (to zależy od konta zalogowanego względem `user_id`/`email` na zamówieniu i RLS — bez zmian tutaj).
+- Zmiany w sekcji „Pokaż zapisanych przez mój link".
