@@ -41,7 +41,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   onRetry,
   bufferedRanges,
   networkQuality,
+  playbackRate = 1,
+  onSpeedChange,
+  allowedPlaybackRates,
 }) => {
+  const showSpeedControl = !!onSpeedChange && !!allowedPlaybackRates && allowedPlaybackRates.length > 1;
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
