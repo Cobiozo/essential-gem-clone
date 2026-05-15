@@ -186,7 +186,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                         )}
                         {isPlaceholder && <span className="text-amber-600">— uzupełnij dane</span>}
                       </div>
-                      {!isBuyer && (
+                      {!isBuyer && canEdit && (
                         <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => openEdit(a)}>
                           <Pencil className="h-3 w-3 mr-1" /> Edytuj
                         </Button>
