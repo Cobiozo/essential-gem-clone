@@ -21,6 +21,10 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
+  // NEW: Optional playback rate selector (admin-enabled per lesson)
+  playbackRate?: number;
+  onSpeedChange?: (rate: number) => void;
+  allowedPlaybackRates?: number[];
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -37,7 +41,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   onRetry,
   bufferedRanges,
   networkQuality,
+  playbackRate = 1,
+  onSpeedChange,
+  allowedPlaybackRates,
 }) => {
+  const showSpeedControl = !!onSpeedChange && !!allowedPlaybackRates && allowedPlaybackRates.length > 1;
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -164,7 +172,25 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
           <div className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>
-          
+
+          {showSpeedControl && (
+            <div className="flex items-center gap-1 ml-1">
+              {allowedPlaybackRates!.map((rate) => (
+                <Button
+                  key={rate}
+                  variant={playbackRate === rate ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => onSpeedChange!(rate)}
+                  className="h-8 px-2 text-xs min-h-[36px]"
+                  style={{ touchAction: 'manipulation' }}
+                  title={`Prędkość ${rate}x`}
+                >
+                  {rate}x
+                </Button>
+              ))}
+            </div>
+          )}
+
           {onRetry && (
             <Button
               variant="ghost"

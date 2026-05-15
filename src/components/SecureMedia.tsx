@@ -43,6 +43,8 @@ interface SecureMediaProps {
   controlMode?: 'native' | 'restricted' | 'secure';
   // Callback when video reaches the end (ended event)
   onVideoEnded?: () => void;
+  // Allowed playback rates (default [1] = locked at normal speed). Pass [1, 1.5] to enable speed selector.
+  allowedPlaybackRates?: number[];
 }
 
 // YouTube URL detection and ID extraction
@@ -77,7 +79,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   seekToTimeRef,
   pauseRequested = false,
   controlMode,
-  onVideoEnded
+  onVideoEnded,
+  allowedPlaybackRates = [1]
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
@@ -176,6 +179,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const onPlayStateChangeRef = useRef(onPlayStateChange);
   const onDurationChangeRef = useRef(onDurationChange);
+  const allowedPlaybackRatesRef = useRef(allowedPlaybackRates);
   
   // Keep refs in sync with latest callbacks
   useEffect(() => {
@@ -189,6 +193,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => {
     onDurationChangeRef.current = onDurationChange;
   }, [onDurationChange]);
+
+  useEffect(() => {
+    allowedPlaybackRatesRef.current = allowedPlaybackRates;
+  }, [allowedPlaybackRates]);
 
   // Rewind 10 seconds (for restricted mode - backward seeking allowed)
   const handleRewind = useCallback(() => {
@@ -240,13 +248,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setCurrentTime(safeTime);
   }, [videoElement, duration]);
 
-  // Speed change handler for secure mode
+  // Speed change handler — only allows rates from allowedPlaybackRates
   const handleSpeedChange = useCallback((rate: number) => {
     if (!videoElement) return;
+    if (!allowedPlaybackRates.includes(rate)) {
+      console.warn('[SecureMedia] Speed change rejected — rate not allowed:', rate);
+      return;
+    }
     console.log('[SecureMedia] Speed change:', { rate });
     videoElement.playbackRate = rate;
     setPlaybackRate(rate);
-  }, [videoElement]);
+  }, [videoElement, allowedPlaybackRates]);
 
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
@@ -1174,10 +1186,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setVideoReady(true);
     };
 
-    // Block playback rate changes
+    // Block playback rate changes that are not in allowedPlaybackRates
+    // (protects against DevTools manipulation while still allowing admin-enabled speeds)
     const handleRateChange = () => {
-      if (video.playbackRate !== 1) {
+      if (!allowedPlaybackRatesRef.current.includes(video.playbackRate)) {
         video.playbackRate = 1;
+        setPlaybackRate(1);
       }
     };
 
@@ -2010,6 +2024,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             isBuffering={isSmartBuffering}
             playbackRate={playbackRate}
+            allowedPlaybackRates={allowedPlaybackRates}
           />
         </div>
       );
@@ -2130,6 +2145,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
             networkQuality={networkQuality}
+            playbackRate={playbackRate}
+            onSpeedChange={handleSpeedChange}
+            allowedPlaybackRates={allowedPlaybackRates}
           />
         </div>
       );

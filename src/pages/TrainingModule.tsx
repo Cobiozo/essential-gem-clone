@@ -52,6 +52,7 @@ interface TrainingLesson {
   position: number;
   action_buttons?: LessonActionButton[];
   completion_method?: string;
+  playback_speed_enabled?: boolean;
 }
 
 interface LessonProgress {
@@ -266,7 +267,8 @@ const TrainingModule = () => {
         const mappedLessons = (lessonsData || []).map(lesson => ({
           ...lesson,
           action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[],
-          completion_method: (lesson as any).completion_method || 'auto'
+          completion_method: (lesson as any).completion_method || 'auto',
+          playback_speed_enabled: (lesson as any).playback_speed_enabled ?? false,
         }));
         setLessons(mappedLessons);
 
@@ -1103,6 +1105,7 @@ const TrainingModule = () => {
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}
                       pauseRequested={isNotesDialogOpen}
+                      allowedPlaybackRates={currentLesson.playback_speed_enabled ? [1, 1.5] : [1]}
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
                       <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
