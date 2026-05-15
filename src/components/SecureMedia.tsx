@@ -2145,6 +2145,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
             networkQuality={networkQuality}
+            playbackRate={playbackRate}
+            onSpeedChange={handleSpeedChange}
+            allowedPlaybackRates={allowedPlaybackRates}
           />
         </div>
       );
