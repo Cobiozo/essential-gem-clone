@@ -39,7 +39,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '' });
   const [saving, setSaving] = useState(false);
 
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isLoading } = useQuery({
     queryKey: ['my-event-tickets-inline', user?.id, eventId],
     enabled: !!user?.id && !!eventId,
     queryFn: async () => {
@@ -58,7 +58,9 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
     },
   });
 
-  if (!user || orders.length === 0) return null;
+  if (!user) return null;
+
+  const totalTickets = orders.reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
 
   const openEdit = (a: Attendee) => {
     setEditAttendee(a);
