@@ -154,9 +154,18 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const validate = (): boolean => {
     if (!ticket) return false;
-    if (!formData.firstName || !formData.lastName || !formData.email) {
-      toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
-      return false;
+    if (!hasOwnTicket) {
+      if (!formData.firstName || !formData.lastName || !formData.email) {
+        toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
+        return false;
+      }
+    } else {
+      // Guest-only mode: require name for each guest seat
+      const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
+      if (incomplete !== -1) {
+        toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
+        return false;
+      }
     }
     if (!formData.acceptTerms) {
       toast({ title: 'Akceptacja regulaminu', description: 'Musisz zaakceptować regulamin aby kontynuować', variant: 'destructive' });
