@@ -410,6 +410,8 @@ export const AppBannersManager: React.FC = () => {
         </CardContent>
       </Card>
 
+      <BannerSimulator banners={banners || []} />
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
