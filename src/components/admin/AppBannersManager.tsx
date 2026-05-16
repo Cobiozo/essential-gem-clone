@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Eye, Loader2, Save, Globe2, AlertCircle, Info, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, AlertTriangle, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Loader2, Save, Globe2, AlertCircle, Info, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, AlertTriangle, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock, Search } from 'lucide-react';
 import { AppBanner, FIELD_LABELS, BannerCard } from '@/components/banners/AppBanners';
 import { BannerSimulator } from '@/components/admin/BannerSimulator';
 
