@@ -1,40 +1,36 @@
-## Trzy zmiany
+## Problem
 
-### 1) Usunięcie legendy „Liczba użytkowników"
-W `src/components/admin/UserWorldMap.tsx` (linia ~594) jest blok legendy z kropkami 1/2/7. Usunąć cały ten element (wraz z otaczającym `<div className="absolute …">`).
+Po zalogowaniu na `/dashboard` pojawia się ErrorBoundary z komunikatem `u[i] is not a function`. To wskazuje na wyjątek w trakcie renderu jednego z widżetów dashboardu. Najbardziej prawdopodobny winowajca to świeżo zmodyfikowany widżet mapy świata (`UserWorldMapWidget` → `UserWorldMap`) renderowany w `DashboardFooterSection`. Jeden niespodziewany kształt danych w tym widżecie obecnie wywala cały pulpit.
 
-### 2) Ukrycie „Zlokalizowano X/Y miast" i przycisku „Odśwież" w widżecie pulpitu
-Te elementy są przydatne w panelu admina (`/admin?tab=user-stats`), ale na pulpicie zwykłego użytkownika są zbędne.
+## Plan naprawy
 
-- W `UserWorldMap.tsx` dodać prop: `hideHeaderMeta?: boolean` (domyślnie `false`).
-- Gdy `true` → ukryć:
-  - licznik „Zlokalizowano … / … miast" i wskaźnik geokodowania,
-  - przycisk „Odśwież".
-- Toggle Klasyczna/Satelitarna **pozostawić**.
-- W `src/components/dashboard/widgets/UserWorldMapWidget.tsx` przekazać `hideHeaderMeta={true}`.
+### 1) Izolacja: ErrorBoundary wokół widżetu mapy
+Aby błąd w mapie nigdy więcej nie blokował całego pulpitu, opakować `<UserWorldMapWidget />` w `DashboardFooterSection.tsx` własnym `ErrorBoundary` (z `fallback={null}`), tak by przy awarii mapy reszta strony renderowała się normalnie.
 
-### 3) Upload logo z komputera (działająca funkcja)
-Poprzednia migracja została przerwana — brak kolumn `logo_left_url`, `logo_right_url` w `dashboard_map_settings` i brak bucketu `dashboard-map-logos`. Trzeba ją wykonać + dodać UI uploadu.
+### 2) Lokalizacja prawdziwego błędu
+Po izolacji:
+- dodać krótki `try/catch` wraz z `console.error('[UserWorldMap] render error', e)` w punktach wejścia useMemo (`points`, `clusters`, `boundaryFeatures`),
+- po wejściu użytkownika na `/dashboard` odczytać stack z konsoli i wskazać linię,
+- usunąć tymczasowe logi po naprawie.
 
-**a) Migracja DB + Storage:**
-- `ALTER TABLE dashboard_map_settings ADD logo_left_url TEXT DEFAULT '<obecny Pure Life URL>'`
-- `ADD logo_right_url TEXT DEFAULT '/lovable-uploads/eqology-ibp-logo.png'`
-- Bucket publiczny `dashboard-map-logos` + policies (public SELECT, admin INSERT/UPDATE/DELETE).
+### 3) Twarda naprawa najczęstszych przyczyn (defensywnie, bez zmian funkcjonalności)
+- W `UserWorldMapWidget.tsx`: gdy `settings.logo_left_url` lub `settings.logo_right_url` jest pustym stringiem, przekazywać `undefined` (zapobiega pustym `<img>`).
+- W `UserWorldMap.tsx`: 
+  - upewnić się, że `cities` zawsze jest tablicą (`Array.isArray(cities) ? cities : []`),
+  - zabezpieczyć `geo.forEach`/`points.map` przed brakującym `data?.results`,
+  - blok logo renderować tylko gdy faktycznie jest `logoLeftUrl || logoRightUrl` lub brak nadpisania (czytelniejsza logika niż obecne wyrażenie).
 
-**b) `useDashboardMapSettings.ts`:** rozszerzyć interfejs o `logo_left_url`, `logo_right_url`.
+### 4) Weryfikacja
+- Wejście na `/dashboard` jako zalogowany użytkownik — pulpit ładuje się w całości.
+- Sekcja mapy działa (lub, jeśli nadal padnie, jest cicho ukryta i mamy stack w konsoli do dalszej naprawy).
+- Brak regresji w `/admin?tab=user-stats`, gdzie `UserWorldMap` jest używana z pełnym nagłówkiem.
 
-**c) `DashboardMapSettings.tsx`:** pod „Pokaż logo" dodać sekcję **„Logo (lewe / prawe)"** — dla każdego slotu:
-- podgląd obrazka (lub placeholder „Brak logo"),
-- przycisk **Wgraj plik** (`<input type="file" accept="image/*">`) → upload do `dashboard-map-logos/{left|right}/{timestamp}.{ext}` → `getPublicUrl` → zapis do draftu (toast „Wgrano"),
-- pole tekstowe URL (edycja ręczna),
-- przycisk **Usuń** (czyści URL).
-URL-e zapisywane razem z resztą przyciskiem „Zapisz ustawienia".
+## Pliki do zmiany
+- `src/components/dashboard/widgets/DashboardFooterSection.tsx` — `ErrorBoundary` wokół `UserWorldMapWidget`.
+- `src/components/dashboard/widgets/UserWorldMapWidget.tsx` — normalizacja pustych URL-i logo do `undefined`.
+- `src/components/admin/UserWorldMap.tsx` — guardy na `cities`/`geo`, czytelniejszy warunek render logo, tymczasowe logi diagnostyczne.
 
-**d) `UserWorldMap.tsx`:** dodać propsy `logoLeftUrl?`, `logoRightUrl?` i użyć ich w bloku `{showLogos && …}`. Jeśli `logoRightUrl` puste — bez separatora i prawego logo.
-
-**e) `UserWorldMapWidget.tsx`:** przekazać `logoLeftUrl={settings.logo_left_url}` i `logoRightUrl={settings.logo_right_url}`.
-
-## Brak regresji
-- `/admin?tab=user-stats` zachowuje pełny nagłówek (brak `hideHeaderMeta`).
-- Domyślne wartości URL-i logo = obecnie używane → bez zmian wizualnych po wdrożeniu.
-- Tylko admin może wgrywać do bucketu (RLS).
+## Bez zmian
+- Schemat bazy i bucket `dashboard-map-logos` (już zmigrowane i działają).
+- Panel admina `DashboardMapSettings.tsx`.
+- Pozostałe widżety pulpitu.
