@@ -371,26 +371,31 @@ const UserWorldMap: React.FC<Props> = ({
             Brak danych adresowych do wyświetlenia.
           </div>
         ) : (
-          <div className="relative w-full" style={{ aspectRatio: '2 / 1' }}>
+          <div
+            className="relative w-full"
+            style={heightPx ? { height: heightPx } : { aspectRatio: '2 / 1' }}
+          >
             {isFetching && points.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
-              <img
-                src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
-                alt="Pure Life"
-                className="h-6 w-auto object-contain"
-              />
-              <div className="h-5 w-px bg-border" />
-              <img
-                src="/lovable-uploads/eqology-ibp-logo.png"
-                alt="Eqology IBP"
-                className="h-6 w-auto object-contain"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
+            {showLogos && (
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
+                <img
+                  src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
+                  alt="Pure Life"
+                  className="h-6 w-auto object-contain"
+                />
+                <div className="h-5 w-px bg-border" />
+                <img
+                  src="/lovable-uploads/eqology-ibp-logo.png"
+                  alt="Eqology IBP"
+                  className="h-6 w-auto object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
             <ComposableMap
               key={mapStyle}
               projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
