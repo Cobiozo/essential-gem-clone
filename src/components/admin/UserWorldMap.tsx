@@ -589,31 +589,6 @@ const UserWorldMap: React.FC<Props> = ({
               </Button>
             </div>
 
-            {/* Legenda */}
-            <div className="absolute bottom-3 left-3 rounded-md border bg-popover/90 backdrop-blur px-2 py-1.5 text-[10px] text-muted-foreground">
-              <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
-              <div className="flex items-center gap-3">
-                {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = Math.max(1.2, Math.min(3.2, 1.1 + Math.log2(n + 1) * 0.7));
-                  return (
-                    <div key={i} className="flex items-center gap-1">
-                      <svg width={r * 2 + 2} height={r * 2 + 2}>
-                        <circle
-                          cx={r + 1}
-                          cy={r + 1}
-                          r={r}
-                          fill={markerColor ?? 'hsl(var(--primary))'}
-                          fillOpacity={0.9}
-                          stroke="hsl(var(--background))"
-                          strokeWidth={1}
-                        />
-                      </svg>
-                      <span>{n}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
       </CardContent>
