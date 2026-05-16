@@ -52,6 +52,18 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
+    try {
+      const v = localStorage.getItem('userWorldMap.style');
+      return v === 'classic' ? 'classic' : 'satellite';
+    } catch {
+      return 'satellite';
+    }
+  });
+  const changeMapStyle = (v: 'classic' | 'satellite') => {
+    setMapStyle(v);
+    try { localStorage.setItem('userWorldMap.style', v); } catch {}
+  };
 
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
