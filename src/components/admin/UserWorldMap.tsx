@@ -303,7 +303,7 @@ const UserWorldMap: React.FC<Props> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Globe2 className="h-4 w-4 text-primary" />
-            Mapa świata użytkowników
+            {showTitle ? (customTitle ?? 'Mapa świata użytkowników') : ''}
           </CardTitle>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
