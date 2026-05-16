@@ -1,36 +1,40 @@
-## Problem
+## Cel
+Mapa w widżecie dashboardu ma ładować się bez błędu `u[i] is not a function`. Nie chcemy tylko ukrywać awarii — sama mapa ma renderować się stabilnie.
 
-Po zalogowaniu na `/dashboard` pojawia się ErrorBoundary z komunikatem `u[i] is not a function`. To wskazuje na wyjątek w trakcie renderu jednego z widżetów dashboardu. Najbardziej prawdopodobny winowajca to świeżo zmodyfikowany widżet mapy świata (`UserWorldMapWidget` → `UserWorldMap`) renderowany w `DashboardFooterSection`. Jeden niespodziewany kształt danych w tym widżecie obecnie wywala cały pulpit.
+## Diagnoza
+Błąd pasuje do `react-simple-maps`: biblioteka wywołuje projekcję jako funkcję z obiektu `d3-geo`. Jeśli przekazana nazwa projekcji nie zostanie poprawnie znaleziona albo bundler ją zminifikuje/nieudostępni tak, jak oczekuje biblioteka, pojawia się błąd typu `... is not a function`.
+
+W `UserWorldMap.tsx` projekcja jest teraz przekazywana jako string:
+- `projection="geoEquirectangular"`
+- `projection="geoNaturalEarth1"`
+
+To jest najbardziej prawdopodobna przyczyna błędu widocznego na dashboardzie.
 
 ## Plan naprawy
+1. **Przestać przekazywać projekcję jako string**
+   - W `UserWorldMap.tsx` importować jawnie funkcje projekcji z `d3-geo`: `geoEquirectangular` i `geoNaturalEarth1`.
+   - Przekazywać do `<ComposableMap />` realną funkcję projekcji, nie nazwę tekstową.
+   - Dzięki temu `react-simple-maps` nie będzie robił dynamicznego lookupu `projections[projection]()` i błąd `u[i] is not a function` zniknie u źródła.
 
-### 1) Izolacja: ErrorBoundary wokół widżetu mapy
-Aby błąd w mapie nigdy więcej nie blokował całego pulpitu, opakować `<UserWorldMapWidget />` w `DashboardFooterSection.tsx` własnym `ErrorBoundary` (z `fallback={null}`), tak by przy awarii mapy reszta strony renderowała się normalnie.
+2. **Ustabilizować render mapy**
+   - Utworzyć `mapProjection` w `useMemo`, zależny od trybu mapy.
+   - Użyć stałych `MAP_WIDTH` / `MAP_HEIGHT` zamiast ukrytych wartości `800/600`, także dla obliczania tekstury satelitarnej.
+   - Dodać defensywne zabezpieczenia na geografie/klastry, żeby błędny kształt danych nie przerywał renderu.
 
-### 2) Lokalizacja prawdziwego błędu
-Po izolacji:
-- dodać krótki `try/catch` wraz z `console.error('[UserWorldMap] render error', e)` w punktach wejścia useMemo (`points`, `clusters`, `boundaryFeatures`),
-- po wejściu użytkownika na `/dashboard` odczytać stack z konsoli i wskazać linię,
-- usunąć tymczasowe logi po naprawie.
+3. **Naprawić lokalny ErrorBoundary widżetu**
+   - W `DashboardFooterSection.tsx` zostawić izolację widżetu, ale poprawnie przekazać `fallback={null}` bez `as any`.
+   - Jeśli mapa kiedyś napotka osobny problem, nie rozwali całego dashboardu, ale celem tej poprawki jest, żeby nie było fallbacku w normalnym działaniu.
 
-### 3) Twarda naprawa najczęstszych przyczyn (defensywnie, bez zmian funkcjonalności)
-- W `UserWorldMapWidget.tsx`: gdy `settings.logo_left_url` lub `settings.logo_right_url` jest pustym stringiem, przekazywać `undefined` (zapobiega pustym `<img>`).
-- W `UserWorldMap.tsx`: 
-  - upewnić się, że `cities` zawsze jest tablicą (`Array.isArray(cities) ? cities : []`),
-  - zabezpieczyć `geo.forEach`/`points.map` przed brakującym `data?.results`,
-  - blok logo renderować tylko gdy faktycznie jest `logoLeftUrl || logoRightUrl` lub brak nadpisania (czytelniejsza logika niż obecne wyrażenie).
-
-### 4) Weryfikacja
-- Wejście na `/dashboard` jako zalogowany użytkownik — pulpit ładuje się w całości.
-- Sekcja mapy działa (lub, jeśli nadal padnie, jest cicho ukryta i mamy stack w konsoli do dalszej naprawy).
-- Brak regresji w `/admin?tab=user-stats`, gdzie `UserWorldMap` jest używana z pełnym nagłówkiem.
+4. **Zweryfikować wynik**
+   - Sprawdzić, że `/dashboard` nie pokazuje już karty błędu.
+   - Sprawdzić, że mapa renderuje się w widżecie i przełącznik Klasyczna/Satelitarna nadal działa.
+   - Adminowa wersja mapy (`/admin?tab=user-stats`) pozostaje z pełnym nagłówkiem.
 
 ## Pliki do zmiany
-- `src/components/dashboard/widgets/DashboardFooterSection.tsx` — `ErrorBoundary` wokół `UserWorldMapWidget`.
-- `src/components/dashboard/widgets/UserWorldMapWidget.tsx` — normalizacja pustych URL-i logo do `undefined`.
-- `src/components/admin/UserWorldMap.tsx` — guardy na `cities`/`geo`, czytelniejszy warunek render logo, tymczasowe logi diagnostyczne.
+- `src/components/admin/UserWorldMap.tsx`
+- `src/components/dashboard/widgets/DashboardFooterSection.tsx`
 
 ## Bez zmian
-- Schemat bazy i bucket `dashboard-map-logos` (już zmigrowane i działają).
-- Panel admina `DashboardMapSettings.tsx`.
-- Pozostałe widżety pulpitu.
+- Nie ruszam bazy danych ani ustawień Supabase.
+- Nie zmieniam logiki widoczności widżetu.
+- Nie usuwam uploadu logo.
