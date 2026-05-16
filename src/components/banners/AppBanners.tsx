@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import { matchBanner, computeMissingFields } from './bannerMatching';
 
 export type AppBanner = {
   id: string;
