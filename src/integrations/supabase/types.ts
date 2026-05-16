@@ -2685,6 +2685,63 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_map_settings: {
+        Row: {
+          default_mode: string
+          height_px: number
+          id: string
+          is_enabled: boolean
+          marker_color: string
+          show_logos: boolean
+          show_title: boolean
+          title: string
+          updated_at: string
+          updated_by: string | null
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_leader: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
+          width: string
+        }
+        Insert: {
+          default_mode?: string
+          height_px?: number
+          id?: string
+          is_enabled?: boolean
+          marker_color?: string
+          show_logos?: boolean
+          show_title?: boolean
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_leader?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+          width?: string
+        }
+        Update: {
+          default_mode?: string
+          height_px?: number
+          id?: string
+          is_enabled?: boolean
+          marker_color?: string
+          show_logos?: boolean
+          show_title?: boolean
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_leader?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+          width?: string
+        }
+        Relationships: []
+      }
       data_cleanup_settings: {
         Row: {
           category_key: string
