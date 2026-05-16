@@ -2130,6 +2130,27 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
                 <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
               </button>
             )}
+            {/* Playback speed overlay — only when admin enabled multiple rates for this lesson */}
+            {allowedPlaybackRates && allowedPlaybackRates.length > 1 && videoReady && (
+              <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1 py-1 shadow-md">
+                {allowedPlaybackRates.map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => handleSpeedChange(rate)}
+                    className={`min-w-[36px] h-7 px-2 text-xs font-semibold rounded-full transition-colors ${
+                      playbackRate === rate
+                        ? 'bg-white text-black'
+                        : 'text-white/90 hover:bg-white/15'
+                    }`}
+                    style={{ touchAction: 'manipulation' }}
+                    title={`Prędkość ${rate}x`}
+                  >
+                    {rate}×
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <VideoControls
             isPlaying={isPlaying}
@@ -2145,9 +2166,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
             networkQuality={networkQuality}
-            playbackRate={playbackRate}
-            onSpeedChange={handleSpeedChange}
-            allowedPlaybackRates={allowedPlaybackRates}
           />
         </div>
       );

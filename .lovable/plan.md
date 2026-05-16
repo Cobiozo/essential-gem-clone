@@ -1,75 +1,37 @@
-
 ## Cel
 
-1. Poprawić stabilność odtwarzania wideo lekcji Akademii na urządzeniach Apple (iPhone Safari, iOS PWA, MacBook Safari).
-2. Dodać sterowane przez admina (per lekcja) przyspieszenie 1.0x / 1.5x.
-3. Zagwarantować, że zaliczenie lekcji nadal działa poprawnie przy 1.5x.
+Przyspieszenie 1.5x ma być dostępne PRZED zaliczeniem lekcji (jeśli admin włączył), ale wyświetlane w formie nakładki wewnątrz okna wideo (jak natywne kontrolki po zaliczeniu), a nie jako dodatkowe przyciski w pasku pod wideo.
 
-## Część 1 — Audyt iOS/Safari i poprawki stabilności
+## Stan obecny
 
-Obecny stan (z kodu):
-- `SecureMedia.tsx` blokuje wszelkie zmiany `playbackRate` (handler `ratechange` natychmiast resetuje do 1).
-- `videoBufferConfig.ts` ma już osobne profile mobile/iOS, ale część heurystyk (force-hide buffering, smart resume) działa agresywnie i przy słabszym łączu LTE iPhone potrafi „mrugać".
-- `preload="auto"` na mobile = iOS Safari częściej zacina się przy starcie i przy przewijaniu segmentów HLS.
-- Brak `playsInline` w niektórych ścieżkach renderu (sprawdzić linie ~1954/2069).
+W `SecureMedia.tsx` przed zaliczeniem (`controlMode === 'restricted'`, linie 2073–2153) wideo renderuje się z `controls={false}` + pasek `<VideoControls>` pod spodem. Aktualnie dodaliśmy przyciski 1x/1.5x w pasku `VideoControls.tsx` — to nie jest to, czego oczekuje użytkownik.
 
-Planowane poprawki (tylko frontend / SecureMedia):
-- iOS / iPadOS Safari: `preload="metadata"` zamiast `auto` dla pierwszego segmentu, pełny preload dopiero po pierwszym `play()` (mniej zacięć przy starcie, mniej memory pressure).
-- Dodać `playsInline`, `webkit-playsinline`, `x-webkit-airplay="allow"` do wszystkich `<video>` w SecureMedia (jeśli któryś branch ich nie ma).
-- Wydłużyć `stalledDebounceMs` na iOS do 2500–3000 ms i wyłączyć przełączanie na spinner gdy `bufferedAhead >= 1.5s` — eliminuje krótkie „mrugnięcia" na granicy segmentów HLS.
-- Czyścić `videoElement.src` i `load()` przy odmontowaniu, żeby Safari nie trzymał dekodera (powód zacinania kolejnych lekcji w PWA).
-- Dla MacBook Safari: wyłączyć `disablePictureInPicture` tam gdzie nie jest potrzebne, ale zostawić `controlsList="nodownload noremoteplayback"`.
-- Test matrix po wdrożeniu: iPhone Safari (iOS 17/18), iPhone PWA (standalone), iPad Safari, MacBook Safari + Chrome — sprawdzenie startu, przewijania, fullscreen, wznowienia po lock screen.
+Po zaliczeniu (linie 2191–2218) wideo używa natywnych `controls` przeglądarki — gdzie prędkość jest dostępna z poziomu kontrolek wewnątrz ramki wideo.
 
-## Część 2 — Przyspieszenie 1.0x / 1.5x sterowane per lekcja
+## Zmiana
 
-### Schemat bazy
-Migracja: dodanie kolumny do `training_lessons`:
-```
-playback_speed_enabled boolean not null default false
-```
-Brak zmian RLS — kolumna dziedziczy istniejące polityki.
+1. **Usunięcie przycisków prędkości z `VideoControls.tsx`** (pasek pod wideo w trybie restricted). Wracamy do stanu sprzed ostatniej zmiany — żadnych 1x/1.5x w pasku.
 
-### Panel admina
-- `TrainingManagement.tsx` + `SortableLessonCard.tsx`: dodać przełącznik „Pozwól na odtwarzanie 1.5x" w edytorze lekcji (widoczny tylko gdy `media_type === 'video'`).
-- Zapis pola w istniejącym formularzu lekcji.
+2. **Dodanie nakładki prędkości wewnątrz ramki wideo** w trybie restricted (`SecureMedia.tsx` ~linia 2078–2133):
+   - Mały przycisk w prawym górnym rogu wideo, pokazuje aktualną prędkość (np. „1×"), styl: półprzezroczyste tło `bg-black/50`, biały tekst, zaokrąglony, ~32–36 px wysokości, padding 8–10 px.
+   - Widoczny tylko gdy `allowedPlaybackRates.length > 1` (czyli admin włączył 1.5x dla lekcji).
+   - Kliknięcie otwiera mały popover/dropdown z opcjami 1× / 1.5× (lista z `allowedPlaybackRates`).
+   - Pozycja: `absolute top-2 right-2 z-20`, nie koliduje z overlay „Play" (który jest w centrum) ani „Tap to resume".
+   - W trybie fullscreen pozostaje w obrębie wideo (rodzic `relative`).
 
-### Player (SecureMedia + TrainingModule)
-- `SecureMedia` dostaje nowy prop `allowedPlaybackRates?: number[]` (domyślnie `[1]`).
-- W `handleRateChange` zezwalamy na wartości z `allowedPlaybackRates`, blokujemy pozostałe (utrzymujemy ochronę przed manipulacją z DevTools — wartości spoza listy są resetowane do 1).
-- W trybie secure renderujemy istniejące `SecureVideoControls` z dwiema opcjami w dropdownie prędkości: 1x i 1.5x (gdy `allowedPlaybackRates.length > 1`), w przeciwnym razie ukrywamy kontrolkę prędkości.
-- `TrainingModule.tsx`: przekazuje `allowedPlaybackRates={currentLesson.playback_speed_enabled ? [1, 1.5] : [1]}`.
+3. **Zachowanie blokad**:
+   - Brak zmian w blokadzie przewijania — pasek postępu w `VideoControls` nadal bez seek.
+   - `handleSpeedChange` / `handleRateChange` z ochroną listy `allowedPlaybackRates` (już zaimplementowane) pozostaje.
 
-### Typowanie
-- `src/types/training.ts`: dodać `playback_speed_enabled?: boolean` do `TrainingLesson`.
+4. **Po zaliczeniu** (natywne controls, linia 2191+): bez zmian — Safari/Chrome same pokazują menu prędkości w natywnych kontrolkach.
 
-## Część 3 — Wpływ przyspieszenia na zaliczanie lekcji
+5. **Zaliczenie przy 1.5×**: bez zmian w logice (`currentTime` niezależny od prędkości — zweryfikowane wcześniej).
 
-Analiza obecnej logiki (`TrainingModule.tsx` 896–923):
-- `effectiveTimeSpent = Math.floor(videoPosition)`, gdzie `videoPosition = video.currentTime` (czas treści, NIE czas zegarowy).
-- `requiredTime = video_duration_seconds || min_time_seconds`.
-- Próg zaliczenia: `effectiveTimeSpent >= requiredTime * 0.98` dla wideo.
+## Pliki
 
-Wniosek: `currentTime` rośnie identycznie niezależnie od `playbackRate` (1.0x → 60 s w 60 s realnych; 1.5x → 60 s w 40 s realnych, ale `currentTime` nadal osiąga 60). Próg 98% długości treści zostaje spełniony tak samo. Zaliczenie działa poprawnie przy 1.5x bez zmian logiki.
-
-Dodatkowe zabezpieczenia, które i tak wprowadzimy:
-- W `handleVideoEnded` już jest `videoPositionRef.current = videoDurationRef.current` — to gwarantuje 100% nawet jeśli iOS skończy na 99.7%.
-- Walidacja serwerowa pozostaje bez zmian (pole `video_position_seconds` zapisywane do `training_progress`).
-
-## Część techniczna (dla deweloperów)
-
-Pliki do modyfikacji:
-- migracja SQL: `training_lessons.playback_speed_enabled boolean default false`
-- `src/types/training.ts` — dodać pole
-- `src/components/admin/TrainingManagement.tsx` + `SortableLessonCard.tsx` — UI przełącznika i zapis
-- `src/components/SecureMedia.tsx` — prop `allowedPlaybackRates`, modyfikacja `handleRateChange`, ustawienia iOS preload/playsInline/cleanup
-- `src/components/training/SecureVideoControls.tsx` — filtrowanie `SPEED_OPTIONS` po `allowedPlaybackRates`, ukrycie dropdownu gdy tylko jedna opcja
-- `src/pages/TrainingModule.tsx` — przekazanie `allowedPlaybackRates` do `SecureMedia`
-- `src/lib/videoBufferConfig.ts` — dostrojenie debounce/preload dla iOS
-
-Zaliczanie lekcji nie wymaga zmian — jest niezależne od prędkości odtwarzania.
+- `src/components/SecureMedia.tsx` — dodać overlay prędkości w branchu restricted (~linia 2133), usunąć przekazywanie `playbackRate`/`onSpeedChange`/`allowedPlaybackRates` do `<VideoControls>`.
+- `src/components/training/VideoControls.tsx` — usunąć propsy `playbackRate`, `onSpeedChange`, `allowedPlaybackRates` oraz blok przycisków 1x/1.5x.
 
 ## Poza zakresem
 
-- Zmiana algorytmu HLS lub serwera streamującego (`stream-media` edge function).
-- Inne prędkości niż 1.0x i 1.5x (można dodać później przez rozszerzenie listy).
+- Zmiany w `SecureVideoControls.tsx` (tryb secure po zaliczeniu nie używa restricted ścieżki, ale tam też menu prędkości jest w pasku — użytkownik wskazał, że po zaliczeniu jest dobrze, bo to natywne controls; `SecureVideoControls` nie jest aktywne w `TrainingModule`, więc nie ruszamy).
