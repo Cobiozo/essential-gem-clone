@@ -318,6 +318,22 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 <X className="h-3 w-3" />
               </button>
             )}
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={mapStyle}
+              onValueChange={(v) => v && changeMapStyle(v as 'classic' | 'satellite')}
+              className="border rounded-md"
+            >
+              <ToggleGroupItem value="classic" aria-label="Klasyczna" className="h-7 px-2 text-[11px]">
+                <MapIcon className="h-3 w-3 mr-1" />
+                Klasyczna
+              </ToggleGroupItem>
+              <ToggleGroupItem value="satellite" aria-label="Satelitarna" className="h-7 px-2 text-[11px]">
+                <Globe2 className="h-3 w-3 mr-1" />
+                Satelitarna
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Button
               variant="ghost"
               size="sm"
