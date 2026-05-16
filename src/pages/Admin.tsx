@@ -4608,6 +4608,10 @@ const Admin = () => {
             </Dialog>
           </TabsContent>
 
+          <TabsContent value="user-stats">
+            <UserStatistics />
+          </TabsContent>
+
           <TabsContent value="training">
             <TrainingManagement />
           </TabsContent>
