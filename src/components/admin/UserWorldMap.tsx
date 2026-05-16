@@ -390,20 +390,25 @@ const UserWorldMap: React.FC<Props> = ({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            {showLogos && (
+            {showLogos && (logoLeftUrl || logoRightUrl || (logoLeftUrl === undefined && logoRightUrl === undefined)) && (
               <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
                 <img
-                  src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
-                  alt="Pure Life"
-                  className="h-6 w-auto object-contain"
-                />
-                <div className="h-5 w-px bg-border" />
-                <img
-                  src="/lovable-uploads/eqology-ibp-logo.png"
-                  alt="Eqology IBP"
+                  src={logoLeftUrl ?? "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"}
+                  alt="Logo"
                   className="h-6 w-auto object-contain"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
+                {(logoRightUrl ?? (logoLeftUrl === undefined ? "/lovable-uploads/eqology-ibp-logo.png" : "")) && (
+                  <>
+                    <div className="h-5 w-px bg-border" />
+                    <img
+                      src={logoRightUrl ?? "/lovable-uploads/eqology-ibp-logo.png"}
+                      alt="Logo"
+                      className="h-6 w-auto object-contain"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </>
+                )}
               </div>
             )}
             <ComposableMap
