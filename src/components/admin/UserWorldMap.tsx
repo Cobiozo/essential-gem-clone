@@ -291,7 +291,10 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               <ZoomableGroup
                 center={position.coordinates}
                 zoom={position.zoom}
-                onMoveEnd={(p) => setPosition(p)}
+                onMoveEnd={(p) => {
+                  if (isAnimatingRef.current) return;
+                  setPosition(p);
+                }}
                 maxZoom={64}
               >
                 <Geographies geography={worldTopo as any}>
@@ -301,12 +304,12 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                       const isSelected = !!selectedIso && iso === selectedIso;
                       const dimmed = !!selectedIso && !isSelected;
                       const baseFill = isSelected
-                        ? 'hsl(var(--primary) / 0.22)'
+                        ? 'hsl(var(--primary) / 0.18)'
                         : dimmed
-                        ? 'hsl(var(--muted) / 0.4)'
-                        : 'hsl(var(--muted))';
+                        ? 'hsl(var(--muted) / 0.35)'
+                        : 'hsl(var(--muted) / 0.55)';
                       const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
-                      const strokeWidth = isSelected ? 1.2 : 0.5;
+                      const strokeWidth = isSelected ? 1.2 : 0.7;
                       return (
                         <Geography
                           key={g.rsmKey}
@@ -336,9 +339,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 </Geographies>
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
-                  const baseR = 2 + Math.log2(c.count + 1) * (isCluster ? 2.8 : 2.2);
-                  const r = baseR / Math.sqrt(position.zoom);
-                  const strokeW = 1 / Math.sqrt(position.zoom);
+                  const rawR = (1.6 + Math.log2(c.count + 1) * 0.9) / Math.sqrt(position.zoom);
+                  const r = Math.max(0.6, Math.min(5, rawR));
+                  const strokeW = 0.6 / Math.sqrt(position.zoom);
                   const onEnter = (e: React.MouseEvent) => {
                     const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
                     const sorted = [...c.items].sort((a, b) => b.count - a.count);
@@ -372,22 +375,10 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         <circle
                           r={r}
                           fill="hsl(var(--primary))"
-                          fillOpacity={isCluster ? 0.85 : 0.75}
+                          fillOpacity={isCluster ? 0.9 : 0.75}
                           stroke="white"
                           strokeWidth={strokeW}
                         />
-                        {isCluster && (
-                          <text
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                            fontSize={r * 0.95}
-                            fontWeight={700}
-                            fill="hsl(var(--primary-foreground))"
-                            style={{ pointerEvents: 'none', userSelect: 'none' }}
-                          >
-                            {c.count}
-                          </text>
-                        )}
                       </g>
                     </Marker>
                   );
@@ -433,7 +424,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
               <div className="flex items-center gap-3">
                 {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = 2 + Math.log2(n + 1) * 2.2;
+                  const r = Math.max(0.6, Math.min(5, 1.6 + Math.log2(n + 1) * 0.9));
                   return (
                     <div key={i} className="flex items-center gap-1">
                       <svg width={r * 2 + 2} height={r * 2 + 2}>
