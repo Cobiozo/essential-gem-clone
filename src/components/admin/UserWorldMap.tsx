@@ -306,9 +306,10 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() =>
-                geocodeCities(items, true).then(() => refetch())
-              }
+              onClick={() => {
+                pollAttemptsRef.current = 0;
+                geocodeCities(items, true).then(() => refetch());
+              }}
               disabled={isFetching || missing === 0}
             >
               <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
