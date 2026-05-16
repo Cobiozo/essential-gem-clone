@@ -10,7 +10,8 @@ import {
 import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
+import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X, Map as MapIcon } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCountry } from '@/lib/countryFlags';
 
@@ -51,6 +52,18 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
+    try {
+      const v = localStorage.getItem('userWorldMap.style');
+      return v === 'classic' ? 'classic' : 'satellite';
+    } catch {
+      return 'satellite';
+    }
+  });
+  const changeMapStyle = (v: 'classic' | 'satellite') => {
+    setMapStyle(v);
+    try { localStorage.setItem('userWorldMap.style', v); } catch {}
+  };
 
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
@@ -305,6 +318,22 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 <X className="h-3 w-3" />
               </button>
             )}
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={mapStyle}
+              onValueChange={(v) => v && changeMapStyle(v as 'classic' | 'satellite')}
+              className="border rounded-md"
+            >
+              <ToggleGroupItem value="classic" aria-label="Klasyczna" className="h-7 px-2 text-[11px]">
+                <MapIcon className="h-3 w-3 mr-1" />
+                Klasyczna
+              </ToggleGroupItem>
+              <ToggleGroupItem value="satellite" aria-label="Satelitarna" className="h-7 px-2 text-[11px]">
+                <Globe2 className="h-3 w-3 mr-1" />
+                Satelitarna
+              </ToggleGroupItem>
+            </ToggleGroup>
             <Button
               variant="ghost"
               size="sm"
@@ -333,9 +362,15 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               </div>
             )}
             <ComposableMap
-              projection="geoEquirectangular"
+              key={mapStyle}
+              projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
               projectionConfig={{ scale: 160 }}
-              style={{ width: '100%', height: '100%', shapeRendering: 'geometricPrecision', background: '#0b1d2a' }}
+              style={{
+                width: '100%',
+                height: '100%',
+                shapeRendering: 'geometricPrecision',
+                background: mapStyle === 'satellite' ? '#0b1d2a' : 'transparent',
+              }}
             >
               <ZoomableGroup
                 center={position.coordinates}
@@ -346,26 +381,36 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 }}
                 maxZoom={200}
               >
-                {/* Satelitarne tło Ziemi (Blue Marble, equirectangular) */}
-                <image
-                  href="/textures/earth-bluemarble-2k.jpg"
-                  x={-180}
-                  y={-90}
-                  width={360}
-                  height={180}
-                  preserveAspectRatio="none"
-                  style={{ pointerEvents: 'none' }}
-                />
+                {mapStyle === 'satellite' && (
+                  <image
+                    href="/textures/earth-bluemarble-2k.jpg"
+                    x={-180}
+                    y={-90}
+                    width={360}
+                    height={180}
+                    preserveAspectRatio="none"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
                     geographies.map((g) => {
                       const iso = normalizeCountry(g.properties?.name).iso;
                       const isSelected = !!selectedIso && iso === selectedIso;
+                      const dimmed = !!selectedIso && !isSelected;
                       const baseFill = isSelected
                         ? 'hsl(var(--primary) / 0.18)'
-                        : 'transparent';
-                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(0 0% 100% / 0.25)';
-                      const strokeWidth = (isSelected ? 0.7 : 0.3) / position.zoom;
+                        : mapStyle === 'satellite'
+                        ? 'transparent'
+                        : dimmed
+                        ? 'hsl(var(--muted) / 0.35)'
+                        : 'hsl(var(--muted) / 0.55)';
+                      const stroke = isSelected
+                        ? 'hsl(var(--primary))'
+                        : mapStyle === 'satellite'
+                        ? 'hsl(0 0% 100% / 0.55)'
+                        : 'hsl(var(--border) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.4) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
@@ -381,7 +426,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               cursor: iso ? 'pointer' : 'default',
                             },
                             hover: {
-                              fill: iso && !isSelected ? 'hsl(0 0% 100% / 0.12)' : baseFill,
+                              fill: iso && !isSelected ? (mapStyle === 'satellite' ? 'hsl(0 0% 100% / 0.12)' : 'hsl(var(--muted-foreground) / 0.25)') : baseFill,
                               stroke,
                               strokeWidth,
                               strokeLinejoin: 'round',
