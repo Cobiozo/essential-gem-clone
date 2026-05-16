@@ -341,9 +341,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 </Geographies>
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
-                  const rawR = (1.4 + Math.log2(c.count + 1) * 0.85) / Math.pow(position.zoom, 0.55);
-                  const r = Math.max(0.8, Math.min(4.5, rawR));
-                  const strokeW = 0.5 / Math.pow(position.zoom, 0.55);
+                  const rawR = (1.1 + Math.log2(c.count + 1) * 0.7) / Math.pow(position.zoom, 0.7);
+                  const r = Math.max(0.5, Math.min(3.2, rawR));
+                  const strokeW = 0.4 / Math.pow(position.zoom, 0.7);
                   const onEnter = (e: React.MouseEvent) => {
                     const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
                     const sorted = [...c.items].sort((a, b) => b.count - a.count);
