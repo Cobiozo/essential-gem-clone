@@ -286,7 +286,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             <ComposableMap
               projection="geoNaturalEarth1"
               projectionConfig={{ scale: 160 }}
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: '100%', height: '100%', shapeRendering: 'geometricPrecision' }}
             >
               <ZoomableGroup
                 center={position.coordinates}
