@@ -314,6 +314,10 @@ const MyAccount = () => {
         setSearchParams(next, { replace: true });
       }
 
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user.id] });
+
       toast({
         title: t('toast.success'),
         description: t('myAccount.addressSaved'),
