@@ -43,6 +43,9 @@ interface Props {
   showTitle?: boolean;
   customTitle?: string;
   heightPx?: number;
+  hideHeaderMeta?: boolean;
+  logoLeftUrl?: string;
+  logoRightUrl?: string;
 }
 
 const UserWorldMap: React.FC<Props> = ({
@@ -53,6 +56,9 @@ const UserWorldMap: React.FC<Props> = ({
   showTitle = true,
   customTitle,
   heightPx,
+  hideHeaderMeta = false,
+  logoLeftUrl,
+  logoRightUrl,
 }) => {
   const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
     coordinates: [19, 52],
@@ -306,20 +312,22 @@ const UserWorldMap: React.FC<Props> = ({
             {showTitle ? (customTitle ?? 'Mapa świata użytkowników') : ''}
           </CardTitle>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span>
-                Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
-              </span>
-              {pending > 0 && (
-                <span className="flex items-center gap-1 text-sky-600">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Geokoduję w tle: {pending}…
+            {!hideHeaderMeta && (
+              <span className="flex items-center gap-1.5">
+                <span>
+                  Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
                 </span>
-              )}
-              {pending === 0 && missing > 0 && (
-                <span className="text-amber-600">· {missing} bez lokalizacji</span>
-              )}
-            </span>
+                {pending > 0 && (
+                  <span className="flex items-center gap-1 text-sky-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Geokoduję w tle: {pending}…
+                  </span>
+                )}
+                {pending === 0 && missing > 0 && (
+                  <span className="text-amber-600">· {missing} bez lokalizacji</span>
+                )}
+              </span>
+            )}
             {selectedIso && (
               <button
                 type="button"
@@ -350,18 +358,20 @@ const UserWorldMap: React.FC<Props> = ({
                 Satelitarna
               </ToggleGroupItem>
             </ToggleGroup>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                pollAttemptsRef.current = 0;
-                geocodeCities(items, true).then(() => refetch());
-              }}
-              disabled={isFetching || missing === 0}
-            >
-              <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
-              Odśwież
-            </Button>
+            {!hideHeaderMeta && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  pollAttemptsRef.current = 0;
+                  geocodeCities(items, true).then(() => refetch());
+                }}
+                disabled={isFetching || missing === 0}
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
+                Odśwież
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -380,20 +390,25 @@ const UserWorldMap: React.FC<Props> = ({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            {showLogos && (
+            {showLogos && (logoLeftUrl || logoRightUrl || (logoLeftUrl === undefined && logoRightUrl === undefined)) && (
               <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
                 <img
-                  src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
-                  alt="Pure Life"
-                  className="h-6 w-auto object-contain"
-                />
-                <div className="h-5 w-px bg-border" />
-                <img
-                  src="/lovable-uploads/eqology-ibp-logo.png"
-                  alt="Eqology IBP"
+                  src={logoLeftUrl ?? "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"}
+                  alt="Logo"
                   className="h-6 w-auto object-contain"
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
+                {(logoRightUrl ?? (logoLeftUrl === undefined ? "/lovable-uploads/eqology-ibp-logo.png" : "")) && (
+                  <>
+                    <div className="h-5 w-px bg-border" />
+                    <img
+                      src={logoRightUrl ?? "/lovable-uploads/eqology-ibp-logo.png"}
+                      alt="Logo"
+                      className="h-6 w-auto object-contain"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </>
+                )}
               </div>
             )}
             <ComposableMap
@@ -589,31 +604,6 @@ const UserWorldMap: React.FC<Props> = ({
               </Button>
             </div>
 
-            {/* Legenda */}
-            <div className="absolute bottom-3 left-3 rounded-md border bg-popover/90 backdrop-blur px-2 py-1.5 text-[10px] text-muted-foreground">
-              <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
-              <div className="flex items-center gap-3">
-                {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = Math.max(1.2, Math.min(3.2, 1.1 + Math.log2(n + 1) * 0.7));
-                  return (
-                    <div key={i} className="flex items-center gap-1">
-                      <svg width={r * 2 + 2} height={r * 2 + 2}>
-                        <circle
-                          cx={r + 1}
-                          cy={r + 1}
-                          r={r}
-                          fill={markerColor ?? 'hsl(var(--primary))'}
-                          fillOpacity={0.9}
-                          stroke="hsl(var(--background))"
-                          strokeWidth={1}
-                        />
-                      </svg>
-                      <span>{n}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
       </CardContent>

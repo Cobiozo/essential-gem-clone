@@ -2691,6 +2691,8 @@ export type Database = {
           height_px: number
           id: string
           is_enabled: boolean
+          logo_left_url: string | null
+          logo_right_url: string | null
           marker_color: string
           show_logos: boolean
           show_title: boolean
@@ -2709,6 +2711,8 @@ export type Database = {
           height_px?: number
           id?: string
           is_enabled?: boolean
+          logo_left_url?: string | null
+          logo_right_url?: string | null
           marker_color?: string
           show_logos?: boolean
           show_title?: boolean
@@ -2727,6 +2731,8 @@ export type Database = {
           height_px?: number
           id?: string
           is_enabled?: boolean
+          logo_left_url?: string | null
+          logo_right_url?: string | null
           marker_color?: string
           show_logos?: boolean
           show_title?: boolean
