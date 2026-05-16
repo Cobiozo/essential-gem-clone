@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
+import UserWorldMap from './UserWorldMap';
 
 type ProfileRow = {
   id: string;
@@ -348,7 +349,10 @@ const UserStatistics: React.FC = () => {
       </div>
 
       {/* Geografia */}
+      <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
