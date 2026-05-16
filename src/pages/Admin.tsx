@@ -3350,7 +3350,7 @@ const Admin = () => {
 
           <TabsContent value="settings">
             <div className="mb-8">
-              <ProfileCompletionBannerSettings />
+              <AppBannersManager />
             </div>
             {/* Header Text Editor */}
             <div className="mb-8">
