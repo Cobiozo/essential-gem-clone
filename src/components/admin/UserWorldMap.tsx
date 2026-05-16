@@ -121,13 +121,18 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             Mapa świata użytkowników
           </CardTitle>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>
-              {cleaned.length} miast · <span className="text-emerald-600">{located} zlokalizowanych</span>
-              {missing > 0 && (
-                <>
-                  {' '}
-                  · <span className="text-amber-600">{missing} bez lokalizacji</span>
-                </>
+            <span className="flex items-center gap-1.5">
+              <span>
+                Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
+              </span>
+              {pending > 0 && (
+                <span className="flex items-center gap-1 text-sky-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Geokoduję w tle: {pending}…
+                </span>
+              )}
+              {pending === 0 && missing > 0 && (
+                <span className="text-amber-600">· {missing} bez lokalizacji</span>
               )}
             </span>
             <Button
