@@ -509,9 +509,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                       >
                         <circle
                           r={r}
-                          fill="hsl(var(--primary))"
-                          fillOpacity={isCluster ? 0.85 : 1}
-                          stroke="hsl(var(--background))"
+                          fill={mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))'}
+                          fillOpacity={isCluster ? 0.9 : 1}
+                          stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                           strokeWidth={strokeW}
                           pointerEvents="all"
                         />
