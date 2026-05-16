@@ -74,16 +74,23 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     [items],
   );
 
+  const pollAttemptsRef = useRef(0);
   const { data, isFetching, refetch } = useQuery({
     queryKey,
-    queryFn: () => geocodeCities(items, false),
+    queryFn: async () => {
+      const r = await geocodeCities(items, false);
+      pollAttemptsRef.current = r.pending > 0 ? pollAttemptsRef.current + 1 : 0;
+      return r;
+    },
     enabled: items.length > 0,
     staleTime: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    // Poll every 5s while background geocoding is still running
+    // Hard cap: stop polling after 30 attempts (~2.5 min) to prevent runaway loops
     refetchInterval: (q) => {
       const d = q.state.data as { pending: number } | undefined;
-      return d && d.pending > 0 ? 5000 : false;
+      if (!d || d.pending === 0) return false;
+      if (pollAttemptsRef.current >= 30) return false;
+      return 5000;
     },
   });
   const geo = data?.results ?? [];
@@ -299,9 +306,10 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() =>
-                geocodeCities(items, true).then(() => refetch())
-              }
+              onClick={() => {
+                pollAttemptsRef.current = 0;
+                geocodeCities(items, true).then(() => refetch());
+              }}
               disabled={isFetching || missing === 0}
             >
               <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
