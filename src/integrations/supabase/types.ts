@@ -1572,6 +1572,45 @@ export type Database = {
         }
         Relationships: []
       }
+      city_geocache: {
+        Row: {
+          city: string
+          country: string
+          created_at: string
+          id: string
+          last_attempt_at: string
+          lat: number | null
+          lng: number | null
+          not_found: boolean
+          provider: string | null
+          updated_at: string
+        }
+        Insert: {
+          city: string
+          country?: string
+          created_at?: string
+          id?: string
+          last_attempt_at?: string
+          lat?: number | null
+          lng?: number | null
+          not_found?: boolean
+          provider?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string
+          country?: string
+          created_at?: string
+          id?: string
+          last_attempt_at?: string
+          lat?: number | null
+          lng?: number | null
+          not_found?: boolean
+          provider?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cms_item_translations: {
         Row: {
           cells: Json | null
