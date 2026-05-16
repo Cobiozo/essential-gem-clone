@@ -1,51 +1,30 @@
-# Mniejsze markery + kontury miast przy dużym zoomie
+# Naprawa banera uzupełnienia profilu
 
-Plik: `src/components/admin/UserWorldMap.tsx`
+## Problem
+1. `ProfileFieldsBanner` jest renderowany w `App.tsx` na samym topie (linia 385), POZA `DashboardLayout`. Sidebar (fixed) i topbar zachodzą na baner — widać tylko fragmenty tekstu wystające zza nich.
+2. Po uzupełnieniu brakujących pól w `/my-account` baner znika, ale użytkownik pozostaje na koncie — brak przekierowania do pulpitu.
 
-## 1) Mniejsze, łagodniej skalowane markery
-Przy dużym zoomie kropki są obecnie zbyt duże (clamp 4.5, wykładnik 0.55). Zmieniamy:
-- `r = clamp(0.5, 3.2, (1.1 + log2(count + 1) * 0.7) / Math.pow(zoom, 0.7))`
-- `strokeWidth = 0.4 / Math.pow(zoom, 0.7)`
-- Hit area pozostaje `r * 2.5`.
-- Analogicznie legenda: `r = clamp(0.6, 3.2, 1.1 + log2(n+1) * 0.7)`.
+## Rozwiązanie
 
-Efekt: przy małym zoomie kropki nadal czytelne (~1.5–2.5 px), przy dużym wyraźnie mniejsze (~0.6–1 px), nie zasłaniają miast.
+### 1) Przeniesienie banera do layoutu (nad treść main)
+- Usunąć `<ProfileFieldsBanner />` z `src/App.tsx` (linia 385).
+- W `src/components/dashboard/DashboardLayout.tsx` wrenderować `<ProfileFieldsBanner />` wewnątrz `<main>` jako pierwszy element (nad `{children}`). Dzięki temu:
+  - Baner jest w obszarze treści, po prawej od sidebaru i pod topbarem — nic go nie zasłania.
+  - Pozostaje widoczny na każdej podstronie korzystającej z `DashboardLayout` (Dashboard, MyAccount, Admin itd.), tak samo jak obecnie.
 
-## 2) Kontury miast przy dużym przybliżeniu
-Aktywują się dopiero przy `zoom ≥ 8` (granice miast nie mają sensu przy widoku Europy).
-
-Mechanizm:
-- Nowy edge function `geocode-city-boundary` (lub rozszerzenie istniejącego `geocode-cities`) — przyjmuje `{city, country}` i zwraca `geojson` (Polygon/MultiPolygon) z Nominatim: parametry `polygon_geojson=1&limit=1`. Wynik cache'ujemy w nowej tabeli `city_boundaries (city, country, geojson jsonb, not_found bool, last_attempt_at)` (klucz unikalny `city+country`).
-- W komponencie nowy `useQuery` aktywny tylko gdy `position.zoom >= 8`. Pobiera boundaries dla widocznych klastrów (`visiblePoints`) ograniczonych do tych w aktualnym viewport (max np. 20 miast/żądanie, batch). Wyniki łączymy w obiekt `cityShapes: Record<key, GeoJSON>`.
-- Render: dodatkowy `<Geographies geography={{type:'FeatureCollection', features: cityShapes}}>` nad granicami państw, z cienkim obrysem:
-  - `fill: 'hsl(var(--primary) / 0.08)'`
-  - `stroke: 'hsl(var(--primary) / 0.7)'`
-  - `strokeWidth: 0.5 / zoom`
-- Fade in/out z opacity przejściem opartym o `zoom` (np. opacity = clamp(0, 1, (zoom - 7) / 3)).
-
-## 3) Migracja DB
-Nowa tabela `city_boundaries`:
-```sql
-create table public.city_boundaries (
-  id uuid primary key default gen_random_uuid(),
-  city text not null,
-  country text not null,
-  geojson jsonb,
-  not_found boolean default false,
-  last_attempt_at timestamptz default now(),
-  unique(city, country)
-);
-alter table public.city_boundaries enable row level security;
--- read: admin only (via has_role)
-create policy "Admins read city_boundaries" on public.city_boundaries
-  for select to authenticated using (public.has_role(auth.uid(), 'admin'));
-```
-Zapis tylko z edge function (service_role omija RLS).
+### 2) Auto-redirect po uzupełnieniu danych
+W `src/components/profile/ProfileFieldsBanner.tsx`:
+- Trzymać `useRef(false)` znacznik `wasIncomplete`.
+- W `useEffect([missing.length, location.pathname])`:
+  - Jeśli `missing.length > 0` → `wasIncomplete.current = true`.
+  - Jeśli `wasIncomplete.current === true && missing.length === 0 && location.pathname.startsWith('/my-account')` → `navigate('/dashboard')` i reset flagi.
+- Dzięki temu redirect zachodzi tylko gdy użytkownik faktycznie uzupełnił brakujące dane na stronie konta (a nie np. od razu po otwarciu pulpitu z kompletnym profilem).
 
 ## Pliki
-- `src/components/admin/UserWorldMap.tsx` — markery, query boundaries, render warstwy.
-- `supabase/functions/geocode-city-boundary/index.ts` — nowa funkcja (analogiczna do `geocode-cities`, ale `polygon_geojson=1`).
-- Migracja DB — tabela `city_boundaries` + RLS.
+- `src/App.tsx` — usunąć render banera
+- `src/components/dashboard/DashboardLayout.tsx` — dodać `<ProfileFieldsBanner />` nad `{children}` w `<main>`
+- `src/components/profile/ProfileFieldsBanner.tsx` — dodać logikę auto-redirect po uzupełnieniu
 
 ## Bez zmian
-- Klastrowanie, animacja kamery, filtr po kraju, tabele profili.
+- Logika wykrywania brakujących pól, konfiguracja banera, RLS, edge functions — bez zmian.
+- Mapa świata (poprzednie zadanie) — bez zmian.

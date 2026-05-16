@@ -2,6 +2,7 @@ import React from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTopbar } from './DashboardTopbar';
+import { ProfileFieldsBanner } from '@/components/profile/ProfileFieldsBanner';
 
 import { ChatDockedPanel } from '@/components/chat-sidebar/ChatDockedPanel';
 import { ChatFloatingWindow } from '@/components/chat-sidebar/ChatFloatingWindow';
@@ -34,6 +35,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           />
           <div className="flex-1 flex overflow-hidden">
             <main className="flex-1 overflow-auto p-4 lg:p-6">
+              <ProfileFieldsBanner />
               {children}
             </main>
             <ChatDockedPanel />

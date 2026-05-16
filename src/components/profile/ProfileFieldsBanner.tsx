@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,6 +75,17 @@ export const ProfileFieldsBanner: React.FC = () => {
       return v == null || String(v).trim() === '';
     });
   }, [config, profile]);
+
+  const wasIncomplete = useRef(false);
+
+  useEffect(() => {
+    if (missing.length > 0) {
+      wasIncomplete.current = true;
+    } else if (wasIncomplete.current && location.pathname.startsWith('/my-account')) {
+      wasIncomplete.current = false;
+      navigate('/dashboard');
+    }
+  }, [missing.length, location.pathname, navigate]);
 
   useEffect(() => {
     setDismissed(false);
