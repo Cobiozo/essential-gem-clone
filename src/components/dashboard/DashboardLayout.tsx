@@ -35,6 +35,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           />
           <div className="flex-1 flex overflow-hidden">
             <main className="flex-1 overflow-auto p-4 lg:p-6">
+              <ProfileFieldsBanner />
               {children}
             </main>
             <ChatDockedPanel />
