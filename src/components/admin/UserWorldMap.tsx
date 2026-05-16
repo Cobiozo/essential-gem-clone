@@ -20,13 +20,16 @@ type GeocodeResult = { city: string; country: string; lat: number | null; lng: n
 async function geocodeCities(
   items: { city: string; country: string }[],
   forceRetry = false,
-): Promise<GeocodeResult[]> {
-  if (items.length === 0) return [];
+): Promise<{ results: GeocodeResult[]; pending: number }> {
+  if (items.length === 0) return { results: [], pending: 0 };
   const { data, error } = await supabase.functions.invoke('geocode-cities', {
     body: { items, forceRetry },
   });
   if (error) throw error;
-  return (data?.results ?? []) as GeocodeResult[];
+  return {
+    results: (data?.results ?? []) as GeocodeResult[],
+    pending: (data?.pending ?? 0) as number,
+  };
 }
 
 interface Props {
@@ -68,13 +71,20 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     [items],
   );
 
-  const { data: geo = [], isFetching, refetch } = useQuery({
+  const { data, isFetching, refetch } = useQuery({
     queryKey,
     queryFn: () => geocodeCities(items, false),
     enabled: items.length > 0,
     staleTime: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // Poll every 5s while background geocoding is still running
+    refetchInterval: (q) => {
+      const d = q.state.data as { pending: number } | undefined;
+      return d && d.pending > 0 ? 5000 : false;
+    },
   });
+  const geo = data?.results ?? [];
+  const pending = data?.pending ?? 0;
 
   const points = useMemo(() => {
     const map = new Map<string, { lat: number; lng: number }>();
