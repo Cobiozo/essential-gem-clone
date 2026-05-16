@@ -7,6 +7,7 @@ import {
   ZoomableGroup,
   Marker,
 } from 'react-simple-maps';
+import { geoEquirectangular } from 'd3-geo';
 import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
