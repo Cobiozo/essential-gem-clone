@@ -1,50 +1,38 @@
-## Cel
+## Diagnoza
 
-W panelu „Widżet mapy na pulpicie — ustawienia", pod przełącznikiem **Pokaż logo**, dodać sekcję z podglądem **obu logo** (lewe + prawe) oraz możliwością ich wgrania/zmiany przez admina. Te same logo będą wyświetlane na widżecie mapy (zamiast aktualnie zahardkodowanych URL-i Pure Life i Eqology IBP).
+Sprawdziłem dane w bazie (`get_user_city_counts()`). Wartości w kolumnie `country` są w różnych językach/zapisach:
 
-## Zmiany
+```
+Polska(72), Niemcy(8), Deutschland(3), Holandia(3), Wielka Brytania(2),
+Italia(2), Norge(2), Belgia(2), Austria(2), Norwegia(2), Portugal(1),
+Slovensko(1), NIEMCY(1), United Kingdom(1), Jersey chanel island(1)
+```
 
-### 1) Migracja DB — `dashboard_map_settings`
-Dodać dwie kolumny tekstowe (URL-e do logo):
-- `logo_left_url TEXT` — domyślnie obecny URL Pure Life
-- `logo_right_url TEXT` — domyślnie `/lovable-uploads/eqology-ibp-logo.png`
+W `src/lib/countryFlags.ts` mapa `NAME_TO_ISO` nie zawiera wariantów takich jak `italia`, `norge`, `slovensko`. W rezultacie:
 
-### 2) Storage — bucket `dashboard-map-logos` (public)
-- INSERT do `storage.buckets` (id=`dashboard-map-logos`, public=true).
-- Polityki:
-  - SELECT: publiczny odczyt (bucket_id = 'dashboard-map-logos')
-  - INSERT/UPDATE/DELETE: tylko `has_role(auth.uid(),'admin')`
+- World-atlas dla geografii Włoch zwraca nazwę „Italy" → `normalizeCountry("Italy").iso = "IT"` → `selectedIso = "IT"`.
+- Punkty w DB mają `country = "Italia"` → `normalizeCountry("Italia").iso = null` (bo brak w mapie i długość ≠ 2).
+- Filtr `visiblePoints` w `UserWorldMap.tsx`:
+  ```ts
+  points.filter((p) => normalizeCountry(p.country).iso === selectedIso)
+  ```
+  daje pustą tablicę → kropki znikają po kliknięciu kraju.
 
-### 3) Hook `useDashboardMapSettings.ts`
-- Rozszerzyć interfejs `DashboardMapSettings` o `logo_left_url` i `logo_right_url`.
+To samo dotyczy: Norge (NO), Slovensko (SK), Jersey chanel island (GB/JE).
 
-### 4) `DashboardMapSettings.tsx` — nowa sekcja „Logo (lewe / prawe)"
-Renderowana **bezpośrednio pod** kartą „Pokaż logo" (wewnątrz sekcji **Wygląd**). Dla każdego z dwóch slotów (Lewe / Prawe):
-- Podgląd obrazka (na ciemnym tle, h-12, object-contain) lub placeholder „Brak logo".
-- Pole tekstowe URL (do ręcznej edycji).
-- Przycisk **Wgraj** (`<input type="file" accept="image/*">`) → upload do bucketu `dashboard-map-logos` pod ścieżką `left/{timestamp}.{ext}` lub `right/{timestamp}.{ext}` → `getPublicUrl` → zapis do draftu.
-- Przycisk **Usuń** (czyści URL).
-- Sekcja jest wygaszona (`opacity-50 pointer-events-none`) gdy `show_logos = false`.
+## Fix
 
-Zapis URL-i razem z resztą ustawień (istniejący przycisk **Zapisz ustawienia**).
+### 1) `src/lib/countryFlags.ts` — rozszerzyć `NAME_TO_ISO` o brakujące warianty
+Dodać (w istniejących liniach + nowe):
+- `italia: 'IT'` (Włochy po włosku)
+- `norge: 'NO'`, `noreg: 'NO'` (Norwegia po norwesku)
+- `slovensko: 'SK'` (Słowacja po słowacku)
+- `jersey: 'GB'`, `'jersey chanel island': 'GB'`, `'jersey channel island': 'GB'`, `'channel islands': 'GB'`
+- Inne częste warianty natywne: `česko: 'CZ'`, `cesko: 'CZ'`, `magyarország: 'HU'`, `magyarorszag: 'HU'`, `españa: 'ES'`, `espana: 'ES'`, `österreich: 'AT'`, `osterreich: 'AT'`, `belgique: 'BE'`, `belgië: 'BE'`, `nederland: 'NL'`, `suomi: 'FI'`, `sverige: 'SE'`, `danmark: 'DK'`, `eesti: 'EE'`, `lietuva: 'LT'`, `latvija: 'LV'`, `україна: 'UA'`, `ελλάδα: 'GR'`, `ellada: 'GR'`, `hellas: 'GR'`, `românia: 'RO'`, `romania: 'RO'` (już jest), `schweiz: 'CH'`, `suisse: 'CH'`, `svizzera: 'CH'`, `portugal: 'PT'` (już jest).
 
-### 5) `UserWorldMap.tsx`
-- Dodać propsy `logoLeftUrl?: string` i `logoRightUrl?: string`.
-- W bloku `{showLogos && (...)}` użyć tych propsów (fallback do obecnych hardcodów dla zgodności wstecznej w `/admin?tab=user-stats`).
-- Jeśli `logoRightUrl` puste → renderować tylko lewe (bez separatora).
-
-### 6) `UserWorldMapWidget.tsx`
-- Przekazać `logoLeftUrl={settings.logo_left_url}` i `logoRightUrl={settings.logo_right_url}` do `<UserWorldMap />`.
-
-### 7) `types.ts` (Supabase)
-- Po zatwierdzeniu migracji wygeneruje się automatycznie nowy typ tabeli.
+### 2) Bez zmian w `UserWorldMap.tsx`
+Logika filtra jest poprawna — wystarczy uzupełnić słownik.
 
 ## Brak regresji
-- Domyślne wartości URL-i = aktualnie używane logo → wygląd mapy bez zmian po wdrożeniu.
-- `/admin?tab=user-stats` nadal pokazuje mapę bez propsów logo (fallback hardcode).
-- RLS uploadu logo: tylko admin może zapisywać do bucketu.
-
-## Punkty techniczne
-- Bucket public, więc `getPublicUrl` zwraca URL nadający się do `<img src>`.
-- Akceptowane: PNG/JPG/SVG/WEBP; brak twardego limitu rozmiaru po stronie klienta (rekomendacja w UI: ≤200KB).
-- Nazewnictwo plików zawiera timestamp → unikamy cache'owania starego obrazu po podmianie.
+- Mapa to czysta funkcja czytająca tylko ten słownik; rozszerzenie nie zmienia istniejących mapowań.
+- Inne miejsca w aplikacji używające `normalizeCountry`/`countryFlag` skorzystają z lepszego pokrycia (więcej krajów dostanie flagę i ISO).
