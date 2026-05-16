@@ -2081,7 +2081,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               {...securityProps}
               src={signedUrl}
               controls
-              controlsList="nodownload noremoteplayback noplaybackrate"
+              controlsList={`nodownload noremoteplayback${allowedPlaybackRates && allowedPlaybackRates.length > 1 ? '' : ' noplaybackrate'}`}
               className="absolute inset-0 w-full h-full object-contain rounded-lg"
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
               preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
