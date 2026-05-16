@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area,
+  PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area, ComposedChart,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
 import UserWorldMap from './UserWorldMap';
@@ -523,7 +523,7 @@ const UserStatistics: React.FC = () => {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={stats.trend}>
+            <ComposedChart data={stats.trend}>
               <defs>
                 <linearGradient id="reg" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
@@ -537,7 +537,7 @@ const UserStatistics: React.FC = () => {
               <Legend />
               <Area type="monotone" dataKey="count" name="Nowe konta" stroke="hsl(var(--primary))" fill="url(#reg)" />
               <Line type="monotone" dataKey="cumulative" name="Łącznie" stroke="hsl(var(--accent-foreground))" dot={false} />
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
