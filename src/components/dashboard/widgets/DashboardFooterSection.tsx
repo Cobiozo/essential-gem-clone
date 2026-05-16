@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Heart, Users, Check, Mail, HelpCircle } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+
+const UserWorldMapWidget = lazy(() => import('./UserWorldMapWidget'));
 
 interface DashboardFooterSettings {
   id: string;
@@ -101,6 +103,11 @@ export const DashboardFooterSection: React.FC = () => {
           "{ft(settings?.mission_statement, 'footer.missionStatement')}"
         </p>
       </section>
+
+      {/* Mapa świata społeczności */}
+      <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
+        <UserWorldMapWidget />
+      </Suspense>
 
       {/* Zespół Pure Life */}
       <section className="text-center py-8 bg-muted/30 rounded-lg">
