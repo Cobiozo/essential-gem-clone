@@ -246,25 +246,42 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
-                    geographies.map((g) => (
-                      <Geography
-                        key={g.rsmKey}
-                        geography={g}
-                        style={{
-                          default: {
-                            fill: 'hsl(var(--muted))',
-                            stroke: 'hsl(var(--border))',
-                            strokeWidth: 0.5,
-                            outline: 'none',
-                          },
-                          hover: {
-                            fill: 'hsl(var(--muted))',
-                            outline: 'none',
-                          },
-                          pressed: { fill: 'hsl(var(--muted))', outline: 'none' },
-                        }}
-                      />
-                    ))
+                    geographies.map((g) => {
+                      const iso = normalizeCountry(g.properties?.name).iso;
+                      const isSelected = !!selectedIso && iso === selectedIso;
+                      const dimmed = !!selectedIso && !isSelected;
+                      const baseFill = isSelected
+                        ? 'hsl(var(--primary) / 0.22)'
+                        : dimmed
+                        ? 'hsl(var(--muted) / 0.4)'
+                        : 'hsl(var(--muted))';
+                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
+                      const strokeWidth = isSelected ? 1.2 : 0.5;
+                      return (
+                        <Geography
+                          key={g.rsmKey}
+                          geography={g}
+                          onClick={() => handleGeographyClick(g)}
+                          style={{
+                            default: {
+                              fill: baseFill,
+                              stroke,
+                              strokeWidth,
+                              outline: 'none',
+                              cursor: iso ? 'pointer' : 'default',
+                            },
+                            hover: {
+                              fill: iso && !isSelected ? 'hsl(var(--muted-foreground) / 0.25)' : baseFill,
+                              stroke,
+                              strokeWidth,
+                              outline: 'none',
+                              cursor: iso ? 'pointer' : 'default',
+                            },
+                            pressed: { fill: baseFill, stroke, strokeWidth, outline: 'none' },
+                          }}
+                        />
+                      );
+                    })
                   }
                 </Geographies>
                 {clusters.map((c, idx) => {
