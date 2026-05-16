@@ -2071,19 +2071,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
       
       return (
-        <div 
+        <div
           ref={containerRef}
-          className={`space-y-3 ${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
+          className={`${isFullscreen ? 'bg-black flex flex-col justify-center h-screen p-4' : ''}`}
         >
-          <div className="relative">
+          <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
             <video
               ref={videoRefCallback}
               {...securityProps}
               src={signedUrl}
-              controls={false}
-              controlsList="nodownload noremoteplayback"
-              disablePictureInPicture
-              className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
+              controls
+              controlsList={`nodownload noremoteplayback${allowedPlaybackRates && allowedPlaybackRates.length > 1 ? '' : ' noplaybackrate'}`}
+              className="absolute inset-0 w-full h-full object-contain rounded-lg"
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
               preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
               playsInline
@@ -2103,20 +2102,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
             )}
-            {/* Play overlay — video ready but not yet started */}
-            {videoReady && !isPlaying && !showTapToResume && currentTime < 1 && (
-              <button
-                onClick={handlePlayPause}
-                className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg cursor-pointer z-10"
-                style={{ touchAction: 'manipulation' }}
-              >
-                <div className="w-20 h-20 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                  <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                </div>
-              </button>
-            )}
             {showTapToResume && (
               <button
                 onClick={handleTapToResume}
@@ -2130,43 +2115,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
                 <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
               </button>
             )}
-            {/* Playback speed overlay — only when admin enabled multiple rates for this lesson */}
-            {allowedPlaybackRates && allowedPlaybackRates.length > 1 && videoReady && (
-              <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1 py-1 shadow-md">
-                {allowedPlaybackRates.map((rate) => (
-                  <button
-                    key={rate}
-                    type="button"
-                    onClick={() => handleSpeedChange(rate)}
-                    className={`min-w-[36px] h-7 px-2 text-xs font-semibold rounded-full transition-colors ${
-                      playbackRate === rate
-                        ? 'bg-white text-black'
-                        : 'text-white/90 hover:bg-white/15'
-                    }`}
-                    style={{ touchAction: 'manipulation' }}
-                    title={`Prędkość ${rate}x`}
-                  >
-                    {rate}×
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-          <VideoControls
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            onPlayPause={handlePlayPause}
-            onRewind={handleRewind}
-            isTabHidden={isTabHidden}
-            onFullscreen={handleFullscreen}
-            isFullscreen={isFullscreen}
-            isBuffering={isSmartBuffering}
-            bufferProgress={bufferProgress}
-            onRetry={handleRetry}
-            bufferedRanges={bufferedRanges}
-            networkQuality={networkQuality}
-          />
         </div>
       );
     }
