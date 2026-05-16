@@ -4392,13 +4392,35 @@ const Admin = () => {
                              <SelectItem value="asc">Najstarsze</SelectItem>
                            </SelectContent>
                          </Select>
-                       </div>
-                     </div>
+                        </div>
+                      </div>
+
+                      {/* Address filter */}
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="Filtruj po adresie (miasto, kod, ulica, kraj)"
+                          value={userAddressFilter}
+                          onChange={(e) => setUserAddressFilter(e.target.value)}
+                          className="pl-10 pr-10 h-9"
+                        />
+                        {userAddressFilter && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserAddressFilter('')}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
 
                       {/* Results count and legend */}
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
-                          {userSearchQuery || userFilterTab !== 'all'
+                          {userSearchQuery || userFilterTab !== 'all' || userAddressFilter
                             ? `Wyświetlanie ${filteredAndSortedUsers.length} z ${users.length} użytkowników`
                             : `Łącznie: ${users.length} użytkowników`
                           }
