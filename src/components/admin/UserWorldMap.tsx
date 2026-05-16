@@ -90,8 +90,9 @@ const UserWorldMap: React.FC<Props> = ({
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
     () =>
-      cities.filter(
+      (Array.isArray(cities) ? cities : []).filter(
         (c) =>
+          c &&
           c.city &&
           c.city.toLowerCase() !== 'nieznane' &&
           c.city.toLowerCase() !== 'unknown',
@@ -128,7 +129,7 @@ const UserWorldMap: React.FC<Props> = ({
       return 5000;
     },
   });
-  const geo = data?.results ?? [];
+  const geo = Array.isArray(data?.results) ? data!.results : [];
   const pending = data?.pending ?? 0;
 
   const points = useMemo(() => {
@@ -390,27 +391,36 @@ const UserWorldMap: React.FC<Props> = ({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            {showLogos && (logoLeftUrl || logoRightUrl || (logoLeftUrl === undefined && logoRightUrl === undefined)) && (
-              <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
-                <img
-                  src={logoLeftUrl ?? "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"}
-                  alt="Logo"
-                  className="h-6 w-auto object-contain"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                />
-                {(logoRightUrl ?? (logoLeftUrl === undefined ? "/lovable-uploads/eqology-ibp-logo.png" : "")) && (
-                  <>
-                    <div className="h-5 w-px bg-border" />
+            {showLogos && (() => {
+              const DEFAULT_LEFT = "https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png";
+              const DEFAULT_RIGHT = "/lovable-uploads/eqology-ibp-logo.png";
+              const leftSrc = logoLeftUrl ?? DEFAULT_LEFT;
+              const rightSrc = logoRightUrl ?? (logoLeftUrl === undefined ? DEFAULT_RIGHT : "");
+              if (!leftSrc && !rightSrc) return null;
+              return (
+                <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
+                  {leftSrc && (
                     <img
-                      src={logoRightUrl ?? "/lovable-uploads/eqology-ibp-logo.png"}
+                      src={leftSrc}
                       alt="Logo"
                       className="h-6 w-auto object-contain"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     />
-                  </>
-                )}
-              </div>
-            )}
+                  )}
+                  {rightSrc && (
+                    <>
+                      <div className="h-5 w-px bg-border" />
+                      <img
+                        src={rightSrc}
+                        alt="Logo"
+                        className="h-6 w-auto object-contain"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             <ComposableMap
               key={mapStyle}
               projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}

@@ -4,6 +4,7 @@ import * as LucideIcons from 'lucide-react';
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const UserWorldMapWidget = lazy(() => import('./UserWorldMapWidget'));
 
@@ -105,9 +106,11 @@ export const DashboardFooterSection: React.FC = () => {
       </section>
 
       {/* Mapa świata społeczności */}
-      <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
-        <UserWorldMapWidget />
-      </Suspense>
+      <ErrorBoundary fallback={null as any}>
+        <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
+          <UserWorldMapWidget />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Zespół Pure Life */}
       <section className="text-center py-8 bg-muted/30 rounded-lg">
