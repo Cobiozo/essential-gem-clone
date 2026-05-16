@@ -263,6 +263,8 @@ export const AppBannersManager: React.FC = () => {
   const [editing, setEditing] = useState<Partial<AppBanner> | null>(null);
   const [saving, setSaving] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [search, setSearch] = useState('');
+  const [onlyEnabled, setOnlyEnabled] = useState(false);
 
   const { data: banners, isLoading } = useQuery({
     queryKey: ['admin-app-banners'],
