@@ -90,8 +90,9 @@ const UserWorldMap: React.FC<Props> = ({
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
     () =>
-      cities.filter(
+      (Array.isArray(cities) ? cities : []).filter(
         (c) =>
+          c &&
           c.city &&
           c.city.toLowerCase() !== 'nieznane' &&
           c.city.toLowerCase() !== 'unknown',
