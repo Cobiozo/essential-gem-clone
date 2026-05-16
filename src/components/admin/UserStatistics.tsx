@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
 import UserWorldMap from './UserWorldMap';
+import DashboardMapSettings from './DashboardMapSettings';
 
 type ProfileRow = {
   id: string;
