@@ -201,7 +201,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 center={position.coordinates}
                 zoom={position.zoom}
                 onMoveEnd={(p) => setPosition(p)}
-                maxZoom={8}
+                maxZoom={64}
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
