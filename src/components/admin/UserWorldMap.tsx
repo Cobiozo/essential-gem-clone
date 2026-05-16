@@ -207,6 +207,20 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 <span className="text-amber-600">· {missing} bez lokalizacji</span>
               )}
             </span>
+            {selectedIso && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIso(null);
+                  setSelectedLabel(null);
+                }}
+                className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/15"
+              >
+                <Globe2 className="h-3 w-3" />
+                {selectedLabel ?? selectedIso}
+                <X className="h-3 w-3" />
+              </button>
+            )}
             <Button
               variant="ghost"
               size="sm"
