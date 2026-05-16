@@ -162,7 +162,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     if (features.length === 0) return null;
     return { type: 'FeatureCollection' as const, features };
   }, [boundaryData]);
-  const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 7) / 3));
+  const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 5) / 3));
 
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
