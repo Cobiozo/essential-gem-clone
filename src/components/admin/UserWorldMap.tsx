@@ -126,7 +126,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   );
 
   // Fetch city administrative boundaries when zoomed in close enough
-  const boundariesEnabled = position.zoom >= 8 && visiblePoints.length > 0;
+  const boundariesEnabled = position.zoom >= 6 && visiblePoints.length > 0;
   const boundaryItems = useMemo(
     () => visiblePoints.slice(0, 40).map((p) => ({ city: p.city, country: p.country })),
     [visiblePoints],
