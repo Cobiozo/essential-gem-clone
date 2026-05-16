@@ -147,6 +147,7 @@ const navCategories: NavCategory[] = [
     icon: Users,
     items: [
       { value: 'users', labelKey: 'users', icon: Users },
+      { value: 'user-stats', labelKey: 'userStats', icon: Activity },
       { value: 'account', labelKey: 'account', icon: UserCircle },
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
