@@ -255,6 +255,28 @@ const MyAccount = () => {
   const [country, setCountry] = useState(profile?.country || '');
   const [addressLoading, setAddressLoading] = useState(false);
 
+  // Highlight required fields when navigated from ProfileFieldsBanner: ?highlight=field1,field2
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightedFields = useMemo(() => {
+    const raw = searchParams.get('highlight');
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  }, [searchParams]);
+  const isHighlighted = (field: string) => highlightedFields.has(field);
+  const highlightClass = (field: string) =>
+    isHighlighted(field) ? 'ring-2 ring-destructive ring-offset-2 ring-offset-background' : '';
+  const firstHighlightRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (highlightedFields.size === 0) return;
+    // Switch to settings tab where address fields live
+    const t = setTimeout(() => {
+      firstHighlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstHighlightRef.current?.focus({ preventScroll: true });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [highlightedFields]);
+
   // Update address state when profile loads
   React.useEffect(() => {
     if (profile) {
