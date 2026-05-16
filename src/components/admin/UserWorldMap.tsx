@@ -308,8 +308,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         : dimmed
                         ? 'hsl(var(--muted) / 0.35)'
                         : 'hsl(var(--muted) / 0.55)';
-                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
-                      const strokeWidth = isSelected ? 1.2 : 0.7;
+                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : 0.4) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
@@ -320,6 +320,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               fill: baseFill,
                               stroke,
                               strokeWidth,
+                              strokeLinejoin: 'round',
                               outline: 'none',
                               cursor: iso ? 'pointer' : 'default',
                             },
@@ -327,6 +328,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               fill: iso && !isSelected ? 'hsl(var(--muted-foreground) / 0.25)' : baseFill,
                               stroke,
                               strokeWidth,
+                              strokeLinejoin: 'round',
                               outline: 'none',
                               cursor: iso ? 'pointer' : 'default',
                             },
