@@ -118,6 +118,45 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     [points, selectedIso],
   );
 
+  // Fetch city administrative boundaries when zoomed in close enough
+  const boundariesEnabled = position.zoom >= 8 && visiblePoints.length > 0;
+  const boundaryItems = useMemo(
+    () => visiblePoints.slice(0, 40).map((p) => ({ city: p.city, country: p.country })),
+    [visiblePoints],
+  );
+  const boundaryKey = useMemo(
+    () => ['city-boundaries', boundaryItems.map((i) => `${i.city}|${i.country}`).sort().join(',')],
+    [boundaryItems],
+  );
+  const { data: boundaryData } = useQuery({
+    queryKey: boundaryKey,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('geocode-city-boundary', {
+        body: { items: boundaryItems },
+      });
+      if (error) throw error;
+      return (data?.results ?? []) as Array<{ city: string; country: string; geojson: any | null }>;
+    },
+    enabled: boundariesEnabled,
+    staleTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const boundaryFeatures = useMemo(() => {
+    if (!boundaryData) return null;
+    const features = boundaryData
+      .filter((b) => b.geojson)
+      .map((b, i) => ({
+        type: 'Feature' as const,
+        properties: { name: b.city, country: b.country },
+        geometry: b.geojson,
+        rsmKey: `cb-${i}-${b.city}`,
+      }));
+    if (features.length === 0) return null;
+    return { type: 'FeatureCollection' as const, features };
+  }, [boundaryData]);
+  const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 7) / 3));
+
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
     const baseCell = 6;
@@ -339,11 +378,35 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                     })
                   }
                 </Geographies>
+                {boundaryFeatures && boundaryOpacity > 0.02 && (
+                  <Geographies geography={boundaryFeatures as any}>
+                    {({ geographies }) =>
+                      geographies.map((g) => (
+                        <Geography
+                          key={g.rsmKey}
+                          geography={g}
+                          style={{
+                            default: {
+                              fill: `hsl(var(--primary) / ${0.08 * boundaryOpacity})`,
+                              stroke: `hsl(var(--primary) / ${0.75 * boundaryOpacity})`,
+                              strokeWidth: 0.5 / position.zoom,
+                              strokeLinejoin: 'round',
+                              outline: 'none',
+                              pointerEvents: 'none',
+                            },
+                            hover: { fill: 'transparent', stroke: 'transparent', outline: 'none' },
+                            pressed: { fill: 'transparent', stroke: 'transparent', outline: 'none' },
+                          }}
+                        />
+                      ))
+                    }
+                  </Geographies>
+                )}
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
-                  const rawR = (1.4 + Math.log2(c.count + 1) * 0.85) / Math.pow(position.zoom, 0.55);
-                  const r = Math.max(0.8, Math.min(4.5, rawR));
-                  const strokeW = 0.5 / Math.pow(position.zoom, 0.55);
+                  const rawR = (1.1 + Math.log2(c.count + 1) * 0.7) / Math.pow(position.zoom, 0.7);
+                  const r = Math.max(0.5, Math.min(3.2, rawR));
+                  const strokeW = 0.4 / Math.pow(position.zoom, 0.7);
                   const onEnter = (e: React.MouseEvent) => {
                     const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
                     const sorted = [...c.items].sort((a, b) => b.count - a.count);
@@ -431,7 +494,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
               <div className="flex items-center gap-3">
                 {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = Math.max(0.8, Math.min(4.5, 1.4 + Math.log2(n + 1) * 0.85));
+                  const r = Math.max(1.2, Math.min(3.2, 1.1 + Math.log2(n + 1) * 0.7));
                   return (
                     <div key={i} className="flex items-center gap-1">
                       <svg width={r * 2 + 2} height={r * 2 + 2}>

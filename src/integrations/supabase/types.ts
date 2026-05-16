@@ -1572,6 +1572,36 @@ export type Database = {
         }
         Relationships: []
       }
+      city_boundaries: {
+        Row: {
+          city: string
+          country: string
+          created_at: string
+          geojson: Json | null
+          id: string
+          last_attempt_at: string
+          not_found: boolean
+        }
+        Insert: {
+          city: string
+          country: string
+          created_at?: string
+          geojson?: Json | null
+          id?: string
+          last_attempt_at?: string
+          not_found?: boolean
+        }
+        Update: {
+          city?: string
+          country?: string
+          created_at?: string
+          geojson?: Json | null
+          id?: string
+          last_attempt_at?: string
+          not_found?: boolean
+        }
+        Relationships: []
+      }
       city_geocache: {
         Row: {
           city: string
