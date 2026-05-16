@@ -1931,7 +1931,7 @@ const Admin = () => {
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [users, userSearchQuery, userSortBy, userSortOrder, userFilterTab]);
+  }, [users, userSearchQuery, userSortBy, userSortOrder, userFilterTab, userAddressFilter]);
   
   // Count users by status for tab badges
   const userCounts = useMemo(() => {
