@@ -146,18 +146,55 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     }));
   }, [visiblePoints, position.zoom]);
 
+  // Smooth animated camera transitions
+  const animRef = useRef<number | null>(null);
+  const isAnimatingRef = useRef(false);
+  const cancelAnim = () => {
+    if (animRef.current != null) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+    isAnimatingRef.current = false;
+  };
+  const animateTo = (
+    target: { coordinates: [number, number]; zoom: number },
+    duration = 700,
+  ) => {
+    cancelAnim();
+    isAnimatingRef.current = true;
+    const start = performance.now();
+    let from: { coordinates: [number, number]; zoom: number } | null = null;
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = (now: number) => {
+      if (!from) from = { coordinates: position.coordinates, zoom: position.zoom };
+      const t = Math.min(1, (now - start) / duration);
+      const e = ease(t);
+      const lng = from.coordinates[0] + (target.coordinates[0] - from.coordinates[0]) * e;
+      const lat = from.coordinates[1] + (target.coordinates[1] - from.coordinates[1]) * e;
+      const logZ = Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * e;
+      setPosition({ coordinates: [lng, lat], zoom: Math.exp(logZ) });
+      if (t < 1) {
+        animRef.current = requestAnimationFrame(step);
+      } else {
+        animRef.current = null;
+        isAnimatingRef.current = false;
+      }
+    };
+    animRef.current = requestAnimationFrame(step);
+  };
+
   const handleZoomIn = () =>
-    setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.8, 64) }));
+    animateTo({ coordinates: position.coordinates, zoom: Math.min(position.zoom * 1.8, 64) }, 280);
   const handleZoomOut = () =>
-    setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.8, 1) }));
+    animateTo({ coordinates: position.coordinates, zoom: Math.max(position.zoom / 1.8, 1) }, 280);
   const handleReset = () => {
-    setPosition({ coordinates: [10, 25], zoom: 1 });
     setSelectedIso(null);
     setSelectedLabel(null);
+    animateTo({ coordinates: [10, 25], zoom: 1 }, 600);
   };
 
   const zoomToCluster = (lng: number, lat: number) =>
-    setPosition((p) => ({ coordinates: [lng, lat], zoom: Math.min(p.zoom * 2.2, 64) }));
+    animateTo({ coordinates: [lng, lat], zoom: Math.min(position.zoom * 2.2, 64) }, 600);
 
   const handleGeographyClick = (g: any) => {
     const name = g.properties?.name as string | undefined;
@@ -171,7 +208,6 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     }
     setSelectedIso(norm.iso);
     setSelectedLabel(norm.label);
-    // Auto-zoom to country bbox using its points (if any)
     const pts = points.filter((p) => normalizeCountry(p.country).iso === norm.iso);
     if (pts.length > 0) {
       const minLat = Math.min(...pts.map((p) => p.lat));
@@ -180,7 +216,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
       const maxLng = Math.max(...pts.map((p) => p.lng));
       const spread = Math.max(maxLat - minLat, (maxLng - minLng) / 2, 0.5);
       const zoom = Math.max(2, Math.min(16, 60 / spread));
-      setPosition({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom });
+      animateTo({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }, 800);
     }
   };
 
