@@ -378,6 +378,30 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                     })
                   }
                 </Geographies>
+                {boundaryFeatures && boundaryOpacity > 0.02 && (
+                  <Geographies geography={boundaryFeatures as any}>
+                    {({ geographies }) =>
+                      geographies.map((g) => (
+                        <Geography
+                          key={g.rsmKey}
+                          geography={g}
+                          style={{
+                            default: {
+                              fill: `hsl(var(--primary) / ${0.08 * boundaryOpacity})`,
+                              stroke: `hsl(var(--primary) / ${0.75 * boundaryOpacity})`,
+                              strokeWidth: 0.5 / position.zoom,
+                              strokeLinejoin: 'round',
+                              outline: 'none',
+                              pointerEvents: 'none',
+                            },
+                            hover: { fill: 'transparent', stroke: 'transparent', outline: 'none' },
+                            pressed: { fill: 'transparent', stroke: 'transparent', outline: 'none' },
+                          }}
+                        />
+                      ))
+                    }
+                  </Geographies>
+                )}
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
                   const rawR = (1.1 + Math.log2(c.count + 1) * 0.7) / Math.pow(position.zoom, 0.7);
