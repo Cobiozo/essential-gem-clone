@@ -424,9 +424,11 @@ export const EventRegistrationsManagement: React.FC = () => {
     const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
+    link.href = blobUrl;
     link.download = `uzytkownicy_${selectedEvent?.title || 'wydarzenie'}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
 
     toast({
       title: 'Eksport zakończony',
@@ -465,9 +467,11 @@ export const EventRegistrationsManagement: React.FC = () => {
 
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    const blobUrl = URL.createObjectURL(blob);
+    link.href = blobUrl;
     link.download = `goscie_${selectedEvent?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'wydarzenie'}_${format(new Date(), 'yyyyMMdd')}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
     
     toast({
       title: 'Eksport zakończony',

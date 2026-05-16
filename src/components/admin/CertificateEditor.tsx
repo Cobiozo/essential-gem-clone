@@ -851,6 +851,8 @@ const CertificateEditor = () => {
       const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, '_blank');
+      // Revoke after new tab has had time to load the blob
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
 
       toast({
         title: "Sukces",

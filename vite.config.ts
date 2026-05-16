@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
+  esbuild: mode === 'production' ? { drop: ['console', 'debugger'] } : undefined,
   build: {
     rollupOptions: {
       output: {

@@ -649,6 +649,7 @@ export const AiCompassWidget: React.FC = () => {
     link.href = url;
     link.download = `ai-compass-${selectedContact?.name || 'export'}-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
     toast.success('Wyeksportowano dane');
   };
 
