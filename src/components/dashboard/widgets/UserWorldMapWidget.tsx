@@ -63,6 +63,9 @@ const UserWorldMapWidget: React.FC = () => {
         showTitle={settings.show_title}
         customTitle={settings.title}
         heightPx={settings.height_px}
+        hideHeaderMeta
+        logoLeftUrl={settings.logo_left_url ?? undefined}
+        logoRightUrl={settings.logo_right_url ?? undefined}
       />
     </div>
   );
