@@ -543,7 +543,7 @@ const UserWorldMap: React.FC<Props> = ({
                       >
                         <circle
                           r={r}
-                          fill={mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))'}
+                          fill={markerColor ?? (mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
                           fillOpacity={isCluster ? 0.9 : 1}
                           stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                           strokeWidth={strokeW}
