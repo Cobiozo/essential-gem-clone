@@ -43,6 +43,9 @@ interface Props {
   showTitle?: boolean;
   customTitle?: string;
   heightPx?: number;
+  hideHeaderMeta?: boolean;
+  logoLeftUrl?: string;
+  logoRightUrl?: string;
 }
 
 const UserWorldMap: React.FC<Props> = ({
@@ -53,6 +56,9 @@ const UserWorldMap: React.FC<Props> = ({
   showTitle = true,
   customTitle,
   heightPx,
+  hideHeaderMeta = false,
+  logoLeftUrl,
+  logoRightUrl,
 }) => {
   const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
     coordinates: [19, 52],
