@@ -173,13 +173,7 @@ export const AppBanners: React.FC = () => {
     staleTime: 30 * 1000,
   });
 
-  const computeMissing = (required: string[]): string[] => {
-    if (!profile) return required;
-    return required.filter((f) => {
-      const v = (profile as any)[f];
-      return v == null || String(v).trim() === '';
-    });
-  };
+  const computeMissing = (required: string[]): string[] => computeMissingFields(required, profile);
 
   // Auto-redirect after profile completed
   const wasIncomplete = useRef<Record<string, boolean>>({});
@@ -200,25 +194,14 @@ export const AppBanners: React.FC = () => {
 
   const visible = useMemo(() => {
     if (!banners) return [];
-    const now = Date.now();
     return banners.filter((b) => {
-      if (!b.enabled) return false;
-      if (b.hide_on_paths?.some((p) => location.pathname.startsWith(p))) return false;
-      if (b.starts_at && new Date(b.starts_at).getTime() > now) return false;
-      if (b.ends_at && new Date(b.ends_at).getTime() < now) return false;
-
-      // Audience
-      if (b.audience_type === 'role') {
-        if (!userRole?.role || !b.target_roles?.includes(userRole.role)) return false;
-      } else if (b.audience_type === 'specific_users') {
-        if (!user?.id || !b.target_user_ids?.includes(user.id)) return false;
-      } else if (b.audience_type === 'missing_profile_fields') {
-        if (!profile) return false;
-        const missing = computeMissing(b.required_fields || []);
-        if (missing.length === 0) return false;
-      }
-
-      // Dismissed
+      const m = matchBanner(b, {
+        userId: user?.id,
+        role: userRole?.role,
+        profile,
+        pathname: location.pathname,
+      });
+      if (!m.visible) return false;
       if (b.dismissible) {
         try {
           if (sessionStorage.getItem(`app-banner-dismissed-${b.id}`)) return false;
