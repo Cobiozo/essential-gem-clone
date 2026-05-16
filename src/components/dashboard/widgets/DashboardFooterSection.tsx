@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Heart, Users, Check, Mail, HelpCircle } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+
+const UserWorldMapWidget = lazy(() => import('./UserWorldMapWidget'));
 
 interface DashboardFooterSettings {
   id: string;
