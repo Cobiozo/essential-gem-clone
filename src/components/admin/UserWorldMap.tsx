@@ -215,7 +215,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
       const minLng = Math.min(...pts.map((p) => p.lng));
       const maxLng = Math.max(...pts.map((p) => p.lng));
       const spread = Math.max(maxLat - minLat, (maxLng - minLng) / 2, 0.5);
-      const zoom = Math.max(2, Math.min(16, 60 / spread));
+      const zoom = Math.max(2.5, Math.min(24, 70 / spread));
       animateTo({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }, 800);
     }
   };
