@@ -175,6 +175,8 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       
       // Refresh profile data in context
       await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user.id] });
       
       // Redirect based on role
       if (isAdmin) {
