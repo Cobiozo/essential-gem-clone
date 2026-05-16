@@ -109,15 +109,24 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const missing = cleaned.length - located;
   const maxCount = points.reduce((m, p) => Math.max(m, p.count), 1);
 
+  // Filter visible points by selected country
+  const visiblePoints = useMemo(
+    () =>
+      selectedIso
+        ? points.filter((p) => normalizeCountry(p.country).iso === selectedIso)
+        : points,
+    [points, selectedIso],
+  );
+
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
     const baseCell = 8; // degrees at zoom=1
     const cellSize = baseCell / position.zoom;
     const buckets = new Map<
       string,
-      { lat: number; lng: number; count: number; items: typeof points }
+      { lat: number; lng: number; count: number; items: typeof visiblePoints }
     >();
-    points.forEach((p) => {
+    visiblePoints.forEach((p) => {
       const key = `${Math.floor(p.lng / cellSize)}|${Math.floor(p.lat / cellSize)}`;
       const ex = buckets.get(key);
       if (!ex) {
@@ -135,16 +144,45 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
       count: b.count,
       items: b.items,
     }));
-  }, [points, position.zoom]);
+  }, [visiblePoints, position.zoom]);
 
   const handleZoomIn = () =>
     setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.8, 64) }));
   const handleZoomOut = () =>
     setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.8, 1) }));
-  const handleReset = () => setPosition({ coordinates: [10, 25], zoom: 1 });
+  const handleReset = () => {
+    setPosition({ coordinates: [10, 25], zoom: 1 });
+    setSelectedIso(null);
+    setSelectedLabel(null);
+  };
 
   const zoomToCluster = (lng: number, lat: number) =>
     setPosition((p) => ({ coordinates: [lng, lat], zoom: Math.min(p.zoom * 2.2, 64) }));
+
+  const handleGeographyClick = (g: any) => {
+    const name = g.properties?.name as string | undefined;
+    if (!name) return;
+    const norm = normalizeCountry(name);
+    if (!norm.iso) return; // unsupported country
+    if (selectedIso === norm.iso) {
+      setSelectedIso(null);
+      setSelectedLabel(null);
+      return;
+    }
+    setSelectedIso(norm.iso);
+    setSelectedLabel(norm.label);
+    // Auto-zoom to country bbox using its points (if any)
+    const pts = points.filter((p) => normalizeCountry(p.country).iso === norm.iso);
+    if (pts.length > 0) {
+      const minLat = Math.min(...pts.map((p) => p.lat));
+      const maxLat = Math.max(...pts.map((p) => p.lat));
+      const minLng = Math.min(...pts.map((p) => p.lng));
+      const maxLng = Math.max(...pts.map((p) => p.lng));
+      const spread = Math.max(maxLat - minLat, (maxLng - minLng) / 2, 0.5);
+      const zoom = Math.max(2, Math.min(16, 60 / spread));
+      setPosition({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom });
+    }
+  };
 
   return (
     <Card>
