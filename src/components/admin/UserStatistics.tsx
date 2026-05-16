@@ -381,6 +381,8 @@ const UserStatistics: React.FC = () => {
         <Kpi icon={Crown} label="Z upline" value={stats.withUpline} sub={pct(stats.withUpline, stats.total)} tone="info" />
       </div>
 
+      <DashboardMapSettings />
+
       {/* Geografia */}
       <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
 
