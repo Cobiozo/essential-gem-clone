@@ -307,8 +307,10 @@ const MyAccount = () => {
 
       if (error) throw error;
 
+      const cameFromBanner = !!searchParams.get('highlight');
+
       // Clear highlight from URL after successful save
-      if (searchParams.get('highlight')) {
+      if (cameFromBanner) {
         const next = new URLSearchParams(searchParams);
         next.delete('highlight');
         setSearchParams(next, { replace: true });
@@ -322,6 +324,10 @@ const MyAccount = () => {
         title: t('toast.success'),
         description: t('myAccount.addressSaved'),
       });
+
+      if (cameFromBanner) {
+        setTimeout(() => navigate('/dashboard'), 400);
+      }
     } catch (error: any) {
       console.error('Error saving address:', error);
       toast({
