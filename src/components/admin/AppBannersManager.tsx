@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Eye, Loader2, Save, Globe2, AlertCircle, Info, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, AlertTriangle, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Loader2, Save, Globe2, AlertCircle, Info, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, AlertTriangle, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock, Search } from 'lucide-react';
 import { AppBanner, FIELD_LABELS, BannerCard } from '@/components/banners/AppBanners';
 import { BannerSimulator } from '@/components/admin/BannerSimulator';
 
@@ -263,6 +263,8 @@ export const AppBannersManager: React.FC = () => {
   const [editing, setEditing] = useState<Partial<AppBanner> | null>(null);
   const [saving, setSaving] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [search, setSearch] = useState('');
+  const [onlyEnabled, setOnlyEnabled] = useState(false);
 
   const { data: banners, isLoading } = useQuery({
     queryKey: ['admin-app-banners'],
@@ -371,42 +373,99 @@ export const AppBannersManager: React.FC = () => {
             <Plus className="h-4 w-4" /> Nowy baner
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-hidden">
           {isLoading ? (
             <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : !banners || banners.length === 0 ? (
             <div className="text-sm text-muted-foreground py-6 text-center">Brak banerów. Kliknij „Nowy baner" aby dodać pierwszy.</div>
-          ) : (
-            <div className="space-y-2">
-              {banners.map((b) => {
-                const Icon = ICON_MAP[b.icon_name] || Info;
-                const audienceLabel = b.audience_type === 'all' ? 'Wszyscy'
-                  : b.audience_type === 'missing_profile_fields' ? `Brakujące pola (${(b.required_fields||[]).length})`
-                  : b.audience_type === 'role' ? `Role: ${(b.target_roles||[]).join(', ') || '—'}`
-                  : `Użytkownicy (${(b.target_user_ids||[]).length})`;
-                return (
-                  <div key={b.id} className="border rounded-md p-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 hover:bg-accent/40 min-w-0">
-                    <Icon className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 md:mt-0" />
-                    <div className="flex-1 min-w-0 w-full md:w-auto">
-                      <div className="flex items-center gap-2 flex-wrap min-w-0">
-                        <span className="font-medium truncate max-w-full">{b.title || '(bez tytułu)'}</span>
-                        <Badge variant="outline" className="text-xs shrink-0">{b.severity}</Badge>
-                        <Badge variant="secondary" className="text-xs shrink-0">{audienceLabel}</Badge>
-                        <Badge variant="outline" className="text-xs font-mono truncate max-w-[200px] shrink-0">{b.target_url}</Badge>
-                        <span className="text-xs text-muted-foreground shrink-0">priorytet: {b.priority}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate mt-0.5">{b.message}</div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0 ml-auto">
-                      <Switch checked={b.enabled} onCheckedChange={() => handleToggle(b)} />
-                      <Button size="icon" variant="ghost" onClick={() => setEditing(b)}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleDelete(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
+          ) : (() => {
+            const q = search.trim().toLowerCase();
+            const filtered = banners.filter((b) => {
+              if (onlyEnabled && !b.enabled) return false;
+              if (!q) return true;
+              return (b.title || '').toLowerCase().includes(q)
+                || (b.target_url || '').toLowerCase().includes(q)
+                || (b.message || '').toLowerCase().includes(q);
+            });
+            const severityDot: Record<string, string> = {
+              info: 'bg-blue-500',
+              warning: 'bg-amber-500',
+              destructive: 'bg-red-500',
+              success: 'bg-emerald-500',
+            };
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Szukaj po tytule, URL, treści…"
+                      className="h-8 pl-7 text-sm"
+                    />
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                    <Switch checked={onlyEnabled} onCheckedChange={setOnlyEnabled} />
+                    Tylko włączone
+                  </label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {filtered.length} / {banners.length}
+                  </span>
+                </div>
+
+                <div className="border rounded-md divide-y overflow-hidden">
+                  {filtered.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-6 text-center">Brak wyników.</div>
+                  ) : filtered.map((b) => {
+                    const Icon = ICON_MAP[b.icon_name] || Info;
+                    const audienceLabel = b.audience_type === 'all' ? 'Wszyscy'
+                      : b.audience_type === 'missing_profile_fields' ? `Brakujące pola (${(b.required_fields||[]).length})`
+                      : b.audience_type === 'role' ? `Role: ${(b.target_roles||[]).join(', ') || '—'}`
+                      : `Użytkownicy (${(b.target_user_ids||[]).length})`;
+                    const meta = `${b.severity} · ${audienceLabel} · ${b.target_url} · prio ${b.priority}`;
+                    return (
+                      <div
+                        key={b.id}
+                        className={`group flex items-center gap-2 px-2 py-1.5 min-w-0 hover:bg-accent/40 ${b.enabled ? '' : 'opacity-60'}`}
+                      >
+                        <Switch
+                          checked={b.enabled}
+                          onCheckedChange={() => handleToggle(b)}
+                          className="shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <span
+                          className={`h-2 w-2 rounded-full shrink-0 ${severityDot[b.severity] || 'bg-muted'}`}
+                          title={b.severity}
+                        />
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <button
+                          type="button"
+                          onClick={() => setEditing(b)}
+                          className="flex-1 min-w-0 text-left"
+                          title={b.message || ''}
+                        >
+                          <div className="text-sm font-medium truncate">{b.title || '(bez tytułu)'}</div>
+                          <div className="text-[11px] text-muted-foreground truncate font-mono" title={meta}>
+                            {meta}
+                          </div>
+                        </button>
+                        <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditing(b); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
