@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area,
+  PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area, ComposedChart,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
 import UserWorldMap from './UserWorldMap';
