@@ -66,7 +66,7 @@ export const DashboardMapSettings: React.FC = () => {
     else toast.error(`Błąd zapisu: ${r.error}`);
   };
 
-  const LogoSlot: React.FC<{ side: 'left' | 'right'; label: string }> = ({ side, label }) => {
+  const renderLogoSlot = (side: 'left' | 'right', label: string) => {
     const key = side === 'left' ? 'logo_left_url' : 'logo_right_url';
     const url = draft[key] as string | null;
     const inputRef = side === 'left' ? leftInputRef : rightInputRef;
