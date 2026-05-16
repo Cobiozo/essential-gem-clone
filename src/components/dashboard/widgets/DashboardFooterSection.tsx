@@ -106,9 +106,11 @@ export const DashboardFooterSection: React.FC = () => {
       </section>
 
       {/* Mapa świata społeczności */}
-      <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
-        <UserWorldMapWidget />
-      </Suspense>
+      <ErrorBoundary fallback={null as any}>
+        <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
+          <UserWorldMapWidget />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* Zespół Pure Life */}
       <section className="text-center py-8 bg-muted/30 rounded-lg">
