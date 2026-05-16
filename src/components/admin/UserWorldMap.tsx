@@ -426,7 +426,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               cursor: iso ? 'pointer' : 'default',
                             },
                             hover: {
-                              fill: iso && !isSelected ? 'hsl(0 0% 100% / 0.12)' : baseFill,
+                              fill: iso && !isSelected ? (mapStyle === 'satellite' ? 'hsl(0 0% 100% / 0.12)' : 'hsl(var(--muted-foreground) / 0.25)') : baseFill,
                               stroke,
                               strokeWidth,
                               strokeLinejoin: 'round',
