@@ -103,6 +103,7 @@ const MyAccount = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isComplete } = useProfileCompletion();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
