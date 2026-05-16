@@ -2,7 +2,7 @@ import React from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTopbar } from './DashboardTopbar';
-import { ProfileFieldsBanner } from '@/components/profile/ProfileFieldsBanner';
+import { AppBanners } from '@/components/banners/AppBanners';
 
 import { ChatDockedPanel } from '@/components/chat-sidebar/ChatDockedPanel';
 import { ChatFloatingWindow } from '@/components/chat-sidebar/ChatFloatingWindow';
