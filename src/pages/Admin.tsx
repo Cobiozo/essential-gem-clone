@@ -221,6 +221,7 @@ const Admin = () => {
   const [newPageItemTitleStyle, setNewPageItemTitleStyle] = useState<any>(null);
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userAddressFilter, setUserAddressFilter] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [editingUserProfile, setEditingUserProfile] = useState<UserProfile | null>(null);
   const [newItem, setNewItem] = useState({
