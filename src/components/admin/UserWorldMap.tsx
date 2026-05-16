@@ -126,7 +126,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   );
 
   // Fetch city administrative boundaries when zoomed in close enough
-  const boundariesEnabled = position.zoom >= 8 && visiblePoints.length > 0;
+  const boundariesEnabled = position.zoom >= 6 && visiblePoints.length > 0;
   const boundaryItems = useMemo(
     () => visiblePoints.slice(0, 40).map((p) => ({ city: p.city, country: p.country })),
     [visiblePoints],
@@ -162,7 +162,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     if (features.length === 0) return null;
     return { type: 'FeatureCollection' as const, features };
   }, [boundaryData]);
-  const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 7) / 3));
+  const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 5) / 3));
 
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
@@ -230,7 +230,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   };
 
   const handleZoomIn = () =>
-    animateTo({ coordinates: position.coordinates, zoom: Math.min(position.zoom * 1.8, 64) }, 280);
+    animateTo({ coordinates: position.coordinates, zoom: Math.min(position.zoom * 2.0, 200) }, 280);
   const handleZoomOut = () =>
     animateTo({ coordinates: position.coordinates, zoom: Math.max(position.zoom / 1.8, 1) }, 280);
   const handleReset = () => {
@@ -240,7 +240,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   };
 
   const zoomToCluster = (lng: number, lat: number) =>
-    animateTo({ coordinates: [lng, lat], zoom: Math.min(position.zoom * 2.2, 64) }, 600);
+    animateTo({ coordinates: [lng, lat], zoom: Math.min(position.zoom * 2.2, 200) }, 600);
+  const zoomToCity = (lng: number, lat: number) =>
+    animateTo({ coordinates: [lng, lat], zoom: Math.max(position.zoom * 2.2, 40) }, 600);
 
   const handleGeographyClick = (g: any) => {
     const name = g.properties?.name as string | undefined;
@@ -342,7 +344,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                   if (isAnimatingRef.current) return;
                   setPosition(p);
                 }}
-                maxZoom={64}
+                maxZoom={200}
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
@@ -412,9 +414,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 )}
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
-                  const rawR = (1.1 + Math.log2(c.count + 1) * 0.7) / Math.pow(position.zoom, 0.7);
-                  const r = Math.max(0.5, Math.min(3.2, rawR));
-                  const strokeW = 0.4 / Math.pow(position.zoom, 0.7);
+                  const rawR = (1.0 + Math.log2(c.count + 1) * 0.6) / Math.pow(position.zoom, 0.95);
+                  const r = Math.max(0.15, Math.min(3.0, rawR));
+                  const strokeW = 0.35 / Math.pow(position.zoom, 0.9);
                   const onEnter = (e: React.MouseEvent) => {
                     const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
                     const sorted = [...c.items].sort((a, b) => b.count - a.count);
@@ -443,19 +445,17 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         onMouseEnter={onEnter}
                         onMouseMove={onMove}
                         onMouseLeave={() => setHover(null)}
-                        onClick={() => isCluster && zoomToCluster(c.lng, c.lat)}
+                        onClick={() =>
+                          isCluster ? zoomToCluster(c.lng, c.lat) : zoomToCity(c.lng, c.lat)
+                        }
                       >
-                        <circle
-                          r={r * 2.5}
-                          fill="hsl(var(--primary))"
-                          fillOpacity={0}
-                        />
                         <circle
                           r={r}
                           fill="hsl(var(--primary))"
                           fillOpacity={isCluster ? 0.85 : 1}
                           stroke="hsl(var(--background))"
                           strokeWidth={strokeW}
+                          pointerEvents="all"
                         />
                       </g>
                     </Marker>
