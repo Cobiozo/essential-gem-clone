@@ -10,7 +10,8 @@ import {
 import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
+import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X, Map as MapIcon } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCountry } from '@/lib/countryFlags';
 
