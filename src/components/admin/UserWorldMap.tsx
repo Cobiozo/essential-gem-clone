@@ -409,14 +409,14 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         : mapStyle === 'satellite'
                         ? 'transparent'
                         : dimmed
-                        ? 'hsl(var(--muted) / 0.35)'
-                        : 'hsl(var(--muted) / 0.55)';
+                        ? 'hsl(var(--muted-foreground) / 0.2)'
+                        : 'hsl(var(--muted-foreground) / 0.35)';
                       const stroke = isSelected
                         ? 'hsl(var(--primary))'
                         : mapStyle === 'satellite'
                         ? 'hsl(0 0% 100% / 0.55)'
-                        : 'hsl(var(--border) / 0.7)';
-                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.4) / position.zoom;
+                        : 'hsl(var(--muted-foreground) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.6) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
