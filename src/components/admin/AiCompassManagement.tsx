@@ -289,6 +289,7 @@ export const AiCompassManagement: React.FC = () => {
     link.href = url;
     link.download = `ai-compass-all-data-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
     toast.success('Wyeksportowano wszystkie dane');
   };
 
