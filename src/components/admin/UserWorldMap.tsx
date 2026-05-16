@@ -362,9 +362,15 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               </div>
             )}
             <ComposableMap
-              projection="geoEquirectangular"
+              key={mapStyle}
+              projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
               projectionConfig={{ scale: 160 }}
-              style={{ width: '100%', height: '100%', shapeRendering: 'geometricPrecision', background: '#0b1d2a' }}
+              style={{
+                width: '100%',
+                height: '100%',
+                shapeRendering: 'geometricPrecision',
+                background: mapStyle === 'satellite' ? '#0b1d2a' : 'transparent',
+              }}
             >
               <ZoomableGroup
                 center={position.coordinates}
@@ -375,26 +381,36 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 }}
                 maxZoom={200}
               >
-                {/* Satelitarne tło Ziemi (Blue Marble, equirectangular) */}
-                <image
-                  href="/textures/earth-bluemarble-2k.jpg"
-                  x={-180}
-                  y={-90}
-                  width={360}
-                  height={180}
-                  preserveAspectRatio="none"
-                  style={{ pointerEvents: 'none' }}
-                />
+                {mapStyle === 'satellite' && (
+                  <image
+                    href="/textures/earth-bluemarble-2k.jpg"
+                    x={-180}
+                    y={-90}
+                    width={360}
+                    height={180}
+                    preserveAspectRatio="none"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
                     geographies.map((g) => {
                       const iso = normalizeCountry(g.properties?.name).iso;
                       const isSelected = !!selectedIso && iso === selectedIso;
+                      const dimmed = !!selectedIso && !isSelected;
                       const baseFill = isSelected
                         ? 'hsl(var(--primary) / 0.18)'
-                        : 'transparent';
-                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(0 0% 100% / 0.25)';
-                      const strokeWidth = (isSelected ? 0.7 : 0.3) / position.zoom;
+                        : mapStyle === 'satellite'
+                        ? 'transparent'
+                        : dimmed
+                        ? 'hsl(var(--muted) / 0.35)'
+                        : 'hsl(var(--muted) / 0.55)';
+                      const stroke = isSelected
+                        ? 'hsl(var(--primary))'
+                        : mapStyle === 'satellite'
+                        ? 'hsl(0 0% 100% / 0.55)'
+                        : 'hsl(var(--border) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.4) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
