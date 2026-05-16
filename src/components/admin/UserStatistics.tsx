@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
 import UserWorldMap from './UserWorldMap';
+import DashboardMapSettings from './DashboardMapSettings';
 
 type ProfileRow = {
   id: string;
@@ -379,6 +380,8 @@ const UserStatistics: React.FC = () => {
         <Kpi icon={Link2} label="Z reflink" value={stats.fromReflink} sub={pct(stats.fromReflink, stats.total)} tone="info" />
         <Kpi icon={Crown} label="Z upline" value={stats.withUpline} sub={pct(stats.withUpline, stats.total)} tone="info" />
       </div>
+
+      <DashboardMapSettings />
 
       {/* Geografia */}
       <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />

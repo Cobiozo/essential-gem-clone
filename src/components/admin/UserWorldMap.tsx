@@ -37,9 +37,23 @@ async function geocodeCities(
 
 interface Props {
   cities: CityPoint[];
+  initialMode?: 'classic' | 'satellite';
+  markerColor?: string;
+  showLogos?: boolean;
+  showTitle?: boolean;
+  customTitle?: string;
+  heightPx?: number;
 }
 
-const UserWorldMap: React.FC<Props> = ({ cities }) => {
+const UserWorldMap: React.FC<Props> = ({
+  cities,
+  initialMode,
+  markerColor,
+  showLogos = true,
+  showTitle = true,
+  customTitle,
+  heightPx,
+}) => {
   const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
     coordinates: [19, 52],
     zoom: 4.5,
@@ -54,6 +68,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
+    if (initialMode) return initialMode;
     try {
       const v = localStorage.getItem('userWorldMap.style');
       return v === 'classic' ? 'classic' : 'satellite';
@@ -288,7 +303,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Globe2 className="h-4 w-4 text-primary" />
-            Mapa świata użytkowników
+            {showTitle ? (customTitle ?? 'Mapa świata użytkowników') : ''}
           </CardTitle>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -356,26 +371,31 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             Brak danych adresowych do wyświetlenia.
           </div>
         ) : (
-          <div className="relative w-full" style={{ aspectRatio: '2 / 1' }}>
+          <div
+            className="relative w-full"
+            style={heightPx ? { height: heightPx } : { aspectRatio: '2 / 1' }}
+          >
             {isFetching && points.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
-              <img
-                src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
-                alt="Pure Life"
-                className="h-6 w-auto object-contain"
-              />
-              <div className="h-5 w-px bg-border" />
-              <img
-                src="/lovable-uploads/eqology-ibp-logo.png"
-                alt="Eqology IBP"
-                className="h-6 w-auto object-contain"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-              />
-            </div>
+            {showLogos && (
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
+                <img
+                  src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
+                  alt="Pure Life"
+                  className="h-6 w-auto object-contain"
+                />
+                <div className="h-5 w-px bg-border" />
+                <img
+                  src="/lovable-uploads/eqology-ibp-logo.png"
+                  alt="Eqology IBP"
+                  className="h-6 w-auto object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
             <ComposableMap
               key={mapStyle}
               projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
@@ -523,7 +543,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                       >
                         <circle
                           r={r}
-                          fill={mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))'}
+                          fill={markerColor ?? (mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
                           fillOpacity={isCluster ? 0.9 : 1}
                           stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                           strokeWidth={strokeW}
@@ -582,7 +602,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                           cx={r + 1}
                           cy={r + 1}
                           r={r}
-                          fill="hsl(var(--primary))"
+                          fill={markerColor ?? 'hsl(var(--primary))'}
                           fillOpacity={0.9}
                           stroke="hsl(var(--background))"
                           strokeWidth={1}
