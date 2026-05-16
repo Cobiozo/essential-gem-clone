@@ -7,6 +7,7 @@ import {
   ZoomableGroup,
   Marker,
 } from 'react-simple-maps';
+import { geoEquirectangular } from 'd3-geo';
 import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -381,17 +382,22 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 }}
                 maxZoom={200}
               >
-                {mapStyle === 'satellite' && (
-                  <image
-                    href="/textures/earth-bluemarble-2k.jpg"
-                    x={-180}
-                    y={-90}
-                    width={360}
-                    height={180}
-                    preserveAspectRatio="none"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
+                {mapStyle === 'satellite' && (() => {
+                  const proj = geoEquirectangular().scale(160).translate([400, 300]);
+                  const tl = proj([-180, 90]) as [number, number];
+                  const br = proj([180, -90]) as [number, number];
+                  return (
+                    <image
+                      href="/textures/earth-bluemarble-2k.jpg"
+                      x={tl[0]}
+                      y={tl[1]}
+                      width={br[0] - tl[0]}
+                      height={br[1] - tl[1]}
+                      preserveAspectRatio="none"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  );
+                })()}
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
                     geographies.map((g) => {
