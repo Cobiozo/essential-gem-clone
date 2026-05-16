@@ -165,23 +165,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             {formatTime(currentTime)} / {formatTime(duration)}
           </div>
 
-          {showSpeedControl && (
-            <div className="flex items-center gap-1 ml-1">
-              {allowedPlaybackRates!.map((rate) => (
-                <Button
-                  key={rate}
-                  variant={playbackRate === rate ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onSpeedChange!(rate)}
-                  className="h-8 px-2 text-xs min-h-[36px]"
-                  style={{ touchAction: 'manipulation' }}
-                  title={`Prędkość ${rate}x`}
-                >
-                  {rate}x
-                </Button>
-              ))}
-            </div>
-          )}
+
 
           {onRetry && (
             <Button
