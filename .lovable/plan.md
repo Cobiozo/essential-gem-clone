@@ -1,62 +1,44 @@
-## Cel
+## Problem
 
-Dodać do mapy w `/admin?tab=user-stats` przełącznik **„Klasyczna / Satelitarna"**, który zmienia wygląd tła. Wariant satelitarny ma odpowiadać załączonemu screenowi (realistyczna Ziemia + wyraźne kontury państw).
+Tekstura satelitarna wyświetla się jako miniatura w lewym górnym rogu, bo `<image x={-180} y={-90} width={360} height={180}>` to **surowe koordynaty SVG**, a wektorowa mapa (kraje) jest rysowana w **projektowanych pikselach** — przy `geoEquirectangular().scale(160)` świat zajmuje ok. 1005×502 px wokół środka (400,300), więc obrazek 360×180 px to drobny fragment środka.
 
-## Zakres (jeden plik komponentu + jedna tekstura)
+## Fix (jeden plik: `src/components/admin/UserWorldMap.tsx`)
 
-Plik: `src/components/admin/UserWorldMap.tsx`.
+Wyliczyć rzeczywiste piksele rogów świata przez tę samą projekcję, której używa `ComposableMap`, i wstawić `<image>` w tych koordynatach.
 
-### 1. Nowy stan + persystencja
-- `const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(...)` — wartość początkowa czytana z `localStorage('userWorldMap.style')`, domyślnie `'satellite'` (zgodnie z obecnym wyglądem po ostatniej zmianie).
-- Zmiana przełącznika → `setMapStyle(...)` + zapis do `localStorage`.
+### Kroki
 
-### 2. Przełącznik w nagłówku karty
-- W `CardHeader`, obok przycisku „Odśwież", `ToggleGroup` z `@/components/ui/toggle-group` (shadcn, już używany w projekcie) z dwoma opcjami:
-  - `Klasyczna` (ikona `Map`)
-  - `Satelitarna` (ikona `Globe2`)
-- Mały, kompaktowy (`size="sm"`, `variant="outline"`).
+1. Import: `import { geoEquirectangular } from 'd3-geo';` (paczka już jest w drzewie zależności `react-simple-maps`).
+2. `useMemo` liczy bounds dla bieżącej projekcji satelitarnej:
+   ```ts
+   const satBounds = useMemo(() => {
+     const proj = geoEquirectangular().scale(160).translate([400, 300]);
+     const tl = proj([-180, 90])!;
+     const br = proj([180, -90])!;
+     return { x: tl[0], y: tl[1], w: br[0] - tl[0], h: br[1] - tl[1] };
+   }, []);
+   ```
+3. W `<ZoomableGroup>` w trybie `satellite`:
+   ```tsx
+   <image
+     href="/textures/earth-bluemarble-2k.jpg"
+     x={satBounds.x}
+     y={satBounds.y}
+     width={satBounds.w}
+     height={satBounds.h}
+     preserveAspectRatio="none"
+     style={{ pointerEvents: 'none' }}
+   />
+   ```
 
-### 3. Renderowanie warunkowe wewnątrz `ComposableMap`
+To **dokładnie** pokrywa się z poligonami krajów (ta sama projekcja, ten sam scale=160, ten sam translate domyślny `ComposableMap` 800×600 → (400,300)). Dzięki temu kropki Warszawy, Krakowa itd. lądują we właściwych pikselach.
 
-```tsx
-{mapStyle === 'satellite' && (
-  <image href="/textures/earth-satellite-2k.jpg" x={-180} y={-90} width={360} height={180}
-         preserveAspectRatio="none" style={{ pointerEvents: 'none' }} />
-)}
-```
+### Brak regresji
 
-Style poligonów krajów (`<Geography>`) zależne od trybu:
+- Klasyczny tryb (`geoNaturalEarth1`) bez zmian — `<image>` renderowane tylko w trybie satelitarnym.
+- Bez zmian w queries, edge functions, polling, RLS, klastrach, hover, zoom (200), eksportach.
+- Brak nowych zależności (`d3-geo` już zainstalowane jako transitive dep).
 
-| element              | classic                              | satellite                                    |
-| -------------------- | ------------------------------------ | -------------------------------------------- |
-| fill (default)       | `hsl(var(--muted) / 0.55)`           | `transparent`                                |
-| fill (dimmed)        | `hsl(var(--muted) / 0.35)`           | `transparent`                                |
-| stroke               | `hsl(var(--border) / 0.7)`           | `hsl(0 0% 100% / 0.55)` *(wyraźniejsze niż dziś — jak na screenie)* |
-| stroke selected      | `hsl(var(--primary))`                | `hsl(var(--primary))`                        |
-| hover fill           | `hsl(var(--muted-foreground)/0.25)`  | `hsl(0 0% 100% / 0.12)`                      |
-| background `<svg>`   | brak (`transparent`)                 | `#0b1d2a` (na czas ładowania tekstury)       |
+### Weryfikacja
 
-Projekcja:
-- `classic` → `geoNaturalEarth1` (jak było pierwotnie).
-- `satellite` → `geoEquirectangular` (żeby tekstura pasowała 1:1 do lng/lat).
-
-Realizacja: zmienna `const projection = mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'` przekazana do `ComposableMap`.
-
-### 4. Tekstura satelitarna „jak na screenie"
-- Obecna `/textures/earth-bluemarble-2k.jpg` (z `solarsystemscope.com`, 2K) — ta sama, którą widać teraz; zgodna z załączonym screenem.
-- **Wzmocnienie konturów państw** osiągamy programowo (jaśniejszy stroke `rgba(255,255,255,0.55)` zamiast obecnego `0.25`), bez nakładania drugiej tekstury — pełna kontrola, bez powiększenia paczki o kolejny plik.
-
-### 5. Kontury miast, kropki, klastry, zoom (200), hover, panel boczny — bez zmian.
-
-## Bezpieczeństwo / brak regresji
-
-- Zmiany wyłącznie w jednym pliku komponentu (+ wykorzystanie istniejącej tekstury).
-- Żadnych zmian w queries, edge functions, polling cap (30), kluczach query, RLS, schemacie, eksporcie CSV/XLSX, klastrowaniu, `handleGeographyClick`, `selectedIso`.
-- Brak nowych zależności (`ToggleGroup` już jest w `src/components/ui`).
-- `localStorage` w try/catch — brak crasha w prywatnym oknie.
-- Przełączenie trybu nie resetuje pozycji/zoomu mapy ani zaznaczonego kraju.
-
-## Weryfikacja
-
-- Build (auto).
-- Wizualnie: w `/admin?tab=user-stats` widoczny ToggleGroup; po przełączeniu mapa zmienia tło natychmiast; preferencja zachowana po przeładowaniu strony; kropki Warszawy/Krakowa lądują w odpowiednim miejscu w obu trybach.
+Wizualnie w `/admin?tab=user-stats` → tryb „Satelitarna": tekstura wypełnia cały obszar mapy, kropki użytkowników nadal w prawidłowych miastach, granice krajów (białe linie) leżą idealnie na lądach na obrazku.
