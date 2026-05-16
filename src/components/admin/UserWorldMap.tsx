@@ -7,7 +7,7 @@ import {
   ZoomableGroup,
   Marker,
 } from 'react-simple-maps';
-import { geoEquirectangular } from 'd3-geo';
+import { geoEquirectangular, geoNaturalEarth1 } from 'd3-geo';
 import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -423,7 +423,7 @@ const UserWorldMap: React.FC<Props> = ({
             })()}
             <ComposableMap
               key={mapStyle}
-              projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
+              projection={(mapStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1()) as any}
               projectionConfig={{ scale: 160 }}
               style={{
                 width: '100%',
