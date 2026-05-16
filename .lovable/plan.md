@@ -1,44 +1,62 @@
-## Problem
+# Plan: ulepszenia mapy + widżet pulpitu
 
-Tekstura satelitarna wyświetla się jako miniatura w lewym górnym rogu, bo `<image x={-180} y={-90} width={360} height={180}>` to **surowe koordynaty SVG**, a wektorowa mapa (kraje) jest rysowana w **projektowanych pikselach** — przy `geoEquirectangular().scale(160)` świat zajmuje ok. 1005×502 px wokół środka (400,300), więc obrazek 360×180 px to drobny fragment środka.
+## 1) `src/components/admin/UserWorldMap.tsx`
 
-## Fix (jeden plik: `src/components/admin/UserWorldMap.tsx`)
+**a) Klasyczna — ciemniejsze kraje**
+- `baseFill`: `hsl(var(--muted) / 0.55)` → `hsl(var(--muted-foreground) / 0.35)`
+- `baseFill` (dimmed): `0.35` → `hsl(var(--muted-foreground) / 0.2)`
+- `stroke`: `hsl(var(--border) / 0.7)` → `hsl(var(--muted-foreground) / 0.7)`
+- `strokeWidth` klasyczny: `0.4` → `0.6`
+- hover (klasyczny): `hsl(var(--muted-foreground) / 0.25)` → `hsl(var(--muted-foreground) / 0.5)`
 
-Wyliczyć rzeczywiste piksele rogów świata przez tę samą projekcję, której używa `ComposableMap`, i wstawić `<image>` w tych koordynatach.
+**b) Satelitarna — czerwone kropki**
+- W `<Marker><circle>` (linie ~510-515) zamiast `fill="hsl(var(--primary))"` użyć warunkowo:
+  - satellite → `#ef4444` (czerwony), stroke `#ffffff`
+  - classic → bez zmian (`hsl(var(--primary))`, stroke `hsl(var(--background))`)
+- To samo w legendzie (linie ~567-574).
 
-### Kroki
+**c) Logo w lewym górnym rogu mapy**
+- W kontenerze `relative` mapy dodać overlay absolutny `top-3 left-3 z-10`:
+  ```tsx
+  <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border">
+    <img src={PURELIFE_LOGO} alt="Pure Life" className="h-6 w-auto" />
+    <div className="h-5 w-px bg-border" />
+    <img src={EQOLOGY_LOGO} alt="Eqology IBP" className="h-6 w-auto"
+         onError={(e) => (e.currentTarget.style.display='none')} />
+  </div>
+  ```
+- `PURELIFE_LOGO` = istniejący URL z `DualBrandHeader` (storage cms-images/logo-1772644418932.png).
+- `EQOLOGY_LOGO` = `/lovable-uploads/eqology-ibp-logo.png` (placeholder — użytkownik wgra w kolejnym kroku, `onError` ukrywa do tego czasu).
+- Aby logo nie kolidowało z istniejącym tytułem w `CardHeader`, overlay umieścić wewnątrz `relative` wrappera samej mapy (tam gdzie jest legenda i kontrolki zoom), nie w nagłówku karty.
 
-1. Import: `import { geoEquirectangular } from 'd3-geo';` (paczka już jest w drzewie zależności `react-simple-maps`).
-2. `useMemo` liczy bounds dla bieżącej projekcji satelitarnej:
-   ```ts
-   const satBounds = useMemo(() => {
-     const proj = geoEquirectangular().scale(160).translate([400, 300]);
-     const tl = proj([-180, 90])!;
-     const br = proj([180, -90])!;
-     return { x: tl[0], y: tl[1], w: br[0] - tl[0], h: br[1] - tl[1] };
-   }, []);
-   ```
-3. W `<ZoomableGroup>` w trybie `satellite`:
-   ```tsx
-   <image
-     href="/textures/earth-bluemarble-2k.jpg"
-     x={satBounds.x}
-     y={satBounds.y}
-     width={satBounds.w}
-     height={satBounds.h}
-     preserveAspectRatio="none"
-     style={{ pointerEvents: 'none' }}
-   />
-   ```
+## 2) Nowy widżet pulpitu
 
-To **dokładnie** pokrywa się z poligonami krajów (ta sama projekcja, ten sam scale=160, ten sam translate domyślny `ComposableMap` 800×600 → (400,300)). Dzięki temu kropki Warszawy, Krakowa itd. lądują we właściwych pikselach.
+**Nowy plik:** `src/components/dashboard/widgets/UserWorldMapWidget.tsx`
+- Lekki wrapper renderujący `<UserWorldMap />` w `<Card>` z tytułem „Mapa użytkowników społeczności".
+- Wysokość mapy dostosowana (`h-[420px]`), pełna szerokość (`col-span-full`).
+- Widoczność: dla wszystkich zalogowanych (bez RLS bloków — komponent już sam pobiera dane).
 
-### Brak regresji
+**Refaktor `UserWorldMap.tsx`:** dodać prop `compact?: boolean` jeśli potrzeba mniejszej wersji (opcjonalne — domyślnie tak jak teraz).
 
-- Klasyczny tryb (`geoNaturalEarth1`) bez zmian — `<image>` renderowane tylko w trybie satelitarnym.
-- Bez zmian w queries, edge functions, polling, RLS, klastrach, hover, zoom (200), eksportach.
-- Brak nowych zależności (`d3-geo` już zainstalowane jako transitive dep).
+## 3) Wstawienie widżetu na pulpicie
 
-### Weryfikacja
+**Plik:** `src/components/dashboard/widgets/DashboardFooterSection.tsx`
+- Po sekcji „Cytat - misja" (linia 103), a przed „Zespół Pure Life" (linia 105) — dokładnie w miejscu czerwonej kreski ze screena — wstawić:
+  ```tsx
+  <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
+    <UserWorldMapWidget />
+  </Suspense>
+  ```
+- Lazy import na górze pliku.
 
-Wizualnie w `/admin?tab=user-stats` → tryb „Satelitarna": tekstura wypełnia cały obszar mapy, kropki użytkowników nadal w prawidłowych miastach, granice krajów (białe linie) leżą idealnie na lądach na obrazku.
+## 4) Bez zmian / brak regresji
+
+- Dane, projekcje, zoom, klastry, tooltipy, eksport, RLS — bez zmian.
+- Tekstura satelitarna (już naprawiona poprzednio) — bez zmian.
+- Tryb klasyczny pozostaje domyślny (`localStorage`).
+- Nie wymaga migracji DB ani edge functions.
+
+## Weryfikacja
+
+1. `/admin?tab=user-stats` → kraje w klasycznej widocznie ciemniejsze, w satelitarnej kropki czerwone, logo widoczne w lewym górnym rogu mapy.
+2. `/dashboard` → przewinąć do stopki, mapa pojawia się między cytatem a sekcją „Zespół Pure Life".

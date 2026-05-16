@@ -362,6 +362,20 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             )}
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
+              <img
+                src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png"
+                alt="Pure Life"
+                className="h-6 w-auto object-contain"
+              />
+              <div className="h-5 w-px bg-border" />
+              <img
+                src="/lovable-uploads/eqology-ibp-logo.png"
+                alt="Eqology IBP"
+                className="h-6 w-auto object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
             <ComposableMap
               key={mapStyle}
               projection={mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'}
@@ -409,14 +423,14 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         : mapStyle === 'satellite'
                         ? 'transparent'
                         : dimmed
-                        ? 'hsl(var(--muted) / 0.35)'
-                        : 'hsl(var(--muted) / 0.55)';
+                        ? 'hsl(var(--muted-foreground) / 0.2)'
+                        : 'hsl(var(--muted-foreground) / 0.35)';
                       const stroke = isSelected
                         ? 'hsl(var(--primary))'
                         : mapStyle === 'satellite'
                         ? 'hsl(0 0% 100% / 0.55)'
-                        : 'hsl(var(--border) / 0.7)';
-                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.4) / position.zoom;
+                        : 'hsl(var(--muted-foreground) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.6) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
@@ -432,7 +446,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               cursor: iso ? 'pointer' : 'default',
                             },
                             hover: {
-                              fill: iso && !isSelected ? (mapStyle === 'satellite' ? 'hsl(0 0% 100% / 0.12)' : 'hsl(var(--muted-foreground) / 0.25)') : baseFill,
+                              fill: iso && !isSelected ? (mapStyle === 'satellite' ? 'hsl(0 0% 100% / 0.12)' : 'hsl(var(--muted-foreground) / 0.55)') : baseFill,
                               stroke,
                               strokeWidth,
                               strokeLinejoin: 'round',
@@ -509,9 +523,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                       >
                         <circle
                           r={r}
-                          fill="hsl(var(--primary))"
-                          fillOpacity={isCluster ? 0.85 : 1}
-                          stroke="hsl(var(--background))"
+                          fill={mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))'}
+                          fillOpacity={isCluster ? 0.9 : 1}
+                          stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                           strokeWidth={strokeW}
                           pointerEvents="all"
                         />
