@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MoreVertical, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { generateMediaToken, getStreamMediaUrl, shouldProtectUrl, resolveStreamUrl } from '@/lib/mediaTokenService';
 import { useAuth } from '@/contexts/AuthContext';
