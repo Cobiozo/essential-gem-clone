@@ -106,11 +106,42 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const missing = cleaned.length - located;
   const maxCount = points.reduce((m, p) => Math.max(m, p.count), 1);
 
+  // Clustering: group nearby points by zoom-dependent grid
+  const clusters = useMemo(() => {
+    const baseCell = 8; // degrees at zoom=1
+    const cellSize = baseCell / position.zoom;
+    const buckets = new Map<
+      string,
+      { lat: number; lng: number; count: number; items: typeof points }
+    >();
+    points.forEach((p) => {
+      const key = `${Math.floor(p.lng / cellSize)}|${Math.floor(p.lat / cellSize)}`;
+      const ex = buckets.get(key);
+      if (!ex) {
+        buckets.set(key, { lat: p.lat * p.count, lng: p.lng * p.count, count: p.count, items: [p] });
+      } else {
+        ex.lat += p.lat * p.count;
+        ex.lng += p.lng * p.count;
+        ex.count += p.count;
+        ex.items.push(p);
+      }
+    });
+    return [...buckets.values()].map((b) => ({
+      lat: b.lat / b.count,
+      lng: b.lng / b.count,
+      count: b.count,
+      items: b.items,
+    }));
+  }, [points, position.zoom]);
+
   const handleZoomIn = () =>
-    setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.5, 8) }));
+    setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.8, 64) }));
   const handleZoomOut = () =>
-    setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.5, 1) }));
+    setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.8, 1) }));
   const handleReset = () => setPosition({ coordinates: [10, 25], zoom: 1 });
+
+  const zoomToCluster = (lng: number, lat: number) =>
+    setPosition((p) => ({ coordinates: [lng, lat], zoom: Math.min(p.zoom * 2.2, 64) }));
 
   return (
     <Card>
