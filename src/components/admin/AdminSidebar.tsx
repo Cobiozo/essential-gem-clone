@@ -268,6 +268,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     purebox: 'PureBox',
     aiProvider: 'Dostawca AI',
     apiIntegrations: 'API / Integracje',
+    userStats: 'Statystyki użytkowników',
   };
 
   const getLabel = (key: string): string => {
