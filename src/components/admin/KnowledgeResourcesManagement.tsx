@@ -776,11 +776,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
                     <div className="space-y-2">
                       {bulkFiles.map((file, index) => (
                         <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                          <img 
-                            src={URL.createObjectURL(file)} 
-                            alt={file.name}
-                            className="h-10 w-10 object-cover rounded"
-                          />
+                          <BulkFileThumb file={file} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm truncate">{file.name}</p>
                             <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
