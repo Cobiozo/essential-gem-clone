@@ -44,8 +44,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const [hover, setHover] = useState<{
     x: number;
     y: number;
-    city: string;
-    country: string;
+    title: string;
+    lines: string[];
     count: number;
   } | null>(null);
 
