@@ -49,6 +49,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     lines: string[];
     count: number;
   } | null>(null);
+  const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
