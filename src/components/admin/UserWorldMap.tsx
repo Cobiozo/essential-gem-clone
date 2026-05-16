@@ -423,7 +423,7 @@ const UserWorldMap: React.FC<Props> = ({
             })()}
             <ComposableMap
               key={mapStyle}
-              projection={mapStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1()}
+              projection={(mapStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1()) as any}
               projectionConfig={{ scale: 160 }}
               style={{
                 width: '100%',
