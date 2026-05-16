@@ -120,8 +120,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
 
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
-    const baseCell = 8; // degrees at zoom=1
-    const cellSize = baseCell / position.zoom;
+    const baseCell = 6;
+    const cellSize = baseCell / Math.pow(position.zoom, 1.15);
     const buckets = new Map<
       string,
       { lat: number; lng: number; count: number; items: typeof visiblePoints }
