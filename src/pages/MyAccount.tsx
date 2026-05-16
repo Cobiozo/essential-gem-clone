@@ -799,9 +799,13 @@ const MyAccount = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="street-address">{t('myAccount.streetAddress')}</Label>
+                      <Label htmlFor="street-address" className={isHighlighted('street_address') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.streetAddress')}{isHighlighted('street_address') && ' *'}
+                      </Label>
                       <Input
                         id="street-address"
+                        ref={isHighlighted('street_address') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('street_address')}
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
                         placeholder="np. ul. Kwiatowa 15/3"
@@ -813,9 +817,13 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="postal-code">{t('myAccount.postalCode')}</Label>
+                      <Label htmlFor="postal-code" className={isHighlighted('postal_code') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.postalCode')}{isHighlighted('postal_code') && ' *'}
+                      </Label>
                       <Input
                         id="postal-code"
+                        ref={isHighlighted('postal_code') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('postal_code')}
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="np. 00-001"
@@ -825,9 +833,13 @@ const MyAccount = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="city">{t('myAccount.city')}</Label>
+                      <Label htmlFor="city" className={isHighlighted('city') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.city')}{isHighlighted('city') && ' *'}
+                      </Label>
                       <Input
                         id="city"
+                        ref={isHighlighted('city') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('city')}
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder="np. Warszawa"
@@ -839,9 +851,13 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="country">{t('myAccount.country')}</Label>
+                      <Label htmlFor="country" className={isHighlighted('country') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.country')}{isHighlighted('country') && ' *'}
+                      </Label>
                       <Input
                         id="country"
+                        ref={isHighlighted('country') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('country')}
                         value={country}
                         onChange={(e) => setCountry(e.target.value)}
                         placeholder="np. Polska"
