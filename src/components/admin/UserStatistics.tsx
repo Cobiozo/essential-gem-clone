@@ -127,6 +127,26 @@ const UserStatistics: React.FC = () => {
     staleTime: 60_000,
   });
 
+  // Fallback map: city (lowercased) -> country label from geocoder
+  const { data: geocacheCountryMap } = useQuery({
+    queryKey: ['city-geocache-countries'],
+    queryFn: async () => {
+      const m = new Map<string, string>();
+      const { data } = await supabase
+        .from('city_geocache')
+        .select('city, display_country')
+        .not('display_country', 'is', null)
+        .limit(5000);
+      (data ?? []).forEach((r: any) => {
+        if (r.city && r.display_country) {
+          m.set(String(r.city).trim().toLowerCase(), String(r.display_country));
+        }
+      });
+      return m;
+    },
+    staleTime: 5 * 60_000,
+  });
+
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [trendBucket, setTrendBucket] = useState<'day' | 'week' | 'month'>('month');
   const [citySearch, setCitySearch] = useState('');
@@ -135,9 +155,21 @@ const UserStatistics: React.FC = () => {
     const now = Date.now();
     const day = 24 * 60 * 60 * 1000;
 
+    // Resolve country using profile.country with city-geocache fallback
+    const resolveCountry = (p: ProfileRow) => {
+      const direct = normalizeCountry(p.country);
+      if (direct.label && direct.label !== 'Nieznane') return direct;
+      const city = (p.city ?? '').trim().toLowerCase();
+      if (city && geocacheCountryMap) {
+        const fromCache = geocacheCountryMap.get(city);
+        if (fromCache) return normalizeCountry(fromCache);
+      }
+      return direct;
+    };
+
     const filtered = countryFilter === 'all'
       ? profiles
-      : profiles.filter((p) => (normalizeCountry(p.country).label) === countryFilter);
+      : profiles.filter((p) => resolveCountry(p).label === countryFilter);
 
     const total = filtered.length;
     const active = filtered.filter((p) => p.is_active && !p.blocked_at).length;
@@ -163,7 +195,7 @@ const UserStatistics: React.FC = () => {
     // Countries (use unfiltered to feed the filter dropdown)
     const countryMap = new Map<string, { count: number; flag: string }>();
     profiles.forEach((p) => {
-      const c = normalizeCountry(p.country);
+      const c = resolveCountry(p);
       const ex = countryMap.get(c.label) ?? { count: 0, flag: c.flag };
       ex.count++;
       countryMap.set(c.label, ex);
@@ -177,7 +209,7 @@ const UserStatistics: React.FC = () => {
     filtered.forEach((p) => {
       const city = (p.city ?? '').trim() || 'Nieznane';
       const cityKey = city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
-      const ex = cityMap.get(cityKey) ?? { count: 0, country: normalizeCountry(p.country).label };
+      const ex = cityMap.get(cityKey) ?? { count: 0, country: resolveCountry(p).label };
       ex.count++;
       cityMap.set(cityKey, ex);
     });
@@ -270,7 +302,7 @@ const UserStatistics: React.FC = () => {
       roles, ranks, langs, specializations,
       lastSeen, trend, funnel,
     };
-  }, [profiles, countryFilter, trendBucket]);
+  }, [profiles, countryFilter, trendBucket, geocacheCountryMap]);
 
   if (isLoading) {
     return (
