@@ -7,7 +7,7 @@ import {
   ZoomableGroup,
   Marker,
 } from 'react-simple-maps';
-import worldTopo from 'world-atlas/countries-110m.json';
+import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
