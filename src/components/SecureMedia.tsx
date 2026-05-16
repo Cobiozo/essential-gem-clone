@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MoreVertical, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { generateMediaToken, getStreamMediaUrl, shouldProtectUrl, resolveStreamUrl } from '@/lib/mediaTokenService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,6 +95,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [duration, setDuration] = useState(0);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [forceHideBuffering, setForceHideBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
@@ -2130,25 +2132,49 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
                 <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
               </button>
             )}
-            {/* Playback speed overlay — only when admin enabled multiple rates for this lesson */}
+            {/* Playback speed menu — only when admin enabled multiple rates for this lesson */}
             {allowedPlaybackRates && allowedPlaybackRates.length > 1 && videoReady && (
-              <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-black/55 backdrop-blur-sm rounded-full px-1 py-1 shadow-md">
-                {allowedPlaybackRates.map((rate) => (
-                  <button
-                    key={rate}
-                    type="button"
-                    onClick={() => handleSpeedChange(rate)}
-                    className={`min-w-[36px] h-7 px-2 text-xs font-semibold rounded-full transition-colors ${
-                      playbackRate === rate
-                        ? 'bg-white text-black'
-                        : 'text-white/90 hover:bg-white/15'
-                    }`}
-                    style={{ touchAction: 'manipulation' }}
-                    title={`Prędkość ${rate}x`}
-                  >
-                    {rate}×
-                  </button>
-                ))}
+              <div className="absolute bottom-2 right-2 z-20">
+                <button
+                  type="button"
+                  onClick={() => setSpeedMenuOpen((v) => !v)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/75 backdrop-blur-sm text-white shadow-md transition-colors"
+                  style={{ touchAction: 'manipulation' }}
+                  title="Prędkość odtwarzania"
+                  aria-label="Prędkość odtwarzania"
+                >
+                  <MoreVertical className="h-5 w-5" />
+                </button>
+                {speedMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setSpeedMenuOpen(false)}
+                    />
+                    <div className="absolute bottom-11 right-0 z-20 min-w-[120px] bg-black/85 backdrop-blur-md rounded-lg shadow-lg py-1 border border-white/10">
+                      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-white/50">Prędkość</div>
+                      {allowedPlaybackRates.map((rate) => (
+                        <button
+                          key={rate}
+                          type="button"
+                          onClick={() => {
+                            handleSpeedChange(rate);
+                            setSpeedMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                            playbackRate === rate
+                              ? 'text-white bg-white/10'
+                              : 'text-white/85 hover:bg-white/10'
+                          }`}
+                          style={{ touchAction: 'manipulation' }}
+                        >
+                          <span>{rate}×</span>
+                          {playbackRate === rate && <Check className="h-4 w-4" />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

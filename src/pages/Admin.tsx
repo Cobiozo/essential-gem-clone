@@ -22,7 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu, MapPin } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -221,6 +221,7 @@ const Admin = () => {
   const [newPageItemTitleStyle, setNewPageItemTitleStyle] = useState<any>(null);
   const [sectionSearchQuery, setSectionSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userAddressFilter, setUserAddressFilter] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [editingUserProfile, setEditingUserProfile] = useState<UserProfile | null>(null);
   const [newItem, setNewItem] = useState({
@@ -1893,6 +1894,20 @@ const Admin = () => {
         (user.eq_id && user.eq_id.toLowerCase().includes(searchLower))
       );
     });
+
+    // Filter by address fields (street, postal code, city, country)
+    if (userAddressFilter.trim()) {
+      const addrLower = userAddressFilter.trim().toLowerCase();
+      filtered = filtered.filter((user) => {
+        const fields = [
+          (user as any).street_address,
+          (user as any).postal_code,
+          (user as any).city,
+          (user as any).country,
+        ];
+        return fields.some((f) => typeof f === 'string' && f.toLowerCase().includes(addrLower));
+      });
+    }
     
     // Then sort
     return filtered.sort((a, b) => {
@@ -1916,7 +1931,7 @@ const Admin = () => {
         return aValue < bValue ? 1 : -1;
       }
     });
-  }, [users, userSearchQuery, userSortBy, userSortOrder, userFilterTab]);
+  }, [users, userSearchQuery, userSortBy, userSortOrder, userFilterTab, userAddressFilter]);
   
   // Count users by status for tab badges
   const userCounts = useMemo(() => {
@@ -4377,13 +4392,35 @@ const Admin = () => {
                              <SelectItem value="asc">Najstarsze</SelectItem>
                            </SelectContent>
                          </Select>
-                       </div>
-                     </div>
+                        </div>
+                      </div>
+
+                      {/* Address filter */}
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="Filtruj po adresie (miasto, kod, ulica, kraj)"
+                          value={userAddressFilter}
+                          onChange={(e) => setUserAddressFilter(e.target.value)}
+                          className="pl-10 pr-10 h-9"
+                        />
+                        {userAddressFilter && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserAddressFilter('')}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
 
                       {/* Results count and legend */}
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
-                          {userSearchQuery || userFilterTab !== 'all'
+                          {userSearchQuery || userFilterTab !== 'all' || userAddressFilter
                             ? `Wyświetlanie ${filteredAndSortedUsers.length} z ${users.length} użytkowników`
                             : `Łącznie: ${users.length} użytkowników`
                           }
