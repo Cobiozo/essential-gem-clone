@@ -485,41 +485,46 @@ export const useCertificateGeneration = () => {
       const filePath = fileName;
       console.log('✅ PDF uploaded, file path:', filePath);
 
-      // 8.5. Auto-download PDF to user's computer
-      console.log('Step 5b: Auto-downloading PDF...');
-      try {
-        const downloadUrl = URL.createObjectURL(pdfBlob);
-        const downloadLink = document.createElement('a');
-        downloadLink.href = downloadUrl;
-        downloadLink.download = `certyfikat-${moduleTitle.replace(/[^a-zA-Z0-9ąćęłńóśżźĄĆĘŁŃÓŚŻŹ ]/g, '-')}.pdf`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        URL.revokeObjectURL(downloadUrl);
-        console.log('✅ PDF auto-downloaded');
-      } catch (dlError) {
-        console.warn('⚠️ Auto-download failed:', dlError);
-      }
-
-      // 9. Save certificate record with generated_at
+      // 9. Save certificate record with generated_at (BEFORE auto-download to avoid Safari fetch cancellation)
       console.log('Step 6: Saving certificate record...');
       const nowIso = new Date().toISOString();
-      const { data: certificate, error: certError } = await supabase
-        .from('certificates')
-        .insert({
-          user_id: userId,
-          module_id: moduleId,
-          issued_by: userId,
-          file_url: filePath,
-          generated_at: nowIso,
-          language_code: userTrainingLanguage,
-          ...(forceRegenerate ? { last_regenerated_at: nowIso } : {})
-        })
-        .select()
-        .single();
 
-      if (certError) {
-        throw new Error(`Certificate save error: ${certError.message}`);
+      const insertCertificateWithRetry = async () => {
+        let lastError: any = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const res = await supabase
+              .from('certificates')
+              .insert({
+                user_id: userId,
+                module_id: moduleId,
+                issued_by: userId,
+                file_url: filePath,
+                generated_at: nowIso,
+                language_code: userTrainingLanguage,
+                ...(forceRegenerate ? { last_regenerated_at: nowIso } : {})
+              })
+              .select()
+              .single();
+            if (!res.error) return res;
+            lastError = res.error;
+            console.warn(`Insert attempt ${attempt} failed:`, res.error?.message);
+          } catch (e) {
+            lastError = e;
+            console.warn(`Insert attempt ${attempt} threw:`, e);
+          }
+          if (attempt < 2) await new Promise(r => setTimeout(r, 800));
+        }
+        return { data: null, error: lastError } as any;
+      };
+
+      const { data: certificate, error: certError } = await insertCertificateWithRetry();
+
+      if (certError || !certificate) {
+        // Cleanup orphan storage file
+        try { await supabase.storage.from('certificates').remove([filePath]); } catch {}
+        const msg = certError?.message || 'unknown';
+        throw new Error(`Nie udało się zapisać certyfikatu. Sprawdź połączenie i spróbuj ponownie. (${msg})`);
       }
 
       console.log('✅ Certificate saved:', certificate.id);
@@ -534,7 +539,7 @@ export const useCertificateGeneration = () => {
         .eq('user_id', userId)
         .eq('module_id', moduleId);
 
-      // 11. Send email notification
+      // 11. Send email notification (fire-and-forget — won't be cancelled because we await before download)
       console.log('Step 7: Sending email notification...');
       try {
         await supabase.functions.invoke('send-certificate-email', {
@@ -551,7 +556,7 @@ export const useCertificateGeneration = () => {
         console.warn('Warning: Email sending failed:', emailError);
       }
 
-      // 12. Delete PDF from storage (file already downloaded + emailed)
+      // 12. Delete PDF from storage (file already in browser memory, will be downloaded next)
       console.log('Step 8: Deleting PDF from storage...');
       try {
         await supabase.storage.from('certificates').remove([filePath]);
@@ -559,6 +564,22 @@ export const useCertificateGeneration = () => {
         console.log('✅ PDF deleted from storage');
       } catch (cleanupError) {
         console.warn('⚠️ Storage cleanup failed:', cleanupError);
+      }
+
+      // 13. Auto-download PDF to user's device (LAST step — Safari blob download can cancel pending fetches)
+      console.log('Step 9: Auto-downloading PDF...');
+      try {
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = `certyfikat-${moduleTitle.replace(/[^a-zA-Z0-9ąćęłńóśżźĄĆĘŁŃÓŚŻŹ ]/g, '-')}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 4000);
+        console.log('✅ PDF auto-downloaded');
+      } catch (dlError) {
+        console.warn('⚠️ Auto-download failed:', dlError);
       }
 
       console.log('=== CERTIFICATE GENERATION COMPLETE ===');
