@@ -44,8 +44,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const [hover, setHover] = useState<{
     x: number;
     y: number;
-    city: string;
-    country: string;
+    title: string;
+    lines: string[];
     count: number;
   } | null>(null);
 
@@ -106,11 +106,42 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const missing = cleaned.length - located;
   const maxCount = points.reduce((m, p) => Math.max(m, p.count), 1);
 
+  // Clustering: group nearby points by zoom-dependent grid
+  const clusters = useMemo(() => {
+    const baseCell = 8; // degrees at zoom=1
+    const cellSize = baseCell / position.zoom;
+    const buckets = new Map<
+      string,
+      { lat: number; lng: number; count: number; items: typeof points }
+    >();
+    points.forEach((p) => {
+      const key = `${Math.floor(p.lng / cellSize)}|${Math.floor(p.lat / cellSize)}`;
+      const ex = buckets.get(key);
+      if (!ex) {
+        buckets.set(key, { lat: p.lat * p.count, lng: p.lng * p.count, count: p.count, items: [p] });
+      } else {
+        ex.lat += p.lat * p.count;
+        ex.lng += p.lng * p.count;
+        ex.count += p.count;
+        ex.items.push(p);
+      }
+    });
+    return [...buckets.values()].map((b) => ({
+      lat: b.lat / b.count,
+      lng: b.lng / b.count,
+      count: b.count,
+      items: b.items,
+    }));
+  }, [points, position.zoom]);
+
   const handleZoomIn = () =>
-    setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.5, 8) }));
+    setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.8, 64) }));
   const handleZoomOut = () =>
-    setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.5, 1) }));
+    setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.8, 1) }));
   const handleReset = () => setPosition({ coordinates: [10, 25], zoom: 1 });
+
+  const zoomToCluster = (lng: number, lat: number) =>
+    setPosition((p) => ({ coordinates: [lng, lat], zoom: Math.min(p.zoom * 2.2, 64) }));
 
   return (
     <Card>
@@ -170,7 +201,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 center={position.coordinates}
                 zoom={position.zoom}
                 onMoveEnd={(p) => setPosition(p)}
-                maxZoom={8}
+                maxZoom={64}
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
@@ -195,54 +226,82 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                     ))
                   }
                 </Geographies>
-                {points.map((p) => {
-                  const r = 2 + Math.log2(p.count + 1) * 2.2;
+                {clusters.map((c, idx) => {
+                  const isCluster = c.items.length > 1;
+                  const baseR = 2 + Math.log2(c.count + 1) * (isCluster ? 2.8 : 2.2);
+                  const r = baseR / Math.sqrt(position.zoom);
+                  const strokeW = 1 / Math.sqrt(position.zoom);
+                  const onEnter = (e: React.MouseEvent) => {
+                    const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
+                    const sorted = [...c.items].sort((a, b) => b.count - a.count);
+                    const shown = sorted.slice(0, 8).map((it) => `${it.city} (${it.count})`);
+                    const more = sorted.length - shown.length;
+                    setHover({
+                      x: e.clientX - (rect?.left ?? 0),
+                      y: e.clientY - (rect?.top ?? 0),
+                      title: isCluster
+                        ? `${c.items.length} miast`
+                        : `${sorted[0].city}${sorted[0].country ? ', ' + sorted[0].country : ''}`,
+                      lines: isCluster ? [...shown, more > 0 ? `…i ${more} więcej` : ''].filter(Boolean) : [],
+                      count: c.count,
+                    });
+                  };
+                  const onMove = (e: React.MouseEvent) => {
+                    const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
+                    setHover((h) =>
+                      h ? { ...h, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) } : h,
+                    );
+                  };
                   return (
-                    <Marker key={`${p.city}-${p.country}`} coordinates={[p.lng, p.lat]}>
-                      <circle
-                        r={r / position.zoom}
-                        fill="hsl(var(--primary))"
-                        fillOpacity={0.75}
-                        stroke="white"
-                        strokeWidth={1 / position.zoom}
+                    <Marker key={`cl-${idx}`} coordinates={[c.lng, c.lat]}>
+                      <g
                         style={{ cursor: 'pointer' }}
-                        onMouseEnter={(e) => {
-                          const rect = (e.currentTarget.ownerSVGElement?.parentElement as HTMLElement)?.getBoundingClientRect();
-                          setHover({
-                            x: e.clientX - (rect?.left ?? 0),
-                            y: e.clientY - (rect?.top ?? 0),
-                            city: p.city,
-                            country: p.country,
-                            count: p.count,
-                          });
-                        }}
-                        onMouseMove={(e) => {
-                          const rect = (e.currentTarget.ownerSVGElement?.parentElement as HTMLElement)?.getBoundingClientRect();
-                          setHover((h) =>
-                            h
-                              ? { ...h, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) }
-                              : h,
-                          );
-                        }}
+                        onMouseEnter={onEnter}
+                        onMouseMove={onMove}
                         onMouseLeave={() => setHover(null)}
-                      />
+                        onClick={() => isCluster && zoomToCluster(c.lng, c.lat)}
+                      >
+                        <circle
+                          r={r}
+                          fill="hsl(var(--primary))"
+                          fillOpacity={isCluster ? 0.85 : 0.75}
+                          stroke="white"
+                          strokeWidth={strokeW}
+                        />
+                        {isCluster && (
+                          <text
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            fontSize={r * 0.95}
+                            fontWeight={700}
+                            fill="hsl(var(--primary-foreground))"
+                            style={{ pointerEvents: 'none', userSelect: 'none' }}
+                          >
+                            {c.count}
+                          </text>
+                        )}
+                      </g>
                     </Marker>
                   );
                 })}
               </ZoomableGroup>
             </ComposableMap>
 
-            {/* Tooltip — wyłącznie miasto, kraj i liczba użytkowników */}
+            {/* Tooltip */}
             {hover && (
               <div
-                className="pointer-events-none absolute z-20 rounded-md border bg-popover text-popover-foreground px-2 py-1 text-xs shadow-md"
+                className="pointer-events-none absolute z-20 rounded-md border bg-popover text-popover-foreground px-2 py-1 text-xs shadow-md max-w-[240px]"
                 style={{ left: hover.x + 12, top: hover.y + 12 }}
               >
-                <div className="font-medium">
-                  {hover.city}
-                  {hover.country ? `, ${hover.country}` : ''}
-                </div>
-                <div className="text-muted-foreground">
+                <div className="font-medium">{hover.title}</div>
+                {hover.lines.length > 0 && (
+                  <div className="text-muted-foreground mt-0.5 space-y-0.5">
+                    {hover.lines.map((l, i) => (
+                      <div key={i}>{l}</div>
+                    ))}
+                  </div>
+                )}
+                <div className="text-muted-foreground mt-0.5">
                   {hover.count} {hover.count === 1 ? 'użytkownik' : 'użytkowników'}
                 </div>
               </div>

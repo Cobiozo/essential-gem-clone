@@ -1,24 +1,38 @@
-…
-## Zakres
+## Cel
+Klastrowanie punktów na mapie świata + większy zoom z możliwością rozdzielenia miast w obrębie jednego klastra.
 
-Dokończenie dwóch pozostałych zadań z poprzedniej iteracji:
+## 1) Głębszy zoom (`UserWorldMap.tsx`)
+- `maxZoom`: 8 → **64** (na `<ZoomableGroup>` i w `handleZoomIn`).
+- Krok zoomu: 1.5× → **1.8×** (szybsze dochodzenie do poziomu miasta).
+- Promień markera skalowany przez `1 / Math.sqrt(zoom)` zamiast `1 / zoom`, żeby przy dużym przybliżeniu markery nie znikały całkowicie, ale też nie zasłaniały dzielnic.
 
-### 1) Pasek statusu na mapie świata (`UserWorldMap.tsx`)
-- Pod mapą dodać pasek statusu pokazujący postęp geokodowania:
-  - „Zlokalizowano X / Y miast"
-  - Gdy `pending > 0`: dopisek „Geokoduję w tle: N miast…" + mały spinner
-  - Gdy `pending === 0` i są błędy: „Nie udało się zlokalizować: N" z tooltipem listy
-- Dane bierzemy z odpowiedzi `geocode-cities` (pola `located`, `missing`, `pending`), które już są zwracane.
-- Auto-odświeżanie co 5s już działa przez `refetchInterval` — pasek zniknie/zmieni stan automatycznie.
+## 2) Klastrowanie zależne od zoomu
+Algorytm grid-based (prosty, bez dodatkowej biblioteki — całość client-side):
 
-### 2) Fallback kraju z `city_geocache.display_country` (`UserStatistics.tsx`)
-- W agregatorze statystyk krajów: jeżeli `profile.country` jest puste/„Nieznane", użyj `city_geocache.display_country` dopasowanego po znormalizowanym `city`.
-- Pobranie jednorazowe: `select city, display_country from city_geocache where display_country is not null`.
-- Budujemy mapę `cityLower -> display_country` i używamy jej w `normalizeCountry` jako fallback przed zwróceniem „Nieznane".
-- Dotyczy zarówno listy krajów w statystykach, jak i grupowania miast na mapie (spójność z `UserWorldMap`).
+```
+cellSize = baseCell / zoom        // baseCell ~ 8 stopni przy zoom=1
+key = `${floor(lng/cellSize)}|${floor(lat/cellSize)}`
+```
+
+Dla każdej komórki agregujemy punkty:
+- `count = sum(p.count)` (suma użytkowników)
+- `cities = p.city[]` (lista miast w klastrze)
+- `lat/lng = średnia ważona po count`
+
+Render:
+- **Klaster (≥2 miasta)**: większe koło z liczbą w środku (`text` SVG), kolor `--primary`, obrys biały. Tooltip: lista miast (max 8 + „…i N więcej") + łączna liczba użytkowników. Klik = zoom in 2× i wycentrowanie na klastrze.
+- **Pojedynczy punkt**: dotychczasowy marker z dotychczasowym tooltipem.
+
+Przy `zoom ≥ ~12` (poziom miasta) `cellSize` staje się bardzo mały i każdy punkt jest praktycznie osobny — naturalne „declustering" wraz z przybliżeniem.
+
+## 3) UX
+- Kursor `pointer` na klastrach.
+- Animowane przejście zoomu nie jest potrzebne (`react-simple-maps` aktualizuje stan instant — ok).
+- Legenda zostaje (1 / średnia / max użytkowników); pod nią dodać małą podpowiedź: „Kliknij klaster, aby przybliżyć".
 
 ## Pliki
-- `src/components/admin/UserWorldMap.tsx` — pasek statusu pod mapą.
-- `src/components/admin/UserStatistics.tsx` — query do `city_geocache` + fallback w agregacji krajów.
+- `src/components/admin/UserWorldMap.tsx` — jedyna modyfikacja. Bez zmian w bazie/edge functions.
 
-Bez zmian w bazie i edge functions.
+## Bez zmian
+- Tooltip pojedynczego markera (miasto, kraj, liczba użytkowników) zostaje 1:1.
+- Logika geokodowania, fallback krajów, pasek statusu — bez zmian.
