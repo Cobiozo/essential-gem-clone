@@ -1,94 +1,70 @@
+## Cel
+Trzy zmiany w `src/components/admin/UserWorldMap.tsx` (tylko ten plik — bez zmian w logice biznesowej, edge functions ani danych):
 
-# Audyt: mapa w statystykach + ostatnie zmiany
+1. **Precyzyjne wskazywanie kropki** — obecnie niewidoczna warstwa `r * 2.5` z `fillOpacity={0}` rozszerza hitbox 2,5× poza widoczną kropkę, więc tooltip pojawia się daleko od kropeczki.
+2. **Mniejsze kropki przy dużym przybliżeniu** — obecny wzór skaluje się słabo (`pow(zoom, 0.7)`) i ma sztywne minimum `0.5`/maks `3.2`, przez co przy zoomie 20+ kropki są wciąż wielkie.
+3. **Większy zoom aż do konturu miasta** — obecny `maxZoom=64` jest OK, ale `handleZoomIn`/`zoomToCluster` mają cap 64; podniesiemy do 200 i poprawimy próg pojawiania się konturów oraz auto-zoom przy kliknięciu pojedynczej kropki.
 
-## TL;DR
+## Zakres zmian (jeden plik)
 
-Brak rzeczywistych pętli ani obciążenia serwera w tej chwili. Edge Functions w ostatnich 24h: tylko 5 wywołań (CRON-y), `geocode-cities` / `geocode-city-boundary` — **0 wywołań**. Ostatnie zmiany (ComposedChart, gcTime, revokeObjectURL, drop console, retry certyfikatów) są bezpieczne.
+### A. Hitbox = widoczna kropka (precyzyjny hover)
+- Usunąć zewnętrzny `<circle r={r*2.5} fillOpacity={0}>`.
+- Na widocznej kropce dodać `pointerEvents="all"` — hover/click tylko po realnym pikselu.
+- Efekt: tooltip wyłącznie gdy kursor jest faktycznie na kropce.
 
-Znalazłem jednak **jedno niezamknięte ryzyko** w `UserWorldMap.tsx` — niekończące się polling, gdy geokodowanie utknie. Do naprawy prewencyjnie.
+### B. Skalowanie kropki silniej zależne od zoomu
+- Nowy wzór: `rawR = (1.0 + log2(count + 1) * 0.6) / pow(zoom, 0.95)`.
+- Nowe granice: `min 0.15`, `max 3.0`. Przy zoom ≈ 20 kropka ma ~0.3–0.5 (zamiast 0.5–1.2 dziś), przy zoom 60 jest praktycznie punktem.
+- `strokeWidth` analogicznie: `0.35 / pow(zoom, 0.9)`.
+- Legenda używa nadal stałych rozmiarów (referencyjnych) — bez zmian.
 
-## Co sprawdzono
+### C. Mocniejszy zoom + wcześniejsze kontury miast
+- `ZoomableGroup maxZoom` 64 → **200**.
+- `handleZoomIn`: cap `64` → `200`; mnożnik `1.8` → `2.0`.
+- `zoomToCluster`: cap `64` → `200`.
+- Pojedyncza kropka (`!isCluster`) po kliknięciu robi `animateTo({coordinates:[lng,lat], zoom: max(position.zoom*2.2, 40)}, 600)` — wjeżdża aż do poziomu konturu miasta.
+- `boundariesEnabled`: próg `zoom >= 8` → `zoom >= 6` (kontury pobierane wcześniej).
+- `boundaryOpacity`: `(zoom - 7) / 3` → `(zoom - 5) / 3` (płynniejsze ujawnianie).
+- Wewnętrzny scroll-zoom `react-simple-maps` honoruje `maxZoom` z `ZoomableGroup`, więc cap działa też dla scrolla.
 
-### 1. Mapa świata (`UserWorldMap.tsx`)
+## Bezpieczeństwo / brak regresji
+- Żadnych zmian w: queries, edge functions (`geocode-cities`, `geocode-city-boundary`), cache, polling cap (30 prób), kluczach query, store'ach, RLS, schemacie.
+- Brak zmian w klastrowaniu, w `handleGeographyClick`, w obsłudze `selectedIso`, w eksportach CSV/XLSX, w innych komponentach panelu statystyk.
+- Brak nowych zależności.
+- `animateTo` używa już `Math.log/exp` — duże skoki zoomu są płynne.
+- Polling konturów nie rośnie: `boundaryItems` nadal `slice(0,40)`, `staleTime 24h`, brak `refetchInterval`. Niższy próg `6` jedynie wcześniej startuje cache'owane zapytanie, nie pętli.
 
-- **`refetchInterval` polluje co 5s** dopóki `pending > 0` (linia 84–87):
-  ```ts
-  refetchInterval: (q) => {
-    const d = q.state.data as { pending: number } | undefined;
-    return d && d.pending > 0 ? 5000 : false;
-  }
-  ```
-  Działa tylko gdy zakładka jest otwarta (`refetchOnWindowFocus: false`, ale `refetchInterval` jest niezależny). Jeśli backend `geocode-cities` nigdy nie zejdzie do `pending=0` (np. limit OpenStreetMap, błąd quota, miasto niegeokodowalne pozostające w kolejce), zapytanie poleci co 5s w nieskończoność — 720 wywołań/godz na otwartą kartę admina.
-  
-  **Status w produkcji:** ostatnie 24h — **0 wywołań** `geocode-cities`. Pętli faktycznie nie ma, ale ryzyko jest realne.
+## Techniczne detale (skrócone)
 
-- **`animateTo` / `requestAnimationFrame`** (linie 198–223): poprawny `cancelAnim()` przed nową animacją, kończy się gdy `t >= 1`. Brak wycieku.
+```tsx
+// B – rozmiar kropki
+const rawR = (1.0 + Math.log2(c.count + 1) * 0.6) / Math.pow(position.zoom, 0.95);
+const r = Math.max(0.15, Math.min(3.0, rawR));
+const strokeW = 0.35 / Math.pow(position.zoom, 0.9);
 
-- **`onMoveEnd → setPosition`** z guardem `isAnimatingRef`: brak feedback-loopa podczas animacji.
+// A – jeden circle, hitbox = piksel
+<circle
+  r={r}
+  fill="hsl(var(--primary))"
+  fillOpacity={isCluster ? 0.85 : 1}
+  stroke="hsl(var(--background))"
+  strokeWidth={strokeW}
+  pointerEvents="all"
+/>
 
-- **`Geographies geography={worldTopo}`** renderuje ~250 polygonów krajów + iteruje `normalizeCountry()` na każdej zmianie zoom. Drobny koszt CPU, **nie pętla**.
+// C – większy zoom
+<ZoomableGroup ... maxZoom={200}>
+const handleZoomIn = () => animateTo({ ..., zoom: Math.min(position.zoom * 2.0, 200) }, 280);
+const zoomToCluster = (lng, lat) => animateTo({ coordinates:[lng,lat], zoom: Math.min(position.zoom*2.2, 200)}, 600);
+// klik na pojedynczą kropkę:
+onClick={() => isCluster
+  ? zoomToCluster(c.lng, c.lat)
+  : animateTo({ coordinates:[c.lng, c.lat], zoom: Math.max(position.zoom*2.2, 40) }, 600)}
 
-- **Brak `useEffect` w komponencie** — żadnego setState w setState.
-
-### 2. Edge Functions — ostatnie 24h
-
-| Funkcja | Wywołania |
-|---|---|
-| `process-pending-notifications` (CRON 1 min) | 2 |
-| `send-meeting-reminders` (CRON 5 min) | 2 |
-| `refresh-google-tokens` | 1 |
-| `geocode-cities` | **0** |
-| `geocode-city-boundary` | **0** |
-
-CRON-y działają zgodnie z planem — żadnych retry-loopów, żadnych 5xx, żadnego narastania ruchu. Mapa nie generuje ruchu na produkcji.
-
-### 3. Ostatnie zmiany (Phase 1/2 audytu + fix Recharts)
-
-| Zmiana | Ryzyko |
-|---|---|
-| `AreaChart → ComposedChart` w `UserStatistics` | Brak — zmiana render-only |
-| `QueryClient { gcTime: 10min }` | Brak — bounded cache |
-| `vite.config.ts esbuild.drop console/debugger` (prod) | Brak — build-time |
-| 9× `URL.revokeObjectURL(...)` | Brak — czyszczenie blobów |
-| `useCertificateGeneration` retry 2× + cleanup | Brak — bounded |
-| `ImageUploadInput` revoke przed nowym `setCropSrc` | Brak |
-
-Żaden z tych edytów nie wprowadza realtime channel, intervalu ani nieskończonej pętli.
-
-### 4. Pozostałe potencjalne źródła obciążenia
-
-- `fetchAllProfiles` w `UserStatistics` — single pull wszystkich profili przy każdym otwarciu zakładki (jeden tabelowy scan po stronie DB + payload zależny od liczby userów). Cache 60s w React Query, gcTime 10 min, więc maks. 1 request na minutę na admina. Akceptowalne, ale do optymalizacji w przyszłości (RPC z agregacją).
-- Realtime channels — brak nowych dodanych w ostatnich edytach.
-
-## Plan naprawczy (1 mała zmiana)
-
-**Plik:** `src/components/admin/UserWorldMap.tsx`
-
-Dodać twarde ograniczenie pętli polling geocoding:
-
-```ts
-const pollAttemptsRef = useRef(0);
-
-const { data, isFetching, refetch } = useQuery({
-  queryKey,
-  queryFn: async () => {
-    const r = await geocodeCities(items, false);
-    pollAttemptsRef.current = r.pending > 0 ? pollAttemptsRef.current + 1 : 0;
-    return r;
-  },
-  enabled: items.length > 0,
-  staleTime: 24 * 60 * 60 * 1000,
-  refetchOnWindowFocus: false,
-  // Stop polling after 30 attempts (~2.5 min) to prevent runaway loops
-  refetchInterval: (q) => {
-    const d = q.state.data as { pending: number } | undefined;
-    if (!d || d.pending === 0) return false;
-    if (pollAttemptsRef.current >= 30) return false;
-    return 5000;
-  },
-});
+const boundariesEnabled = position.zoom >= 6 && visiblePoints.length > 0;
+const boundaryOpacity = Math.max(0, Math.min(1, (position.zoom - 5) / 3));
 ```
 
-Po naciśnięciu „Odśwież" licznik się resetuje (przez `refetch` + ręczny reset w handlerze przycisku).
-
-To wszystko — żadnych zmian DB, edge functions, ani innych komponentów. Reszta audytu wypada czysto.
+## Weryfikacja
+- Build (auto).
+- Wizualnie w preview: hover tylko na kropce, kropki maleją przy zoom 20/40/80, kontur miasta widoczny przy ~zoom 8–12.

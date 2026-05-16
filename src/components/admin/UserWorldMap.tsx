@@ -230,7 +230,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   };
 
   const handleZoomIn = () =>
-    animateTo({ coordinates: position.coordinates, zoom: Math.min(position.zoom * 1.8, 64) }, 280);
+    animateTo({ coordinates: position.coordinates, zoom: Math.min(position.zoom * 2.0, 200) }, 280);
   const handleZoomOut = () =>
     animateTo({ coordinates: position.coordinates, zoom: Math.max(position.zoom / 1.8, 1) }, 280);
   const handleReset = () => {
