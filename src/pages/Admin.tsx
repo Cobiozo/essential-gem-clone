@@ -1894,6 +1894,20 @@ const Admin = () => {
         (user.eq_id && user.eq_id.toLowerCase().includes(searchLower))
       );
     });
+
+    // Filter by address fields (street, postal code, city, country)
+    if (userAddressFilter.trim()) {
+      const addrLower = userAddressFilter.trim().toLowerCase();
+      filtered = filtered.filter((user) => {
+        const fields = [
+          (user as any).street_address,
+          (user as any).postal_code,
+          (user as any).city,
+          (user as any).country,
+        ];
+        return fields.some((f) => typeof f === 'string' && f.toLowerCase().includes(addrLower));
+      });
+    }
     
     // Then sort
     return filtered.sort((a, b) => {
