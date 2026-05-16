@@ -213,6 +213,11 @@ export const DashboardMapSettings: React.FC = () => {
                 onCheckedChange={(v) => set('show_logos', v)} />
             </div>
           </div>
+
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${draft.show_logos ? '' : 'opacity-50 pointer-events-none'}`}>
+            <LogoSlot side="left" label="Logo lewe" />
+            <LogoSlot side="right" label="Logo prawe" />
+          </div>
         </section>
 
         {/* Tytuł */}
