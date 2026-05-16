@@ -167,7 +167,7 @@ export const AppBanners: React.FC = () => {
         .select(PROFILE_FIELDS.join(','))
         .eq('user_id', user.id)
         .maybeSingle();
-      return data as Record<string, string | null> | null;
+      return data as unknown as Record<string, string | null> | null;
     },
     enabled: enabled && needsProfile,
     staleTime: 30 * 1000,
