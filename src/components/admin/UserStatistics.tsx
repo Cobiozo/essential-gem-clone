@@ -349,7 +349,7 @@ const UserStatistics: React.FC = () => {
       </div>
 
       {/* Geografia */}
-      <UserWorldMap cities={stats.cities} />
+      <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
