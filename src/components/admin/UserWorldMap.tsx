@@ -10,8 +10,9 @@ import {
 import worldTopo from 'world-atlas/countries-110m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw } from 'lucide-react';
+import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeCountry } from '@/lib/countryFlags';
 
 export type CityPoint = { city: string; country: string; count: number };
 
@@ -48,6 +49,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
     lines: string[];
     count: number;
   } | null>(null);
+  const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
   // Strip out unknown cities and aggregate
   const cleaned = useMemo(
@@ -106,15 +109,24 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const missing = cleaned.length - located;
   const maxCount = points.reduce((m, p) => Math.max(m, p.count), 1);
 
+  // Filter visible points by selected country
+  const visiblePoints = useMemo(
+    () =>
+      selectedIso
+        ? points.filter((p) => normalizeCountry(p.country).iso === selectedIso)
+        : points,
+    [points, selectedIso],
+  );
+
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
     const baseCell = 8; // degrees at zoom=1
     const cellSize = baseCell / position.zoom;
     const buckets = new Map<
       string,
-      { lat: number; lng: number; count: number; items: typeof points }
+      { lat: number; lng: number; count: number; items: typeof visiblePoints }
     >();
-    points.forEach((p) => {
+    visiblePoints.forEach((p) => {
       const key = `${Math.floor(p.lng / cellSize)}|${Math.floor(p.lat / cellSize)}`;
       const ex = buckets.get(key);
       if (!ex) {
@@ -132,16 +144,45 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
       count: b.count,
       items: b.items,
     }));
-  }, [points, position.zoom]);
+  }, [visiblePoints, position.zoom]);
 
   const handleZoomIn = () =>
     setPosition((p) => ({ ...p, zoom: Math.min(p.zoom * 1.8, 64) }));
   const handleZoomOut = () =>
     setPosition((p) => ({ ...p, zoom: Math.max(p.zoom / 1.8, 1) }));
-  const handleReset = () => setPosition({ coordinates: [10, 25], zoom: 1 });
+  const handleReset = () => {
+    setPosition({ coordinates: [10, 25], zoom: 1 });
+    setSelectedIso(null);
+    setSelectedLabel(null);
+  };
 
   const zoomToCluster = (lng: number, lat: number) =>
     setPosition((p) => ({ coordinates: [lng, lat], zoom: Math.min(p.zoom * 2.2, 64) }));
+
+  const handleGeographyClick = (g: any) => {
+    const name = g.properties?.name as string | undefined;
+    if (!name) return;
+    const norm = normalizeCountry(name);
+    if (!norm.iso) return; // unsupported country
+    if (selectedIso === norm.iso) {
+      setSelectedIso(null);
+      setSelectedLabel(null);
+      return;
+    }
+    setSelectedIso(norm.iso);
+    setSelectedLabel(norm.label);
+    // Auto-zoom to country bbox using its points (if any)
+    const pts = points.filter((p) => normalizeCountry(p.country).iso === norm.iso);
+    if (pts.length > 0) {
+      const minLat = Math.min(...pts.map((p) => p.lat));
+      const maxLat = Math.max(...pts.map((p) => p.lat));
+      const minLng = Math.min(...pts.map((p) => p.lng));
+      const maxLng = Math.max(...pts.map((p) => p.lng));
+      const spread = Math.max(maxLat - minLat, (maxLng - minLng) / 2, 0.5);
+      const zoom = Math.max(2, Math.min(16, 60 / spread));
+      setPosition({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom });
+    }
+  };
 
   return (
     <Card>
@@ -166,6 +207,20 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 <span className="text-amber-600">· {missing} bez lokalizacji</span>
               )}
             </span>
+            {selectedIso && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIso(null);
+                  setSelectedLabel(null);
+                }}
+                className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/15"
+              >
+                <Globe2 className="h-3 w-3" />
+                {selectedLabel ?? selectedIso}
+                <X className="h-3 w-3" />
+              </button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -205,25 +260,42 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
-                    geographies.map((g) => (
-                      <Geography
-                        key={g.rsmKey}
-                        geography={g}
-                        style={{
-                          default: {
-                            fill: 'hsl(var(--muted))',
-                            stroke: 'hsl(var(--border))',
-                            strokeWidth: 0.5,
-                            outline: 'none',
-                          },
-                          hover: {
-                            fill: 'hsl(var(--muted))',
-                            outline: 'none',
-                          },
-                          pressed: { fill: 'hsl(var(--muted))', outline: 'none' },
-                        }}
-                      />
-                    ))
+                    geographies.map((g) => {
+                      const iso = normalizeCountry(g.properties?.name).iso;
+                      const isSelected = !!selectedIso && iso === selectedIso;
+                      const dimmed = !!selectedIso && !isSelected;
+                      const baseFill = isSelected
+                        ? 'hsl(var(--primary) / 0.22)'
+                        : dimmed
+                        ? 'hsl(var(--muted) / 0.4)'
+                        : 'hsl(var(--muted))';
+                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
+                      const strokeWidth = isSelected ? 1.2 : 0.5;
+                      return (
+                        <Geography
+                          key={g.rsmKey}
+                          geography={g}
+                          onClick={() => handleGeographyClick(g)}
+                          style={{
+                            default: {
+                              fill: baseFill,
+                              stroke,
+                              strokeWidth,
+                              outline: 'none',
+                              cursor: iso ? 'pointer' : 'default',
+                            },
+                            hover: {
+                              fill: iso && !isSelected ? 'hsl(var(--muted-foreground) / 0.25)' : baseFill,
+                              stroke,
+                              strokeWidth,
+                              outline: 'none',
+                              cursor: iso ? 'pointer' : 'default',
+                            },
+                            pressed: { fill: baseFill, stroke, strokeWidth, outline: 'none' },
+                          }}
+                        />
+                      );
+                    })
                   }
                 </Geographies>
                 {clusters.map((c, idx) => {
