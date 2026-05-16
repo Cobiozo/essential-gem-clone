@@ -707,6 +707,81 @@ export type Database = {
         }
         Relationships: []
       }
+      app_banners: {
+        Row: {
+          accent_color: string | null
+          audience_type: string
+          button_label: string
+          created_at: string
+          dismissible: boolean
+          enabled: boolean
+          ends_at: string | null
+          hide_on_paths: string[]
+          icon_name: string
+          id: string
+          message: string
+          open_in_new_tab: boolean
+          priority: number
+          required_fields: string[]
+          severity: string
+          starts_at: string | null
+          style_variant: string
+          target_roles: string[]
+          target_url: string
+          target_user_ids: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string | null
+          audience_type?: string
+          button_label?: string
+          created_at?: string
+          dismissible?: boolean
+          enabled?: boolean
+          ends_at?: string | null
+          hide_on_paths?: string[]
+          icon_name?: string
+          id?: string
+          message?: string
+          open_in_new_tab?: boolean
+          priority?: number
+          required_fields?: string[]
+          severity?: string
+          starts_at?: string | null
+          style_variant?: string
+          target_roles?: string[]
+          target_url?: string
+          target_user_ids?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string | null
+          audience_type?: string
+          button_label?: string
+          created_at?: string
+          dismissible?: boolean
+          enabled?: boolean
+          ends_at?: string | null
+          hide_on_paths?: string[]
+          icon_name?: string
+          id?: string
+          message?: string
+          open_in_new_tab?: boolean
+          priority?: number
+          required_fields?: string[]
+          severity?: string
+          starts_at?: string | null
+          style_variant?: string
+          target_roles?: string[]
+          target_url?: string
+          target_user_ids?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       auto_webinar_config: {
         Row: {
           category: string
