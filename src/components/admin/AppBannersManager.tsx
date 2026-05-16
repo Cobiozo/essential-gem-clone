@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Pencil, Trash2, Eye, Loader2, Save, Globe2, AlertCircle, Info, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, AlertTriangle, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock } from 'lucide-react';
 import { AppBanner, FIELD_LABELS, BannerCard } from '@/components/banners/AppBanners';
+import { BannerSimulator } from '@/components/admin/BannerSimulator';
 
 const ICON_CHOICES = ['Info','AlertCircle','AlertTriangle','Bell','Sparkles','Gift','Calendar','BookOpen','ExternalLink','CheckCircle','Megaphone','Star','Heart','Rocket','Flame','Zap','Award','Crown','Mail','MessageSquare','ShoppingCart','Settings','Users','Lock','Unlock'];
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = { Info, AlertCircle, AlertTriangle, Bell, Sparkles, Gift, Calendar, BookOpen, ExternalLink, CheckCircle, Megaphone, Star, Heart, Rocket, Flame, Zap, Award, Crown, Mail, MessageSquare, ShoppingCart, Settings, Users, Lock, Unlock };
