@@ -1,48 +1,62 @@
 ## Cel
 
-Zmienić wygląd mapy w „Statystyki użytkowników" tak, by przypominała załączone zdjęcie — realistyczny obraz satelitarny Ziemi (oceany, kontynenty, chmury), zamiast obecnych płaskich poligonów krajów. Kropki użytkowników, klastry, hover, zoom (do 200), kontury miast i wszystkie obecne funkcje pozostają bez zmian.
+Dodać do mapy w `/admin?tab=user-stats` przełącznik **„Klasyczna / Satelitarna"**, który zmienia wygląd tła. Wariant satelitarny ma odpowiadać załączonemu screenowi (realistyczna Ziemia + wyraźne kontury państw).
 
-## Podejście (bezpieczne, jeden plik)
+## Zakres (jeden plik komponentu + jedna tekstura)
 
 Plik: `src/components/admin/UserWorldMap.tsx`.
 
-`react-simple-maps` używa projekcji `geoEqualEarth` / `geoMercator`. Aby pokazać realne zdjęcie Ziemi, najprościej i najbezpieczniej:
+### 1. Nowy stan + persystencja
+- `const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(...)` — wartość początkowa czytana z `localStorage('userWorldMap.style')`, domyślnie `'satellite'` (zgodnie z obecnym wyglądem po ostatniej zmianie).
+- Zmiana przełącznika → `setMapStyle(...)` + zapis do `localStorage`.
 
-1. **Dodać warstwę rastrową** (`<image>`) jako tło wewnątrz `<ComposableMap>`, **przed** `<Geographies>`, korzystając z gotowej tekstury Blue Marble (NASA, domena publiczna) w projekcji equirectangular — ten sam typ obrazka, który załączył użytkownik.
-2. Zmienić projekcję `ComposableMap` z obecnej (`geoEqualEarth`) na **`geoEquirectangular`**, żeby piksele tekstury 1:1 pokrywały się z geografią (longitude → x, latitude → y). Dzięki temu kropki miast nadal trafiają w prawidłowe miejsca na zdjęciu.
-3. Wyłączyć/wytłumić wypełnienie obecnych poligonów krajów (`<Geography fill="transparent" />`) — zostawiamy je jako **niewidoczną warstwę interakcji** (klik w kraj → `selectedIso`, hover statystyk kraju działa bez zmian), ale wizualnie pokazuje się zdjęcie satelitarne pod spodem.
-4. Granice/kontury miast (`city_boundaries`) pozostają — rysują się **na** zdjęciu z dotychczasową krzywą opacity.
-5. Kropki i klastry — bez zmian (kolor `hsl(var(--primary))`, rozmiary z poprzedniej iteracji).
+### 2. Przełącznik w nagłówku karty
+- W `CardHeader`, obok przycisku „Odśwież", `ToggleGroup` z `@/components/ui/toggle-group` (shadcn, już używany w projekcie) z dwoma opcjami:
+  - `Klasyczna` (ikona `Map`)
+  - `Satelitarna` (ikona `Globe2`)
+- Mały, kompaktowy (`size="sm"`, `variant="outline"`).
 
-## Tekstura
+### 3. Renderowanie warunkowe wewnątrz `ComposableMap`
 
-- Źródło: NASA Visible Earth „Blue Marble Next Generation" (public domain) — wersja 2048×1024 lub 5400×2700 px, equirectangular, PNG/JPG.
-- Pobierana raz, hostowana lokalnie: `public/textures/earth-bluemarble-2k.jpg` (~300–600 KB w 2K).
-- Wstawiana jako `<image href="/textures/earth-bluemarble-2k.jpg" x="-180" y="-90" width="360" height="180" preserveAspectRatio="none" />` w układzie współrzędnych geograficznych projekcji equirectangular.
-- Brak nowych zależności npm.
+```tsx
+{mapStyle === 'satellite' && (
+  <image href="/textures/earth-satellite-2k.jpg" x={-180} y={-90} width={360} height={180}
+         preserveAspectRatio="none" style={{ pointerEvents: 'none' }} />
+)}
+```
 
-## Warianty wyglądu (do wyboru w trakcie wdrożenia, jeśli zechcesz)
+Style poligonów krajów (`<Geography>`) zależne od trybu:
 
-- **A. Realistyczny Blue Marble** (jak na Twoim screenie) — kolorowe oceany, lądy, chmury.
-- **B. Stonowany / ciemny** — ta sama tekstura z nakładką `<rect fill="hsl(var(--background))" opacity="0.35"/>`, żeby kropki primary były bardziej kontrastowe na ciemnym UI.
-- **C. Nocna Ziemia (Black Marble)** — alternatywna tekstura NASA (światła miast nocą) — bardzo efektowna pod ciemny motyw.
+| element              | classic                              | satellite                                    |
+| -------------------- | ------------------------------------ | -------------------------------------------- |
+| fill (default)       | `hsl(var(--muted) / 0.55)`           | `transparent`                                |
+| fill (dimmed)        | `hsl(var(--muted) / 0.35)`           | `transparent`                                |
+| stroke               | `hsl(var(--border) / 0.7)`           | `hsl(0 0% 100% / 0.55)` *(wyraźniejsze niż dziś — jak na screenie)* |
+| stroke selected      | `hsl(var(--primary))`                | `hsl(var(--primary))`                        |
+| hover fill           | `hsl(var(--muted-foreground)/0.25)`  | `hsl(0 0% 100% / 0.12)`                      |
+| background `<svg>`   | brak (`transparent`)                 | `#0b1d2a` (na czas ładowania tekstury)       |
 
-Domyślnie proponuję **A** (zgodnie z Twoim obrazkiem).
+Projekcja:
+- `classic` → `geoNaturalEarth1` (jak było pierwotnie).
+- `satellite` → `geoEquirectangular` (żeby tekstura pasowała 1:1 do lng/lat).
+
+Realizacja: zmienna `const projection = mapStyle === 'satellite' ? 'geoEquirectangular' : 'geoNaturalEarth1'` przekazana do `ComposableMap`.
+
+### 4. Tekstura satelitarna „jak na screenie"
+- Obecna `/textures/earth-bluemarble-2k.jpg` (z `solarsystemscope.com`, 2K) — ta sama, którą widać teraz; zgodna z załączonym screenem.
+- **Wzmocnienie konturów państw** osiągamy programowo (jaśniejszy stroke `rgba(255,255,255,0.55)` zamiast obecnego `0.25`), bez nakładania drugiej tekstury — pełna kontrola, bez powiększenia paczki o kolejny plik.
+
+### 5. Kontury miast, kropki, klastry, zoom (200), hover, panel boczny — bez zmian.
 
 ## Bezpieczeństwo / brak regresji
 
-- Zmiany **wyłącznie w jednym pliku komponentu** + jeden statyczny plik w `public/textures/`.
-- Żadnych zmian w: queries, edge functions (`geocode-cities`, `geocode-city-boundary`), polling cap (30), kluczach query, RLS, schemacie, eksporcie CSV/XLSX.
-- Klik w kraj, hover statystyk, zoom (200), kontury miast, klastry, „Odśwież", panel boczny — bez zmian funkcjonalnych.
-- Tekstura ładowana lokalnie (bez external CDN) → brak ryzyka CORS / blokad / wycieku.
-- Rozmiar 2K JPG (~400 KB) ładowany raz, cache przeglądarki → znikome obciążenie.
-- Projekcja `geoEquirectangular` jest wbudowana w `d3-geo` (już w drzewie zależności `react-simple-maps`) → brak nowych paczek.
+- Zmiany wyłącznie w jednym pliku komponentu (+ wykorzystanie istniejącej tekstury).
+- Żadnych zmian w queries, edge functions, polling cap (30), kluczach query, RLS, schemacie, eksporcie CSV/XLSX, klastrowaniu, `handleGeographyClick`, `selectedIso`.
+- Brak nowych zależności (`ToggleGroup` już jest w `src/components/ui`).
+- `localStorage` w try/catch — brak crasha w prywatnym oknie.
+- Przełączenie trybu nie resetuje pozycji/zoomu mapy ani zaznaczonego kraju.
 
 ## Weryfikacja
 
 - Build (auto).
-- Wizualnie w `/admin?tab=user-stats`: tekstura pokrywa cały świat, kropki Warszawy/Krakowa lądują na właściwych miastach, zoom 4 → 50 → 200 płynny, kontury miast nadal się pojawiają, klik w kraj nadal podświetla i otwiera panel.
-
-## Otwarte pytanie
-
-Wariant kolorystyczny: **A** (pełny Blue Marble, jak na screenie), **B** (Blue Marble + lekkie ciemne tonowanie pod UI), czy **C** (Black Marble — nocna Ziemia ze światłami miast)?
+- Wizualnie: w `/admin?tab=user-stats` widoczny ToggleGroup; po przełączeniu mapa zmienia tło natychmiast; preferencja zachowana po przeładowaniu strony; kropki Warszawy/Krakowa lądują w odpowiednim miejscu w obu trybach.
