@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   const navigate = useNavigate();
   const { user, profile, userRole, isAdmin, isPartner, isSpecjalista, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   
   // Form state
@@ -173,6 +175,8 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       
       // Refresh profile data in context
       await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user.id] });
       
       // Redirect based on role
       if (isAdmin) {

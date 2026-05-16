@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,7 @@ const MyAccount = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isComplete } = useProfileCompletion();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
@@ -311,6 +313,10 @@ const MyAccount = () => {
         next.delete('highlight');
         setSearchParams(next, { replace: true });
       }
+
+      await refreshProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user.id] });
 
       toast({
         title: t('toast.success'),
@@ -1028,6 +1034,8 @@ const MyAccount = () => {
                           } as any).eq('user_id', user?.id);
                           if (error) throw error;
                           await refreshProfile();
+                          queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user?.id] });
+                          queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user?.id] });
                           toast({ title: 'Zgody zatwierdzone', description: 'Twoje zgody zostały zapisane pomyślnie.' });
                         } catch (err: any) {
                           toast({ title: 'Błąd', description: err.message || 'Nie udało się zapisać zgód.', variant: 'destructive' });
