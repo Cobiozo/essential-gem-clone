@@ -130,7 +130,10 @@ export const ImageUploadInput: React.FC<Props> = ({
     }
 
     setSelectedFile(file);
-    setCropSrc(URL.createObjectURL(file));
+    setCropSrc(prev => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
     resetTransform();
     setSelectedShape(initialShape);
     setPreviewUrl(null);
@@ -213,7 +216,10 @@ export const ImageUploadInput: React.FC<Props> = ({
       const objectUrl = URL.createObjectURL(blob);
 
       setSelectedFile(null);
-      setCropSrc(objectUrl);
+      setCropSrc(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return objectUrl;
+      });
       resetTransform();
       setSelectedShape(
         shapeId && availablePresets.some(p => p.id === shapeId) ? shapeId : initialShape
