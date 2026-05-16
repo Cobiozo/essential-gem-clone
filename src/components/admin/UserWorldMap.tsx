@@ -431,7 +431,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
               <div className="flex items-center gap-3">
                 {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = Math.max(0.6, Math.min(5, 1.6 + Math.log2(n + 1) * 0.9));
+                  const r = Math.max(0.8, Math.min(4.5, 1.4 + Math.log2(n + 1) * 0.85));
                   return (
                     <div key={i} className="flex items-center gap-1">
                       <svg width={r * 2 + 2} height={r * 2 + 2}>
@@ -440,8 +440,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                           cy={r + 1}
                           r={r}
                           fill="hsl(var(--primary))"
-                          fillOpacity={0.75}
-                          stroke="white"
+                          fillOpacity={0.9}
+                          stroke="hsl(var(--background))"
                           strokeWidth={1}
                         />
                       </svg>
