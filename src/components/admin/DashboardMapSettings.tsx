@@ -15,6 +15,9 @@ export const DashboardMapSettings: React.FC = () => {
   const { settings, loading, updateSettings } = useDashboardMapSettings();
   const [draft, setDraft] = useState<TSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingSide, setUploadingSide] = useState<'left' | 'right' | null>(null);
+  const leftInputRef = useRef<HTMLInputElement>(null);
+  const rightInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (settings) setDraft(settings); }, [settings]);
 
@@ -35,6 +38,92 @@ export const DashboardMapSettings: React.FC = () => {
     setSaving(false);
     if (r.success) toast.success('Ustawienia widżetu mapy zapisane');
     else toast.error(`Błąd zapisu: ${r.error}`);
+  };
+
+  const handleUpload = async (side: 'left' | 'right', file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Plik za duży (max 5MB)');
+      return;
+    }
+    setUploadingSide(side);
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const path = `${side}/${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('dashboard-map-logos')
+      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+    setUploadingSide(null);
+    if (upErr) {
+      toast.error(`Błąd uploadu: ${upErr.message}`);
+      return;
+    }
+    const { data } = supabase.storage.from('dashboard-map-logos').getPublicUrl(path);
+    const publicUrl = data.publicUrl;
+    const next = { ...draft, [side === 'left' ? 'logo_left_url' : 'logo_right_url']: publicUrl };
+    setDraft(next);
+    const r = await updateSettings({ [side === 'left' ? 'logo_left_url' : 'logo_right_url']: publicUrl } as any);
+    if (r.success) toast.success('Logo wgrane i zapisane');
+    else toast.error(`Błąd zapisu: ${r.error}`);
+  };
+
+  const LogoSlot: React.FC<{ side: 'left' | 'right'; label: string }> = ({ side, label }) => {
+    const key = side === 'left' ? 'logo_left_url' : 'logo_right_url';
+    const url = draft[key] as string | null;
+    const inputRef = side === 'left' ? leftInputRef : rightInputRef;
+    return (
+      <div className="rounded-md border p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{label}</span>
+          <div className="flex gap-1">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload(side, f);
+                e.target.value = '';
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploadingSide === side}
+            >
+              {uploadingSide === side
+                ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                : <Upload className="h-3 w-3 mr-1" />}
+              Wgraj
+            </Button>
+            {url && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => set(key as any, '' as any)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="h-16 flex items-center justify-center rounded bg-muted/40 border border-dashed">
+          {url
+            ? <img src={url} alt={label} className="h-12 w-auto object-contain"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }} />
+            : <span className="text-xs text-muted-foreground">Brak logo</span>}
+        </div>
+        <Input
+          value={url ?? ''}
+          onChange={(e) => set(key as any, e.target.value as any)}
+          placeholder="URL logo (lub wgraj plik powyżej)"
+          className="text-xs"
+        />
+      </div>
+    );
   };
 
   return (
