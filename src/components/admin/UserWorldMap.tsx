@@ -37,9 +37,23 @@ async function geocodeCities(
 
 interface Props {
   cities: CityPoint[];
+  initialMode?: 'classic' | 'satellite';
+  markerColor?: string;
+  showLogos?: boolean;
+  showTitle?: boolean;
+  customTitle?: string;
+  heightPx?: number;
 }
 
-const UserWorldMap: React.FC<Props> = ({ cities }) => {
+const UserWorldMap: React.FC<Props> = ({
+  cities,
+  initialMode,
+  markerColor,
+  showLogos = true,
+  showTitle = true,
+  customTitle,
+  heightPx,
+}) => {
   const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
     coordinates: [19, 52],
     zoom: 4.5,
@@ -54,6 +68,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
+    if (initialMode) return initialMode;
     try {
       const v = localStorage.getItem('userWorldMap.style');
       return v === 'classic' ? 'classic' : 'satellite';
