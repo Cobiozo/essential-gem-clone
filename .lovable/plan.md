@@ -1,38 +1,38 @@
 ## Cel
-Klastrowanie punktów na mapie świata + większy zoom z możliwością rozdzielenia miast w obrębie jednego klastra.
+Klik w kraj na mapie → podświetlenie zarysu wybranego państwa + pokazanie wyłącznie punktów miast użytkowników z tego kraju. Ponowny klik / przycisk „Wyczyść" zdejmuje filtr.
 
-## 1) Głębszy zoom (`UserWorldMap.tsx`)
-- `maxZoom`: 8 → **64** (na `<ZoomableGroup>` i w `handleZoomIn`).
-- Krok zoomu: 1.5× → **1.8×** (szybsze dochodzenie do poziomu miasta).
-- Promień markera skalowany przez `1 / Math.sqrt(zoom)` zamiast `1 / zoom`, żeby przy dużym przybliżeniu markery nie znikały całkowicie, ale też nie zasłaniały dzielnic.
+## Implementacja (`src/components/admin/UserWorldMap.tsx`)
 
-## 2) Klastrowanie zależne od zoomu
-Algorytm grid-based (prosty, bez dodatkowej biblioteki — całość client-side):
+1. **Stan zaznaczenia**
+   - `const [selectedIso, setSelectedIso] = useState<string | null>(null)`
+   - Pomocnik `geoNameToIso(name: string)` — używa istniejącego `NAME_TO_ISO` z `countryFlags.ts` (klucze są lowercase, też po angielsku, więc `world-atlas` `properties.name` zadziała dla obsługiwanych krajów).
 
-```
-cellSize = baseCell / zoom        // baseCell ~ 8 stopni przy zoom=1
-key = `${floor(lng/cellSize)}|${floor(lat/cellSize)}`
-```
+2. **Klik w kraj**
+   - `onClick` na `<Geography>`:
+     ```
+     const iso = geoNameToIso(g.properties.name);
+     if (!iso) return;            // nieobsługiwany kraj — ignoruj
+     setSelectedIso(prev => prev === iso ? null : iso);
+     ```
+   - Po wyborze: auto-zoom do bboxa punktów tego kraju (min/max lat/lng z `points`, centroid + dobranie `zoom` w zależności od rozpiętości).
 
-Dla każdej komórki agregujemy punkty:
-- `count = sum(p.count)` (suma użytkowników)
-- `cities = p.city[]` (lista miast w klastrze)
-- `lat/lng = średnia ważona po count`
+3. **Style geografii**
+   - `selectedIso === thisIso` → `fill: hsl(var(--primary) / 0.18)`, `stroke: hsl(var(--primary))`, `strokeWidth: 1`.
+   - Inne kraje gdy filtr aktywny → `fill: hsl(var(--muted) / 0.4)` (przygaszone).
+   - Brak filtra → obecne style.
+   - `cursor: pointer` na hover dla krajów posiadających ISO.
 
-Render:
-- **Klaster (≥2 miasta)**: większe koło z liczbą w środku (`text` SVG), kolor `--primary`, obrys biały. Tooltip: lista miast (max 8 + „…i N więcej") + łączna liczba użytkowników. Klik = zoom in 2× i wycentrowanie na klastrze.
-- **Pojedynczy punkt**: dotychczasowy marker z dotychczasowym tooltipem.
+4. **Filtrowanie punktów**
+   - `const visiblePoints = selectedIso ? points.filter(p => normalizeCountry(p.country).iso === selectedIso) : points;`
+   - Klastrowanie i render markerów liczone na `visiblePoints` (zamiast `points`).
 
-Przy `zoom ≥ ~12` (poziom miasta) `cellSize` staje się bardzo mały i każdy punkt jest praktycznie osobny — naturalne „declustering" wraz z przybliżeniem.
-
-## 3) UX
-- Kursor `pointer` na klastrach.
-- Animowane przejście zoomu nie jest potrzebne (`react-simple-maps` aktualizuje stan instant — ok).
-- Legenda zostaje (1 / średnia / max użytkowników); pod nią dodać małą podpowiedź: „Kliknij klaster, aby przybliżyć".
-
-## Pliki
-- `src/components/admin/UserWorldMap.tsx` — jedyna modyfikacja. Bez zmian w bazie/edge functions.
+5. **UI: chip z aktywnym filtrem**
+   - W headerze obok statusu geokodowania mały pill: `🌍 Filtr: <kraj> ✕`, klik = `setSelectedIso(null)` + `handleReset()`.
+   - Pod legendą drobna podpowiedź: „Kliknij kraj, aby filtrować".
 
 ## Bez zmian
-- Tooltip pojedynczego markera (miasto, kraj, liczba użytkowników) zostaje 1:1.
-- Logika geokodowania, fallback krajów, pasek statusu — bez zmian.
+- Algorytm klastrowania, tooltipy, zoom controls, geokodowanie, fallback krajów, pasek statusu.
+- Brak zmian w bazie / edge functions.
+
+## Pliki
+- `src/components/admin/UserWorldMap.tsx` — jedyna modyfikacja.
