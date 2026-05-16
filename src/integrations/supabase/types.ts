@@ -1577,6 +1577,7 @@ export type Database = {
           city: string
           country: string
           created_at: string
+          display_country: string | null
           id: string
           last_attempt_at: string
           lat: number | null
@@ -1589,6 +1590,7 @@ export type Database = {
           city: string
           country?: string
           created_at?: string
+          display_country?: string | null
           id?: string
           last_attempt_at?: string
           lat?: number | null
@@ -1601,6 +1603,7 @@ export type Database = {
           city?: string
           country?: string
           created_at?: string
+          display_country?: string | null
           id?: string
           last_attempt_at?: string
           lat?: number | null
@@ -7196,6 +7199,51 @@ export type Database = {
           is_active?: boolean
           name?: string
           position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_completion_banner_config: {
+        Row: {
+          button_label: string
+          created_at: string
+          dismissible: boolean
+          enabled: boolean
+          id: string
+          message: string
+          required_fields: string[]
+          severity: string
+          singleton: boolean
+          target_path: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          button_label?: string
+          created_at?: string
+          dismissible?: boolean
+          enabled?: boolean
+          id?: string
+          message?: string
+          required_fields?: string[]
+          severity?: string
+          singleton?: boolean
+          target_path?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          button_label?: string
+          created_at?: string
+          dismissible?: boolean
+          enabled?: boolean
+          id?: string
+          message?: string
+          required_fields?: string[]
+          severity?: string
+          singleton?: boolean
+          target_path?: string
+          title?: string
           updated_at?: string
         }
         Relationships: []
