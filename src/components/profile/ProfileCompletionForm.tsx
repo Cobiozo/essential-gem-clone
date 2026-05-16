@@ -30,6 +30,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   const navigate = useNavigate();
   const { user, profile, userRole, isAdmin, isPartner, isSpecjalista, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   
   // Form state
