@@ -95,6 +95,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [duration, setDuration] = useState(0);
   const [isTabHidden, setIsTabHidden] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
   const [forceHideBuffering, setForceHideBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
