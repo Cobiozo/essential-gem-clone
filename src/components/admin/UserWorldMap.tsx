@@ -240,7 +240,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   };
 
   const zoomToCluster = (lng: number, lat: number) =>
-    animateTo({ coordinates: [lng, lat], zoom: Math.min(position.zoom * 2.2, 64) }, 600);
+    animateTo({ coordinates: [lng, lat], zoom: Math.min(position.zoom * 2.2, 200) }, 600);
+  const zoomToCity = (lng: number, lat: number) =>
+    animateTo({ coordinates: [lng, lat], zoom: Math.max(position.zoom * 2.2, 40) }, 600);
 
   const handleGeographyClick = (g: any) => {
     const name = g.properties?.name as string | undefined;
