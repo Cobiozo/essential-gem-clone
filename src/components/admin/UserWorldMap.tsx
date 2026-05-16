@@ -190,7 +190,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const handleReset = () => {
     setSelectedIso(null);
     setSelectedLabel(null);
-    animateTo({ coordinates: [10, 25], zoom: 1 }, 600);
+    animateTo({ coordinates: [19, 52], zoom: 4.5 }, 600);
   };
 
   const zoomToCluster = (lng: number, lat: number) =>
