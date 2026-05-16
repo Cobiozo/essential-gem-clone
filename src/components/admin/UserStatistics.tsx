@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
+import UserWorldMap from './UserWorldMap';
 
 type ProfileRow = {
   id: string;
