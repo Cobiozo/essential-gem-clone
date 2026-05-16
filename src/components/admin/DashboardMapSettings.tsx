@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings2, Save, Loader2 } from 'lucide-react';
+import { Settings2, Save, Loader2, Upload, Trash2 } from 'lucide-react';
 import { useDashboardMapSettings, DashboardMapSettings as TSettings } from '@/hooks/useDashboardMapSettings';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export const DashboardMapSettings: React.FC = () => {
