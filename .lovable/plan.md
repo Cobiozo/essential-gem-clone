@@ -1,45 +1,55 @@
-## 1) Naprawa obcinania zawartości po prawej
+## Problem
 
-Wiersze listy banerów w `AppBannersManager` mają układ poziomy z badge'ami (severity, audiencja, URL) i tekstem opisu, które wychodzą poza kontener po prawej. Cała sekcja „Banery aplikacji" jest też w karcie z `overflow: hidden`.
+Na iOS/Safari pojawia się błąd:
+> `Certificate save error: TypeError: Load failed`
 
-**Fix:**
-- W `src/components/admin/AppBannersManager.tsx`:
-  - Wiersz banera: zmienić nagłówek z badge'ami na `flex flex-wrap min-w-0`, każdy badge `shrink-0`, tekst opisu `truncate` wewnątrz `min-w-0`.
-  - Akcje (switch + przyciski) wydzielić do osobnego `flex shrink-0 gap-1` z `ml-auto`, by trzymały się prawej krawędzi.
-  - Header karty: opis (`CardDescription`) `break-words` żeby nie był ucinany.
-- W `src/pages/Admin.tsx` (kontener taba ustawień, jeśli ma `overflow-hidden` lub `max-w` powodujący clipping) — sprawdzić i ewentualnie dodać `min-w-0` do wrappera kolumny treści.
+PDF zostaje wygenerowany i nawet pobrany (widać pasek pobierania `certyfikat-PRODUKTOWE.pdf 473 KB`), ale rekord w tabeli `certificates` nie zostaje zapisany — przez co aplikacja pokazuje czerwony toast „Błąd" i przy kolejnej próbie znowu oferuje „Wygeneruj".
 
-Sprawdzę faktyczne wymiary po naprawie zrzutem ekranu w 1416×890.
+## Przyczyna
 
-## 2) Symulator audiencji w panelu admina
+W `src/hooks/useCertificateGeneration.ts` kolejność kroków jest:
 
-Nowy moduł w `AppBannersManager` — panel „Podgląd dla użytkownika":
+```
+Step 5   → upload PDF do storage
+Step 5b  → auto-download (kliknięcie <a download>)   ← powoduje przerwanie fetcha na iOS
+Step 6   → INSERT do tabeli certificates             ← „TypeError: Load failed"
+```
 
-**UI (rozwijana sekcja nad listą banerów):**
-- Tryb symulacji: `przełącznik on/off`
-- Wybór symulowanego użytkownika — dwa tryby:
-  - **Manualny:** select roli (`admin | partner | specjalista | klient | lider | gość-niezalogowany`) + checkboxy „brakujące pola profilu" (lista z `FIELD_LABELS`)
-  - **Realny użytkownik:** autocomplete po email/imię (z `profiles`), automatycznie wczytuje rolę z `user_roles` i sprawdza brakujące pola z `profiles`
-- Pole „Symulowana ścieżka" (input, domyślnie `/dashboard`) — żeby przetestować `hide_on_paths`
+Na mobile Safari programowe kliknięcie linku `download` z `blob:` URL inicjuje natychmiastową obsługę pobierania przez system, co przerywa trwające/nadchodzące żądania `fetch` z tej samej strony. Następny request (insert do `certificates`) nie zdąży się wysłać i kończy się `TypeError: Load failed` — to standardowy Safari'owy odpowiednik network error.
 
-**Wynik:**
-- Pod panelem renderowana lista banerów, które **przeszłyby filtr** dla symulowanego kontekstu (te same reguły co w `AppBanners`: enabled, hide_on_paths, starts_at/ends_at, audience_type) — wyrenderowane przez istniejący `BannerCard`.
-- Banery, które **nie przechodzą** — wyświetlone na szaro z etykietą powodu (`Wyłączony`, `Ukryty na tej ścieżce`, `Audiencja: role X`, `Brak wymaganych pól (wszystkie uzupełnione)`, `Poza oknem czasowym`, `Nie jest na liście użytkowników`).
-- Liczniki: „Wyświetlonych: N / Wszystkich: M".
+Dodatkowy efekt: ponieważ INSERT się nie udał, ale plik został już wgrany do storage, mamy „osierocony" plik w buckecie, a użytkownik widzi błąd mimo że PDF już ma w telefonie.
 
-**Implementacja:**
-- Wyodrębnić funkcję `matchBanner(banner, ctx)` z `AppBanners.tsx` → wspólna w `src/components/banners/bannerMatching.ts`, zwracająca `{ visible: boolean, reason?: string }`.
-- Użyć tej samej funkcji w `AppBanners` (refaktor bez zmiany zachowania) i w nowym `BannerSimulator` w panelu admina.
-- Autocomplete realnych użytkowników: `supabase.from('profiles').select('user_id,first_name,last_name,email').ilike('email',...)` + role z `user_roles`.
+## Rozwiązanie
 
-### Pliki
+Zmienić kolejność operacji w `useCertificateGeneration.ts` (tylko sekcje 5–8.5, bez zmian w bazie ani RLS):
 
-**Nowe:**
-- `src/components/banners/bannerMatching.ts` — wspólna logika dopasowania
-- `src/components/admin/BannerSimulator.tsx` — UI symulatora
+```
+Step 5   → upload PDF do storage
+Step 6   → INSERT do certificates                    ← najpierw zapis w bazie
+Step 6b  → update training_assignments
+Step 7   → wysyłka maila (z fire-and-forget)
+Step 8   → auto-download PDF                         ← przeniesione na sam koniec
+Step 9   → cleanup storage (usunięcie pliku + file_url = 'downloaded-and-deleted')
+```
 
-**Zmieniane:**
-- `src/components/banners/AppBanners.tsx` — użycie `matchBanner`
-- `src/components/admin/AppBannersManager.tsx` — fix układu wiersza + zamontowanie `BannerSimulator`
+Dodatkowo:
+- Owinąć `supabase.from('certificates').insert(...)` w prostą funkcję retry (2 próby z 800 ms odstępem) — żeby pokryć inne sporadyczne `Load failed` z mobile sieci.
+- Jeżeli INSERT ostatecznie się nie powiedzie, posprzątać świeżo wgrany plik z storage (`storage.remove([filePath])`), żeby nie zostawiać sierot.
+- Komunikat błędu zostawić ten sam, ale dodać czytelniejszą wersję dla użytkownika: „Nie udało się zapisać certyfikatu. Sprawdź połączenie i spróbuj ponownie." (oryginalny błąd nadal w `console.error`).
 
-Po akceptacji wykonuję zmiany i weryfikuję zrzutem ekranu w 1416×890.
+### Zakres zmian
+
+- **Plik:** `src/hooks/useCertificateGeneration.ts` (jedyny edytowany)
+- Bez migracji DB, bez zmian RLS, bez zmian w komponentach UI, bez zmian w edge functions.
+
+### Dlaczego to zadziała
+
+- INSERT poleci do Supabase zanim Safari przejmie kontrolę nad blob-em do pobrania → request nie zostaje anulowany.
+- Auto-download jest ostatnim krokiem, więc nawet jeśli przeglądarka przerwie późniejsze fetch'e (mail, cleanup), to są one „fire-and-forget" i ich nieudanie nie blokuje sukcesu certyfikatu (są już w `try/catch` z `console.warn`).
+- Retry na INSERT zabezpiecza przed pojedynczymi network glitchami na komórce.
+
+## Czego NIE robię
+
+- Nie zmieniam logiki wyboru szablonu, czcionek, renderowania PDF.
+- Nie zmieniam polityki „jednorazowego" generowania ani `forceRegenerate`.
+- Nie zmieniam UI „Wygeneruj/Regeneruj certyfikat".
