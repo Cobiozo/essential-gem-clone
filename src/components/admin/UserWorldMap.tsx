@@ -10,8 +10,9 @@ import {
 import worldTopo from 'world-atlas/countries-110m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw } from 'lucide-react';
+import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeCountry } from '@/lib/countryFlags';
 
 export type CityPoint = { city: string; country: string; count: number };
 
