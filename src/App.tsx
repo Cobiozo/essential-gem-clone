@@ -382,7 +382,6 @@ const AppContent = () => {
         <ChatSidebarProvider>
         <InactivityHandler>
           <ProfileCompletionGuard>
-            <ProfileFieldsBanner />
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/" element={
