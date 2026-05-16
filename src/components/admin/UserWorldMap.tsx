@@ -39,8 +39,8 @@ interface Props {
 
 const UserWorldMap: React.FC<Props> = ({ cities }) => {
   const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({
-    coordinates: [10, 25],
-    zoom: 1,
+    coordinates: [19, 52],
+    zoom: 4.5,
   });
   const [hover, setHover] = useState<{
     x: number;
