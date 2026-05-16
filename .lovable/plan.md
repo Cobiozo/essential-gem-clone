@@ -1,41 +1,41 @@
-## Cel
-- Przywrócić czytelny wygląd mapy: małe kropki bez cyfr, widoczne kontury państw.
-- Dodać płynną animację przejścia kamery (center + zoom) przy auto-zoom do wybranego kraju i przy klastrach.
+# Profesjonalna mapa — precyzja, cienkie kontury, adaptacyjne markery
 
-## Zmiany w `src/components/admin/UserWorldMap.tsx`
+Zmiany wyłącznie w `src/components/admin/UserWorldMap.tsx` (frontend).
 
-### 1) Wygląd geografii — wyraźniejsze kontury
-- Tło lądów lżejsze, kontury wyraźniejsze, niezależnie od zaznaczenia:
-  - `fill: 'hsl(var(--muted) / 0.55)'` (zwykły), `'hsl(var(--muted) / 0.35)'` (dimmed), `'hsl(var(--primary) / 0.18)'` (selected)
-  - `stroke: 'hsl(var(--border))'` zwykły, `'hsl(var(--primary))'` selected
-  - `strokeWidth: 0.7` zwykły, `1.2` selected
-- Hover: lekkie podświetlenie tylko gdy `iso` istnieje.
+## 1) Dokładniejsza geometria świata
+- Zamienić źródło: `world-atlas/countries-110m.json` → `world-atlas/countries-50m.json` (~5× więcej szczegółów wybrzeży i granic, bez zauważalnego kosztu wydajności dla ~250 krajów).
+- Domyślny `projectionConfig.scale` bez zmian (160).
 
-### 2) Markery — małe kropeczki, bez cyfr
-- Usunąć rendering `<text>` z liczbą w klastrach.
-- Skala promienia mała i jednolita:
-  - `r = (1.6 + Math.log2(count + 1) * 0.9) / Math.sqrt(zoom)` z klampem `[0.6, 5]`
-  - `strokeWidth = 0.6 / Math.sqrt(zoom)`
-- Klaster vs single — różnica tylko w opacity (0.9 vs 0.75), bez powiększenia ani liczby.
-- Tooltip pozostaje (pokazuje miasta + liczbę użytkowników), więc info nie znika — schodzi tylko z grafiki.
+## 2) Cienkie kontury państw (skalowane do zoomu)
+- Granice mają zachować stałą wizualną grubość niezależnie od poziomu zoomu — w SVG `strokeWidth` w `ZoomableGroup` jest mnożony przez zoom, więc dzielimy przez `position.zoom`:
+  - normalna: `strokeWidth = 0.4 / zoom`
+  - wybrana (highlight): `strokeWidth = 0.7 / zoom` (cienka, ale wyróżniona kolorem)
+- Stroke kolor: `hsl(var(--border) / 0.7)` (subtelniejszy niż obecnie), wybrany kraj `hsl(var(--primary))`.
+- Dodać `vectorEffect: 'non-scaling-stroke'` jako bezpiecznik (gdy obsługiwane przeglądarka rysuje stałą grubość 1 piksela CSS — wtedy używamy małych wartości jako mnożnika).
+- Wypełnienia bez zmian (subtelne `--muted`).
+- `strokeLinejoin: 'round'`, `shapeRendering: 'geometricPrecision'` dla gładkich krzywych.
 
-### 3) Płynna animacja kamery
-- Dodać stan `animRef` (requestAnimationFrame) i funkcję `animateTo(target: {coordinates,zoom}, duration=700)`:
-  - Easing `easeInOutCubic`.
-  - Interpolacja liniowa `coordinates` i `zoom` (logarytmiczna dla zoom: `exp(lerp(log(z0), log(z1), t))` dla naturalnego efektu).
-  - W każdym kroku `setPosition({...})`; anulowanie poprzedniej animacji przy nowej (cancelAnimationFrame).
-- Użycie:
-  - `handleGeographyClick` → zamiast `setPosition(...)` woła `animateTo({coordinates, zoom})`.
-  - `zoomToCluster` → `animateTo({coordinates:[lng,lat], zoom: min(zoom*2.2, 64)})`.
-  - `handleZoomIn/Out` → opcjonalnie też animowane (krótkie 250 ms).
-  - `handleReset` → `animateTo({coordinates:[10,25], zoom:1}, 500)` + czyszczenie filtra.
-- `onMoveEnd` z `ZoomableGroup` ustawia stan tylko gdy nie trwa animacja (flag `isAnimatingRef`) — żeby nie nadpisać klatek.
+## 3) Markery — adaptacyjny rozmiar i gęstość do zoomu
+- **Klastrowanie** — siatka mniejsza wraz ze zoomem (więcej widocznych klastrów / pojedynczych miast):
+  - `cellSize = 6 / Math.pow(zoom, 1.15)` (obecnie `8/zoom`); efekt: przy zoom 1 ≈ 6°, przy zoom 8 ≈ ~0.55°, przy zoom 32 ≈ ~0.09° — pozwala rozróżnić pojedyncze ulice w mieście.
+- **Promień markerów** — log od liczby userów, lekkie zmniejszanie przy zoomie (ale nie znikają):
+  - `r = clamp(0.8, 4.5, (1.4 + Math.log2(count + 1) * 0.85) / Math.pow(zoom, 0.55))`
+  - Dzięki wykładnikowi 0.55 (zamiast 0.5) markery przy dużym zoomie są mniejsze ale wyraźne; przy małym zoomie nie są zbyt duże.
+- **Obrys markera** — cienki, skalowany: `strokeWidth = 0.5 / Math.pow(zoom, 0.55)`, `stroke="hsl(var(--background))"` zamiast czystej bieli (lepiej w dark mode).
+- **Pojedyncze miasto vs klaster** — różnica tylko w `fillOpacity` (1.0 vs 0.85), bez liczb.
+- **Hit area** — niewidoczne kółko `r * 2.5` z `fillOpacity={0}` pod właściwym markerem, żeby łatwiej trafić kursorem przy małych rozmiarach.
 
-### 4) Legenda
-- Przeliczyć promienie wg nowej formuły, by były spójne z mapą.
+## 4) Auto-dopasowanie po wyborze kraju
+- W `handleGeographyClick` pozostawić animowane przejście, ale poprawić zoom:
+  - `zoom = clamp(2.5, 24, 70 / spread)` (większy max, by zobaczyć rozłożenie po miastach).
+
+## 5) Legenda
+- Zaktualizować formułę promienia do nowej (`r = 1.4 + log2(n+1) * 0.85`, clamp jak wyżej, bez dzielenia przez zoom).
+- Stroke `hsl(var(--background))` zamiast `white`.
 
 ## Bez zmian
-- Klastrowanie (grid), filtr po kraju, geokodowanie, hook query, tooltip content.
+- Hook geokodowania, edge function, RLS, dane.
+- Animacja kamery (`animateTo`), zoom kontrolki, tooltip, filtr po kraju.
 
 ## Pliki
 - `src/components/admin/UserWorldMap.tsx` — jedyna modyfikacja.

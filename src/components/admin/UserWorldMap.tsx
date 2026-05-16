@@ -7,7 +7,7 @@ import {
   ZoomableGroup,
   Marker,
 } from 'react-simple-maps';
-import worldTopo from 'world-atlas/countries-110m.json';
+import worldTopo from 'world-atlas/countries-50m.json';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X } from 'lucide-react';
@@ -120,8 +120,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
 
   // Clustering: group nearby points by zoom-dependent grid
   const clusters = useMemo(() => {
-    const baseCell = 8; // degrees at zoom=1
-    const cellSize = baseCell / position.zoom;
+    const baseCell = 6;
+    const cellSize = baseCell / Math.pow(position.zoom, 1.15);
     const buckets = new Map<
       string,
       { lat: number; lng: number; count: number; items: typeof visiblePoints }
@@ -215,7 +215,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
       const minLng = Math.min(...pts.map((p) => p.lng));
       const maxLng = Math.max(...pts.map((p) => p.lng));
       const spread = Math.max(maxLat - minLat, (maxLng - minLng) / 2, 0.5);
-      const zoom = Math.max(2, Math.min(16, 60 / spread));
+      const zoom = Math.max(2.5, Math.min(24, 70 / spread));
       animateTo({ coordinates: [(minLng + maxLng) / 2, (minLat + maxLat) / 2], zoom }, 800);
     }
   };
@@ -286,7 +286,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
             <ComposableMap
               projection="geoNaturalEarth1"
               projectionConfig={{ scale: 160 }}
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: '100%', height: '100%', shapeRendering: 'geometricPrecision' }}
             >
               <ZoomableGroup
                 center={position.coordinates}
@@ -308,8 +308,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         : dimmed
                         ? 'hsl(var(--muted) / 0.35)'
                         : 'hsl(var(--muted) / 0.55)';
-                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))';
-                      const strokeWidth = isSelected ? 1.2 : 0.7;
+                      const stroke = isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border) / 0.7)';
+                      const strokeWidth = (isSelected ? 0.7 : 0.4) / position.zoom;
                       return (
                         <Geography
                           key={g.rsmKey}
@@ -320,6 +320,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               fill: baseFill,
                               stroke,
                               strokeWidth,
+                              strokeLinejoin: 'round',
                               outline: 'none',
                               cursor: iso ? 'pointer' : 'default',
                             },
@@ -327,6 +328,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                               fill: iso && !isSelected ? 'hsl(var(--muted-foreground) / 0.25)' : baseFill,
                               stroke,
                               strokeWidth,
+                              strokeLinejoin: 'round',
                               outline: 'none',
                               cursor: iso ? 'pointer' : 'default',
                             },
@@ -339,9 +341,9 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                 </Geographies>
                 {clusters.map((c, idx) => {
                   const isCluster = c.items.length > 1;
-                  const rawR = (1.6 + Math.log2(c.count + 1) * 0.9) / Math.sqrt(position.zoom);
-                  const r = Math.max(0.6, Math.min(5, rawR));
-                  const strokeW = 0.6 / Math.sqrt(position.zoom);
+                  const rawR = (1.4 + Math.log2(c.count + 1) * 0.85) / Math.pow(position.zoom, 0.55);
+                  const r = Math.max(0.8, Math.min(4.5, rawR));
+                  const strokeW = 0.5 / Math.pow(position.zoom, 0.55);
                   const onEnter = (e: React.MouseEvent) => {
                     const rect = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement?.getBoundingClientRect();
                     const sorted = [...c.items].sort((a, b) => b.count - a.count);
@@ -373,10 +375,15 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         onClick={() => isCluster && zoomToCluster(c.lng, c.lat)}
                       >
                         <circle
+                          r={r * 2.5}
+                          fill="hsl(var(--primary))"
+                          fillOpacity={0}
+                        />
+                        <circle
                           r={r}
                           fill="hsl(var(--primary))"
-                          fillOpacity={isCluster ? 0.9 : 0.75}
-                          stroke="white"
+                          fillOpacity={isCluster ? 0.85 : 1}
+                          stroke="hsl(var(--background))"
                           strokeWidth={strokeW}
                         />
                       </g>
@@ -424,7 +431,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
               <div className="font-medium text-foreground mb-1">Liczba użytkowników</div>
               <div className="flex items-center gap-3">
                 {[1, Math.max(2, Math.round(maxCount / 4)), maxCount].map((n, i) => {
-                  const r = Math.max(0.6, Math.min(5, 1.6 + Math.log2(n + 1) * 0.9));
+                  const r = Math.max(0.8, Math.min(4.5, 1.4 + Math.log2(n + 1) * 0.85));
                   return (
                     <div key={i} className="flex items-center gap-1">
                       <svg width={r * 2 + 2} height={r * 2 + 2}>
@@ -433,8 +440,8 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                           cy={r + 1}
                           r={r}
                           fill="hsl(var(--primary))"
-                          fillOpacity={0.75}
-                          stroke="white"
+                          fillOpacity={0.9}
+                          stroke="hsl(var(--background))"
                           strokeWidth={1}
                         />
                       </svg>
