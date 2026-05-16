@@ -3349,6 +3349,9 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="settings">
+            <div className="mb-8">
+              <ProfileCompletionBannerSettings />
+            </div>
             {/* Header Text Editor */}
             <div className="mb-8">
               <Card>
