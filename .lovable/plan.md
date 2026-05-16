@@ -1,87 +1,68 @@
 ## Cel
 
-Dodać w panelu admina kompleksową zakładkę **"Statystyki użytkowników"** wykorzystującą wszystkie dostępne dane z `profiles`, `user_roles` i powiązanych tabel aktywności. Filtr adresowy dodany wcześniej pozostaje na liście użytkowników; statystyki są oddzielnym widokiem.
+Dodać do zakładki **Statystyki użytkowników** interaktywną mapę świata z kropkami pokazującymi miasta, w których mamy użytkowników. Na mapie/etykietach widoczne tylko: nazwa miasta + liczba użytkowników. Żadnych imion, e-maili, adresów ani innych danych osobowych.
 
-## Zakres widoku statystyk
+## Architektura
 
-### 1) Karty KPI (góra strony)
-- Łączna liczba użytkowników
-- Aktywni (`is_active = true`, nie zablokowani)
-- Zablokowani / nieaktywni
-- Nowi w ostatnich 7 / 30 / 90 dniach (porównanie do poprzedniego okresu, % zmiany)
-- Z pełnym profilem (`profile_completed = true`) — liczba i %
-- Online teraz (`last_seen_at` < 5 min) i aktywni w 24h
-- Zaakceptowane wszystkie zgody (Regulamin + Privacy + RODO)
-- Z avatarem / bez avatara
+### 1) Geokodowanie miast (jedno źródło prawdy)
 
-### 2) Geografia — sekcja kluczowa
-- **Mapa/lista krajów**: zliczenie po `country` (normalizacja: trim + uppercase, mapowanie pustych jako "Nieznane"), sortowanie malejąco, % udziału, pasek postępu, flaga kraju (emoji z `src/utils/languageFlags.ts` lub mapowanie ISO).
-- **Top 20 miast**: zliczenie po `city` (z trim + tytulizacja, "Nieznane" gdy puste), wraz z krajem w nawiasie.
-- **Kody pocztowe**: top 10 najczęstszych prefiksów (pierwsze 2 znaki) — przydatne dla regionów.
-- Filtr: kraj → dynamicznie filtruje listę miast i pozostałe statystyki.
-- Eksport każdej tabeli geo do XLSX (przy użyciu istniejącego wzorca z `LeaderTeamContactsView`).
+Aby pokazać kropki, każde miasto musi mieć współrzędne lat/lng. Robimy to po stronie backendu z cache w bazie — Nominatim (OSM) jest darmowy, ale ma limit 1 req/s, więc każde miasto pobieramy raz i zapisujemy.
 
-### 3) Demografia / Konto
-- Rozkład **ról** (Admin / Leader / Partner / Klient / Specjalista) — wykres kołowy + liczby.
-- Rozkład **rang** (`rank`) — wykres słupkowy.
-- **Język szkolenia** (`training_language`) — liczba użytkowników wg języka, z flagami.
-- **Specjalizacje** (`specialization`) — top 10.
-- **Z upline / bez upline** (czy mają `upline_eq_id`).
-- **Zarejestrowani przez reflink** vs bezpośrednio (`registered_via_reflink`).
+**Nowa tabela:** `public.city_geocache`
+- `city` (text), `country` (text), `lat` (double precision), `lng` (double precision), `provider` (text), `created_at`, `updated_at`
+- Unikalny indeks `(lower(city), lower(country))`
+- RLS: SELECT dla zalogowanych adminów (przez `has_role`), INSERT/UPDATE tylko przez service role (edge function).
 
-### 4) Trendy w czasie
-- Wykres liniowy rejestracji w czasie (dzienne/tygodniowe/miesięczne, przełącznik) za ostatnie 12 miesięcy — na bazie `created_at`.
-- Wykres skumulowany liczby kont.
-- Wykres "ostatnia aktywność" (`last_seen_at`) — histogram (dziś, 7d, 30d, 90d, 90+ dni, nigdy).
+**Nowa edge function:** `geocode-cities`
+- Wejście: lista `{ city, country }` (max ~100 na żądanie).
+- Dla każdej pary: sprawdź cache → jeśli brak, zapytaj Nominatim z `User-Agent` aplikacji, opóźnienie 1.1s między requestami, zapisz w cache (lub zapisz `lat=null` z timestampem przy fail, by nie pytać ponownie częściej niż co 7 dni).
+- Zwraca listę z `lat/lng` (lub `null` gdy nie znaleziono).
+- Tylko admin (weryfikacja JWT + `has_role('admin')`).
 
-### 5) Onboarding & Aktywacja (lejek)
-- Zarejestrowani → Email aktywowany → Profil ukończony → Zaakceptowane regulaminy → Zatwierdzeni (admin/leader/guardian, w zależności od roli).
-- Wartości liczbowe + % drop-off na każdym kroku.
-- Lista użytkowników "utkniętych" na każdym kroku (klikalne, prowadzi do zakładki użytkowników z filtrem).
+### 2) Komponent mapy
 
-### 6) Tutorial & Tryb użytkownika
-- Ukończyli tutorial / pominęli / nie widzieli.
-- Pełne dane kontaktowe (telefon + adres) vs braki.
+**Nowy plik:** `src/components/admin/UserWorldMap.tsx`
+- Biblioteka: `react-simple-maps` (lekki SVG, brak WebGL, działa od ręki). Dodatkowo użyć darmowego world-atlas TopoJSON (110m) z `world-atlas` na npm — bez zewnętrznych fetchów w runtime.
+- Wejście: lista `{ city, country, count }` (już zagregowana w `UserStatistics`, bez danych osobowych).
+- Logika: 
+  1. Wyciąga unikalne pary city+country (pomija „Nieznane"/puste).
+  2. Wywołuje `supabase.functions.invoke('geocode-cities', { body: { items } })` — wynik trzyma w react-query (`staleTime: 24h`).
+  3. Renderuje `ComposableMap` (projection `geoNaturalEarth1`), `Geographies` (kraje, neutralne kolory z design system: `fill: hsl(var(--muted))`, `stroke: hsl(var(--border))`).
+  4. Dla każdego miasta z `lat/lng`: `Marker` z `<circle>`, promień skalowany logarytmicznie do liczby userów (`r = 3 + Math.log2(count + 1) * 2`), kolor `hsl(var(--primary))`, opacity 0.7, biały obrys.
+  5. Tooltip on-hover: **tylko** `Miasto, Kraj · N użytkowników` (komponent `Tooltip` z shadcn lub natywny `<title>`).
+  6. Zoom & pan: `ZoomableGroup`, kontrolki + / − / reset w prawym dolnym rogu.
+  7. Legenda w lewym dolnym rogu: 3 wielkości kropek z opisem zakresów.
+- Pasek nad mapą: licznik „X miast · Y zlokalizowanych · Z bez lokalizacji" + przycisk „Odśwież geokodowanie" (force re-fetch dla braków).
+- Pusty stan: gdy brak danych → komunikat „Brak danych adresowych do wyświetlenia".
 
-### 7) Bezpieczeństwo / Zgody
-- Z MFA włączonym (jeśli dostępne w `user_mfa`).
-- Akceptacje: Regulamin, Privacy, RODO — liczby i %.
-- Logowania nieudane (`failed_logins` jeśli istnieje) — top 10 użytkowników, suma globalna.
+### 3) Integracja z istniejącym panelem
 
-### 8) Zespoły (jeśli `platform_teams` używane)
-- Liczba zespołów, średnia wielkość, top 10 zespołów wg liczby członków.
+**Plik:** `src/components/admin/UserStatistics.tsx`
+- Sekcja Geografia: nowy `Card` „Mapa świata użytkowników" **nad** tabelami krajów i miast.
+- Przekazuje do `<UserWorldMap />` już zagregowane `stats.cities` z dodanym polem `country` (już istnieje) i `count`. Komponent sam zadba o filtr „Nieznane".
+- Respektuje aktywny filtr kraju (jeśli wybrany kraj ≠ all → mapa też się zawęża; przy „all" widać cały świat).
 
-## Architektura techniczna
+### 4) Prywatność
 
-**Nowy plik:** `src/components/admin/UserStatistics.tsx`
-- Komponent jednostronicowy, zorganizowany w sekcje (Card per sekcja).
-- Pobranie danych jednorazowo z `profiles` (z paginacją po 1000) + równolegle dodatkowe zapytania (role z `user_roles`, MFA, logowania, zespoły) — całość w `useQuery` (react-query, już używany w projekcie).
-- Wszystkie agregacje liczone po stronie klienta z pobranego datasetu (proste `reduce`/`Map`) — wystarczające dla skali projektu; w razie potrzeby później przeniesione do funkcji DB.
-- Wykresy: `recharts` (już w projekcie, patrz `src/components/ui/chart.tsx`).
-- Eksport: `xlsx` (już używany w `LeaderTeamContactsView`).
-- Wzorzec wizualny: te same `Card`, `Badge`, typografia i tokeny co reszta panelu admina.
+- Frontend **nigdy** nie przekazuje do mapy ID, e-maili ani innych pól z `profiles`. Tylko zagregowane `{ city, country, count }`.
+- Edge function geokodująca dostaje tylko `{ city, country }` — żadnych danych osobowych.
+- Tooltipy i etykiety mapy zawierają wyłącznie `Miasto, Kraj` i liczbę.
 
-**Plik:** `src/pages/Admin.tsx`
-- Dodać nowy `TabsTrigger value="user-stats"` w menu admina (obok zakładki "users").
-- Dodać `<TabsContent value="user-stats"><UserStatistics /></TabsContent>`.
-- Brak zmian w istniejącej zakładce "users" (filtr adresowy pozostaje).
+## Zależności do dodania
 
-**Helpery:**
-- `src/lib/countryFlags.ts` (nowy, mały) — mapowanie nazwy kraju / kodu ISO → emoji flagi, fallback `🌐`. Normalizacja stringów (trim, lowercase porównanie).
+- `react-simple-maps` (~30 kB)
+- `world-atlas` (TopoJSON krajów świata, ~100 kB, bundlowany lokalnie)
+- Typy: `@types/react-simple-maps` (dev)
 
-## Bez zmian
-- Schemat bazy (brak migracji — wszystkie dane już istnieją).
-- Funkcje edge.
-- Logika RLS — admin już ma pełny dostęp do `profiles` przez RPC `get_all_profiles_with_status`/podobne (do potwierdzenia w istniejącym kodzie pobierania userów).
-- Pozostałe zakładki panelu admina.
+## Pliki
 
-## Pliki do edycji/utworzenia
-
-- **NOWY** `src/components/admin/UserStatistics.tsx` — cały panel statystyk.
-- **NOWY** `src/lib/countryFlags.ts` — flagi krajów.
-- **EDYCJA** `src/pages/Admin.tsx` — dodać zakładkę i import komponentu.
+- **NOWY** `supabase/migrations/...` — tabela `city_geocache` + RLS + indeks.
+- **NOWY** `supabase/functions/geocode-cities/index.ts` — geokodowanie z Nominatim + cache.
+- **NOWY** `src/components/admin/UserWorldMap.tsx` — mapa świata.
+- **EDYCJA** `src/components/admin/UserStatistics.tsx` — osadzenie mapy w sekcji Geografia.
 
 ## Poza zakresem
-- Geokodowanie na rzeczywistą mapę świata (można dodać w kolejnej iteracji — np. `react-simple-maps`).
-- Statystyki finansowe / płatności (osobny moduł).
-- Statystyki szkoleń (osobny istniejący moduł).
+
+- Heatmapa (na razie kropki skalowane log). Można dodać w kolejnej iteracji.
+- Wyświetlanie pojedynczych użytkowników (zabronione — wymaganie prywatności).
+- Płatne API (Mapbox/Google) — Nominatim wystarczy dla skali projektu.
