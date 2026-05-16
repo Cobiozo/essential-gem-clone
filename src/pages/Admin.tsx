@@ -56,6 +56,7 @@ import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagem
 import CronJobsManagement from '@/components/admin/CronJobsManagement';
 import GoogleCalendarManagement from '@/components/admin/GoogleCalendarManagement';
 import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
+import { ProfileCompletionBannerSettings } from '@/components/admin/ProfileCompletionBannerSettings';
 import { SupportTicketsManagement } from '@/components/admin/SupportTicketsManagement';
 import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
 import { EventsManagement } from '@/components/admin/EventsManagement';
@@ -3348,6 +3349,9 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="settings">
+            <div className="mb-8">
+              <ProfileCompletionBannerSettings />
+            </div>
             {/* Header Text Editor */}
             <div className="mb-8">
               <Card>

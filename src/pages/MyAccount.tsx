@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -255,6 +255,28 @@ const MyAccount = () => {
   const [country, setCountry] = useState(profile?.country || '');
   const [addressLoading, setAddressLoading] = useState(false);
 
+  // Highlight required fields when navigated from ProfileFieldsBanner: ?highlight=field1,field2
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightedFields = useMemo(() => {
+    const raw = searchParams.get('highlight');
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  }, [searchParams]);
+  const isHighlighted = (field: string) => highlightedFields.has(field);
+  const highlightClass = (field: string) =>
+    isHighlighted(field) ? 'ring-2 ring-destructive ring-offset-2 ring-offset-background' : '';
+  const firstHighlightRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (highlightedFields.size === 0) return;
+    // Switch to settings tab where address fields live
+    const t = setTimeout(() => {
+      firstHighlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstHighlightRef.current?.focus({ preventScroll: true });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [highlightedFields]);
+
   // Update address state when profile loads
   React.useEffect(() => {
     if (profile) {
@@ -282,6 +304,13 @@ const MyAccount = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // Clear highlight from URL after successful save
+      if (searchParams.get('highlight')) {
+        const next = new URLSearchParams(searchParams);
+        next.delete('highlight');
+        setSearchParams(next, { replace: true });
+      }
 
       toast({
         title: t('toast.success'),
@@ -770,9 +799,13 @@ const MyAccount = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="street-address">{t('myAccount.streetAddress')}</Label>
+                      <Label htmlFor="street-address" className={isHighlighted('street_address') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.streetAddress')}{isHighlighted('street_address') && ' *'}
+                      </Label>
                       <Input
                         id="street-address"
+                        ref={isHighlighted('street_address') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('street_address')}
                         value={streetAddress}
                         onChange={(e) => setStreetAddress(e.target.value)}
                         placeholder="np. ul. Kwiatowa 15/3"
@@ -784,9 +817,13 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="postal-code">{t('myAccount.postalCode')}</Label>
+                      <Label htmlFor="postal-code" className={isHighlighted('postal_code') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.postalCode')}{isHighlighted('postal_code') && ' *'}
+                      </Label>
                       <Input
                         id="postal-code"
+                        ref={isHighlighted('postal_code') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('postal_code')}
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="np. 00-001"
@@ -796,9 +833,13 @@ const MyAccount = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="city">{t('myAccount.city')}</Label>
+                      <Label htmlFor="city" className={isHighlighted('city') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.city')}{isHighlighted('city') && ' *'}
+                      </Label>
                       <Input
                         id="city"
+                        ref={isHighlighted('city') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('city')}
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder="np. Warszawa"
@@ -810,9 +851,13 @@ const MyAccount = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="country">{t('myAccount.country')}</Label>
+                      <Label htmlFor="country" className={isHighlighted('country') ? 'text-destructive font-semibold' : ''}>
+                        {t('myAccount.country')}{isHighlighted('country') && ' *'}
+                      </Label>
                       <Input
                         id="country"
+                        ref={isHighlighted('country') && !firstHighlightRef.current ? firstHighlightRef : undefined}
+                        className={highlightClass('country')}
                         value={country}
                         onChange={(e) => setCountry(e.target.value)}
                         placeholder="np. Polska"

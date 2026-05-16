@@ -6,6 +6,7 @@ import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
 import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
 import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
+import { ProfileFieldsBanner } from "@/components/profile/ProfileFieldsBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
@@ -381,6 +382,7 @@ const AppContent = () => {
         <ChatSidebarProvider>
         <InactivityHandler>
           <ProfileCompletionGuard>
+            <ProfileFieldsBanner />
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 <Route path="/" element={
