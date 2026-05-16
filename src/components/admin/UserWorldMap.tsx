@@ -129,7 +129,7 @@ const UserWorldMap: React.FC<Props> = ({
       return 5000;
     },
   });
-  const geo = data?.results ?? [];
+  const geo = Array.isArray(data?.results) ? data!.results : [];
   const pending = data?.pending ?? 0;
 
   const points = useMemo(() => {
