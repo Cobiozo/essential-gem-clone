@@ -302,7 +302,7 @@ const UserStatistics: React.FC = () => {
       roles, ranks, langs, specializations,
       lastSeen, trend, funnel,
     };
-  }, [profiles, countryFilter, trendBucket]);
+  }, [profiles, countryFilter, trendBucket, geocacheCountryMap]);
 
   if (isLoading) {
     return (
