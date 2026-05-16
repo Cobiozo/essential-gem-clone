@@ -344,7 +344,7 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                   if (isAnimatingRef.current) return;
                   setPosition(p);
                 }}
-                maxZoom={64}
+                maxZoom={200}
               >
                 <Geographies geography={worldTopo as any}>
                   {({ geographies }) =>
