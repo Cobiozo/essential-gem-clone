@@ -22,7 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu, MapPin } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
