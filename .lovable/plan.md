@@ -1,62 +1,68 @@
-# Plan: ulepszenia mapy + widżet pulpitu
+# Plan: Ustawienia widżetu mapy w panelu admina
 
-## 1) `src/components/admin/UserWorldMap.tsx`
+## 1) Nowa tabela `dashboard_map_settings` (singleton)
 
-**a) Klasyczna — ciemniejsze kraje**
-- `baseFill`: `hsl(var(--muted) / 0.55)` → `hsl(var(--muted-foreground) / 0.35)`
-- `baseFill` (dimmed): `0.35` → `hsl(var(--muted-foreground) / 0.2)`
-- `stroke`: `hsl(var(--border) / 0.7)` → `hsl(var(--muted-foreground) / 0.7)`
-- `strokeWidth` klasyczny: `0.4` → `0.6`
-- hover (klasyczny): `hsl(var(--muted-foreground) / 0.25)` → `hsl(var(--muted-foreground) / 0.5)`
+Migracja Supabase — jeden wiersz konfiguracji globalnej:
 
-**b) Satelitarna — czerwone kropki**
-- W `<Marker><circle>` (linie ~510-515) zamiast `fill="hsl(var(--primary))"` użyć warunkowo:
-  - satellite → `#ef4444` (czerwony), stroke `#ffffff`
-  - classic → bez zmian (`hsl(var(--primary))`, stroke `hsl(var(--background))`)
-- To samo w legendzie (linie ~567-574).
+- `id uuid PK`
+- **Widoczność:** `is_enabled bool` (master on/off), `visible_to_client/partner/specjalista/leader/admin bool`
+- **Wymiary:** `width text` (`full` | `two_thirds` | `half`), `height_px int` (300–800)
+- **Wygląd:** `default_mode text` (`classic` | `satellite`), `marker_color text` (hex), `show_logos bool`
+- **Tytuł:** `show_title bool`, `title text`
+- `updated_at`, `updated_by`
 
-**c) Logo w lewym górnym rogu mapy**
-- W kontenerze `relative` mapy dodać overlay absolutny `top-3 left-3 z-10`:
-  ```tsx
-  <div className="absolute top-3 left-3 z-10 flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border">
-    <img src={PURELIFE_LOGO} alt="Pure Life" className="h-6 w-auto" />
-    <div className="h-5 w-px bg-border" />
-    <img src={EQOLOGY_LOGO} alt="Eqology IBP" className="h-6 w-auto"
-         onError={(e) => (e.currentTarget.style.display='none')} />
-  </div>
-  ```
-- `PURELIFE_LOGO` = istniejący URL z `DualBrandHeader` (storage cms-images/logo-1772644418932.png).
-- `EQOLOGY_LOGO` = `/lovable-uploads/eqology-ibp-logo.png` (placeholder — użytkownik wgra w kolejnym kroku, `onError` ukrywa do tego czasu).
-- Aby logo nie kolidowało z istniejącym tytułem w `CardHeader`, overlay umieścić wewnątrz `relative` wrappera samej mapy (tam gdzie jest legenda i kontrolki zoom), nie w nagłówku karty.
+RLS: SELECT dla `authenticated` (każdy musi odczytać żeby wiedzieć czy renderować), UPDATE/INSERT tylko dla `has_role(auth.uid(),'admin')`. Seed jednego wiersza z domyślnymi wartościami.
 
-## 2) Nowy widżet pulpitu
+## 2) Hook `useDashboardMapSettings.ts`
 
-**Nowy plik:** `src/components/dashboard/widgets/UserWorldMapWidget.tsx`
-- Lekki wrapper renderujący `<UserWorldMap />` w `<Card>` z tytułem „Mapa użytkowników społeczności".
-- Wysokość mapy dostosowana (`h-[420px]`), pełna szerokość (`col-span-full`).
-- Widoczność: dla wszystkich zalogowanych (bez RLS bloków — komponent już sam pobiera dane).
+`src/hooks/useDashboardMapSettings.ts` — pobiera singleton, eksponuje `settings`, `loading`, `updateSettings()`. Realtime subscription na zmiany (od razu odświeża widżet u wszystkich).
 
-**Refaktor `UserWorldMap.tsx`:** dodać prop `compact?: boolean` jeśli potrzeba mniejszej wersji (opcjonalne — domyślnie tak jak teraz).
+## 3) Panel admina
 
-## 3) Wstawienie widżetu na pulpicie
+`src/components/admin/DashboardMapSettings.tsx` — formularz z:
+- Switch „Włącz widżet"
+- 5× checkbox per rola
+- Select szerokości (Pełna / 2/3 / 1/2)
+- Slider wysokości 300–800 px z live preview
+- Select trybu domyślnego (klasyczny/satelitarny)
+- Color picker koloru kropek (hex input + swatch)
+- Switch „Pokaż logo Pure Life + Eqology"
+- Switch „Pokaż tytuł" + input edycji tytułu
+- Przycisk „Zapisz"
 
-**Plik:** `src/components/dashboard/widgets/DashboardFooterSection.tsx`
-- Po sekcji „Cytat - misja" (linia 103), a przed „Zespół Pure Life" (linia 105) — dokładnie w miejscu czerwonej kreski ze screena — wstawić:
-  ```tsx
-  <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
-    <UserWorldMapWidget />
-  </Suspense>
-  ```
-- Lazy import na górze pliku.
+Wstrzyknięcie do `src/pages/Admin.tsx` w zakładce `user-stats` — sekcja nad istniejącą `<UserWorldMap />` (collapsible „Ustawienia widżetu pulpitu").
 
-## 4) Bez zmian / brak regresji
+## 4) Refaktor `UserWorldMap.tsx`
 
-- Dane, projekcje, zoom, klastry, tooltipy, eksport, RLS — bez zmian.
-- Tekstura satelitarna (już naprawiona poprzednio) — bez zmian.
-- Tryb klasyczny pozostaje domyślny (`localStorage`).
-- Nie wymaga migracji DB ani edge functions.
+Dodanie propsów sterujących z ustawień (bez zmiany dotychczasowego zachowania w adminie):
+- `initialMode?: 'classic' | 'satellite'`
+- `markerColor?: string` (nadpisuje czerwony/primary w `<Marker><circle>` i w legendzie)
+- `showLogos?: boolean` (overlay top-left)
+- `showTitle?: boolean`, `customTitle?: string`
+- `compact?: boolean` (mniejsza wysokość/legenda dla pulpitu)
+
+Domyślne wartości = obecne zachowanie (zero regresji w `/admin?tab=user-stats`).
+
+## 5) Refaktor `UserWorldMapWidget.tsx`
+
+- Pobiera `settings` z hooka
+- Jeśli `!is_enabled` lub rola użytkownika nie ma uprawnień → zwraca `null`
+- Mapuje `width` na klasę grid: `full` → `col-span-full`, `two_thirds` → `lg:col-span-2`, `half` → `lg:col-span-1` (siatka pulpitu już ma `grid-cols-3` w stopce — sprawdzić w `DashboardFooterSection.tsx`)
+- Przekazuje `markerColor`, `showLogos`, `showTitle`, `customTitle`, `initialMode`, `height_px` do `UserWorldMap`
+
+## 6) `DashboardFooterSection.tsx`
+
+Bez zmian strukturalnych — `UserWorldMapWidget` już tam jest. Jedyna zmiana: usunięcie hardcoded `h-[420px]` (wysokość teraz z ustawień).
+
+## 7) Bez regresji
+
+- `/admin?tab=user-stats` mapa działa jak teraz (props opcjonalne, defaulty = obecne)
+- Tryb klasyczny pozostaje domyślny w localStorage użytkownika, ale `initialMode` z ustawień wymusza domyślny przy pierwszym wejściu
+- RLS: tylko admin może edytować; każdy zalogowany widzi (potrzebne do decyzji o renderze)
+- Brak nowych edge functions
 
 ## Weryfikacja
 
-1. `/admin?tab=user-stats` → kraje w klasycznej widocznie ciemniejsze, w satelitarnej kropki czerwone, logo widoczne w lewym górnym rogu mapy.
-2. `/dashboard` → przewinąć do stopki, mapa pojawia się między cytatem a sekcją „Zespół Pure Life".
+1. `/admin?tab=user-stats` → sekcja „Ustawienia widżetu pulpitu" → zmiana koloru/szerokości/widoczności
+2. `/dashboard` → widżet renderowany zgodnie z ustawieniami, ukryty jeśli rola wyłączona
+3. Realtime: zmiana w adminie odświeża pulpit innego użytkownika bez reloadu
