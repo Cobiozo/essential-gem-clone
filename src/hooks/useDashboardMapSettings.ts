@@ -16,6 +16,8 @@ export interface DashboardMapSettings {
   show_logos: boolean;
   show_title: boolean;
   title: string;
+  logo_left_url: string | null;
+  logo_right_url: string | null;
 }
 
 export const useDashboardMapSettings = () => {
