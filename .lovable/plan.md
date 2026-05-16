@@ -1,40 +1,36 @@
-## Cel
-Mapa w widżecie dashboardu ma ładować się bez błędu `u[i] is not a function`. Nie chcemy tylko ukrywać awarii — sama mapa ma renderować się stabilnie.
+Problem na produkcji jest najpewniej w samym `react-simple-maps`: biblioteka nadal próbuje robić dynamiczne `projections[projection]()` i przy obecnym bundlu produkcyjnym potrafi skończyć jako `u[i] is not a function`. Żeby to nie wracało, usuwamy tę zależność z renderowania mapy.
 
-## Diagnoza
-Błąd pasuje do `react-simple-maps`: biblioteka wywołuje projekcję jako funkcję z obiektu `d3-geo`. Jeśli przekazana nazwa projekcji nie zostanie poprawnie znaleziona albo bundler ją zminifikuje/nieudostępni tak, jak oczekuje biblioteka, pojawia się błąd typu `... is not a function`.
+Plan naprawy:
 
-W `UserWorldMap.tsx` projekcja jest teraz przekazywana jako string:
-- `projection="geoEquirectangular"`
-- `projection="geoNaturalEarth1"`
+1. Przebudować `src/components/admin/UserWorldMap.tsx` tak, aby nie używał `react-simple-maps` w runtime:
+   - render SVG zostaje,
+   - mapę świata narysujemy bezpośrednio przez `d3-geo` + `topojson-client`,
+   - kraje, kliknięcia, hover, zoom, reset i punkty użytkowników zostają zachowane.
 
-To jest najbardziej prawdopodobna przyczyna błędu widocznego na dashboardzie.
+2. Zostawić istniejące funkcje biznesowe:
+   - pobieranie miast z `get_user_city_counts`,
+   - geokodowanie przez `geocode-cities`,
+   - granice miast po dużym przybliżeniu,
+   - widoczność per rola i ustawienia z `dashboard_map_settings`,
+   - Classic/Satellite toggle.
 
-## Plan naprawy
-1. **Przestać przekazywać projekcję jako string**
-   - W `UserWorldMap.tsx` importować jawnie funkcje projekcji z `d3-geo`: `geoEquirectangular` i `geoNaturalEarth1`.
-   - Przekazywać do `<ComposableMap />` realną funkcję projekcji, nie nazwę tekstową.
-   - Dzięki temu `react-simple-maps` nie będzie robił dynamicznego lookupu `projections[projection]()` i błąd `u[i] is not a function` zniknie u źródła.
+3. Usunąć źródło błędu produkcyjnego:
+   - usunąć importy `ComposableMap`, `Geographies`, `Geography`, `ZoomableGroup`, `Marker`,
+   - nie przekazywać już żadnego `projection` do `react-simple-maps`,
+   - obliczać ścieżki mapy przez `geoPath(projection)` bez dynamicznego lookupu.
 
-2. **Ustabilizować render mapy**
-   - Utworzyć `mapProjection` w `useMemo`, zależny od trybu mapy.
-   - Użyć stałych `MAP_WIDTH` / `MAP_HEIGHT` zamiast ukrytych wartości `800/600`, także dla obliczania tekstury satelitarnej.
-   - Dodać defensywne zabezpieczenia na geografie/klastry, żeby błędny kształt danych nie przerywał renderu.
+4. Dodać twarde zabezpieczenia, żeby widżet mapy nigdy nie wywalał pulpitu:
+   - jeśli dane topo/geokodowanie/granice są puste lub wadliwe, renderować pustą, stabilną mapę zamiast błędu,
+   - filtrować nieprawidłowe współrzędne,
+   - ignorować wadliwe geometry zamiast rzucać wyjątek.
 
-3. **Naprawić lokalny ErrorBoundary widżetu**
-   - W `DashboardFooterSection.tsx` zostawić izolację widżetu, ale poprawnie przekazać `fallback={null}` bez `as any`.
-   - Jeśli mapa kiedyś napotka osobny problem, nie rozwali całego dashboardu, ale celem tej poprawki jest, żeby nie było fallbacku w normalnym działaniu.
+5. Zweryfikować po wdrożeniu w preview:
+   - `/dashboard` nie pokazuje błędu widżeta,
+   - mapa renderuje się w widoku głównym,
+   - przełącznik Klasyczna/Satelitarna działa,
+   - kontrolki zoom/reset nie powodują błędu.
 
-4. **Zweryfikować wynik**
-   - Sprawdzić, że `/dashboard` nie pokazuje już karty błędu.
-   - Sprawdzić, że mapa renderuje się w widżecie i przełącznik Klasyczna/Satelitarna nadal działa.
-   - Adminowa wersja mapy (`/admin?tab=user-stats`) pozostaje z pełnym nagłówkiem.
-
-## Pliki do zmiany
+Pliki do zmiany:
 - `src/components/admin/UserWorldMap.tsx`
-- `src/components/dashboard/widgets/DashboardFooterSection.tsx`
 
-## Bez zmian
-- Nie ruszam bazy danych ani ustawień Supabase.
-- Nie zmieniam logiki widoczności widżetu.
-- Nie usuwam uploadu logo.
+Bez zmian w bazie danych, RLS, ustawieniach mapy i logotypach.
