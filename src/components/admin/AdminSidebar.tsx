@@ -62,6 +62,7 @@ import {
   Shield,
   Search,
   Plug,
+  Activity,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
