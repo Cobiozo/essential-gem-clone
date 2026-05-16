@@ -445,19 +445,17 @@ const UserWorldMap: React.FC<Props> = ({ cities }) => {
                         onMouseEnter={onEnter}
                         onMouseMove={onMove}
                         onMouseLeave={() => setHover(null)}
-                        onClick={() => isCluster && zoomToCluster(c.lng, c.lat)}
+                        onClick={() =>
+                          isCluster ? zoomToCluster(c.lng, c.lat) : zoomToCity(c.lng, c.lat)
+                        }
                       >
-                        <circle
-                          r={r * 2.5}
-                          fill="hsl(var(--primary))"
-                          fillOpacity={0}
-                        />
                         <circle
                           r={r}
                           fill="hsl(var(--primary))"
                           fillOpacity={isCluster ? 0.85 : 1}
                           stroke="hsl(var(--background))"
                           strokeWidth={strokeW}
+                          pointerEvents="all"
                         />
                       </g>
                     </Marker>
