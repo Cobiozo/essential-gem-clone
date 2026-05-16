@@ -127,6 +127,26 @@ const UserStatistics: React.FC = () => {
     staleTime: 60_000,
   });
 
+  // Fallback map: city (lowercased) -> country label from geocoder
+  const { data: geocacheCountryMap } = useQuery({
+    queryKey: ['city-geocache-countries'],
+    queryFn: async () => {
+      const m = new Map<string, string>();
+      const { data } = await supabase
+        .from('city_geocache')
+        .select('city, display_country')
+        .not('display_country', 'is', null)
+        .limit(5000);
+      (data ?? []).forEach((r: any) => {
+        if (r.city && r.display_country) {
+          m.set(String(r.city).trim().toLowerCase(), String(r.display_country));
+        }
+      });
+      return m;
+    },
+    staleTime: 5 * 60_000,
+  });
+
   const [countryFilter, setCountryFilter] = useState<string>('all');
   const [trendBucket, setTrendBucket] = useState<'day' | 'week' | 'month'>('month');
   const [citySearch, setCitySearch] = useState('');
