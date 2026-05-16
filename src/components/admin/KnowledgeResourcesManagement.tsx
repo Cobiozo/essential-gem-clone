@@ -1,4 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+
+// Renders a thumbnail for a file and revokes the object URL on unmount/change
+const BulkFileThumb: React.FC<{ file: File }> = ({ file }) => {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  return <img src={url} alt={file.name} className="h-10 w-10 object-cover rounded" />;
+};
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
