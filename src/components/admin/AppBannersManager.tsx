@@ -359,11 +359,11 @@ export const AppBannersManager: React.FC = () => {
     <div className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <CardTitle className="flex items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" /> Banery aplikacji
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="break-words">
               Zarządzaj komunikatami pojawiającymi się na górze pulpitu. Każdy baner może mieć dowolny cel (ścieżka wewnętrzna lub URL), audiencję, wygląd i okno czasowe.
             </CardDescription>
           </div>
