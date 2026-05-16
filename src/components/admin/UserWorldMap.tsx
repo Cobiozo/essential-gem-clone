@@ -312,20 +312,22 @@ const UserWorldMap: React.FC<Props> = ({
             {showTitle ? (customTitle ?? 'Mapa świata użytkowników') : ''}
           </CardTitle>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span>
-                Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
-              </span>
-              {pending > 0 && (
-                <span className="flex items-center gap-1 text-sky-600">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Geokoduję w tle: {pending}…
+            {!hideHeaderMeta && (
+              <span className="flex items-center gap-1.5">
+                <span>
+                  Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
                 </span>
-              )}
-              {pending === 0 && missing > 0 && (
-                <span className="text-amber-600">· {missing} bez lokalizacji</span>
-              )}
-            </span>
+                {pending > 0 && (
+                  <span className="flex items-center gap-1 text-sky-600">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Geokoduję w tle: {pending}…
+                  </span>
+                )}
+                {pending === 0 && missing > 0 && (
+                  <span className="text-amber-600">· {missing} bez lokalizacji</span>
+                )}
+              </span>
+            )}
             {selectedIso && (
               <button
                 type="button"
@@ -356,18 +358,20 @@ const UserWorldMap: React.FC<Props> = ({
                 Satelitarna
               </ToggleGroupItem>
             </ToggleGroup>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                pollAttemptsRef.current = 0;
-                geocodeCities(items, true).then(() => refetch());
-              }}
-              disabled={isFetching || missing === 0}
-            >
-              <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
-              Odśwież
-            </Button>
+            {!hideHeaderMeta && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  pollAttemptsRef.current = 0;
+                  geocodeCities(items, true).then(() => refetch());
+                }}
+                disabled={isFetching || missing === 0}
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
+                Odśwież
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
