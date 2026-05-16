@@ -1034,6 +1034,8 @@ const MyAccount = () => {
                           } as any).eq('user_id', user?.id);
                           if (error) throw error;
                           await refreshProfile();
+                          queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user?.id] });
+                          queryClient.invalidateQueries({ queryKey: ['app-banners-profile', user?.id] });
                           toast({ title: 'Zgody zatwierdzone', description: 'Twoje zgody zostały zapisane pomyślnie.' });
                         } catch (err: any) {
                           toast({ title: 'Błąd', description: err.message || 'Nie udało się zapisać zgód.', variant: 'destructive' });
