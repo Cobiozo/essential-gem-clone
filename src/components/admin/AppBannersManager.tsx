@@ -384,21 +384,23 @@ export const AppBannersManager: React.FC = () => {
                   : b.audience_type === 'role' ? `Role: ${(b.target_roles||[]).join(', ') || '—'}`
                   : `Użytkownicy (${(b.target_user_ids||[]).length})`;
                 return (
-                  <div key={b.id} className="border rounded-md p-3 flex items-center gap-3 hover:bg-accent/40">
-                    <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium truncate">{b.title || '(bez tytułu)'}</span>
-                        <Badge variant="outline" className="text-xs">{b.severity}</Badge>
-                        <Badge variant="secondary" className="text-xs">{audienceLabel}</Badge>
-                        <Badge variant="outline" className="text-xs font-mono truncate max-w-[200px]">{b.target_url}</Badge>
-                        <span className="text-xs text-muted-foreground">priorytet: {b.priority}</span>
+                  <div key={b.id} className="border rounded-md p-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 hover:bg-accent/40 min-w-0">
+                    <Icon className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5 md:mt-0" />
+                    <div className="flex-1 min-w-0 w-full md:w-auto">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="font-medium truncate max-w-full">{b.title || '(bez tytułu)'}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">{b.severity}</Badge>
+                        <Badge variant="secondary" className="text-xs shrink-0">{audienceLabel}</Badge>
+                        <Badge variant="outline" className="text-xs font-mono truncate max-w-[200px] shrink-0">{b.target_url}</Badge>
+                        <span className="text-xs text-muted-foreground shrink-0">priorytet: {b.priority}</span>
                       </div>
                       <div className="text-xs text-muted-foreground truncate mt-0.5">{b.message}</div>
                     </div>
-                    <Switch checked={b.enabled} onCheckedChange={() => handleToggle(b)} />
-                    <Button size="icon" variant="ghost" onClick={() => setEditing(b)}><Pencil className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
+                      <Switch checked={b.enabled} onCheckedChange={() => handleToggle(b)} />
+                      <Button size="icon" variant="ghost" onClick={() => setEditing(b)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => handleDelete(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    </div>
                   </div>
                 );
               })}
