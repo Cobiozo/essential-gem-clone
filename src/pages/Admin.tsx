@@ -38,6 +38,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
 import TrainingManagement from '@/components/admin/TrainingManagement';
+import UserStatistics from '@/components/admin/UserStatistics';
 import CertificateEditor from '@/components/admin/CertificateEditor';
 import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
@@ -4606,6 +4607,10 @@ const Admin = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          <TabsContent value="user-stats">
+            <UserStatistics />
           </TabsContent>
 
           <TabsContent value="training">

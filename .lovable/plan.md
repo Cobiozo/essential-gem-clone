@@ -1,42 +1,87 @@
-## 1. Player — 3 prędkości (1×, 1.25×, 1.5×) z menu „trzy kropki" w prawym dolnym rogu
+## Cel
 
-**Plik:** `src/components/SecureMedia.tsx`
+Dodać w panelu admina kompleksową zakładkę **"Statystyki użytkowników"** wykorzystującą wszystkie dostępne dane z `profiles`, `user_roles` i powiązanych tabel aktywności. Filtr adresowy dodany wcześniej pozostaje na liście użytkowników; statystyki są oddzielnym widokiem.
 
-- Usunąć obecną nakładkę w prawym górnym rogu z przyciskami `1×` / `1.5×`.
-- Dodać nową nakładkę w prawym dolnym rogu wideo (`absolute bottom-2 right-2 z-20`), widoczną tylko gdy `allowedPlaybackRates.length > 1` i `videoReady`.
-- Trigger: okrągły przycisk ~32px z ikoną `MoreVertical` (trzy pionowe kropki), tło `bg-black/50`, biały kolor, `backdrop-blur-sm`, `touchAction: 'manipulation'`.
-- Po kliknięciu otwiera się `DropdownMenu` (shadcn) z opcjami wyfiltrowanymi z `allowedPlaybackRates`: `1×`, `1.25×`, `1.5×`. Zaznaczenie aktualnej prędkości (✓).
-- Klik opcji wywołuje `handleSpeedChange(rate)` (już istnieje + ochrona `handleRateChange` przez `useRef` listy dozwolonych).
+## Zakres widoku statystyk
 
-**Plik:** `src/pages/TrainingModule.tsx`
+### 1) Karty KPI (góra strony)
+- Łączna liczba użytkowników
+- Aktywni (`is_active = true`, nie zablokowani)
+- Zablokowani / nieaktywni
+- Nowi w ostatnich 7 / 30 / 90 dniach (porównanie do poprzedniego okresu, % zmiany)
+- Z pełnym profilem (`profile_completed = true`) — liczba i %
+- Online teraz (`last_seen_at` < 5 min) i aktywni w 24h
+- Zaakceptowane wszystkie zgody (Regulamin + Privacy + RODO)
+- Z avatarem / bez avatara
 
-- Zmienić przekazywane `allowedPlaybackRates` z `[1, 1.5]` na `[1, 1.25, 1.5]` gdy `lesson.playback_speed_enabled === true`.
+### 2) Geografia — sekcja kluczowa
+- **Mapa/lista krajów**: zliczenie po `country` (normalizacja: trim + uppercase, mapowanie pustych jako "Nieznane"), sortowanie malejąco, % udziału, pasek postępu, flaga kraju (emoji z `src/utils/languageFlags.ts` lub mapowanie ISO).
+- **Top 20 miast**: zliczenie po `city` (z trim + tytulizacja, "Nieznane" gdy puste), wraz z krajem w nawiasie.
+- **Kody pocztowe**: top 10 najczęstszych prefiksów (pierwsze 2 znaki) — przydatne dla regionów.
+- Filtr: kraj → dynamicznie filtruje listę miast i pozostałe statystyki.
+- Eksport każdej tabeli geo do XLSX (przy użyciu istniejącego wzorca z `LeaderTeamContactsView`).
 
-**Bez zmian:**
-- `VideoControls.tsx` (pasek pod wideo) — pozostaje bez przycisków prędkości.
-- Po zaliczeniu lekcji nadal działają natywne kontrolki przeglądarki.
-- Logika zaliczenia (`currentTime` niezależny od prędkości) — bez zmian.
-- Blokada przewijania w trybie restricted — bez zmian.
+### 3) Demografia / Konto
+- Rozkład **ról** (Admin / Leader / Partner / Klient / Specjalista) — wykres kołowy + liczby.
+- Rozkład **rang** (`rank`) — wykres słupkowy.
+- **Język szkolenia** (`training_language`) — liczba użytkowników wg języka, z flagami.
+- **Specjalizacje** (`specialization`) — top 10.
+- **Z upline / bez upline** (czy mają `upline_eq_id`).
+- **Zarejestrowani przez reflink** vs bezpośrednio (`registered_via_reflink`).
 
-## 2. Filtr użytkowników po danych adresowych (Panel admina)
+### 4) Trendy w czasie
+- Wykres liniowy rejestracji w czasie (dzienne/tygodniowe/miesięczne, przełącznik) za ostatnie 12 miesięcy — na bazie `created_at`.
+- Wykres skumulowany liczby kont.
+- Wykres "ostatnia aktywność" (`last_seen_at`) — histogram (dziś, 7d, 30d, 90d, 90+ dni, nigdy).
 
-**Plik:** `src/pages/Admin.tsx` (sekcja „Zarządzanie użytkownikami", ~linia 4247)
+### 5) Onboarding & Aktywacja (lejek)
+- Zarejestrowani → Email aktywowany → Profil ukończony → Zaakceptowane regulaminy → Zatwierdzeni (admin/leader/guardian, w zależności od roli).
+- Wartości liczbowe + % drop-off na każdym kroku.
+- Lista użytkowników "utkniętych" na każdym kroku (klikalne, prowadzi do zakładki użytkowników z filtrem).
 
-- Dodać nowy stan: `userAddressFilter` (string) — pojedyncze pole tekstowe „Filtruj po adresie (miasto, kod, ulica, kraj)".
-- Pole wyświetlone obok istniejącego pola „Szukaj użytkowników" lub pod nim (responsywnie: na desktopie obok, na mobile poniżej). Z ikoną `MapPin`.
-- Rozszerzyć `filteredAndSortedUsers` (linia 1886) o dodatkowy filtr: jeśli `userAddressFilter` niepuste, przepuszczać tylko użytkowników, u których którekolwiek z pól `street_address`, `postal_code`, `city`, `country` zawiera (case-insensitive) wpisany fragment.
-- Dodać `userAddressFilter` do tablicy zależności `useMemo`.
-- Licznik „Wyświetlanie X z Y użytkowników" uwzględni nowy filtr automatycznie (warunek `userSearchQuery || userFilterTab !== 'all' || userAddressFilter`).
+### 6) Tutorial & Tryb użytkownika
+- Ukończyli tutorial / pominęli / nie widzieli.
+- Pełne dane kontaktowe (telefon + adres) vs braki.
 
-**Bez zmian w bazie danych** — pola adresowe już istnieją na profilu i są pobierane (linie 555–558).
+### 7) Bezpieczeństwo / Zgody
+- Z MFA włączonym (jeśli dostępne w `user_mfa`).
+- Akceptacje: Regulamin, Privacy, RODO — liczby i %.
+- Logowania nieudane (`failed_logins` jeśli istnieje) — top 10 użytkowników, suma globalna.
 
-## Pliki do edycji
+### 8) Zespoły (jeśli `platform_teams` używane)
+- Liczba zespołów, średnia wielkość, top 10 zespołów wg liczby członków.
 
-- `src/components/SecureMedia.tsx` — nowa nakładka „⋮" w dolnym prawym rogu, usunięcie poprzedniej.
-- `src/pages/TrainingModule.tsx` — tablica `[1, 1.25, 1.5]`.
-- `src/pages/Admin.tsx` — stan filtra adresowego, pole input, warunek w `useMemo`.
+## Architektura techniczna
+
+**Nowy plik:** `src/components/admin/UserStatistics.tsx`
+- Komponent jednostronicowy, zorganizowany w sekcje (Card per sekcja).
+- Pobranie danych jednorazowo z `profiles` (z paginacją po 1000) + równolegle dodatkowe zapytania (role z `user_roles`, MFA, logowania, zespoły) — całość w `useQuery` (react-query, już używany w projekcie).
+- Wszystkie agregacje liczone po stronie klienta z pobranego datasetu (proste `reduce`/`Map`) — wystarczające dla skali projektu; w razie potrzeby później przeniesione do funkcji DB.
+- Wykresy: `recharts` (już w projekcie, patrz `src/components/ui/chart.tsx`).
+- Eksport: `xlsx` (już używany w `LeaderTeamContactsView`).
+- Wzorzec wizualny: te same `Card`, `Badge`, typografia i tokeny co reszta panelu admina.
+
+**Plik:** `src/pages/Admin.tsx`
+- Dodać nowy `TabsTrigger value="user-stats"` w menu admina (obok zakładki "users").
+- Dodać `<TabsContent value="user-stats"><UserStatistics /></TabsContent>`.
+- Brak zmian w istniejącej zakładce "users" (filtr adresowy pozostaje).
+
+**Helpery:**
+- `src/lib/countryFlags.ts` (nowy, mały) — mapowanie nazwy kraju / kodu ISO → emoji flagi, fallback `🌐`. Normalizacja stringów (trim, lowercase porównanie).
+
+## Bez zmian
+- Schemat bazy (brak migracji — wszystkie dane już istnieją).
+- Funkcje edge.
+- Logika RLS — admin już ma pełny dostęp do `profiles` przez RPC `get_all_profiles_with_status`/podobne (do potwierdzenia w istniejącym kodzie pobierania userów).
+- Pozostałe zakładki panelu admina.
+
+## Pliki do edycji/utworzenia
+
+- **NOWY** `src/components/admin/UserStatistics.tsx` — cały panel statystyk.
+- **NOWY** `src/lib/countryFlags.ts` — flagi krajów.
+- **EDYCJA** `src/pages/Admin.tsx` — dodać zakładkę i import komponentu.
 
 ## Poza zakresem
-
-- Migracje bazy danych (nie są potrzebne).
-- Zmiany w `SecureVideoControls.tsx` (nieaktywne w `TrainingModule`).
+- Geokodowanie na rzeczywistą mapę świata (można dodać w kolejnej iteracji — np. `react-simple-maps`).
+- Statystyki finansowe / płatności (osobny moduł).
+- Statystyki szkoleń (osobny istniejący moduł).

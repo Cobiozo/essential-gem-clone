@@ -62,6 +62,7 @@ import {
   Shield,
   Search,
   Plug,
+  Activity,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -147,6 +148,7 @@ const navCategories: NavCategory[] = [
     icon: Users,
     items: [
       { value: 'users', labelKey: 'users', icon: Users },
+      { value: 'user-stats', labelKey: 'userStats', icon: Activity },
       { value: 'account', labelKey: 'account', icon: UserCircle },
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
@@ -266,6 +268,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     purebox: 'PureBox',
     aiProvider: 'Dostawca AI',
     apiIntegrations: 'API / Integracje',
+    userStats: 'Statystyki użytkowników',
   };
 
   const getLabel = (key: string): string => {
