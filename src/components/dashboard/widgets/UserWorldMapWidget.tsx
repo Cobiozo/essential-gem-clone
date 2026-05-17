@@ -12,10 +12,25 @@ const widthClass = (w: 'full' | 'two_thirds' | 'half') => {
   return 'col-span-full lg:max-w-[50%] lg:mx-auto w-full';
 };
 
+const CITIES_CACHE_KEY = 'userWorldMap.cityCounts.v1';
+
+const readCitiesCache = (): CityRow[] => {
+  try {
+    const raw = localStorage.getItem(CITIES_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.cities)) return parsed.cities as CityRow[];
+  } catch {}
+  return [];
+};
+const writeCitiesCache = (cities: CityRow[]) => {
+  try { localStorage.setItem(CITIES_CACHE_KEY, JSON.stringify({ cities, ts: Date.now() })); } catch {}
+};
+
 const UserWorldMapWidget: React.FC = () => {
   const { settings, loading: settingsLoading } = useDashboardMapSettings();
   const { userRole, profile } = useAuth();
-  const [cities, setCities] = useState<CityRow[]>([]);
+  const [cities, setCities] = useState<CityRow[]>(() => readCitiesCache());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,12 +40,17 @@ const UserWorldMapWidget: React.FC = () => {
         const { data, error } = await (supabase as any).rpc('get_user_city_counts');
         if (!mounted) return;
         if (!error && Array.isArray(data)) {
-          setCities(data.map((r: any) => ({
+          const rows: CityRow[] = data.map((r: any) => ({
             city: r.city, country: r.country, count: Number(r.count) || 0,
-          })));
+          }));
+          setCities(rows);
+          if (rows.length > 0) writeCitiesCache(rows);
+        } else {
+          // RPC error: keep whatever we already loaded from cache (set in initial state)
+          console.warn('[UserWorldMapWidget] RPC failed, using cached cities', error);
         }
       } catch (e) {
-        // Never crash the widget — render empty map instead
+        // Never crash the widget — keep cached cities
         console.warn('[UserWorldMapWidget] city counts failed', e);
       } finally {
         if (mounted) setLoading(false);
