@@ -233,7 +233,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col h-full min-w-0">
+    <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col min-w-0">
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-5 min-w-0">
         <div className="grid gap-5 lg:grid-cols-12 min-w-0">
@@ -311,15 +311,29 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             </div>
           </Section>
 
-          {/* Klasyfikacja */}
+          {/* Notatki z rozmów (zaraz pod Dane kontaktu) */}
           <Section
-            title={tf('teamContacts.classification', 'Klasyfikacja')}
+            title={tf('teamContacts.conversationNotes', 'Notatki z rozmów')}
+            icon={<StickyNote className="h-4 w-4" />}
+            className="lg:col-span-6"
+          >
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Zapisz ważne informacje z rozmów, preferencje, pytania..."
+              rows={4}
+            />
+          </Section>
+
+          {/* Klasyfikacja / Priorytetyzacja */}
+          <Section
+            title={tf('teamContacts.classification', 'Klasyfikacja / Priorytetyzacja')}
             icon={<Tag className="h-4 w-4" />}
             className="lg:col-span-6"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-3 sm:col-span-2">
-                <Label>Poziom zainteresowania</Label>
                 {([
                   { key: 'success', label: 'Sukces' },
                   { key: 'outgoing', label: 'Towarzyski' },
@@ -546,21 +560,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                 />
               </div>
             </div>
-          </Section>
-
-          {/* Notatki */}
-          <Section
-            title={tf('teamContacts.conversationNotes', 'Notatki z rozmów')}
-            icon={<StickyNote className="h-4 w-4" />}
-            className="lg:col-span-12"
-          >
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Zapisz ważne informacje z rozmów, preferencje, pytania..."
-              rows={4}
-            />
           </Section>
 
           {/* Pola własne */}
