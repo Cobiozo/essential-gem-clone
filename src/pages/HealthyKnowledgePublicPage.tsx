@@ -101,7 +101,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     const pasted = e.clipboardData.getData('text');
     const cleaned = cleanCode(pasted);
     setOtpRaw(cleaned);
-    if (cleaned.length === 6) {
+    if (cleaned.length === 4) {
       // Auto-submit after paste
       setTimeout(() => handleOtpSubmit(cleaned), 100);
     }
