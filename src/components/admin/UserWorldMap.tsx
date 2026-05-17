@@ -72,8 +72,11 @@ const UserWorldMap: React.FC<Props> = ({
       return 'satellite';
     }
   });
+  const [textureFailed, setTextureFailed] = useState(false);
+  const effectiveStyle: 'classic' | 'satellite' = mapStyle === 'satellite' && textureFailed ? 'classic' : mapStyle;
   const changeMapStyle = (v: 'classic' | 'satellite') => {
     setMapStyle(v);
+    if (v === 'satellite') setTextureFailed(false);
     try { localStorage.setItem('userWorldMap.style', v); } catch {}
   };
 
