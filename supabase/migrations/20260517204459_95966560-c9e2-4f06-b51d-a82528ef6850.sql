@@ -1,0 +1,1 @@
+ALTER TABLE public.team_contacts ADD COLUMN IF NOT EXISTS priority_traits jsonb NOT NULL DEFAULT '{}'::jsonb;
