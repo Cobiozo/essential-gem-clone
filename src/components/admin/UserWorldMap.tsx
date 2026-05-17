@@ -160,6 +160,10 @@ const UserWorldMap: React.FC<Props> = ({
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  // Click vs drag detection
+  const didDragRef = useRef(false);
+  const suppressClickUntilRef = useRef(0);
+  const isClickSuppressed = () => Date.now() < suppressClickUntilRef.current;
 
   // Clean cities
   const cleaned = useMemo(
