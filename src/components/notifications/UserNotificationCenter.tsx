@@ -65,17 +65,40 @@ export const UserNotificationCenter = () => {
 
     setPreferencesLoading(true);
     try {
-      const [eventTypesRes, prefsRes] = await Promise.all([
+      const [eventTypesRes, prefsRes, emailPrefRes] = await Promise.all([
         supabase.from('notification_event_types').select('*').eq('is_active', true).order('position'),
-        supabase.from('user_notification_preferences').select('*').eq('user_id', user.id),
+        supabase.from('user_notification_preferences').select('*').eq('user_id', user.id).not('event_type_id', 'is', null),
+        supabase.from('user_notification_preferences').select('id, email_on_offline').eq('user_id', user.id).is('event_type_id', null).maybeSingle(),
       ]);
 
       if (eventTypesRes.data) setEventTypes(eventTypesRes.data as NotificationEventType[]);
       if (prefsRes.data) setPreferences(prefsRes.data as UserNotificationPreference[]);
+      if (emailPrefRes.data) {
+        setEmailPrefId(emailPrefRes.data.id);
+        setEmailOnOffline(emailPrefRes.data.email_on_offline ?? true);
+      }
     } catch (error) {
       console.error('Error fetching preferences:', error);
     } finally {
       setPreferencesLoading(false);
+    }
+  };
+
+  const toggleEmailOnOffline = async (enabled: boolean) => {
+    if (!user) return;
+    setEmailOnOffline(enabled);
+    if (emailPrefId) {
+      await supabase
+        .from('user_notification_preferences')
+        .update({ email_on_offline: enabled, updated_at: new Date().toISOString() })
+        .eq('id', emailPrefId);
+    } else {
+      const { data } = await supabase
+        .from('user_notification_preferences')
+        .insert({ user_id: user.id, event_type_id: null, email_on_offline: enabled, is_enabled: true })
+        .select('id')
+        .single();
+      if (data) setEmailPrefId(data.id);
     }
   };
 
