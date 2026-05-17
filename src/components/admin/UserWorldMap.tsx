@@ -160,6 +160,10 @@ const UserWorldMap: React.FC<Props> = ({
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  // Click vs drag detection
+  const didDragRef = useRef(false);
+  const suppressClickUntilRef = useRef(0);
+  const isClickSuppressed = () => Date.now() < suppressClickUntilRef.current;
 
   // Clean cities
   const cleaned = useMemo(
@@ -396,6 +400,7 @@ const UserWorldMap: React.FC<Props> = ({
     (e.target as Element).setPointerCapture?.(e.pointerId);
     cancelAnim();
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    didDragRef.current = false;
     recomputeGesture();
   };
 
@@ -411,33 +416,33 @@ const UserWorldMap: React.FC<Props> = ({
     const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
     const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
 
+    if (!didDragRef.current) {
+      const ddx = cx - g.startCenter.x;
+      const ddy = cy - g.startCenter.y;
+      if (Math.hypot(ddx, ddy) > 4) didDragRef.current = true;
+    }
+
     if (g.mode === 'pinch' && pts.length >= 2) {
+      didDragRef.current = true;
       const dx = pts[0].x - pts[1].x;
       const dy = pts[0].y - pts[1].y;
       const dist = Math.hypot(dx, dy) || 1;
       const ratio = dist / g.startDist;
       const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, g.startView.zoom * ratio));
-      // Anchor zoom around gesture center (in projection coords at gesture start)
       const startVbW = VIEW_W / g.startView.zoom;
       const startVbH = VIEW_H / g.startView.zoom;
       const startVbX = g.startView.cx - startVbW / 2;
       const startVbY = g.startView.cy - startVbH / 2;
       const anchorX = startVbX + ((g.startCenter.x - rect.left) / sx / VIEW_W) * startVbW;
       const anchorY = startVbY + ((g.startCenter.y - rect.top) / sy / VIEW_H) * startVbH;
-      // Pan delta from gesture center movement (in projection units at new zoom)
       const panDx = (cx - g.startCenter.x) / (sx * newZoom);
       const panDy = (cy - g.startCenter.y) / (sy * newZoom);
-      // Keep anchor under fingers: new center = anchor + (startCenter - viewportCenterPx)/zoom - pan
-      const halfW = VIEW_W / newZoom / 2;
-      const halfH = VIEW_H / newZoom / 2;
-      // Position of anchor in the new viewBox: relative to viewport center
       const anchorOffsetX = ((g.startCenter.x - rect.left) / sx) - VIEW_W / 2;
       const anchorOffsetY = ((g.startCenter.y - rect.top) / sy) - VIEW_H / 2;
       const newCx = anchorX - (anchorOffsetX / newZoom) - panDx;
       const newCy = anchorY - (anchorOffsetY / newZoom) - panDy;
       setView({ cx: newCx, cy: newCy, zoom: newZoom });
     } else {
-      // Pure pan
       const dx = (cx - g.startCenter.x) / (sx * g.startView.zoom);
       const dy = (cy - g.startCenter.y) / (sy * g.startView.zoom);
       setView({ cx: g.startView.cx - dx, cy: g.startView.cy - dy, zoom: g.startView.zoom });
@@ -446,28 +451,55 @@ const UserWorldMap: React.FC<Props> = ({
 
   const onPointerUp = (e: React.PointerEvent) => {
     pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size === 0) gestureRef.current = null;
-    else recomputeGesture();
+    if (didDragRef.current) {
+      suppressClickUntilRef.current = Date.now() + 250;
+    }
+    if (pointersRef.current.size === 0) {
+      gestureRef.current = null;
+      didDragRef.current = false;
+    } else {
+      recomputeGesture();
+    }
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    cancelAnim();
-    const factor = Math.pow(1.0015, -e.deltaY);
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.zoom * factor));
-    if (newZoom === view.zoom) return;
-    // Anchor zoom around cursor position
-    const anchor = clientToViewBox(e.clientX, e.clientY);
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) { setView({ ...view, zoom: newZoom }); return; }
-    const sx = rect.width / VIEW_W;
-    const sy = rect.height / VIEW_H;
-    const anchorOffsetX = ((e.clientX - rect.left) / sx) - VIEW_W / 2;
-    const anchorOffsetY = ((e.clientY - rect.top) / sy) - VIEW_H / 2;
-    const newCx = anchor.x - anchorOffsetX / newZoom;
-    const newCy = anchor.y - anchorOffsetY / newZoom;
-    setView({ cx: newCx, cy: newCy, zoom: newZoom });
-  };
+  // Native wheel listener with passive:false to reliably stop page scroll
+  // when the cursor is over the map.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelAnim();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
+      const dy = e.deltaY * unit;
+      const factor = Math.exp(-dy * 0.0015);
+      setView((cur) => {
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cur.zoom * factor));
+        if (newZoom === cur.zoom) return cur;
+        const rect = el.getBoundingClientRect();
+        const sx = rect.width / VIEW_W;
+        const sy = rect.height / VIEW_H;
+        const vbWcur = VIEW_W / cur.zoom;
+        const vbHcur = VIEW_H / cur.zoom;
+        const vbXcur = cur.cx - vbWcur / 2;
+        const vbYcur = cur.cy - vbHcur / 2;
+        const px = (e.clientX - rect.left) / sx;
+        const py = (e.clientY - rect.top) / sy;
+        const anchorX = vbXcur + (px / VIEW_W) * vbWcur;
+        const anchorY = vbYcur + (py / VIEW_H) * vbHcur;
+        const anchorOffsetX = px - VIEW_W / 2;
+        const anchorOffsetY = py - VIEW_H / 2;
+        return {
+          cx: anchorX - anchorOffsetX / newZoom,
+          cy: anchorY - anchorOffsetY / newZoom,
+          zoom: newZoom,
+        };
+      });
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler as any);
+  }, []);
 
   // Compute viewBox based on current view (center + zoom)
   const vbW = VIEW_W / view.zoom;
@@ -585,12 +617,13 @@ const UserWorldMap: React.FC<Props> = ({
               background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
               cursor: gestureRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
-            onWheel={onWheel}
             shapeRendering="geometricPrecision"
           >
             {/* Satellite background texture */}
@@ -642,7 +675,7 @@ const UserWorldMap: React.FC<Props> = ({
                   strokeWidth={sw}
                   strokeLinejoin="round"
                   style={{ cursor: c.iso ? 'pointer' : 'default', outline: 'none' }}
-                  onClick={() => handleCountryClick(c.raw)}
+                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
                 />
               );
             })}
@@ -668,26 +701,26 @@ const UserWorldMap: React.FC<Props> = ({
               const rawR = (1.0 + Math.log2(c.count + 1) * 0.6) / Math.pow(view.zoom, 0.95);
               const r = Math.max(0.15, Math.min(3.0, rawR));
               const strokeW = 0.35 / Math.pow(view.zoom, 0.9);
-              const onEnter = (e: React.MouseEvent) => {
-                const sorted = [...c.items].sort((a, b) => b.count - a.count);
-                const shown = sorted.slice(0, 8).map((it) => `${it.city} (${it.count})`);
-                const more = sorted.length - shown.length;
-                showTooltipAt(e, {
-                  title: isCluster ? `${c.items.length} miast` : `${sorted[0].city}${sorted[0].country ? ', ' + sorted[0].country : ''}`,
-                  lines: isCluster ? [...shown, more > 0 ? `…i ${more} więcej` : ''].filter(Boolean) : [],
-                  count: c.count,
-                });
-              };
-              const onMove = (e: React.MouseEvent) => showTooltipAt(e, { title: hover?.title ?? '', lines: hover?.lines ?? [], count: hover?.count ?? c.count });
+              const sorted = [...c.items].sort((a, b) => b.count - a.count);
+              const shown = sorted.slice(0, 8).map((it) => `${it.city} (${it.count})`);
+              const more = sorted.length - shown.length;
+              const tipTitle = isCluster
+                ? `${c.items.length} miast`
+                : `${sorted[0].city}${sorted[0].country ? ', ' + sorted[0].country : ''}`;
+              const tipLines = isCluster
+                ? [...shown, more > 0 ? `…i ${more} więcej` : ''].filter(Boolean)
+                : [];
+              const showTip = (e: React.MouseEvent) =>
+                showTooltipAt(e, { title: tipTitle, lines: tipLines, count: c.count });
               return (
                 <g
                   key={`cl-${idx}`}
                   transform={`translate(${pt[0]} ${pt[1]})`}
                   style={{ cursor: 'pointer' }}
-                  onMouseEnter={onEnter}
-                  onMouseMove={onMove}
+                  onMouseEnter={showTip}
+                  onMouseMove={showTip}
                   onMouseLeave={() => setHover(null)}
-                  onClick={() => zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40)}
+                  onClick={() => { if (isClickSuppressed()) return; zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40); }}
                 >
                   <circle
                     r={r}
