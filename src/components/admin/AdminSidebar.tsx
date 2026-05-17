@@ -63,6 +63,7 @@ import {
   Search,
   Plug,
   Activity,
+  Smartphone,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -216,6 +217,7 @@ const navCategories: NavCategory[] = [
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
       { value: 'security', labelKey: 'security', icon: Shield },
       { value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug },
+      { value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
     ],
   },
 ];

@@ -1,77 +1,84 @@
-# Plan: Mobile zoom mapy + dolny pasek nawigacji (CMS)
+## Cel
 
-## 1. Mobile — startowy zoom mapy satelitarnej na Europę
+1. Przenieść panel "Dolny pasek nawigacji (mobile)" z zakładki **Statystyki użytkowników** do zakładki **System** w panelu admina.
+2. Wybór ikony — zamiast wpisywania nazwy, **lista rozwijana** (Select) z popularnych ikon `lucide-react` + podgląd.
+3. Wybór ścieżki — zamiast wpisywania, **wizualny picker**: mini-mockup aplikacji (pulpit/sidebar) na którym admin klika obszar, a system przypisuje odpowiednią ścieżkę do ikony.
 
-**Plik:** `src/components/admin/UserWorldMap.tsx`
+## 1. Przeniesienie do zakładki System
 
-Obecnie `DEFAULT_ZOOM_SATELLITE = 5.5` jest stały dla wszystkich urządzeń — na telefonie mapa wygląda za daleko (widać Afrykę i pół Atlantyku).
+`src/components/admin/AdminSidebar.tsx` (lista `system.items`, ok. linia 208–219) — dopisać:
+```
+{ value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
+```
+i dodać tłumaczenie w `hardcodedLabels`: `mobileBottomNav: 'Dolny pasek (mobile)'`.
 
-Zmiana:
-- Wykryć urządzenie mobilne hookiem `useIsMobile()` (już istnieje w `src/hooks/use-mobile.tsx`).
-- Na mobile: `DEFAULT_ZOOM_SATELLITE = 9` i `DEFAULT_ZOOM_CLASSIC = 9` z centrum `[15, 52]` (sama Europa, jak na screenie).
-- Na desktopie zostaje obecne 5.5 / 6.0 z centrum `[15, 50]`.
-- Reset view przy zmianie breakpointa (dodać `isMobile` do deps `defaultView`).
+`src/pages/Admin.tsx` (sekcja `<TabsContent>` ok. linii 4783) — dodać:
+```tsx
+<TabsContent value="mobile-bottom-nav">
+  <MobileBottomNavSettings />
+</TabsContent>
+```
+i import komponentu.
 
-Bez zmian w panelu admina — to tylko default startowy widok, użytkownik dalej może oddalać/przybliżać.
+`src/components/admin/UserStatistics.tsx` — usunąć render `<MobileBottomNavSettings />` (zostaje tylko w System).
 
-## 2. Dolny pasek szybkiej nawigacji (mobile webapp)
+## 2. Wybór ikony – dropdown
 
-### Model danych (nowa tabela)
+W `MobileBottomNavSettings.tsx` zamienić `<Input>` na `<Select>` z kuratorską listą ~60 ikon `lucide-react` (Home, LayoutDashboard, MessageCircle, Mail, Calendar, CalendarDays, GraduationCap, BookOpen, Users, User, Settings, Bell, Heart, Activity, Map, MapPin, Phone, FileText, Folder, Search, Star, ShoppingBag, Briefcase, Compass, Video, Mic, Image, BarChart, PieChart, Trophy, Award, Gift, ClipboardList, CheckSquare, HelpCircle, Shield, Globe, Building2, Newspaper, Package, Wallet, CreditCard, Tag, Bookmark, Flag, Zap, Sparkles, Sun, Moon, Cloud, Plus, Menu, Grid, List, Box, Layers, Send, Link, Smartphone, Headphones).
 
-```sql
-create table public.mobile_bottom_nav_items (
-  id uuid primary key default gen_random_uuid(),
-  label text not null,
-  icon_name text not null,        -- nazwa ikony z lucide-react
-  target_path text not null,      -- np. /dashboard, /messages, /events
-  position int not null default 0,
-  is_active boolean not null default true,
-  visible_to_client boolean not null default true,
-  visible_to_partner boolean not null default true,
-  visible_to_specjalista boolean not null default true,
-  visible_to_leader boolean not null default true,
-  visible_to_admin boolean not null default true,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+Każda opcja w dropdownie renderuje ikonę + nazwę. Wartość zapisywana jako `icon_name` (PascalCase) — kompatybilne z istniejącym renderem `(Icons as any)[icon_name]`.
 
-alter table public.mobile_bottom_nav_items enable row level security;
+## 3. Wybór ścieżki – wizualny mockup
 
--- SELECT: każdy zalogowany
--- INSERT/UPDATE/DELETE: tylko admin (has_role(auth.uid(),'admin'))
+Nowy komponent `src/components/admin/MobileNavPathPicker.tsx`:
+- Modal/Popover ze stylizowanym schematem aplikacji: lista klikalnych „stref" (każda = nazwa + docelowa ścieżka).
+- Po kliknięciu w strefę → `onChange(path)` i zamknięcie.
+
+Lista stref (statyczny rejestr, można rozbudować — odpowiada realnym routom aplikacji):
+
+```text
+Pulpit                /dashboard
+Wiadomości            /messages
+Eventy                /events
+Akademia              /academy
+Profil                /profile
+Mój zespół            /team
+Powiadomienia         /notifications
+Wyszukiwarka          /search
+Spotkania 1:1         /individual-meetings
+Spotkania zespołowe   /team-meetings
+PureBox / Omega       /purebox
+Baza wiedzy           /zdrowa-wiedza
+Kalkulator            /calculator
+Moja strona partnera  /moja-strona
+Webinary              /webinars
+Panel lidera          /leader-panel
+Ustawienia            /settings
 ```
 
-Seed: 5 startowych pozycji (Dashboard, Wiadomości, Eventy, Akademia, Profil) — admin może później zmienić.
+Layout: siatka 3-kol kafelków z ikoną + nazwą + ścieżką, podświetlone obecnie wybrane. Pole "Ścieżka własna" (advanced) zostaje jako fallback poniżej (collapsed accordion) – pozwala wpisać dowolną ścieżkę gdy admin doda nową stronę.
 
-### Panel CMS dla admina
+W `MobileBottomNavSettings.tsx` w wierszu pozycji zamiast `<Input target_path>` przycisk:
+```
+[Ikona docelowego miejsca] Pulpit  ·  /dashboard   [Zmień]
+```
+otwierający `MobileNavPathPicker` (Dialog). Po wyborze: `update(id, { target_path })`.
 
-**Nowy plik:** `src/components/admin/MobileBottomNavSettings.tsx`
-- Lista pozycji z drag&drop (reorder po `position`), edycja inline: label, ikona (picker z lucide), ścieżka, widoczność per rola, on/off.
-- Walidacja: minimum 5 aktywnych pozycji (admin nie może zapisać <5).
-- Podgląd na żywo (mini-mockup paska).
+## Zakres techniczny
 
-Wpięcie do istniejącego panelu admina (tam gdzie obecne ustawienia, np. obok `DashboardMapSettings` / footer settings — wskazać dokładne miejsce zakładki "Pulpit" / "Wygląd").
+**Edytowane pliki:**
+- `src/components/admin/AdminSidebar.tsx` – dopisanie pozycji w `system.items` + label
+- `src/pages/Admin.tsx` – nowy `TabsContent value="mobile-bottom-nav"` + import
+- `src/components/admin/UserStatistics.tsx` – usunięcie sekcji `MobileBottomNavSettings`
+- `src/components/admin/MobileBottomNavSettings.tsx` – Select ikon + przycisk otwierający picker ścieżki
 
-### Komponent paska na mobile
+**Nowe pliki:**
+- `src/components/admin/MobileNavPathPicker.tsx` – Dialog z siatką klikalnych stref i fallback "ścieżka własna"
+- `src/components/admin/mobileNavRegistry.ts` – statyczna tablica `{ label, path, iconName }[]` (źródło prawdy dla pickera; łatwa do rozszerzenia w przyszłości)
 
-**Nowy plik:** `src/components/layout/MobileBottomNav.tsx`
-- Renderowany tylko gdy `useIsMobile()` true (i nie na publicznych ścieżkach typu landing/auto-webinar).
-- Fixed `bottom-0 left-0 right-0`, `z-50`, `safe-area-inset-bottom` (iOS notch).
-- Pobiera pozycje z nowej tabeli (`useMobileBottomNav()` hook + realtime subscribe), filtruje po roli usera.
-- Każda pozycja: ikona (`lucide-react` dynamicznie z `icon_name`) + label pod spodem (text-xs). Aktywna pozycja podświetlona kolorem primary.
-- Pokazuje max 5 (jeśli admin doda więcej, scroll horyzontalny lub trim do 5 — ustalmy: pokazujemy wszystkie, równomierny flex).
+**Bez zmian:** tabela `mobile_bottom_nav_items`, hook `useMobileBottomNav`, komponent `MobileBottomNav.tsx` (frontend mobile) — pole `target_path` dalej jest stringiem, picker tylko wygodnie je ustawia.
 
-### Wpięcie globalne
+## Pytania doprecyzowujące
 
-**Plik:** `src/App.tsx` (lub odpowiedni Layout) — dorzucić `<MobileBottomNav />` na końcu drzewa po routach chronionych. Dodać `padding-bottom: 72px` do głównego kontenera na mobile, żeby content nie chował się pod paskiem (np. utility class na `<main>`).
-
-Czat PiP / floating buttons — przesunąć w górę o wysokość paska na mobile, żeby się nie nakładały (lekka korekta `bottom-*` w odpowiednich komponentach).
-
-### Memory do zapisania
-
-Po wdrożeniu: nowy plik `mem://features/mobile-bottom-nav` z opisem tabeli, hooka, miejsca renderu i regułą "min 5 pozycji".
-
-## Pytanie do potwierdzenia
-
-1. Czy ikony pobieramy z `lucide-react` (picker po nazwie), czy admin ma wgrywać własne PNG/SVG? Lucide jest szybsze i spójne — sugeruję lucide.
-2. Czy pasek ma być widoczny też na publicznych stronach (landing partnera, auto-webinar guest), czy tylko po zalogowaniu? Sugeruję tylko po zalogowaniu.
+1. Czy obecna lista stref (17 pozycji powyżej) jest OK, czy chcesz inny zestaw? Mogę też wygenerować ją automatycznie z `KNOWN_APP_ROUTES`.
+2. Czy picker ścieżki ma być prostą siatką kafelków (szybsze), czy chcesz realistyczny mini-podgląd ekranu aplikacji ze strzałkami wskazującymi obszary (ładniej, ale więcej pracy)? Sugeruję siatkę — jest jasna i nie myli się jak miniatura.
