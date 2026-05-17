@@ -51,6 +51,8 @@ export const UserNotificationCenter = () => {
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [preferences, setPreferences] = useState<UserNotificationPreference[]>([]);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [emailOnOffline, setEmailOnOffline] = useState(true);
+  const [emailPrefId, setEmailPrefId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
