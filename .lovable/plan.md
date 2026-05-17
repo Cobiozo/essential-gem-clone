@@ -1,30 +1,25 @@
-## Co się dzieje
+## 1. Przybliżenie mapy satelitarnej = jak na screenie
 
-- Ustawienie w bazie nadal jest poprawne: `default_mode = satellite`, więc mapa nie wraca przez konfigurację admina.
-- Problem z „niestabilnością” wynika najpewniej z komponentu `UserWorldMap`: startowy kadr jest liczony dynamicznie z projekcji i resetowany przy zmianach stylu/projekcji. Po ostatnich zmianach trybu satelitarnego kadr Europy nie jest zapisany jako stały preset, tylko jako wyliczenie (`projection([15, 50])`, `zoom: 6.0`). To daje efekt, że wcześniejsze poprawki pozycjonowania „znikają”, bo nie są utrwalone jako jedna jawna konfiguracja widoku.
-- Dodatkowo wybór trybu mapy zapisuje się w `localStorage`, co może mieszać się z ustawieniem admina i powodować wrażenie losowego zachowania między odświeżeniami / użytkownikami.
-- Upload logo jest już odblokowany politykami storage, ale trzeba jeszcze uprościć ścieżkę uploadu i upewnić się, że oba sloty zapisują się deterministycznie.
+W `src/components/admin/UserWorldMap.tsx`:
+- Zmienić `DEFAULT_ZOOM_SATELLITE` z `9.0` na `5.5` (obecna wartość 9.0 zbytnio zoomuje na środek Europy; screen pokazuje cały kontynent od Hiszpanii po zachodnią Rosję).
+- Wyśrodkować na `projection([15, 50])` zamiast `[15, 52]` (lepsze dopasowanie pionowe do screena, gdzie widać też Włochy i Hiszpanię).
+- `DEFAULT_ZOOM_CLASSIC` zostawić bez zmian (6.0).
 
-## Plan naprawy
+Reset mapy i odznaczenie kraju nadal będą wracać do tego widoku (kod już używa `defaultView`).
 
-1. **Stały preset startowego kadru satelitarnego**
-   - W `UserWorldMap.tsx` wydzielę jedną stałą konfigurację dla startowego widoku Europy w trybie satelitarnym.
-   - Kadr będzie odpowiadał referencyjnemu screenowi: Europa w centrum, lekko bliżej i z korektą położenia/rolla przez stałe przesunięcie projekcji/kadru, zamiast przypadkowych obliczeń rozproszonych po komponencie.
-   - Reset mapy i odznaczanie kraju będą wracały dokładnie do tego samego presetu.
+## 2. Edycja tekstu "Zmieniamy życie i zdrowie ludzi na lepsze" + podtytułu
 
-2. **Rozdzielenie widoku satelitarnego i klasycznego**
-   - Dla `satellite` i `classic` zastosuję osobne domyślne widoki, żeby zmiana trybu nie psuła startowego pozycjonowania.
-   - Tryb satelitarny pozostanie domyślny z ustawień admina.
+Tekst nie jest w kodzie — siedzi w bazie w tabeli `dashboard_footer_settings`:
+- `quote_text` → "Zmieniamy życie i zdrowie ludzi na lepsze"
+- `mission_statement` → "Naszą misją jest wspieranie każdego w drodze do lepszego życia…"
 
-3. **Usunięcie konfliktu z `localStorage` dla widżetu dashboardu**
-   - Jeżeli `initialMode` przychodzi z ustawień admina, komponent nie będzie nadpisywał go wcześniejszą lokalną preferencją użytkownika.
-   - Przełącznik Klasyczna/Satelitarna nadal będzie działał w trakcie oglądania, ale start widżetu będzie determinowany przez ustawienia admina.
+Edytować można w panelu admina:
 
-4. **Stabilizacja uploadu logo lewego i prawego**
-   - Sprawdzę i dopracuję handler uploadu tak, żeby lewy i prawy slot używały tej samej logiki, unikalnej ścieżki i jednoznacznego zapisu URL.
-   - Komunikat błędu zostanie konkretny: brak sesji, RLS/storage albo błąd zapisu ustawień.
+**Admin → zakładka „Stopka pulpitu" (Dashboard Footer)** — obsługiwane przez komponent `DashboardFooterManagement.tsx` (zarejestrowany w `Admin.tsx` jako `TabsContent value="dashboard-footer"`).
 
-5. **Weryfikacja**
-   - Po wdrożeniu sprawdzę aktualny stan ustawień w bazie.
-   - Zweryfikuję, że widget na `/dashboard` startuje w trybie satelitarnym i w tym samym kadrze co screen.
-   - Sprawdzę, że reset mapy wraca do tego samego kadru.
+Bez żadnych zmian w kodzie — to już istniejący edytor.
+
+## Pliki do zmiany
+- `src/components/admin/UserWorldMap.tsx` — tylko 2 stałe (zoom + środek).
+
+Brak zmian w bazie, brak zmian w innych komponentach.
