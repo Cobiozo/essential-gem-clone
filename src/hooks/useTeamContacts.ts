@@ -708,6 +708,7 @@ export const useTeamContacts = () => {
     deletedContacts,
     deletedLoading,
     restoreContact,
+    permanentlyDeleteContact,
     moveToOwnList,
     checkDuplicateBeforeMove,
   };
