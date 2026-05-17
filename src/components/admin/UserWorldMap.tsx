@@ -808,6 +808,26 @@ const UserWorldMap: React.FC<Props> = ({
             </div>
           )}
 
+          {pinned && (
+            <div
+              className="absolute z-30 rounded-md border bg-popover text-popover-foreground px-2.5 py-1.5 text-xs shadow-lg max-w-[260px]"
+              style={{ left: pinned.x + 12, top: pinned.y + 12 }}
+            >
+              <button
+                type="button"
+                aria-label="Zamknij"
+                onClick={() => setPinned(null)}
+                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-background border text-foreground/70 hover:text-foreground flex items-center justify-center text-[11px] leading-none"
+              >
+                ×
+              </button>
+              <div className="font-medium pr-3">{pinned.title}</div>
+              <div className="text-muted-foreground mt-0.5">
+                {pinned.count} {pinned.count === 1 ? 'użytkownik' : 'użytkowników'}
+              </div>
+            </div>
+          )}
+
           <div className="absolute bottom-3 right-3 flex flex-col gap-1">
             <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn}>
               <Plus className="h-3 w-3" />
