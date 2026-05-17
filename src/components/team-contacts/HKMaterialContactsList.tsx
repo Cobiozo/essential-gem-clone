@@ -319,6 +319,32 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Session Delete Confirmation (not-yet-moved sessions) */}
+      <AlertDialog open={!!deleteSessionConfirm} onOpenChange={() => setDeleteSessionConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tf('teamContacts.removeFromList', 'Usunąć z listy?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tf('teamContacts.removeSessionDesc', 'Wpis zostanie ukryty z tej listy. Operacja nie usuwa logu sesji.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteSessionConfirm && onDeleteSession) {
+                  onDeleteSession(deleteSessionConfirm);
+                  setDeleteSessionConfirm(null);
+                }
+              }}
+            >
+              {tf('teamContacts.deleted', 'Usuń')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Duplicate Confirmation Dialog */}
       <AlertDialog open={!!duplicateConfirm} onOpenChange={() => setDuplicateConfirm(null)}>
         <AlertDialogContent>
