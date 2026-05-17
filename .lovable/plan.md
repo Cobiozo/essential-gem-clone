@@ -1,27 +1,15 @@
-## Plan poprawki widoku wiadomości
+## Plan: przełącznik powiadomień email z czatu
 
-1. **Ustabilizować wysokość ekranu wiadomości**
-   - Zmienić główny kontener `/messages`, aby na mobile używał bezpiecznej wysokości widoku i nie pozwalał całej stronie przewijać się razem z dolnym paskiem.
-   - Dodać dolny odstęp tylko tam, gdzie potrzebny, żeby systemowy `MobileBottomNav` nie zasłaniał pola wpisywania i ikon.
+Dodam w **Moje konto → Powiadomienia** (komponent `UserNotificationCenter`, zakładka „Ustawienia") nową kartę „Powiadomienia email" z jednym przełącznikiem:
 
-2. **Zrobić stałe elementy rozmowy**
-   - Nagłówek rozmowy zostaje na górze.
-   - Pole wpisywania wiadomości z ikonami załącznika/emoji/nagrywania/wysyłki zostaje stale widoczne nad dolną nawigacją.
-   - Przewijalna ma być wyłącznie lista wiadomości między nagłówkiem a polem wpisywania.
+- **„Email, gdy ktoś napisze do mnie wiadomość, a jestem offline"** — domyślnie włączony.
 
-3. **Poprawić dolny panel wpisywania na mobile**
-   - Dodać stabilne `shrink-0`, bezpieczny odstęp `env(safe-area-inset-bottom)` i tło, żeby panel nie „wchodził” pod dolne menu.
-   - Zachować wszystkie obecne opcje: załącznik, emoji, nagranie głosowe, wysyłka.
+Po wyłączeniu wiadomości czatu nie będą wysyłane na email (push i powiadomienia w aplikacji działają bez zmian).
 
-4. **Zabezpieczyć okna dialogowe**
-   - Dla okna załączników/akcji rozmowy zostawić dialog przewijalny, ale bez przesuwania nagłówka, pola wpisywania i dolnej nawigacji.
+## Szczegóły techniczne
 
-## Pliki do zmiany
-
-- `src/pages/MessagesPage.tsx`
-- `src/components/messages/FullChatWindow.tsx`
-- `src/components/unified-chat/MessageInput.tsx`
-
-## Weryfikacja
-
-- Sprawdzić układ na viewport mobile 390×844: widoczne wszystkie ikony na dole, pole wpisywania nie jest przykryte, przewija się tylko historia rozmowy.
+- Plik: `src/components/notifications/UserNotificationCenter.tsx`
+- Tabela: `user_notification_preferences`, kolumna `email_on_offline` (już istnieje, używana przez Edge Function `send-chat-notification-email`).
+- Odczyt: `select email_on_offline where user_id = auth.uid() and event_type_id is null` (wiersz globalny).
+- Zapis: `upsert` przy zmianie przełącznika; jeśli brak wiersza — `insert` z `event_type_id = null`.
+- Bez zmian w bazie i bez zmian w Edge Function.
