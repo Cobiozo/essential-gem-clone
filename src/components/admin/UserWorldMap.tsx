@@ -539,7 +539,7 @@ const UserWorldMap: React.FC<Props> = ({
             {selectedIso && (
               <button
                 type="button"
-                onClick={() => { setSelectedIso(null); setSelectedLabel(null); }}
+                onClick={() => { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, 600); }}
                 className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/15"
               >
                 <Globe2 className="h-3 w-3" />
