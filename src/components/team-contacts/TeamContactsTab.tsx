@@ -549,6 +549,7 @@ export const TeamContactsTab: React.FC = () => {
                   contacts={deletedContacts}
                   loading={deletedLoading}
                   onRestore={restoreContact}
+                  onPermanentDelete={permanentlyDeleteContact}
                 />
               ) : privateSubTab === 'events-bo' ? (
               <EventGroupedContacts
