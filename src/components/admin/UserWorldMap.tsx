@@ -150,7 +150,7 @@ const UserWorldMap: React.FC<Props> = ({
   // Default view: Europe centered (matches reference screenshot)
   const defaultView = useMemo(() => {
     const pt = projection([15, 50]);
-    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom: 3.8 };
+    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom: 6.0 };
   }, [projection]);
 
   const [view, setView] = useState(defaultView);
