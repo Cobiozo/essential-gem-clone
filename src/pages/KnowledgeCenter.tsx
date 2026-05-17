@@ -462,44 +462,44 @@ export default function KnowledgeCenter() {
     <div className="min-h-screen bg-background">
       <Header siteLogo={siteLogo} hideLanguageSelector />
       
-      <main className="container mx-auto px-4 py-8 pt-24">
+      <main className="container mx-auto px-4 py-6 sm:py-8 pt-20 sm:pt-24">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Biblioteka</h1>
-          <p className="text-muted-foreground">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Dokumenty, materiały i grafiki do Twojej dyspozycji
           </p>
         </div>
 
-        {/* Main Tabs - Documents / Graphics */}
+        {/* Main Tabs - Documents / Graphics / Team */}
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics' | 'team')} className="w-full">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <TabsList className="w-auto flex-wrap">
-              <TabsTrigger value="documents" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Dokumenty edukacyjne
+          <div className="mb-4 sm:mb-6">
+            <TabsList className={`w-full grid ${hasTeamResources ? 'grid-cols-3' : 'grid-cols-2'} h-auto`}>
+              <TabsTrigger value="documents" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="truncate">Dokumenty</span>
               </TabsTrigger>
-              <TabsTrigger value="graphics" className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                Grafiki
+              <TabsTrigger value="graphics" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                <Image className="h-4 w-4 shrink-0" />
+                <span className="truncate">Grafiki</span>
                 {graphicsResources.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
+                  <Badge variant="secondary" className="ml-0.5 text-[10px] px-1.5">{graphicsResources.length}</Badge>
                 )}
               </TabsTrigger>
-            </TabsList>
-            {hasTeamResources && (
-              <TabsList className="w-auto">
-               <TabsTrigger value="team" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {isAdmin
-                    ? 'Zasoby zespołów'
-                    : teamNames.length === 1
-                      ? `Baza wiedzy ${teamNames[0]}`
-                      : 'Baza wiedzy zespołu'}
-                  <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
+              {hasTeamResources && (
+                <TabsTrigger value="team" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
+                    {isAdmin
+                      ? 'Zespoły'
+                      : teamNames.length === 1
+                        ? teamNames[0]
+                        : 'Zespół'}
+                  </span>
+                  <Badge variant="secondary" className="ml-0.5 text-[10px] px-1.5">{teamResources.length}</Badge>
                 </TabsTrigger>
-              </TabsList>
-            )}
+              )}
+            </TabsList>
           </div>
 
           {/* Documents Tab */}
