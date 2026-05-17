@@ -415,6 +415,7 @@ const UserWorldMap: React.FC<Props> = ({
     cancelAnim();
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     didDragRef.current = false;
+    setPinned(null);
     recomputeGesture();
   };
 
