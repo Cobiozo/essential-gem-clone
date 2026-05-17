@@ -595,8 +595,9 @@ const UserWorldMap: React.FC<Props> = ({
           >
             {/* Satellite background texture */}
             {effectiveStyle === 'satellite' && (() => {
-              const tl = projection([-180, 85]);
-              const br = projection([180, -85]);
+              // Use full world bounds so the satellite bitmap aligns 1:1 with country geometry
+              const tl = projection([-180, 90]);
+              const br = projection([180, -90]);
               if (!tl || !br) return null;
               const w = br[0] - tl[0];
               const h = br[1] - tl[1];
