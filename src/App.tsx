@@ -28,6 +28,7 @@ import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
@@ -445,6 +446,7 @@ const AppContent = () => {
           {/* Chat widgets - inside BrowserRouter to access location */}
           <ChatWidgetsWrapper />
           <PWAInstallBanner />
+          <MobileBottomNav />
         </InactivityHandler>
         </ChatSidebarProvider>
       </BrowserRouter>
