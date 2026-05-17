@@ -9,6 +9,7 @@ import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, X, Map as MapIcon }
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCountry } from '@/lib/countryFlags';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export type CityPoint = { city: string; country: string; count: number };
 
