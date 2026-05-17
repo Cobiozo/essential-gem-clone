@@ -7,6 +7,8 @@ import { Loader2 } from 'lucide-react';
 import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
+import { RoleBadgedAvatar } from '@/components/chat/RoleBadgedAvatar';
+import { ROLE_LABELS } from '@/types/roleChat';
 import { ConversationActions } from './ConversationActions';
 import { supabase } from '@/integrations/supabase/client';
 
