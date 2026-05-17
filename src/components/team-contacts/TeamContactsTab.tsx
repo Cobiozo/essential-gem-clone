@@ -364,14 +364,14 @@ export const TeamContactsTab: React.FC = () => {
             </TabsTrigger>
           )}
           {canSearchSpecialists && (
-            <TabsTrigger value="search" className="flex items-center gap-2">
+            <TabsTrigger value="search" className="flex items-center gap-2 shrink-0">
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.searchSpecialist', 'Szukaj specjalisty')}</span>
               <span className="sm:hidden">{tf('teamContacts.search', 'Szukaj')}</span>
             </TabsTrigger>
           )}
           {canAccessTree() && (
-            <TabsTrigger value="structure" className="flex items-center gap-2">
+            <TabsTrigger value="structure" className="flex items-center gap-2 shrink-0">
               <TreePine className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.structure', 'Struktura')}</span>
               <span className="sm:hidden">{tf('teamContacts.structure', 'Struktura')}</span>
