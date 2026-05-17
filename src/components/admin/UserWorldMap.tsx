@@ -583,7 +583,7 @@ const UserWorldMap: React.FC<Props> = ({
               width: '100%',
               height: '100%',
               background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
-              cursor: dragRef.current ? 'grabbing' : 'grab',
+              cursor: gestureRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
             }}
             onPointerDown={onPointerDown}
