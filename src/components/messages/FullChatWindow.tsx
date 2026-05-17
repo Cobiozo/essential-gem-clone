@@ -7,6 +7,8 @@ import { Loader2 } from 'lucide-react';
 import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
+import { RoleBadgedAvatar } from '@/components/chat/RoleBadgedAvatar';
+import { ROLE_LABELS } from '@/types/roleChat';
 import { ConversationActions } from './ConversationActions';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -104,17 +106,27 @@ export const FullChatWindow = ({
             <ArrowLeft className="h-5 w-5" />
           </Button>
           
-          {/* Show avatar for direct member */}
+          {/* Show role-badged avatar for direct member */}
           {directMember && (
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={directMember.avatarUrl || undefined} />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                {directMember.firstName?.charAt(0)}{directMember.lastName?.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
+            <RoleBadgedAvatar
+              role={directMember.role || 'client'}
+              isLeader={directMember.isLeader}
+              avatarUrl={directMember.avatarUrl}
+              initials={`${directMember.firstName?.charAt(0) || ''}${directMember.lastName?.charAt(0) || ''}`}
+              size="sm"
+            />
           )}
-          
-          <h3 className="font-semibold text-foreground">{displayName}</h3>
+
+          <div className="flex flex-col min-w-0">
+            <h3 className="font-semibold text-foreground leading-tight truncate">{displayName}</h3>
+            {directMember && (
+              <span className="text-xs text-muted-foreground leading-tight truncate">
+                {directMember.role === 'partner' && directMember.isLeader
+                  ? 'Lider'
+                  : ROLE_LABELS[directMember.role || 'client'] || ''}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Admin close conversation button */}

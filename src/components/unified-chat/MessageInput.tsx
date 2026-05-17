@@ -148,7 +148,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
           placeholder="Wpisz wiadomość..."
           disabled={disabled || sending}
           rows={1}
-          className="w-full bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm py-2 max-h-[120px] min-h-[36px]"
+          className="w-full bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm py-2 max-h-[120px] min-h-[36px] text-foreground placeholder:text-muted-foreground"
         />
 
         {/* Bottom row: icons left, send button right */}
