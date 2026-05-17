@@ -478,26 +478,26 @@ const MyAccount = () => {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={newPureLifeLogo} alt="Pure Life Center" className="w-8 h-8" />
-              <h1 className="text-xl font-bold">PURE LIFE CENTER</h1>
+          <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <img src={newPureLifeLogo} alt="Pure Life Center" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+              <h1 className="text-sm sm:text-xl font-bold truncate leading-tight">PURE LIFE CENTER</h1>
             </div>
-            
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <LanguageSelector />
               <ThemeSelector />
-            <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
-              <BookOpen className="w-4 h-4 mr-2" />
-              {t('nav.training')}
+              <Button variant="outline" size="sm" onClick={() => navigate('/training')} aria-label={t('nav.training')} className="px-2 sm:px-3">
+                <BookOpen className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t('nav.training')}</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')}>
-                <Home className="w-4 h-4 mr-2" />
-                {t('nav.home')}
+              <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')} aria-label={t('nav.home')} className="px-2 sm:px-3">
+                <Home className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t('nav.home')}</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                {t('nav.logout')}
+              <Button variant="outline" size="sm" onClick={handleSignOut} aria-label={t('nav.logout')} className="px-2 sm:px-3">
+                <LogOut className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t('nav.logout')}</span>
               </Button>
             </div>
           </div>
@@ -530,31 +530,31 @@ const MyAccount = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={newPureLifeLogo} alt="Pure Life Center" className="w-8 h-8" />
-            <h1 className="text-xl font-bold">PURE LIFE CENTER</h1>
+        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <img src={newPureLifeLogo} alt="Pure Life Center" className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+            <h1 className="text-sm sm:text-xl font-bold truncate leading-tight">PURE LIFE CENTER</h1>
           </div>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <NotificationBell />
             <LanguageSelector />
             <ThemeSelector />
             {!mustCompleteProfile && (
               <>
-                <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  {t('nav.training')}
+                <Button variant="outline" size="sm" onClick={() => navigate('/training')} aria-label={t('nav.training')} className="px-2 sm:px-3">
+                  <BookOpen className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{t('nav.training')}</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')}>
-                  <Home className="w-4 h-4 mr-2" />
-                  {t('nav.home')}
+                <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')} aria-label={t('nav.home')} className="px-2 sm:px-3">
+                  <Home className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{t('nav.home')}</span>
                 </Button>
               </>
             )}
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              {t('nav.logout')}
+            <Button variant="outline" size="sm" onClick={handleSignOut} aria-label={t('nav.logout')} className="px-2 sm:px-3">
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">{t('nav.logout')}</span>
             </Button>
           </div>
         </div>
@@ -581,7 +581,7 @@ const MyAccount = () => {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="flex w-full h-auto flex-wrap gap-1 p-1.5 justify-start">
+            <TabsList className="flex w-full h-auto gap-1 p-1.5 justify-start overflow-x-auto sm:flex-wrap snap-x scrollbar-thin [&>*]:shrink-0 sm:[&>*]:shrink">
               {visibleTabs.profile && (
                 <TabsTrigger value="profile">
                   <User className="w-4 h-4 mr-2" />
