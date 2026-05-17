@@ -201,7 +201,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
-                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="sm" />
+                        <Badge variant="outline" className="text-xs font-normal">★ {contact.priority_level}/25</Badge>
                       )}
                       {contactType !== 'private' && getRoleBadge(contact.role)}
                        {getStatusBadge(contact, contactType === 'team_member')}
@@ -390,13 +390,37 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     )}
 
-                    {/* Priorytet (gwiazdki) — prywatny */}
+                    {/* Priorytet — prywatny */}
                     {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
                       <div className="space-y-2">
                         <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Sparkles className="w-4 h-4" /> Poziom zainteresowania
                         </h4>
-                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="md" />
+                        {(() => {
+                          const traits = ((contact as any).priority_traits || {}) as Record<string, number>;
+                          const rows: { key: string; label: string }[] = [
+                            { key: 'success', label: 'Sukces' },
+                            { key: 'outgoing', label: 'Towarzyski' },
+                            { key: 'positive', label: 'Pozytywny' },
+                            { key: 'entrepreneurial', label: 'Przedsiębiorczy' },
+                            { key: 'reputation', label: 'Reputacja' },
+                          ];
+                          const hasTraits = rows.some(r => (traits[r.key] || 0) > 0);
+                          return (
+                            <div className="space-y-1">
+                              {hasTraits && rows.map(r => (
+                                <div key={r.key} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                                  <RatingElement value={traits[r.key] || 0} max={5} readonly size="sm" />
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between pt-1 border-t border-border">
+                                <span className="text-xs font-semibold">Ogólna ocena</span>
+                                <span className="text-xs font-semibold text-primary">{contact.priority_level}/25</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 

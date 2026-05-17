@@ -63,8 +63,17 @@ export interface TeamContact {
   
   is_active: boolean;
 
-  // Priority/interest level (0-5 stars, 0 = not set)
+  // Priority/interest level – sum of 5 trait ratings (0–25). 0 = not set
   priority_level?: number;
+
+  // Per-trait ratings (0–5 each). Sum -> priority_level
+  priority_traits?: {
+    success?: number;
+    outgoing?: number;
+    positive?: number;
+    entrepreneurial?: number;
+    reputation?: number;
+  };
 
   // Custom user-defined fields (max 3)
   custom_fields?: any;

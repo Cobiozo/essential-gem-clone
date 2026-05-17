@@ -8718,6 +8718,7 @@ export type Database = {
           partner_status: string | null
           phone_number: string | null
           priority_level: number
+          priority_traits: Json
           products: string | null
           profession: string | null
           purchase_date: string | null
@@ -8763,6 +8764,7 @@ export type Database = {
           partner_status?: string | null
           phone_number?: string | null
           priority_level?: number
+          priority_traits?: Json
           products?: string | null
           profession?: string | null
           purchase_date?: string | null
@@ -8808,6 +8810,7 @@ export type Database = {
           partner_status?: string | null
           phone_number?: string | null
           priority_level?: number
+          priority_traits?: Json
           products?: string | null
           profession?: string | null
           purchase_date?: string | null
