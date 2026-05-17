@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     // Generate unique OTP code
     let otpCode: string;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 50;
 
     do {
       otpCode = generateOTPCode();
