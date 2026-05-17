@@ -216,6 +216,7 @@ const navCategories: NavCategory[] = [
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
       { value: 'security', labelKey: 'security', icon: Shield },
       { value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug },
+      { value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
     ],
   },
 ];

@@ -18,7 +18,7 @@ import {
 import { normalizeCountry } from '@/lib/countryFlags';
 import UserWorldMap from './UserWorldMap';
 import DashboardMapSettings from './DashboardMapSettings';
-import MobileBottomNavSettings from './MobileBottomNavSettings';
+
 
 type ProfileRow = {
   id: string;
@@ -383,8 +383,6 @@ const UserStatistics: React.FC = () => {
       </div>
 
       <DashboardMapSettings />
-
-      <MobileBottomNavSettings />
 
       {/* Geografia */}
       <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
