@@ -201,7 +201,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {contactType === 'private' && (contact.priority_level ?? 0) > 0 && (
-                        <RatingElement value={contact.priority_level || 0} max={5} readonly size="sm" />
+                        <Badge variant="outline" className="text-xs font-normal">★ {contact.priority_level}/25</Badge>
                       )}
                       {contactType !== 'private' && getRoleBadge(contact.role)}
                        {getStatusBadge(contact, contactType === 'team_member')}
