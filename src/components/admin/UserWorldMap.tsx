@@ -457,19 +457,23 @@ const UserWorldMap: React.FC<Props> = ({
             shapeRendering="geometricPrecision"
           >
             {/* Satellite background texture */}
-            {mapStyle === 'satellite' && (() => {
+            {effectiveStyle === 'satellite' && (() => {
               const tl = projection([-180, 85]);
               const br = projection([180, -85]);
               if (!tl || !br) return null;
+              const w = br[0] - tl[0];
+              const h = br[1] - tl[1];
+              if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
               return (
                 <image
                   href="/textures/earth-bluemarble-2k.jpg"
                   x={tl[0]}
                   y={tl[1]}
-                  width={br[0] - tl[0]}
-                  height={br[1] - tl[1]}
+                  width={w}
+                  height={h}
                   preserveAspectRatio="none"
                   style={{ pointerEvents: 'none' }}
+                  onError={() => setTextureFailed(true)}
                 />
               );
             })()}
