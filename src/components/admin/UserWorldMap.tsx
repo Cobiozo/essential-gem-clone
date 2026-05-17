@@ -170,14 +170,7 @@ const UserWorldMap: React.FC<Props> = ({
   // Reset view when projection changes (style switch)
   useEffect(() => { setView(defaultView); }, [defaultView]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPinned(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
-  const [pinned, setPinned] = useState<{ x: number; y: number; title: string; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   // Click vs drag detection
@@ -421,7 +414,6 @@ const UserWorldMap: React.FC<Props> = ({
     cancelAnim();
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     didDragRef.current = false;
-    setPinned(null);
     recomputeGesture();
   };
 
@@ -733,11 +725,6 @@ const UserWorldMap: React.FC<Props> = ({
                 : [];
               const showTip = (e: React.MouseEvent) =>
                 showTooltipAt(e, { title: tipTitle, lines: tipLines, count: c.count });
-              const labelOpacity = !isCluster && view.zoom >= 6
-                ? Math.max(0, Math.min(1, (view.zoom - 5) / 3))
-                : 0;
-              const labelFontSize = 2.2 / view.zoom;
-              const labelStroke = 0.6 / view.zoom;
               return (
                 <g
                   key={`cl-${idx}`}
@@ -746,22 +733,7 @@ const UserWorldMap: React.FC<Props> = ({
                   onMouseEnter={showTip}
                   onMouseMove={showTip}
                   onMouseLeave={() => setHover(null)}
-                  onClick={(e) => {
-                    if (isClickSuppressed()) return;
-                    if (!isCluster && view.zoom >= 6) {
-                      const container = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement;
-                      const rect = container?.getBoundingClientRect();
-                      setHover(null);
-                      setPinned({
-                        x: e.clientX - (rect?.left ?? 0),
-                        y: e.clientY - (rect?.top ?? 0),
-                        title: tipTitle,
-                        count: c.count,
-                      });
-                      return;
-                    }
-                    zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40);
-                  }}
+                  onClick={() => { if (isClickSuppressed()) return; zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40); }}
                 >
                   <circle
                     r={r}
@@ -771,21 +743,6 @@ const UserWorldMap: React.FC<Props> = ({
                     strokeWidth={strokeW}
                     pointerEvents="all"
                   />
-                  {labelOpacity > 0.02 && (
-                    <text
-                      x={r + 0.4 / view.zoom}
-                      y={0.3 / view.zoom}
-                      fontSize={labelFontSize}
-                      fill="hsl(var(--foreground))"
-                      stroke="hsl(var(--background))"
-                      strokeWidth={labelStroke}
-                      paintOrder="stroke"
-                      opacity={labelOpacity}
-                      style={{ pointerEvents: 'none', fontWeight: 600 }}
-                    >
-                      {sorted[0].city}
-                    </text>
-                  )}
                 </g>
               );
             })}
@@ -804,26 +761,6 @@ const UserWorldMap: React.FC<Props> = ({
               )}
               <div className="text-muted-foreground mt-0.5">
                 {hover.count} {hover.count === 1 ? 'użytkownik' : 'użytkowników'}
-              </div>
-            </div>
-          )}
-
-          {pinned && (
-            <div
-              className="absolute z-30 rounded-md border bg-popover text-popover-foreground px-2.5 py-1.5 text-xs shadow-lg max-w-[260px]"
-              style={{ left: pinned.x + 12, top: pinned.y + 12 }}
-            >
-              <button
-                type="button"
-                aria-label="Zamknij"
-                onClick={() => setPinned(null)}
-                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-background border text-foreground/70 hover:text-foreground flex items-center justify-center text-[11px] leading-none"
-              >
-                ×
-              </button>
-              <div className="font-medium pr-3">{pinned.title}</div>
-              <div className="text-muted-foreground mt-0.5">
-                {pinned.count} {pinned.count === 1 ? 'użytkownik' : 'użytkowników'}
               </div>
             </div>
           )}
