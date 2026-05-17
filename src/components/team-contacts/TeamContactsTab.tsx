@@ -600,6 +600,7 @@ export const TeamContactsTab: React.FC = () => {
                   onMoveToOwnList={moveHkSessionToOwnList}
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
+                  onDeleteSession={(sessionId) => setHkSessions(prev => prev.filter(s => s.session_id !== sessionId))}
                   getContactHistory={getContactHistory}
                 />
               ) : viewMode === 'accordion' ? (
