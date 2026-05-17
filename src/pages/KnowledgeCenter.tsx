@@ -717,7 +717,7 @@ export default function KnowledgeCenter() {
           </TabsContent>
 
           {/* Graphics Tab */}
-          <TabsContent value="graphics" className="space-y-6">
+          <TabsContent value="graphics" className="space-y-4">
             {/* Search & Filters for Graphics */}
             <Card>
               <CardContent className="pt-4">
@@ -816,7 +816,7 @@ export default function KnowledgeCenter() {
 
           {/* Team Knowledge Tab */}
           {hasTeamResources && (
-            <TabsContent value="team" className="space-y-6">
+            <TabsContent value="team" className="space-y-4">
               {isAdmin ? (
                 /* ADMIN VIEW: Accordion per team */
                 <Accordion type="single" collapsible className="space-y-3">
