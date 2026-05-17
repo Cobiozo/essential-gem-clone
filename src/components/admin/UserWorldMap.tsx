@@ -99,6 +99,7 @@ const UserWorldMap: React.FC<Props> = ({
   logoLeftUrl,
   logoRightUrl,
 }) => {
+  const isMobile = useIsMobile();
   // If admin passes initialMode, it always wins over localStorage — keeps the widget
   // deterministic across reloads and users.
   const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
