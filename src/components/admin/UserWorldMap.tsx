@@ -147,10 +147,10 @@ const UserWorldMap: React.FC<Props> = ({
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
   }, [effectiveStyle]);
 
-  // Default view: center on Poland-ish
+  // Default view: Europe centered (matches reference screenshot)
   const defaultView = useMemo(() => {
-    const pt = projection([19, 52]);
-    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom: 3.5 };
+    const pt = projection([15, 50]);
+    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom: 3.8 };
   }, [projection]);
 
   const [view, setView] = useState(defaultView);
