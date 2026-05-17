@@ -195,14 +195,6 @@ const MobileBottomNavSettings: React.FC = () => {
         />
       )}
 
-      {liveItem && (
-        <MobileNavLivePicker
-          open={!!livePickerFor}
-          onOpenChange={(v) => !v && setLivePickerFor(null)}
-          initialPath={liveItem.target_path?.split('#')[0]?.split('?')[0] || '/dashboard'}
-          onPick={(path, label) => applyPath(liveItem, path, label)}
-        />
-      )}
     </Card>
   );
 };
