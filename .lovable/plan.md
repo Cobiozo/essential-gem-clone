@@ -1,29 +1,39 @@
-Problem nie wynika z samej Akademii, tylko z obecnego podejścia: picker w iframe przechwytuje kliknięcia, ale wiele miejsc w aplikacji nie jest zwykłym linkiem ani adresem `/nazwa`; część to przyciski, zakładki, elementy warunkowe albo akcje `navigate()`. Dlatego klikanie w dowolny tekst/sekcję nie zawsze daje poprawny cel.
+## Co znalazłem
 
-Plan skuteczniejszego rozwiązania:
+- Akademia w konfiguracji dolnego paska jest już zapisana jako `/training`.
+- Trasa `/training` istnieje w `App.tsx`, więc sama ścieżka jest poprawna.
+- W bazie nadal są też stare/błędne pozycje (`/profile`, dawny Eventy, duplikat Nowa pozycja), co może mylić testowanie.
+- Dolny pasek używa `navigate(targetPath)`, ale nie czyści query stringów ani nie wymusza twardego fallbacku, więc w niektórych stanach aplikacji/mobile/PWA klik może wyglądać jak „nic się nie stało”.
 
-1. Dodać centralny rejestr realnych celów nawigacji
-- Każde miejsce będzie miało: nazwę, ikonę, ścieżkę/akcję, kategorię i role, dla których istnieje.
-- Akademia zostanie wskazana jako właściwa trasa używana przez aplikację: najpewniej `/training`, a jeśli routing faktycznie mapuje `/academy`, zostanie zachowana kompatybilność.
-- Rejestr będzie obsługiwał też cele z parametrami i zakładkami, np. `/admin?tab=...`, `/profile?tab=...`, `#sekcja`.
+## Plan naprawy
 
-2. Zamienić „kliknij w iframe” na pewny wybór miejsca z mini-pulpitu
-- W panelu Admin → System → Dolny pasek mobile przy wyborze celu pokażę miniaturowy pulpit/katalog miejsc aplikacji.
-- Admin będzie klikał kafelek konkretnego miejsca, a nie przypadkowy element strony.
-- Kafelek od razu zapisze poprawny cel techniczny, nawet jeśli w aplikacji normalnie przejście odbywa się przez `navigate()` albo ukryty przycisk.
+1. **Uodpornić kliknięcie w dolnym pasku**
+   - Dodać centralną funkcję obsługi celu nawigacji.
+   - Dla ścieżek aplikacji typu `/training` wykonywać bezpieczne przejście z pełnym `pathname + search + hash`.
+   - Jeśli użytkownik kliknie aktualnie tę samą ścieżkę, przewinąć stronę do góry zamiast pozostawiać brak reakcji.
+   - Dodać fallback `window.location.assign(...)` dla sytuacji, gdy SPA navigation nie zmieni widoku.
 
-3. Zachować możliwość ręcznej ścieżki dla wyjątków
-- Pole „ścieżka własna” zostanie, ale jako tryb zaawansowany.
-- Dzięki temu da się ustawić anchor, query string albo nietypową ścieżkę, jeśli pojawi się nowy ekran bez rejestru.
+2. **Poprawić obsługę adresów z parametrami**
+   - Nie obcinać `?tab=...` przy kliknięciu.
+   - Poprawnie obsługiwać `#sekcja` po wejściu na stronę.
+   - Aktywność przycisku liczyć po `pathname`, ale nawigację wykonywać pełnym adresem.
 
-4. Naprawić Akademię
-- Uzupełnię rejestr o prawidłowy cel Akademii zgodny z aktualnym routingiem aplikacji.
-- Po wybraniu kafelka „Akademia” dolny pasek mobile będzie przenosił dokładnie tam, gdzie prowadzi normalna nawigacja aplikacji.
+3. **Naprawić problem starych/błędnych pozycji w bazie**
+   - Zmienić `/profile` na `/my-account?tab=profile`.
+   - Wyłączyć albo zostawić bez wpływu stare pozycje testowe/duplikaty, żeby nie przeszkadzały w mobile.
+   - Upewnić się, że „Akademia” ma `target_path = '/training'`, aktywność włączoną i widoczność dla ról.
 
-5. Uprościć lub usunąć zawodny live picker
-- Obecny picker iframe zostanie usunięty albo zdegradowany do opcji pomocniczej, żeby nie sugerował, że każde kliknięcie w dowolny tekst może być bezbłędnie zamienione na nawigację.
+4. **Poprawić panel admina, żeby problem nie wracał**
+   - Przy wyborze z katalogu zawsze zapisywać dokładną ścieżkę z rejestru.
+   - Dodać walidację ścieżki własnej: musi zaczynać się od `/`; przy błędnych znanych aliasach pokazać/ustawić właściwy odpowiednik.
 
-Technicznie:
-- Zmiany obejmą głównie `mobileNavRegistry`, `MobileNavPathPicker`, `MobileBottomNavSettings` i ewentualnie `MobileBottomNav`.
-- Nie zmieniam logiki bazy danych ani uprawnień.
-- Pasek nadal będzie mógł mieć jedną lub dowolną liczbę pozycji.
+5. **Weryfikacja**
+   - Po zmianach sprawdzić w mobile viewport, że kliknięcie „Akademia” prowadzi do `/training` i renderuje stronę Akademii.
+   - Sprawdzić także, że „Profil” nie prowadzi już do nieistniejącego `/profile`.
+
+## Pliki do zmiany
+
+- `src/components/layout/MobileBottomNav.tsx`
+- `src/components/admin/MobileNavPathPicker.tsx`
+- `src/components/admin/MobileBottomNavSettings.tsx` — tylko jeśli potrzebna będzie walidacja/komunikat
+- migracja Supabase aktualizująca błędne rekordy w `mobile_bottom_nav_items`
