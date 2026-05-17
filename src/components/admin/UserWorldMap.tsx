@@ -155,15 +155,16 @@ const UserWorldMap: React.FC<Props> = ({
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
   }, [effectiveStyle]);
 
-  // Default view: Europe centered, tighter zoom (matches reference screenshot:
-  // ~3 wheel steps closer than the previous preset).
-  const DEFAULT_ZOOM_SATELLITE = 5.5;
-  const DEFAULT_ZOOM_CLASSIC = 6.0;
+  // Default view: Europe centered. On mobile we zoom in much closer so the
+  // initial view shows just Europe (no Africa/Atlantic visible).
+  const DEFAULT_ZOOM_SATELLITE = isMobile ? 9 : 5.5;
+  const DEFAULT_ZOOM_CLASSIC = isMobile ? 9 : 6.0;
+  const defaultCenter: [number, number] = isMobile ? [15, 52] : [15, 50];
   const defaultView = useMemo(() => {
-    const pt = projection([15, 50]);
+    const pt = projection(defaultCenter);
     const zoom = effectiveStyle === 'satellite' ? DEFAULT_ZOOM_SATELLITE : DEFAULT_ZOOM_CLASSIC;
     return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom };
-  }, [projection, effectiveStyle]);
+  }, [projection, effectiveStyle, isMobile]);
 
   const [view, setView] = useState(defaultView);
   // Reset view when projection changes (style switch)
