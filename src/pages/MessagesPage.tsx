@@ -242,7 +242,7 @@ const MessagesPage = () => {
   }, [teamMembers, isArchived, isDeleted, isBlocked]);
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden pb-[60px] md:pb-0">
       {/* Header */}
       <header className="h-14 border-b border-border flex items-center px-4 bg-background/95 backdrop-blur shrink-0">
         <Button 
