@@ -257,7 +257,26 @@ export const UserNotificationCenter = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground mb-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Powiadomienia email</p>
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                        <Mail className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <Label className="font-medium">Email o nowych wiadomościach na czacie</Label>
+                        <p className="text-xs text-muted-foreground">Wysyłany, gdy ktoś napisze do Ciebie, a jesteś offline</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={emailOnOffline}
+                      onCheckedChange={toggleEmailOnOffline}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-4 pt-2">
                   Wybierz, jakie powiadomienia chcesz otrzymywać
                 </p>
                 {eventTypes.map(eventType => {
