@@ -5378,6 +5378,54 @@ export type Database = {
         }
         Relationships: []
       }
+      mobile_bottom_nav_items: {
+        Row: {
+          created_at: string
+          icon_name: string
+          id: string
+          is_active: boolean
+          label: string
+          position: number
+          target_path: string
+          updated_at: string
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_leader: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
+        }
+        Insert: {
+          created_at?: string
+          icon_name: string
+          id?: string
+          is_active?: boolean
+          label: string
+          position?: number
+          target_path: string
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_leader?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Update: {
+          created_at?: string
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          position?: number
+          target_path?: string
+          updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_leader?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
+        }
+        Relationships: []
+      }
       news_ticker_items: {
         Row: {
           content: string
