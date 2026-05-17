@@ -419,22 +419,23 @@ const HealthyKnowledgePublicPage: React.FC = () => {
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Lock className="w-4 h-4" />
-                <span>Kod w formacie: ZW-XXXXXX</span>
+                <span>Kod w formacie: BW-XXXX</span>
               </div>
               
               <div className="flex items-center gap-2">
-                <span className="text-lg font-mono font-bold text-muted-foreground">ZW-</span>
+                <span className="text-lg font-mono font-bold text-muted-foreground">BW-</span>
                 <Input
                   value={formatDisplay(otpRaw)}
                   onChange={handleCodeChange}
                   onPaste={handleCodePaste} 
                   onKeyDown={(e) => { if (e.key === 'Enter' && isGuestFormValid()) handleOtpSubmit(); }}
-                  placeholder="XXXXXX"
-                  maxLength={6}
+                  placeholder="XXXX"
+                  maxLength={4}
                   autoComplete="off"
                   spellCheck={false}
-                  inputMode="text"
-                  className="font-mono text-lg tracking-widest uppercase w-[140px] text-center"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  className="font-mono text-lg tracking-widest w-[120px] text-center"
                 />
               </div>
 
