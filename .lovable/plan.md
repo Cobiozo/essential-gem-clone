@@ -1,33 +1,32 @@
-Problem: widżet mapy nadal może dawać zły efekt w produkcji, bo aktualny render opiera satelitę na obrazie SVG `<image>` z dynamicznym viewBox oraz ładuje punkty przez klientowe geokodowanie. To oznacza, że błąd assetu, przeglądarki, uprawnień Edge Function albo geokodowania może zepsuć odbiór całego widżetu.
+Plan naprawy widżetu mapy:
 
-Plan naprawy:
+1. Cache danych mapy w `localStorage`
+- Dodać cache dla wyniku RPC `get_user_city_counts` w `UserWorldMapWidget`.
+- Po udanym RPC zapisywać ostatnie poprawne miasta wraz z timestampem.
+- Jeśli RPC zwróci błąd, timeout albo brak dostępu, odczytać ostatni cache i nadal renderować mapę z zapisanymi punktami.
+- Jeśli nie ma cache, renderować mapę bez punktów, ale bez crasha i bez znikania widżetu.
 
-1. Ustabilizować sam render mapy
-- Usunąć renderowanie satelity przez `<image href="/textures/earth-bluemarble-2k.jpg">` wewnątrz przesuwanego SVG.
-- Zastąpić je bezpiecznym tłem CSS `<img>`/warstwą absolutną poza SVG, które nie wpływa na geometrię i nie może zepsuć ścieżek mapy.
-- SVG zostawić wyłącznie do granic państw, markerów, tooltipów i kliknięć.
-- Dodać stały fallback: jeśli tekstura albo dane geometrii nie załadują się poprawnie, widoczna ma być klasyczna mapa konturowa, a nie pusty/błędny widżet.
+2. Cache geokodowania miast
+- Dodać lokalny cache dla wyników `geocode-cities`, bo same city counts nie wystarczą do pokazania markerów po awarii Edge Function.
+- Przy błędzie geokodowania używać ostatnich współrzędnych zapisanych w `localStorage` dla tych samych `city|country`.
+- Po udanym geokodowaniu aktualizować cache współrzędnych.
 
-2. Dodać twardy ErrorBoundary bez ukrywania widżetu
-- Obecnie `DashboardFooterSection` ma fallback pusty (`<></>`), więc przy błędzie widget znika.
-- Zmienić fallback na stabilną, prostą mapę zastępczą z komunikatem neutralnym lub samą konturową grafiką, żeby „błędu widżeta mapy” nigdy nie było w UI.
-- Błąd komponentu mapy nie ma wpływać na resztę pulpitu.
+3. Naprawa przesunięcia mapy względem konturów
+- Przyczyną przesunięcia jest ręczne rozciąganie bitmapy satelitarnej przez punkty projekcji `[-180,85]` i `[180,-85]`, co nie pokrywa się 1:1 z pełnym equirectangular zakresem tekstury.
+- Dla trybu satelitarnego wymusić spójną projekcję equirectangular o kontrolowanej skali i translate zamiast `fitSize` zależnego od konturów TopoJSON.
+- Umieścić teksturę dokładnie w obszarze odpowiadającym `[-180,-90]` do `[180,90]`, a nie `[-180,85]` do `[180,-85]`.
+- Kraje, granice i markery zostaną liczone tą samą projekcją, więc kontury i bitmapa będą zbieżne.
 
-3. Oddzielić dane użytkowników od widoczności mapy
-- `UserWorldMapWidget` ma zawsze pokazywać mapę, nawet jeśli `get_user_city_counts`, `geocode-cities` albo `geocode-city-boundary` zwrócą błąd/403/timeout.
-- W takim przypadku mapa renderuje się bez kropek albo z ostatnim bezpiecznym pustym stanem, bez komunikatu błędu.
-- Geokodowanie granic miast pozostawić opcjonalne i tylko jako dekorację przy dużym zoomie.
+4. Ulepszone mobile pinch/drag
+- Zastąpić obecne pojedyncze `dragRef` obsługą aktywnych pointerów w `Map<number, point>`.
+- Jeden palec: płynne przesuwanie mapy.
+- Dwa palce: pinch zoom liczony z dystansu między palcami oraz pan według środka gestu.
+- Zoom będzie zachowywać punkt pod palcami możliwie stabilnie zamiast tylko zmieniać `zoom` środka widoku.
+- Dodać bezpieczne anulowanie animacji przy ręcznym geście i stabilne `pointer capture/release`.
 
-4. Usunąć pozostałości problematycznej zależności
-- Usunąć `react-simple-maps` oraz `@types/react-simple-maps` z `package.json`, bo komponent już nie powinien z nich korzystać, a ich obecność może nadal trafiać do bundle/cache i mylić produkcyjną diagnostykę.
-- Zostawić bezpośrednie `d3-geo`, `topojson-client`, `world-atlas`.
+5. Stabilizacja na produkcji
+- Ograniczyć stan widoku przez `clampView`, żeby pan/zoom nie wyjeżdżał poza sensowne granice mapy.
+- Poprawić `wheel zoom`, aby zoomował wokół kursora, nie środka mapy.
+- Zachować istniejące przełączniki, logo, markery, filtrowanie kraju i fallback ErrorBoundary.
 
-5. Zweryfikować po zmianach
-- Sprawdzić `/dashboard` w podglądzie: mapa widoczna, tryb Klasyczna/Satelitarna działa, zoom/reset nie powodują błędów.
-- Sprawdzić logi konsoli pod kątem błędów mapy.
-- Sprawdzić request tekstury i funkcji geokodowania: awaria danych nie może już usuwać ani psuć mapy.
-
-Zakres bez zmian:
-- Bez zmian DB/RLS.
-- Bez zmian ustawień admina mapy poza sposobem bezpiecznego renderowania.
-- Bez zmian logiki ról i widoczności widżetu.
+Zakres zmian: frontend tylko w `UserWorldMapWidget.tsx` i `UserWorldMap.tsx`; bez zmian w bazie, RLS, rolach ani Supabase functions.

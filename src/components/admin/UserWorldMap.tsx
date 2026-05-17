@@ -19,6 +19,41 @@ const VIEW_H = 420;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 200;
 
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v1';
+type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
+
+function readGeocodeCache(): GeocodeCache {
+  try {
+    const raw = localStorage.getItem(GEOCODE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed as GeocodeCache : {};
+  } catch { return {}; }
+}
+function writeGeocodeCache(cache: GeocodeCache) {
+  try { localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache)); } catch {}
+}
+function mergeGeocodeCache(results: GeocodeResult[]) {
+  if (!results || results.length === 0) return;
+  const cache = readGeocodeCache();
+  let changed = false;
+  results.forEach((r) => {
+    if (r && typeof r.lat === 'number' && typeof r.lng === 'number' && isFinite(r.lat) && isFinite(r.lng)) {
+      const key = `${r.city.toLowerCase()}|${r.country.toLowerCase()}`;
+      cache[key] = { lat: r.lat, lng: r.lng, ts: Date.now() };
+      changed = true;
+    }
+  });
+  if (changed) writeGeocodeCache(cache);
+}
+function fromCacheResults(items: { city: string; country: string }[]): GeocodeResult[] {
+  const cache = readGeocodeCache();
+  return items.map((i) => {
+    const hit = cache[`${i.city.toLowerCase()}|${i.country.toLowerCase()}`];
+    return { city: i.city, country: i.country, lat: hit?.lat ?? null, lng: hit?.lng ?? null };
+  });
+}
+
 async function geocodeCities(
   items: { city: string; country: string }[],
   forceRetry = false,
@@ -29,12 +64,12 @@ async function geocodeCities(
       body: { items, forceRetry },
     });
     if (error) throw error;
-    return {
-      results: (data?.results ?? []) as GeocodeResult[],
-      pending: (data?.pending ?? 0) as number,
-    };
+    const results = (data?.results ?? []) as GeocodeResult[];
+    mergeGeocodeCache(results);
+    return { results, pending: (data?.pending ?? 0) as number };
   } catch {
-    return { results: [], pending: 0 };
+    // Fallback: serve from local cache so the map still shows previously-known points.
+    return { results: fromCacheResults(items), pending: 0 };
   }
 }
 
