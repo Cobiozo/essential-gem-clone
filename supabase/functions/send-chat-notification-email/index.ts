@@ -201,7 +201,8 @@ const handler = async (req: Request): Promise<Response> => {
       .from("user_notification_preferences")
       .select("email_on_offline")
       .eq("user_id", recipient_id)
-      .single();
+      .is("event_type_id", null)
+      .maybeSingle();
 
     const emailEnabled = preferences?.email_on_offline ?? true;
 

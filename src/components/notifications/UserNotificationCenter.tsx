@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Megaphone,
   GraduationCap,
-  Award
+  Award,
+  Mail
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationEventType, UserNotificationPreference } from '@/types/notifications';
@@ -50,6 +51,8 @@ export const UserNotificationCenter = () => {
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [preferences, setPreferences] = useState<UserNotificationPreference[]>([]);
   const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [emailOnOffline, setEmailOnOffline] = useState(true);
+  const [emailPrefId, setEmailPrefId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -62,17 +65,40 @@ export const UserNotificationCenter = () => {
 
     setPreferencesLoading(true);
     try {
-      const [eventTypesRes, prefsRes] = await Promise.all([
+      const [eventTypesRes, prefsRes, emailPrefRes] = await Promise.all([
         supabase.from('notification_event_types').select('*').eq('is_active', true).order('position'),
-        supabase.from('user_notification_preferences').select('*').eq('user_id', user.id),
+        supabase.from('user_notification_preferences').select('*').eq('user_id', user.id).not('event_type_id', 'is', null),
+        supabase.from('user_notification_preferences').select('id, email_on_offline').eq('user_id', user.id).is('event_type_id', null).maybeSingle(),
       ]);
 
       if (eventTypesRes.data) setEventTypes(eventTypesRes.data as NotificationEventType[]);
       if (prefsRes.data) setPreferences(prefsRes.data as UserNotificationPreference[]);
+      if (emailPrefRes.data) {
+        setEmailPrefId(emailPrefRes.data.id);
+        setEmailOnOffline(emailPrefRes.data.email_on_offline ?? true);
+      }
     } catch (error) {
       console.error('Error fetching preferences:', error);
     } finally {
       setPreferencesLoading(false);
+    }
+  };
+
+  const toggleEmailOnOffline = async (enabled: boolean) => {
+    if (!user) return;
+    setEmailOnOffline(enabled);
+    if (emailPrefId) {
+      await supabase
+        .from('user_notification_preferences')
+        .update({ email_on_offline: enabled, updated_at: new Date().toISOString() })
+        .eq('id', emailPrefId);
+    } else {
+      const { data } = await supabase
+        .from('user_notification_preferences')
+        .insert({ user_id: user.id, event_type_id: null, email_on_offline: enabled, is_enabled: true })
+        .select('id')
+        .single();
+      if (data) setEmailPrefId(data.id);
     }
   };
 
@@ -231,7 +257,26 @@ export const UserNotificationCenter = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground mb-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Powiadomienia email</p>
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                        <Mail className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <Label className="font-medium">Email o nowych wiadomościach na czacie</Label>
+                        <p className="text-xs text-muted-foreground">Wysyłany, gdy ktoś napisze do Ciebie, a jesteś offline</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={emailOnOffline}
+                      onCheckedChange={toggleEmailOnOffline}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-4 pt-2">
                   Wybierz, jakie powiadomienia chcesz otrzymywać
                 </p>
                 {eventTypes.map(eventType => {
