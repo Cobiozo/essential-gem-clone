@@ -201,7 +201,8 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       first_contact_annotation: formData.first_contact_annotation || null,
       first_contact_result: formData.first_contact_result || null,
       added_at: formData.added_at,
-      priority_level: formData.priority_level || 0,
+      priority_level: Object.values(formData.priority_traits).reduce((a, b) => a + (Number(b) || 0), 0),
+      priority_traits: formData.priority_traits,
       custom_fields: cleanedCustom,
     };
 
