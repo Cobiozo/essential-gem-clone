@@ -113,12 +113,14 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
   onMoveToOwnList,
   onEdit,
   onDelete,
+  onDeleteSession,
   getContactHistory,
   movedContactIds,
   movedContacts,
 }) => {
   const { tf } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteSessionConfirm, setDeleteSessionConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<HKSessionContact | null>(null);
   const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
