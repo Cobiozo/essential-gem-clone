@@ -1,0 +1,1 @@
+ALTER TABLE public.user_notification_preferences ADD COLUMN IF NOT EXISTS email_on_offline boolean DEFAULT true;

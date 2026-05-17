@@ -9571,6 +9571,7 @@ export type Database = {
       user_notification_preferences: {
         Row: {
           created_at: string | null
+          email_on_offline: boolean | null
           event_type_id: string | null
           id: string
           is_enabled: boolean | null
@@ -9579,6 +9580,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          email_on_offline?: boolean | null
           event_type_id?: string | null
           id?: string
           is_enabled?: boolean | null
@@ -9587,6 +9589,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          email_on_offline?: boolean | null
           event_type_id?: string | null
           id?: string
           is_enabled?: boolean | null
