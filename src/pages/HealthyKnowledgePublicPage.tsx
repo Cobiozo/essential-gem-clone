@@ -167,7 +167,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
 
   const handleOtpSubmit = async (codeOverride?: string) => {
     const raw = codeOverride || otpRaw;
-    if (raw.length !== 6) {
+    if (raw.length !== 4) {
       toast.error('Wprowadź pełny kod dostępu');
       return;
     }
@@ -181,8 +181,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     setError(null);
 
     try {
-      // Format code as ZW-XXXXXX
-      const formattedCode = `ZW-${raw}`.toUpperCase();
+      // Format code as BW-XXXX
+      const formattedCode = `BW-${raw}`.toUpperCase();
 
       const response = await supabase.functions.invoke('validate-hk-otp', {
         body: {
