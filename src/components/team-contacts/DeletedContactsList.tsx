@@ -67,27 +67,28 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
             : '';
 
           return (
-            <div key={contact.id} className="flex items-center justify-between p-3 gap-4">
+            <div key={contact.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-foreground">
+                  <span className="font-semibold text-foreground break-words">
                     {contact.first_name} {contact.last_name}
                   </span>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
                     {daysLeft} {daysLeft === 1 ? tf('teamContacts.day', 'dzień') : tf('teamContacts.days', 'dni')} {tf('teamContacts.daysToDelete', 'do usunięcia')}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                  {contact.email && <span>{contact.email}</span>}
-                  {contact.phone_number && <span>{contact.phone_number}</span>}
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground mt-1">
+                  {contact.email && <span className="truncate">{contact.email}</span>}
+                  {contact.phone_number && <span className="truncate">{contact.phone_number}</span>}
                   {deletedDateStr && <span className="text-xs">{tf('teamContacts.deletedAt', 'Usunięto')}: {deletedDateStr}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex w-full sm:w-auto items-center gap-2 shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onRestore(contact.id)}
+                  className="flex-1 sm:flex-none"
                 >
                   <RotateCcw className="w-4 h-4 mr-1" />
                   {tf('teamContacts.restore', 'Przywróć')}
@@ -97,6 +98,7 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
                     variant="destructive"
                     size="sm"
                     onClick={() => setPermanentDeleteId(contact.id)}
+                    className="flex-1 sm:flex-none"
                   >
                     <Trash2 className="w-4 h-4 mr-1" />
                     {tf('teamContacts.deletePermanently', 'Usuń trwale')}
