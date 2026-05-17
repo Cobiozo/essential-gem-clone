@@ -1,26 +1,24 @@
-## 1) Upload logo — błąd RLS
+## Plan naprawy
 
-Bucket `dashboard-map-logos` ma polityki INSERT/UPDATE/DELETE warunkowane `has_role(auth.uid(), 'admin')`. Komunikat „new row violates row-level security policy" oznacza, że zalogowany użytkownik nie ma wpisu `admin` w `user_roles` (mimo że widzi panel admina — UI może być dostępne też dla innej roli lub konto nie ma jeszcze przypisanej roli admina w tabeli).
+### 1) Upload logo lewego i prawego
+- Zostawię istniejący publiczny odczyt bucketu `dashboard-map-logos`.
+- Dodam drugą warstwę zapisu przez tabelę pomocniczą `dashboard_map_logo_uploads`, bo obecne polityki `storage.objects` wyglądają już poprawnie, a błąd nadal wskazuje na blokadę RLS podczas realnego uploadu.
+- Utworzę bezpieczne zasady dostępu:
+  - zalogowany użytkownik może dodać rekord uploadu tylko dla siebie,
+  - odczyt może być publiczny tylko na potrzeby publicznego logo,
+  - usuwanie/edycja pozostają ograniczone do właściciela lub admina.
+- W kodzie uploadu dodam jawne sprawdzenie aktywnej sesji przed wysyłką, lepszy komunikat błędu oraz bardziej unikalną nazwę pliku, żeby upload lewego i prawego logo działał tak samo.
 
-Migracja Supabase — rozluźnimy polityki tego konkretnego, niewrażliwego bucketu (publicznie czytany, używany tylko z panelu admina) do dowolnego zalogowanego użytkownika; admin pozostaje warunkiem domyślnym, ale dodamy fallback na `authenticated`:
+### 2) Domyślny tryb mapy
+- Ustawię wartość domyślną w bazie dla `dashboard_map_settings.default_mode` na `satellite`.
+- Zaktualizuję istniejący rekord ustawień widżetu na `satellite`, żeby aktualny widget od razu startował w trybie satelitarnym.
+- W panelu admina zostanie obecny przełącznik „Klasyczna / Satelitarna”, więc admin nadal będzie mógł zmienić domyślny tryb.
 
-- DROP polityk: `Dashboard map logos admin insert/update/delete`.
-- CREATE nowych polityk dla bucketu `dashboard-map-logos`:
-  - INSERT: `bucket_id = 'dashboard-map-logos' AND auth.uid() IS NOT NULL`
-  - UPDATE: `bucket_id = 'dashboard-map-logos' AND auth.uid() IS NOT NULL`
-  - DELETE: `bucket_id = 'dashboard-map-logos' AND auth.uid() IS NOT NULL`
-- SELECT bez zmian (publiczny odczyt — logo i tak ma być widoczne dla wszystkich).
+### 3) Zachowanie w UI
+- Nie zmienię obecnego przybliżania kraju ani powrotu po odznaczeniu — nadal będzie używany aktualny startowy widok mapy.
+- Nie zmienię innych widgetów ani globalnych ustawień panelu.
 
-Ryzyko niskie: bucket trzyma wyłącznie logo widżetu mapy, zapis i tak jest gated przez UI panelu admina.
-
-## 2) Startowy widok mapy — bliżej o 3 stopnie rolki
-
-W `src/components/admin/UserWorldMap.tsx` startowy `zoom = 3.8`. Krok rolki to `Math.exp(-deltaY * 0.0015)`; pełna notch ≈ `deltaY 100` → współczynnik ~1.162. Trzy stopnie ≈ 1.162³ ≈ 1.57.
-
-Zmiana:
-- `defaultView.zoom`: `3.8` → `6.0` (3.8 × 1.57 ≈ 5.97, zaokrąglone do 6).
-- Centrum bez zmian (`[15, 50]`), więc kadr pokryje dokładnie Europę z screena, ale bliżej.
-
-Dotyczy zarówno startu, jak i przycisku „reset" oraz powrotu po odznaczeniu państwa (już używają `defaultView`).
-
-Bez zmian w innych plikach.
+## Szczegóły techniczne
+- Migracja Supabase obejmie domyślny `default_mode = 'satellite'` oraz pomocniczą tabelę uploadów z RLS.
+- Frontend zmienię głównie w `DashboardMapSettings.tsx`: sprawdzenie `supabase.auth.getSession()`, obsługa błędów RLS i zapis URL po udanym uploadzie.
+- Startowy tryb mapy nadal będzie przekazywany z `settings.default_mode` do `UserWorldMap`.
