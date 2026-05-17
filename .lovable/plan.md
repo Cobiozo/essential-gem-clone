@@ -1,84 +1,91 @@
 ## Cel
+1. Usunąć wymóg minimum 5 pozycji w dolnym pasku nawigacji (mobile). Może być od 1 do N.
+2. Umożliwić adminowi **wskazanie celu kliknięciem dowolnego miejsca w aplikacji** (nie tylko z gotowej listy ścieżek), z obsługą podstron które nie mają własnego URL (zakładki, sekcje, modale).
 
-1. Przenieść panel "Dolny pasek nawigacji (mobile)" z zakładki **Statystyki użytkowników** do zakładki **System** w panelu admina.
-2. Wybór ikony — zamiast wpisywania nazwy, **lista rozwijana** (Select) z popularnych ikon `lucide-react` + podgląd.
-3. Wybór ścieżki — zamiast wpisywania, **wizualny picker**: mini-mockup aplikacji (pulpit/sidebar) na którym admin klika obszar, a system przypisuje odpowiednią ścieżkę do ikony.
+## 1. Zniesienie limitu 5 pozycji
 
-## 1. Przeniesienie do zakładki System
+Plik: `src/components/admin/MobileBottomNavSettings.tsx`
+- Usunąć blokadę w `remove()` (`if (activeCount <= 5 ...)`)
+- Usunąć blokadę w `onCheckedChange` przy `Switch is_active`
+- Usunąć komunikat `aktywnych pozycji jest mniej niż 5`
+- W nagłówku zostawić tylko informację: „Możesz dodać dowolną liczbę pozycji (zalecane 3–5 dla czytelności)."
 
-`src/components/admin/AdminSidebar.tsx` (lista `system.items`, ok. linia 208–219) — dopisać:
+Plik: `src/components/layout/MobileBottomNav.tsx`
+- Bez zmian logiki — już renderuje wszystkie `visible`. Dodać tylko ograniczenie wizualne: jeśli >5 widocznych, scroll poziomy (`overflow-x-auto`, `snap-x`) zamiast ścisku ikon.
+
+## 2. Pickowanie celu kliknięciem w aplikacji
+
+### Model danych
+`target_path` pozostaje stringiem, ale akceptuje trzy formaty:
+- `"/dashboard"` — czysty route
+- `"/dashboard#widget-tasks"` — route + hash (do anchor scroll / zakładki)
+- `"/admin?tab=users"` — route + query (dla podstron typu Admin tabs)
+
+Nie trzeba migracji.
+
+### Komponent „Tryb wskazywania" (Pick Mode)
+
+Nowy plik: `src/components/admin/MobileNavLivePicker.tsx`
+- `Dialog` (fullscreen na mobile, 90vw/90vh na desktop) zawierający:
+  - Pasek górny: pole adresu startowego (domyślnie `/dashboard`), przycisk „Idź", przycisk „Zapisz jako cel" (nieaktywny dopóki nic nie wybrano), przycisk „Anuluj".
+  - Główna powierzchnia: `<iframe src="/dashboard?__navpick=1" />` na całą wysokość, ramka zaokrąglona.
+  - Pasek dolny: bieżący wskazany cel — `path + hash/query + nazwa elementu`.
+
+### Tryb „nav pick" wewnątrz aplikacji
+
+Nowy plik: `src/components/system/NavPickOverlay.tsx`
+- Mount w `App.tsx` (zaraz po `BrowserRouter`).
+- Aktywny tylko gdy `new URLSearchParams(location.search).get('__navpick') === '1'`.
+- Co robi:
+  1. Dodaje globalny CSS overlay z napisem „Tryb wskazywania — kliknij element, który ma być celem".
+  2. Globalny listener `click` w fazie `capture`, `preventDefault` + `stopPropagation` na każdym kliknięciu.
+  3. Z elementu klikniętego wyciąga cel w kolejności:
+     - `closest('[data-nav-target]')` → wartość atrybutu (najlepszy przypadek, dla zakładek/akcji bez URL).
+     - `closest('a[href]')` → href (route lub zewnętrzny URL — odrzucamy zewnętrzne).
+     - `closest('[role="tab"][value]')` → `location.pathname + '?tab=' + value` (dla `Tabs` z shadcn).
+     - W ostateczności: `location.pathname + '#' + (element.id || generateAnchor)`. Jeśli element nie ma `id`, dodajemy mu tymczasowy `id="navpick-<hash>"` i sugerujemy adminowi — ale to słabe. Zamiast tego: oferujemy tylko `location.pathname` z toastem „Element nie ma stabilnego adresu — wskaż link, zakładkę lub dodaj `data-nav-target` w kodzie."
+  4. Wysyła do parent okna: `window.parent.postMessage({type:'NAV_PICK', path, label}, '*')`.
+  5. Pokazuje toast w iframe: „Wybrano: <label> → <path>. Wróć do panelu i kliknij Zapisz."
+
+W `MobileNavLivePicker.tsx`:
+- `useEffect` z `window.addEventListener('message', ...)` filtrującym `type === 'NAV_PICK'`, ustawia lokalny `selected = {path, label}`.
+- „Zapisz jako cel" → `onPick(selected.path)` + `onPick` może też zaktualizować label jeśli pusty/„Nowa pozycja".
+
+### Wzbogacenie istniejących ekranów o `data-nav-target`
+
+Aby kliknięcia trafiały w sensowne cele bez URL (zakładki Admin, widgety Dashboard, sekcje), w **drugim kroku** dodać `data-nav-target="/admin?tab=users"` itp. w kluczowych miejscach:
+- `AdminSidebar.tsx` — każdy `TabsTrigger` lub przycisk zakładki: `data-nav-target={`/admin?tab=${item.value}`}`
+- `Dashboard.tsx` — kafle widgetów: `data-nav-target` z odpowiednim hashem (`#widget-<id>`) + dodać scroll-on-hash w Dashboard.
+
+### Integracja w `MobileBottomNavSettings.tsx`
+- Obok obecnego przycisku „Miejsce w aplikacji" (otwiera `MobileNavPathPicker`) dodać drugi przycisk **„Wskaż klikając w aplikacji"** otwierający `MobileNavLivePicker`.
+- Oba sposoby zapisują do tego samego pola `target_path`.
+
+### Obsługa `#hash` po nawigacji
+W `MobileBottomNav.tsx` `onClick`:
 ```
-{ value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
-```
-i dodać tłumaczenie w `hardcodedLabels`: `mobileBottomNav: 'Dolny pasek (mobile)'`.
-
-`src/pages/Admin.tsx` (sekcja `<TabsContent>` ok. linii 4783) — dodać:
-```tsx
-<TabsContent value="mobile-bottom-nav">
-  <MobileBottomNavSettings />
-</TabsContent>
-```
-i import komponentu.
-
-`src/components/admin/UserStatistics.tsx` — usunąć render `<MobileBottomNavSettings />` (zostaje tylko w System).
-
-## 2. Wybór ikony – dropdown
-
-W `MobileBottomNavSettings.tsx` zamienić `<Input>` na `<Select>` z kuratorską listą ~60 ikon `lucide-react` (Home, LayoutDashboard, MessageCircle, Mail, Calendar, CalendarDays, GraduationCap, BookOpen, Users, User, Settings, Bell, Heart, Activity, Map, MapPin, Phone, FileText, Folder, Search, Star, ShoppingBag, Briefcase, Compass, Video, Mic, Image, BarChart, PieChart, Trophy, Award, Gift, ClipboardList, CheckSquare, HelpCircle, Shield, Globe, Building2, Newspaper, Package, Wallet, CreditCard, Tag, Bookmark, Flag, Zap, Sparkles, Sun, Moon, Cloud, Plus, Menu, Grid, List, Box, Layers, Send, Link, Smartphone, Headphones).
-
-Każda opcja w dropdownie renderuje ikonę + nazwę. Wartość zapisywana jako `icon_name` (PascalCase) — kompatybilne z istniejącym renderem `(Icons as any)[icon_name]`.
-
-## 3. Wybór ścieżki – wizualny mockup
-
-Nowy komponent `src/components/admin/MobileNavPathPicker.tsx`:
-- Modal/Popover ze stylizowanym schematem aplikacji: lista klikalnych „stref" (każda = nazwa + docelowa ścieżka).
-- Po kliknięciu w strefę → `onChange(path)` i zamknięcie.
-
-Lista stref (statyczny rejestr, można rozbudować — odpowiada realnym routom aplikacji):
-
-```text
-Pulpit                /dashboard
-Wiadomości            /messages
-Eventy                /events
-Akademia              /academy
-Profil                /profile
-Mój zespół            /team
-Powiadomienia         /notifications
-Wyszukiwarka          /search
-Spotkania 1:1         /individual-meetings
-Spotkania zespołowe   /team-meetings
-PureBox / Omega       /purebox
-Baza wiedzy           /zdrowa-wiedza
-Kalkulator            /calculator
-Moja strona partnera  /moja-strona
-Webinary              /webinars
-Panel lidera          /leader-panel
-Ustawienia            /settings
+const [pathname, hash] = it.target_path.split('#');
+navigate(pathname);
+if (hash) setTimeout(() => document.getElementById(hash)?.scrollIntoView({behavior:'smooth'}), 100);
 ```
 
-Layout: siatka 3-kol kafelków z ikoną + nazwą + ścieżką, podświetlone obecnie wybrane. Pole "Ścieżka własna" (advanced) zostaje jako fallback poniżej (collapsed accordion) – pozwala wpisać dowolną ścieżkę gdy admin doda nową stronę.
+### Bezpieczeństwo
+- W `NavPickOverlay` weryfikujemy `event.origin === window.location.origin` przy odbiorze postMessage w parent (ten sam origin — iframe na tym samym hoście).
+- Tryb `__navpick=1` aktywny tylko dla zalogowanego admina (`useAuth().userRole?.role === 'admin'`); inaczej overlay się nie montuje (defense-in-depth).
 
-W `MobileBottomNavSettings.tsx` w wierszu pozycji zamiast `<Input target_path>` przycisk:
-```
-[Ikona docelowego miejsca] Pulpit  ·  /dashboard   [Zmień]
-```
-otwierający `MobileNavPathPicker` (Dialog). Po wyborze: `update(id, { target_path })`.
+## Pliki
 
-## Zakres techniczny
+**Edytowane:**
+- `src/components/admin/MobileBottomNavSettings.tsx` — usuń limit 5, dodaj drugi przycisk „Wskaż klikając"
+- `src/components/layout/MobileBottomNav.tsx` — obsługa `#hash`, scroll przy >5 ikonach
+- `src/App.tsx` — montuje `<NavPickOverlay/>`
 
-**Edytowane pliki:**
-- `src/components/admin/AdminSidebar.tsx` – dopisanie pozycji w `system.items` + label
-- `src/pages/Admin.tsx` – nowy `TabsContent value="mobile-bottom-nav"` + import
-- `src/components/admin/UserStatistics.tsx` – usunięcie sekcji `MobileBottomNavSettings`
-- `src/components/admin/MobileBottomNavSettings.tsx` – Select ikon + przycisk otwierający picker ścieżki
+**Nowe:**
+- `src/components/admin/MobileNavLivePicker.tsx` — Dialog z iframe
+- `src/components/system/NavPickOverlay.tsx` — przechwytywanie kliknięć w trybie pickowania
 
-**Nowe pliki:**
-- `src/components/admin/MobileNavPathPicker.tsx` – Dialog z siatką klikalnych stref i fallback "ścieżka własna"
-- `src/components/admin/mobileNavRegistry.ts` – statyczna tablica `{ label, path, iconName }[]` (źródło prawdy dla pickera; łatwa do rozszerzenia w przyszłości)
+**Drugi etap (opcjonalnie, po akceptacji):**
+- Dodanie `data-nav-target` w `AdminSidebar`, `Dashboard` i innych miejscach bez URL.
 
-**Bez zmian:** tabela `mobile_bottom_nav_items`, hook `useMobileBottomNav`, komponent `MobileBottomNav.tsx` (frontend mobile) — pole `target_path` dalej jest stringiem, picker tylko wygodnie je ustawia.
-
-## Pytania doprecyzowujące
-
-1. Czy obecna lista stref (17 pozycji powyżej) jest OK, czy chcesz inny zestaw? Mogę też wygenerować ją automatycznie z `KNOWN_APP_ROUTES`.
-2. Czy picker ścieżki ma być prostą siatką kafelków (szybsze), czy chcesz realistyczny mini-podgląd ekranu aplikacji ze strzałkami wskazującymi obszary (ładniej, ale więcej pracy)? Sugeruję siatkę — jest jasna i nie myli się jak miniatura.
+## Pytanie do Ciebie
+Czy w pierwszym podejściu wystarczy tryb live-picker działający na elementach które **już mają URL/link** (`<a href>`, `Link`, zakładki `TabsTrigger`), a `data-nav-target` dorzucimy stopniowo tam gdzie potrzeba? Czy od razu chcesz mieć obrandowane wszystkie kluczowe sekcje (Dashboard widgets, Admin tabs, PureBox sekcje)?

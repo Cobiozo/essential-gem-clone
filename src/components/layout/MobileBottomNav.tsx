@@ -55,16 +55,28 @@ const MobileBottomNav: React.FC = () => {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Szybka nawigacja"
     >
-      <ul className="flex items-stretch justify-around">
+      <ul className={cn(
+        'flex items-stretch',
+        visible.length > 5 ? 'overflow-x-auto snap-x' : 'justify-around'
+      )}>
         {visible.map((it) => {
           const IconCmp = (Icons as any)[it.icon_name] || (Icons as any).Circle;
-          const active = location.pathname === it.target_path
-            || (it.target_path !== '/' && location.pathname.startsWith(it.target_path));
+          const [targetPath, targetHash] = it.target_path.split('#');
+          const [targetPathname] = targetPath.split('?');
+          const active = location.pathname === targetPathname
+            || (targetPathname !== '/' && location.pathname.startsWith(targetPathname));
           return (
-            <li key={it.id} className="flex-1">
+            <li key={it.id} className={cn(visible.length > 5 ? 'shrink-0 basis-1/5 snap-start' : 'flex-1')}>
               <button
                 type="button"
-                onClick={() => navigate(it.target_path)}
+                onClick={() => {
+                  navigate(targetPath);
+                  if (targetHash) {
+                    setTimeout(() => {
+                      document.getElementById(targetHash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 120);
+                  }
+                }}
                 className={cn(
                   'w-full flex flex-col items-center justify-center gap-0.5 py-2 px-1 transition-colors',
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
