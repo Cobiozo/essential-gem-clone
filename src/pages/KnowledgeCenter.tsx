@@ -462,63 +462,63 @@ export default function KnowledgeCenter() {
     <div className="min-h-screen bg-background">
       <Header siteLogo={siteLogo} hideLanguageSelector />
       
-      <main className="container mx-auto px-4 py-8 pt-24">
+      <main className="container mx-auto px-4 py-6 sm:py-8 pt-20 sm:pt-24">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Biblioteka</h1>
-          <p className="text-muted-foreground">
+        <div className="mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Dokumenty, materiały i grafiki do Twojej dyspozycji
           </p>
         </div>
 
-        {/* Main Tabs - Documents / Graphics */}
+        {/* Main Tabs - Documents / Graphics / Team */}
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics' | 'team')} className="w-full">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <TabsList className="w-auto flex-wrap">
-              <TabsTrigger value="documents" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Dokumenty edukacyjne
+          <div className="mb-4 sm:mb-6">
+            <TabsList className={`w-full grid ${hasTeamResources ? 'grid-cols-3' : 'grid-cols-2'} h-auto`}>
+              <TabsTrigger value="documents" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="truncate">Dokumenty</span>
               </TabsTrigger>
-              <TabsTrigger value="graphics" className="flex items-center gap-2">
-                <Image className="h-4 w-4" />
-                Grafiki
+              <TabsTrigger value="graphics" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                <Image className="h-4 w-4 shrink-0" />
+                <span className="truncate">Grafiki</span>
                 {graphicsResources.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
+                  <Badge variant="secondary" className="ml-0.5 text-[10px] px-1.5">{graphicsResources.length}</Badge>
                 )}
               </TabsTrigger>
-            </TabsList>
-            {hasTeamResources && (
-              <TabsList className="w-auto">
-               <TabsTrigger value="team" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  {isAdmin
-                    ? 'Zasoby zespołów'
-                    : teamNames.length === 1
-                      ? `Baza wiedzy ${teamNames[0]}`
-                      : 'Baza wiedzy zespołu'}
-                  <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
+              {hasTeamResources && (
+                <TabsTrigger value="team" className="flex items-center justify-center gap-1.5 text-xs sm:text-sm py-2">
+                  <Users className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
+                    {isAdmin
+                      ? 'Zespoły'
+                      : teamNames.length === 1
+                        ? teamNames[0]
+                        : 'Zespół'}
+                  </span>
+                  <Badge variant="secondary" className="ml-0.5 text-[10px] px-1.5">{teamResources.length}</Badge>
                 </TabsTrigger>
-              </TabsList>
-            )}
+              )}
+            </TabsList>
           </div>
 
           {/* Documents Tab */}
-          <TabsContent value="documents" className="space-y-6">
+          <TabsContent value="documents" className="space-y-4">
             {/* Search & Filters for Documents */}
             <Card>
-              <CardContent className="pt-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Szukaj dokumentów..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+              <CardContent className="pt-4 space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj dokumentów..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectTrigger>
                       <SelectValue placeholder="Kategoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -529,7 +529,7 @@ export default function KnowledgeCenter() {
                     </SelectContent>
                   </Select>
                   <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectTrigger>
                       <SelectValue placeholder="Typ" />
                     </SelectTrigger>
                     <SelectContent>
@@ -543,7 +543,7 @@ export default function KnowledgeCenter() {
                   </Select>
                   {allTags.length > 0 && (
                     <Select value={filterTag} onValueChange={setFilterTag}>
-                      <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectTrigger>
                         <SelectValue placeholder="Tag" />
                       </SelectTrigger>
                       <SelectContent>
@@ -554,77 +554,74 @@ export default function KnowledgeCenter() {
                       </SelectContent>
                     </Select>
                   )}
-                  {hasActiveFilters && (
-                    <Button variant="ghost" size="icon" onClick={clearFilters}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
                 {/* View mode toggle + Language filter */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/50">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Widok:</span>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">Widok:</span>
                     <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'grid' | 'grouped')}>
                       <TabsList className="h-8">
-                        <TabsTrigger value="list" className="h-6 px-2">
+                        <TabsTrigger value="list" className="h-6 px-2" aria-label="Lista">
                           <List className="h-4 w-4" />
                         </TabsTrigger>
-                        <TabsTrigger value="grid" className="h-6 px-2">
+                        <TabsTrigger value="grid" className="h-6 px-2" aria-label="Siatka">
                           <LayoutGrid className="h-4 w-4" />
                         </TabsTrigger>
-                        <TabsTrigger value="grouped" className="h-6 px-2">
+                        <TabsTrigger value="grouped" className="h-6 px-2" aria-label="Grupowane">
                           <Tag className="h-4 w-4" />
                         </TabsTrigger>
                       </TabsList>
                     </Tabs>
+                    {hasActiveFilters && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearFilters}>
+                        <X className="h-3.5 w-3.5 mr-1" /> Wyczyść
+                      </Button>
+                    )}
                   </div>
-                  
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      Dokumenty w języku:
-                    </span>
-                    <div className="flex items-center gap-1">
+
+                  <div className="flex items-center gap-1 overflow-x-auto max-w-full">
+                    <span className="text-xs text-muted-foreground hidden sm:inline whitespace-nowrap mr-1">Język:</span>
+                    <button
+                      onClick={() => setDocumentLanguage('all')}
+                      className={cn(
+                        "shrink-0 flex items-center justify-center h-7 w-7 rounded text-sm transition-colors",
+                        documentLanguage === 'all'
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-muted/80"
+                      )}
+                      title="Wszystkie języki"
+                      aria-label="Wszystkie języki"
+                    >
+                      🌐
+                    </button>
+                    {[
+                      { code: 'pl', country: 'pl' },
+                      { code: 'en', country: 'gb' },
+                      { code: 'de', country: 'de' },
+                      { code: 'it', country: 'it' },
+                      { code: 'es', country: 'es' },
+                      { code: 'fr', country: 'fr' },
+                      { code: 'pt', country: 'pt' }
+                    ].map(lang => (
                       <button
-                        onClick={() => setDocumentLanguage('all')}
+                        key={lang.code}
+                        onClick={() => setDocumentLanguage(lang.code)}
                         className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors",
-                          documentLanguage === 'all' 
-                            ? "bg-primary text-primary-foreground" 
-                            : "bg-muted hover:bg-muted/80"
+                          "shrink-0 flex items-center justify-center h-7 w-7 rounded transition-colors",
+                          documentLanguage === lang.code
+                            ? "ring-2 ring-primary bg-muted"
+                            : "bg-muted/50 hover:bg-muted"
                         )}
-                        title="Wszystkie języki"
+                        title={lang.code.toUpperCase()}
+                        aria-label={lang.code.toUpperCase()}
                       >
-                        🌐
+                        <img
+                          src={`https://flagcdn.com/w20/${lang.country}.png`}
+                          alt={lang.code}
+                          className="w-5 h-3.5 object-cover rounded-sm"
+                        />
                       </button>
-                      {[
-                        { code: 'pl', country: 'pl' },
-                        { code: 'en', country: 'gb' },
-                        { code: 'de', country: 'de' },
-                        { code: 'it', country: 'it' },
-                        { code: 'es', country: 'es' },
-                        { code: 'fr', country: 'fr' },
-                        { code: 'pt', country: 'pt' }
-                      ].map(lang => (
-                        <button
-                          key={lang.code}
-                          onClick={() => setDocumentLanguage(lang.code)}
-                          className={cn(
-                            "flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors",
-                            documentLanguage === lang.code 
-                              ? "ring-2 ring-primary bg-muted" 
-                              : "bg-muted/50 hover:bg-muted"
-                          )}
-                          title={lang.code.toUpperCase()}
-                        >
-                          <img 
-                            src={`https://flagcdn.com/w20/${lang.country}.png`}
-                            alt={lang.code}
-                            className="w-5 h-3 object-cover rounded-sm"
-                          />
-                          <span className="uppercase font-medium">{lang.code}</span>
-                        </button>
-                      ))}
-                    </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
@@ -720,7 +717,7 @@ export default function KnowledgeCenter() {
           </TabsContent>
 
           {/* Graphics Tab */}
-          <TabsContent value="graphics" className="space-y-6">
+          <TabsContent value="graphics" className="space-y-4">
             {/* Search & Filters for Graphics */}
             <Card>
               <CardContent className="pt-4">
@@ -819,7 +816,7 @@ export default function KnowledgeCenter() {
 
           {/* Team Knowledge Tab */}
           {hasTeamResources && (
-            <TabsContent value="team" className="space-y-6">
+            <TabsContent value="team" className="space-y-4">
               {isAdmin ? (
                 /* ADMIN VIEW: Accordion per team */
                 <Accordion type="single" collapsible className="space-y-3">
