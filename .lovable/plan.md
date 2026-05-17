@@ -1,24 +1,30 @@
+## Co się dzieje
+
+- Ustawienie w bazie nadal jest poprawne: `default_mode = satellite`, więc mapa nie wraca przez konfigurację admina.
+- Problem z „niestabilnością” wynika najpewniej z komponentu `UserWorldMap`: startowy kadr jest liczony dynamicznie z projekcji i resetowany przy zmianach stylu/projekcji. Po ostatnich zmianach trybu satelitarnego kadr Europy nie jest zapisany jako stały preset, tylko jako wyliczenie (`projection([15, 50])`, `zoom: 6.0`). To daje efekt, że wcześniejsze poprawki pozycjonowania „znikają”, bo nie są utrwalone jako jedna jawna konfiguracja widoku.
+- Dodatkowo wybór trybu mapy zapisuje się w `localStorage`, co może mieszać się z ustawieniem admina i powodować wrażenie losowego zachowania między odświeżeniami / użytkownikami.
+- Upload logo jest już odblokowany politykami storage, ale trzeba jeszcze uprościć ścieżkę uploadu i upewnić się, że oba sloty zapisują się deterministycznie.
+
 ## Plan naprawy
 
-### 1) Upload logo lewego i prawego
-- Zostawię istniejący publiczny odczyt bucketu `dashboard-map-logos`.
-- Dodam drugą warstwę zapisu przez tabelę pomocniczą `dashboard_map_logo_uploads`, bo obecne polityki `storage.objects` wyglądają już poprawnie, a błąd nadal wskazuje na blokadę RLS podczas realnego uploadu.
-- Utworzę bezpieczne zasady dostępu:
-  - zalogowany użytkownik może dodać rekord uploadu tylko dla siebie,
-  - odczyt może być publiczny tylko na potrzeby publicznego logo,
-  - usuwanie/edycja pozostają ograniczone do właściciela lub admina.
-- W kodzie uploadu dodam jawne sprawdzenie aktywnej sesji przed wysyłką, lepszy komunikat błędu oraz bardziej unikalną nazwę pliku, żeby upload lewego i prawego logo działał tak samo.
+1. **Stały preset startowego kadru satelitarnego**
+   - W `UserWorldMap.tsx` wydzielę jedną stałą konfigurację dla startowego widoku Europy w trybie satelitarnym.
+   - Kadr będzie odpowiadał referencyjnemu screenowi: Europa w centrum, lekko bliżej i z korektą położenia/rolla przez stałe przesunięcie projekcji/kadru, zamiast przypadkowych obliczeń rozproszonych po komponencie.
+   - Reset mapy i odznaczanie kraju będą wracały dokładnie do tego samego presetu.
 
-### 2) Domyślny tryb mapy
-- Ustawię wartość domyślną w bazie dla `dashboard_map_settings.default_mode` na `satellite`.
-- Zaktualizuję istniejący rekord ustawień widżetu na `satellite`, żeby aktualny widget od razu startował w trybie satelitarnym.
-- W panelu admina zostanie obecny przełącznik „Klasyczna / Satelitarna”, więc admin nadal będzie mógł zmienić domyślny tryb.
+2. **Rozdzielenie widoku satelitarnego i klasycznego**
+   - Dla `satellite` i `classic` zastosuję osobne domyślne widoki, żeby zmiana trybu nie psuła startowego pozycjonowania.
+   - Tryb satelitarny pozostanie domyślny z ustawień admina.
 
-### 3) Zachowanie w UI
-- Nie zmienię obecnego przybliżania kraju ani powrotu po odznaczeniu — nadal będzie używany aktualny startowy widok mapy.
-- Nie zmienię innych widgetów ani globalnych ustawień panelu.
+3. **Usunięcie konfliktu z `localStorage` dla widżetu dashboardu**
+   - Jeżeli `initialMode` przychodzi z ustawień admina, komponent nie będzie nadpisywał go wcześniejszą lokalną preferencją użytkownika.
+   - Przełącznik Klasyczna/Satelitarna nadal będzie działał w trakcie oglądania, ale start widżetu będzie determinowany przez ustawienia admina.
 
-## Szczegóły techniczne
-- Migracja Supabase obejmie domyślny `default_mode = 'satellite'` oraz pomocniczą tabelę uploadów z RLS.
-- Frontend zmienię głównie w `DashboardMapSettings.tsx`: sprawdzenie `supabase.auth.getSession()`, obsługa błędów RLS i zapis URL po udanym uploadzie.
-- Startowy tryb mapy nadal będzie przekazywany z `settings.default_mode` do `UserWorldMap`.
+4. **Stabilizacja uploadu logo lewego i prawego**
+   - Sprawdzę i dopracuję handler uploadu tak, żeby lewy i prawy slot używały tej samej logiki, unikalnej ścieżki i jednoznacznego zapisu URL.
+   - Komunikat błędu zostanie konkretny: brak sesji, RLS/storage albo błąd zapisu ustawień.
+
+5. **Weryfikacja**
+   - Po wdrożeniu sprawdzę aktualny stan ustawień w bazie.
+   - Zweryfikuję, że widget na `/dashboard` startuje w trybie satelitarnym i w tym samym kadrze co screen.
+   - Sprawdzę, że reset mapy wraca do tego samego kadru.
