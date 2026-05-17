@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMobileBottomNav, type MobileBottomNavItem } from '@/hooks/useMobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin, MousePointerClick } from 'lucide-react';
+import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin } from 'lucide-react';
 import MobileNavPathPicker from './MobileNavPathPicker';
-import MobileNavLivePicker from './MobileNavLivePicker';
 import { APP_LOCATIONS, ICON_CHOICES } from './mobileNavRegistry';
 
 const ROLE_FIELDS: Array<{ key: keyof MobileBottomNavItem; label: string }> = [
