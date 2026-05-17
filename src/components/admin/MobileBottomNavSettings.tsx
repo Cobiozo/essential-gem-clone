@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMobileBottomNav, type MobileBottomNavItem } from '@/hooks/useMobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin, MousePointerClick } from 'lucide-react';
+import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin } from 'lucide-react';
 import MobileNavPathPicker from './MobileNavPathPicker';
-import MobileNavLivePicker from './MobileNavLivePicker';
 import { APP_LOCATIONS, ICON_CHOICES } from './mobileNavRegistry';
 
 const ROLE_FIELDS: Array<{ key: keyof MobileBottomNavItem; label: string }> = [
@@ -28,7 +27,6 @@ const MobileBottomNavSettings: React.FC = () => {
   const { items, refetch } = useMobileBottomNav();
   const [saving, setSaving] = useState<string | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const [livePickerFor, setLivePickerFor] = useState<string | null>(null);
 
   const update = async (id: string, patch: Partial<MobileBottomNavItem>) => {
     setSaving(id);
@@ -70,7 +68,6 @@ const MobileBottomNavSettings: React.FC = () => {
   };
 
   const pickerItem = pickerFor ? items.find((i) => i.id === pickerFor) : null;
-  const liveItem = livePickerFor ? items.find((i) => i.id === livePickerFor) : null;
 
   const applyPath = (item: MobileBottomNavItem, path: string, label?: string) => {
     const loc = APP_LOCATIONS.find((l) => l.path === path);
@@ -91,8 +88,8 @@ const MobileBottomNavSettings: React.FC = () => {
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Pasek widoczny tylko na telefonach po zalogowaniu. Możesz dodać dowolną liczbę pozycji
-          (zalecane 3–5 dla czytelności). Cel ustawisz wybierając z listy, wpisując własną ścieżkę
-          albo klikając wprost w element w aplikacji.
+          (zalecane 3–5 dla czytelności). Cel wybierz z katalogu realnych miejsc aplikacji
+          lub wpisz własną ścieżkę.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -154,28 +151,18 @@ const MobileBottomNavSettings: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Miejsce w aplikacji</Label>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      className="flex-1 justify-start gap-2 min-w-0"
-                      onClick={() => setPickerFor(it.id)}
-                      title="Wybierz z listy lub wpisz własną ścieżkę"
-                    >
-                      <TargetIcon className="h-4 w-4 text-primary shrink-0" />
-                      <span className="flex-1 text-left truncate">
-                        {pathLabel(it.target_path)}
-                        <span className="text-muted-foreground text-xs ml-1">· {it.target_path}</span>
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setLivePickerFor(it.id)}
-                      title="Wskaż klikając w aplikacji"
-                    >
-                      <MousePointerClick className="h-4 w-4 text-primary" />
-                    </Button>
-                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2 min-w-0"
+                    onClick={() => setPickerFor(it.id)}
+                    title="Wybierz z katalogu lub wpisz własną ścieżkę"
+                  >
+                    <TargetIcon className="h-4 w-4 text-primary shrink-0" />
+                    <span className="flex-1 text-left truncate">
+                      {pathLabel(it.target_path)}
+                      <span className="text-muted-foreground text-xs ml-1">· {it.target_path}</span>
+                    </span>
+                  </Button>
                 </div>
               </div>
 
@@ -208,14 +195,6 @@ const MobileBottomNavSettings: React.FC = () => {
         />
       )}
 
-      {liveItem && (
-        <MobileNavLivePicker
-          open={!!livePickerFor}
-          onOpenChange={(v) => !v && setLivePickerFor(null)}
-          initialPath={liveItem.target_path?.split('#')[0]?.split('?')[0] || '/dashboard'}
-          onPick={(path, label) => applyPath(liveItem, path, label)}
-        />
-      )}
     </Card>
   );
 };

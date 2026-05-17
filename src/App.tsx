@@ -29,7 +29,7 @@ import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
-import NavPickOverlay from '@/components/system/NavPickOverlay';
+
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
@@ -448,7 +448,7 @@ const AppContent = () => {
           <ChatWidgetsWrapper />
           <PWAInstallBanner />
           <MobileBottomNav />
-          <NavPickOverlay />
+          
         </InactivityHandler>
         </ChatSidebarProvider>
       </BrowserRouter>
