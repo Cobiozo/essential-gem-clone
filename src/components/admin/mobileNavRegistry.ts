@@ -1,5 +1,6 @@
-// Statyczny rejestr "miejsc" w aplikacji, do których admin może przypisać
-// pozycję dolnego paska nawigacji (mobile). Łatwo rozszerzalny.
+// Statyczny rejestr realnych "miejsc" w aplikacji, do których admin może
+// przypisać pozycję dolnego paska nawigacji (mobile).
+// Ścieżki MUSZĄ odpowiadać trasom z src/App.tsx.
 
 export interface AppLocation {
   label: string;
@@ -9,31 +10,43 @@ export interface AppLocation {
 }
 
 export const APP_LOCATIONS: AppLocation[] = [
+  // Główne
   { label: 'Pulpit', path: '/dashboard', iconName: 'LayoutDashboard', group: 'Główne' },
   { label: 'Wiadomości', path: '/messages', iconName: 'MessageCircle', group: 'Główne' },
-  { label: 'Powiadomienia', path: '/notifications', iconName: 'Bell', group: 'Główne' },
-  { label: 'Profil', path: '/profile', iconName: 'User', group: 'Główne' },
-  { label: 'Ustawienia', path: '/settings', iconName: 'Settings', group: 'Główne' },
+  { label: 'Moje konto', path: '/my-account', iconName: 'User', group: 'Główne' },
+  { label: 'Powiadomienia', path: '/my-account?tab=notifications', iconName: 'Bell', group: 'Główne' },
+  { label: 'Profil', path: '/my-account?tab=profile', iconName: 'IdCard', group: 'Główne' },
+  { label: 'Preferencje', path: '/my-account?tab=preferences', iconName: 'Settings', group: 'Główne' },
+  { label: 'Bezpieczeństwo', path: '/my-account?tab=security', iconName: 'Shield', group: 'Główne' },
 
-  { label: 'Eventy', path: '/events', iconName: 'Calendar', group: 'Wydarzenia' },
-  { label: 'Webinary', path: '/webinars', iconName: 'Video', group: 'Wydarzenia' },
-  { label: 'Spotkania 1:1', path: '/individual-meetings', iconName: 'Users', group: 'Wydarzenia' },
-  { label: 'Spotkania zespołowe', path: '/team-meetings', iconName: 'UsersRound', group: 'Wydarzenia' },
+  // Wydarzenia
+  { label: 'Webinary', path: '/events/webinars', iconName: 'Video', group: 'Wydarzenia' },
+  { label: 'Spotkania 1:1', path: '/events/individual-meetings', iconName: 'Users', group: 'Wydarzenia' },
+  { label: 'Spotkania zespołowe', path: '/events/team-meetings', iconName: 'UsersRound', group: 'Wydarzenia' },
   { label: 'Płatne wydarzenia', path: '/paid-events', iconName: 'Ticket', group: 'Wydarzenia' },
 
-  { label: 'Akademia', path: '/academy', iconName: 'GraduationCap', group: 'Wiedza' },
-  { label: 'Baza wiedzy', path: '/zdrowa-wiedza', iconName: 'BookOpen', group: 'Wiedza' },
-  { label: 'AI Kompas', path: '/ai-compass', iconName: 'Compass', group: 'Wiedza' },
+  // Wiedza
+  { label: 'Akademia', path: '/training', iconName: 'GraduationCap', group: 'Wiedza' },
+  { label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza', iconName: 'BookOpen', group: 'Wiedza' },
+  { label: 'Centrum wiedzy', path: '/knowledge', iconName: 'Library', group: 'Wiedza' },
+  { label: 'AI Kompas', path: '/my-account?tab=ai-compass', iconName: 'Compass', group: 'Wiedza' },
 
-  { label: 'Mój zespół', path: '/team', iconName: 'Users', group: 'Zespół' },
-  { label: 'Panel lidera', path: '/leader-panel', iconName: 'Crown', group: 'Zespół' },
-  { label: 'Struktura', path: '/organization-tree', iconName: 'Network', group: 'Zespół' },
+  // Zespół
+  { label: 'Mój zespół', path: '/my-account?tab=team-contacts', iconName: 'Users', group: 'Zespół' },
+  { label: 'Struktura', path: '/my-account?tab=team-contacts&subTab=structure', iconName: 'Network', group: 'Zespół' },
+  { label: 'Panel lidera', path: '/leader', iconName: 'Crown', group: 'Zespół' },
+  { label: 'Reflinki', path: '/my-account?tab=reflinks', iconName: 'Link', group: 'Zespół' },
 
-  { label: 'PureBox / Omega', path: '/purebox', iconName: 'Heart', group: 'Narzędzia' },
-  { label: 'Baza testów', path: '/omega-tests', iconName: 'ClipboardList', group: 'Narzędzia' },
-  { label: 'Kalkulator', path: '/calculator', iconName: 'Calculator', group: 'Narzędzia' },
+  // Narzędzia
+  { label: 'PureBox / Omega Base', path: '/omega-base', iconName: 'Heart', group: 'Narzędzia' },
+  { label: 'Moje testy (Omega)', path: '/moje-testy', iconName: 'ClipboardList', group: 'Narzędzia' },
+  { label: 'Kalkulator influencera', path: '/calculator/influencer', iconName: 'Calculator', group: 'Narzędzia' },
+  { label: 'Kalkulator specjalisty', path: '/calculator/specialist', iconName: 'Calculator', group: 'Narzędzia' },
   { label: 'Moja strona partnera', path: '/moja-strona', iconName: 'Globe', group: 'Narzędzia' },
-  { label: 'Wyszukiwarka specjalistów', path: '/search', iconName: 'Search', group: 'Narzędzia' },
+  { label: 'Ocena umiejętności', path: '/skills-assessment', iconName: 'Award', group: 'Narzędzia' },
+
+  // Administracja
+  { label: 'Panel admina', path: '/admin', iconName: 'Shield', group: 'Administracja' },
 ];
 
 // Kuratorska lista ikon lucide do dropdownu (PascalCase).
@@ -41,7 +54,7 @@ export const ICON_CHOICES = [
   'Home', 'LayoutDashboard', 'MessageCircle', 'Mail', 'Send',
   'Calendar', 'CalendarDays', 'Clock', 'Ticket',
   'GraduationCap', 'BookOpen', 'Library',
-  'Users', 'UsersRound', 'User', 'Crown', 'Network',
+  'Users', 'UsersRound', 'User', 'IdCard', 'Crown', 'Network',
   'Settings', 'Wrench', 'Bell', 'BellRing',
   'Heart', 'Activity', 'Stethoscope', 'Pill',
   'Map', 'MapPin', 'Compass', 'Globe',
