@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMobileBottomNav, type MobileBottomNavItem } from '@/hooks/useMobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin } from 'lucide-react';
+import { Trash2, Plus, ArrowUp, ArrowDown, Smartphone, MapPin, MousePointerClick } from 'lucide-react';
 import MobileNavPathPicker from './MobileNavPathPicker';
+import MobileNavLivePicker from './MobileNavLivePicker';
 import { APP_LOCATIONS, ICON_CHOICES } from './mobileNavRegistry';
 
 const ROLE_FIELDS: Array<{ key: keyof MobileBottomNavItem; label: string }> = [
@@ -27,8 +28,7 @@ const MobileBottomNavSettings: React.FC = () => {
   const { items, refetch } = useMobileBottomNav();
   const [saving, setSaving] = useState<string | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-
-  const activeCount = items.filter((i) => i.is_active).length;
+  const [livePickerFor, setLivePickerFor] = useState<string | null>(null);
 
   const update = async (id: string, patch: Partial<MobileBottomNavItem>) => {
     setSaving(id);
@@ -40,10 +40,6 @@ const MobileBottomNavSettings: React.FC = () => {
   };
 
   const remove = async (id: string) => {
-    if (activeCount <= 5 && items.find((i) => i.id === id)?.is_active) {
-      toast.error('Musi pozostać co najmniej 5 aktywnych pozycji.');
-      return;
-    }
     if (!confirm('Usunąć pozycję?')) return;
     const { error } = await (supabase as any)
       .from('mobile_bottom_nav_items').delete().eq('id', id);
@@ -74,6 +70,17 @@ const MobileBottomNavSettings: React.FC = () => {
   };
 
   const pickerItem = pickerFor ? items.find((i) => i.id === pickerFor) : null;
+  const liveItem = livePickerFor ? items.find((i) => i.id === livePickerFor) : null;
+
+  const applyPath = (item: MobileBottomNavItem, path: string, label?: string) => {
+    const loc = APP_LOCATIONS.find((l) => l.path === path);
+    const patch: Partial<MobileBottomNavItem> = { target_path: path };
+    if (item.label === 'Nowa pozycja' || !item.label) {
+      patch.label = (loc?.label || label || 'Pozycja').slice(0, 30);
+    }
+    if (item.icon_name === 'Circle' && loc) patch.icon_name = loc.iconName;
+    update(item.id, patch);
+  };
 
   return (
     <Card>
@@ -83,8 +90,9 @@ const MobileBottomNavSettings: React.FC = () => {
           Dolny pasek nawigacji (mobile)
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Pasek widoczny tylko na telefonach po zalogowaniu. Wymagane minimum 5 aktywnych pozycji.
-          Ikonę wybierasz z listy, a ścieżkę — klikając konkretne miejsce w aplikacji.
+          Pasek widoczny tylko na telefonach po zalogowaniu. Możesz dodać dowolną liczbę pozycji
+          (zalecane 3–5 dla czytelności). Cel ustawisz wybierając z listy, wpisując własną ścieżkę
+          albo klikając wprost w element w aplikacji.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -106,13 +114,7 @@ const MobileBottomNavSettings: React.FC = () => {
                 <Switch
                   checked={it.is_active}
                   disabled={saving === it.id}
-                  onCheckedChange={(v) => {
-                    if (!v && activeCount <= 5) {
-                      toast.error('Musi pozostać co najmniej 5 aktywnych pozycji.');
-                      return;
-                    }
-                    update(it.id, { is_active: v });
-                  }}
+                  onCheckedChange={(v) => update(it.id, { is_active: v })}
                 />
                 <Button variant="ghost" size="icon" onClick={() => remove(it.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -152,17 +154,28 @@ const MobileBottomNavSettings: React.FC = () => {
                 </div>
                 <div>
                   <Label className="text-xs">Miejsce w aplikacji</Label>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2"
-                    onClick={() => setPickerFor(it.id)}
-                  >
-                    <TargetIcon className="h-4 w-4 text-primary" />
-                    <span className="flex-1 text-left truncate">
-                      {pathLabel(it.target_path)}
-                      <span className="text-muted-foreground text-xs ml-1">· {it.target_path}</span>
-                    </span>
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      className="flex-1 justify-start gap-2 min-w-0"
+                      onClick={() => setPickerFor(it.id)}
+                      title="Wybierz z listy lub wpisz własną ścieżkę"
+                    >
+                      <TargetIcon className="h-4 w-4 text-primary shrink-0" />
+                      <span className="flex-1 text-left truncate">
+                        {pathLabel(it.target_path)}
+                        <span className="text-muted-foreground text-xs ml-1">· {it.target_path}</span>
+                      </span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setLivePickerFor(it.id)}
+                      title="Wskaż klikając w aplikacji"
+                    >
+                      <MousePointerClick className="h-4 w-4 text-primary" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -184,12 +197,6 @@ const MobileBottomNavSettings: React.FC = () => {
         <Button onClick={add} variant="outline" className="w-full">
           <Plus className="h-4 w-4 mr-2" /> Dodaj pozycję
         </Button>
-
-        {activeCount < 5 && (
-          <p className="text-xs text-destructive">
-            Uwaga: aktywnych pozycji jest mniej niż 5. Włącz lub dodaj dodatkowe.
-          </p>
-        )}
       </CardContent>
 
       {pickerItem && (
@@ -197,16 +204,16 @@ const MobileBottomNavSettings: React.FC = () => {
           open={!!pickerFor}
           onOpenChange={(v) => !v && setPickerFor(null)}
           currentPath={pickerItem.target_path}
-          onPick={(path) => {
-            const loc = APP_LOCATIONS.find((l) => l.path === path);
-            const patch: Partial<MobileBottomNavItem> = { target_path: path };
-            // Jeśli wybrano znane miejsce — autouzupełnij etykietę/ikonę gdy są wartościami domyślnymi
-            if (loc) {
-              if (pickerItem.label === 'Nowa pozycja' || !pickerItem.label) patch.label = loc.label;
-              if (pickerItem.icon_name === 'Circle') patch.icon_name = loc.iconName;
-            }
-            update(pickerItem.id, patch);
-          }}
+          onPick={(path) => applyPath(pickerItem, path)}
+        />
+      )}
+
+      {liveItem && (
+        <MobileNavLivePicker
+          open={!!livePickerFor}
+          onOpenChange={(v) => !v && setLivePickerFor(null)}
+          initialPath={liveItem.target_path?.split('#')[0]?.split('?')[0] || '/dashboard'}
+          onPick={(path, label) => applyPath(liveItem, path, label)}
         />
       )}
     </Card>
