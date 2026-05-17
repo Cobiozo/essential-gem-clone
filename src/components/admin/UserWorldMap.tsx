@@ -125,15 +125,24 @@ const UserWorldMap: React.FC<Props> = ({
     } catch {
       features = [];
     }
-    const proj: GeoProjection = (effectiveStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
-    try {
-      if (features.length > 0) {
-        proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
-      } else {
+    let proj: GeoProjection;
+    if (effectiveStyle === 'satellite') {
+      // Fixed equirectangular: full [-180..180] x [-90..90] fits VIEW_W,
+      // centered vertically. This keeps the satellite bitmap aligned with country paths.
+      proj = geoEquirectangular()
+        .scale(VIEW_W / (2 * Math.PI))
+        .translate([VIEW_W / 2, VIEW_H / 2]);
+    } else {
+      proj = geoNaturalEarth1();
+      try {
+        if (features.length > 0) {
+          proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
+        } else {
+          proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
+        }
+      } catch {
         proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
       }
-    } catch {
-      proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
     }
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
   }, [effectiveStyle]);
