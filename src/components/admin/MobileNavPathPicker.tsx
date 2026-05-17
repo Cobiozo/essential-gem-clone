@@ -82,12 +82,30 @@ const MobileNavPathPicker: React.FC<Props> = ({ open, onOpenChange, currentPath,
                 onChange={(e) => setCustom(e.target.value)}
               />
               <Button
-                onClick={() => custom.trim().startsWith('/') && handlePick(custom.trim())}
-                disabled={!custom.trim().startsWith('/')}
+                onClick={() => {
+                  let v = custom.trim();
+                  if (!v) return;
+                  if (!v.startsWith('/')) v = '/' + v;
+                  // Normalize known legacy aliases that no longer exist as routes
+                  const aliasMap: Record<string, string> = {
+                    '/academy': '/training',
+                    '/healthy-knowledge': '/zdrowa-wiedza',
+                    '/webinars': '/events/webinars',
+                    '/profile': '/my-account?tab=profile',
+                  };
+                  const [p, rest] = [v.split('?')[0], v.includes('?') ? '?' + v.split('?').slice(1).join('?') : ''];
+                  if (aliasMap[p]) v = aliasMap[p] + rest;
+                  handlePick(v);
+                  setCustom('');
+                }}
+                disabled={!custom.trim()}
               >
                 Użyj
               </Button>
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Wskazówka: dla większości miejsc wybierz kafelek powyżej — to gwarantuje poprawną ścieżkę.
+            </p>
           </div>
         </div>
       </DialogContent>

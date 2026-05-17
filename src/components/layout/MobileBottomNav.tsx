@@ -61,22 +61,49 @@ const MobileBottomNav: React.FC = () => {
       )}>
         {visible.map((it) => {
           const IconCmp = (Icons as any)[it.icon_name] || (Icons as any).Circle;
-          const [targetPath, targetHash] = it.target_path.split('#');
-          const [targetPathname] = targetPath.split('?');
+          // Normalize stored target into pathname / search / hash
+          const raw = (it.target_path || '/').trim();
+          const withSlash = raw.startsWith('/') ? raw : `/${raw}`;
+          const hashIdx = withSlash.indexOf('#');
+          const beforeHash = hashIdx >= 0 ? withSlash.slice(0, hashIdx) : withSlash;
+          const targetHash = hashIdx >= 0 ? withSlash.slice(hashIdx + 1) : '';
+          const qIdx = beforeHash.indexOf('?');
+          const targetPathname = qIdx >= 0 ? beforeHash.slice(0, qIdx) : beforeHash;
+          const targetSearch = qIdx >= 0 ? beforeHash.slice(qIdx) : '';
+          const fullTarget = `${targetPathname}${targetSearch}${targetHash ? `#${targetHash}` : ''}`;
           const active = location.pathname === targetPathname
             || (targetPathname !== '/' && location.pathname.startsWith(targetPathname));
+
+          const handleClick = () => {
+            // Same pathname -> just scroll to top / hash without re-mounting
+            if (location.pathname === targetPathname) {
+              if (targetHash) {
+                document.getElementById(targetHash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+              return;
+            }
+            try {
+              navigate(fullTarget);
+            } catch {
+              window.location.assign(fullTarget);
+              return;
+            }
+            // Hard fallback if SPA navigation silently fails (e.g. blocked by guards)
+            window.setTimeout(() => {
+              if (window.location.pathname !== targetPathname) {
+                window.location.assign(fullTarget);
+              } else if (targetHash) {
+                document.getElementById(targetHash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 250);
+          };
           return (
             <li key={it.id} className={cn(visible.length > 5 ? 'shrink-0 basis-1/5 snap-start' : 'flex-1')}>
               <button
                 type="button"
-                onClick={() => {
-                  navigate(targetPath);
-                  if (targetHash) {
-                    setTimeout(() => {
-                      document.getElementById(targetHash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 120);
-                  }
-                }}
+                onClick={handleClick}
                 className={cn(
                   'w-full flex flex-col items-center justify-center gap-0.5 py-2 px-1 transition-colors',
                   active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
