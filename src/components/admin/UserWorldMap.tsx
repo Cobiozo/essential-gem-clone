@@ -339,7 +339,7 @@ const UserWorldMap: React.FC<Props> = ({
     if (!name) return;
     const norm = normalizeCountry(name);
     if (!norm.iso) return;
-    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); return; }
+    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, 600); return; }
     setSelectedIso(norm.iso);
     setSelectedLabel(norm.label);
     try {
