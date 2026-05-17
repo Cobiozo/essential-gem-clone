@@ -161,7 +161,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim()) &&
       guestPhone.replace(/[^\d]/g, '').length >= 9 &&
       emailConsent &&
-      otpRaw.length === 6
+      otpRaw.length === 4
     );
   };
 
