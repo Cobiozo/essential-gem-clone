@@ -1,91 +1,37 @@
-## Cel
-1. Usunąć wymóg minimum 5 pozycji w dolnym pasku nawigacji (mobile). Może być od 1 do N.
-2. Umożliwić adminowi **wskazanie celu kliknięciem dowolnego miejsca w aplikacji** (nie tylko z gotowej listy ścieżek), z obsługą podstron które nie mają własnego URL (zakładki, sekcje, modale).
+## Co naprawić
 
-## 1. Zniesienie limitu 5 pozycji
+W trybie „Wskaż klikając w aplikacji" obecnie da się wybrać tylko element, który ma własny link / zakładkę / atrybut `data-nav-target`. Sama strona (np. `/academy` otwarta w iframe) nie da się wybrać, bo trzeba w coś kliknąć.
 
-Plik: `src/components/admin/MobileBottomNavSettings.tsx`
-- Usunąć blokadę w `remove()` (`if (activeCount <= 5 ...)`)
-- Usunąć blokadę w `onCheckedChange` przy `Switch is_active`
-- Usunąć komunikat `aktywnych pozycji jest mniej niż 5`
-- W nagłówku zostawić tylko informację: „Możesz dodać dowolną liczbę pozycji (zalecane 3–5 dla czytelności)."
+## Rozwiązanie
 
-Plik: `src/components/layout/MobileBottomNav.tsx`
-- Bez zmian logiki — już renderuje wszystkie `visible`. Dodać tylko ograniczenie wizualne: jeśli >5 widocznych, scroll poziomy (`overflow-x-auto`, `snap-x`) zamiast ścisku ikon.
+### 1. Przycisk „Wybierz tę stronę" w MobileNavLivePicker
 
-## 2. Pickowanie celu kliknięciem w aplikacji
+W stopce dialogu, obok „Zapisz jako cel", dodać przycisk:
+**„📍 Użyj bieżącej strony"** — bierze aktualną ścieżkę z iframe i ustawia ją jako `selected`.
 
-### Model danych
-`target_path` pozostaje stringiem, ale akceptuje trzy formaty:
-- `"/dashboard"` — czysty route
-- `"/dashboard#widget-tasks"` — route + hash (do anchor scroll / zakładki)
-- `"/admin?tab=users"` — route + query (dla podstron typu Admin tabs)
+Implementacja:
+- W `NavPickOverlay.tsx` przy montowaniu i przy każdej zmianie `location` wysyłać do parent `postMessage({type:'NAV_LOCATION', path: location.pathname + location.search})`.
+- W `MobileNavLivePicker.tsx` nasłuchiwać `NAV_LOCATION` i trzymać w stanie `currentIframePath`. Pole z adresem startowym aktualizuje się też do tego adresu (żeby admin widział gdzie jest).
+- Przycisk „Użyj bieżącej strony" ustawia `selected = { path: currentIframePath, label: nazwa_z_<title> }`.
 
-Nie trzeba migracji.
+Dodatkowo: w `NavPickOverlay` wysyłać też `document.title` razem z lokalizacją, żeby etykieta sama się podstawiała („Akademia" zamiast „/academy").
 
-### Komponent „Tryb wskazywania" (Pick Mode)
+### 2. Wizualne podświetlenie elementu pod kursorem w iframe
 
-Nowy plik: `src/components/admin/MobileNavLivePicker.tsx`
-- `Dialog` (fullscreen na mobile, 90vw/90vh na desktop) zawierający:
-  - Pasek górny: pole adresu startowego (domyślnie `/dashboard`), przycisk „Idź", przycisk „Zapisz jako cel" (nieaktywny dopóki nic nie wybrano), przycisk „Anuluj".
-  - Główna powierzchnia: `<iframe src="/dashboard?__navpick=1" />` na całą wysokość, ramka zaokrąglona.
-  - Pasek dolny: bieżący wskazany cel — `path + hash/query + nazwa elementu`.
+Mały dodatek UX: w `NavPickOverlay` na `mousemove` dodawać outline (np. `outline: 2px solid hsl(var(--primary))`) do elementu który byłby wybrany. Dzięki temu admin od razu widzi co kliknie.
 
-### Tryb „nav pick" wewnątrz aplikacji
+### 3. Lepsza obsługa kliknięć w tekst bez linka
 
-Nowy plik: `src/components/system/NavPickOverlay.tsx`
-- Mount w `App.tsx` (zaraz po `BrowserRouter`).
-- Aktywny tylko gdy `new URLSearchParams(location.search).get('__navpick') === '1'`.
-- Co robi:
-  1. Dodaje globalny CSS overlay z napisem „Tryb wskazywania — kliknij element, który ma być celem".
-  2. Globalny listener `click` w fazie `capture`, `preventDefault` + `stopPropagation` na każdym kliknięciu.
-  3. Z elementu klikniętego wyciąga cel w kolejności:
-     - `closest('[data-nav-target]')` → wartość atrybutu (najlepszy przypadek, dla zakładek/akcji bez URL).
-     - `closest('a[href]')` → href (route lub zewnętrzny URL — odrzucamy zewnętrzne).
-     - `closest('[role="tab"][value]')` → `location.pathname + '?tab=' + value` (dla `Tabs` z shadcn).
-     - W ostateczności: `location.pathname + '#' + (element.id || generateAnchor)`. Jeśli element nie ma `id`, dodajemy mu tymczasowy `id="navpick-<hash>"` i sugerujemy adminowi — ale to słabe. Zamiast tego: oferujemy tylko `location.pathname` z toastem „Element nie ma stabilnego adresu — wskaż link, zakładkę lub dodaj `data-nav-target` w kodzie."
-  4. Wysyła do parent okna: `window.parent.postMessage({type:'NAV_PICK', path, label}, '*')`.
-  5. Pokazuje toast w iframe: „Wybrano: <label> → <path>. Wróć do panelu i kliknij Zapisz."
+Gdy admin kliknie w element, który nie jest linkiem ani nie ma `data-nav-target`, dziś w toaście pojawia się `pathname` jako fallback. Zachować ten fallback — to znaczy, że kliknięcie w „cokolwiek na stronie /academy" wybiera `/academy`. Już to mamy w kodzie, ale nie jest jasne dla użytkownika — toast powinien być wyraźniejszy: „Wybrano stronę: Akademia → /academy".
 
-W `MobileNavLivePicker.tsx`:
-- `useEffect` z `window.addEventListener('message', ...)` filtrującym `type === 'NAV_PICK'`, ustawia lokalny `selected = {path, label}`.
-- „Zapisz jako cel" → `onPick(selected.path)` + `onPick` może też zaktualizować label jeśli pusty/„Nowa pozycja".
+### 4. Drobny komunikat w stopce
 
-### Wzbogacenie istniejących ekranów o `data-nav-target`
-
-Aby kliknięcia trafiały w sensowne cele bez URL (zakładki Admin, widgety Dashboard, sekcje), w **drugim kroku** dodać `data-nav-target="/admin?tab=users"` itp. w kluczowych miejscach:
-- `AdminSidebar.tsx` — każdy `TabsTrigger` lub przycisk zakładki: `data-nav-target={`/admin?tab=${item.value}`}`
-- `Dashboard.tsx` — kafle widgetów: `data-nav-target` z odpowiednim hashem (`#widget-<id>`) + dodać scroll-on-hash w Dashboard.
-
-### Integracja w `MobileBottomNavSettings.tsx`
-- Obok obecnego przycisku „Miejsce w aplikacji" (otwiera `MobileNavPathPicker`) dodać drugi przycisk **„Wskaż klikając w aplikacji"** otwierający `MobileNavLivePicker`.
-- Oba sposoby zapisują do tego samego pola `target_path`.
-
-### Obsługa `#hash` po nawigacji
-W `MobileBottomNav.tsx` `onClick`:
-```
-const [pathname, hash] = it.target_path.split('#');
-navigate(pathname);
-if (hash) setTimeout(() => document.getElementById(hash)?.scrollIntoView({behavior:'smooth'}), 100);
-```
-
-### Bezpieczeństwo
-- W `NavPickOverlay` weryfikujemy `event.origin === window.location.origin` przy odbiorze postMessage w parent (ten sam origin — iframe na tym samym hoście).
-- Tryb `__navpick=1` aktywny tylko dla zalogowanego admina (`useAuth().userRole?.role === 'admin'`); inaczej overlay się nie montuje (defense-in-depth).
+W stopce zamiast „Kliknij element wewnątrz podglądu, aby go wybrać." pokazać dwie wskazówki:
+- „Kliknij konkretny link/zakładkę, **albo** użyj przycisku »Użyj bieżącej strony«, żeby wskazać całą stronę z podglądu."
 
 ## Pliki
 
-**Edytowane:**
-- `src/components/admin/MobileBottomNavSettings.tsx` — usuń limit 5, dodaj drugi przycisk „Wskaż klikając"
-- `src/components/layout/MobileBottomNav.tsx` — obsługa `#hash`, scroll przy >5 ikonach
-- `src/App.tsx` — montuje `<NavPickOverlay/>`
+- `src/components/system/NavPickOverlay.tsx` — wysyłać `NAV_LOCATION` z `pathname+search+title`, dodać podświetlenie hover.
+- `src/components/admin/MobileNavLivePicker.tsx` — odbierać `NAV_LOCATION`, synchronizować pole adresu, dodać przycisk „Użyj bieżącej strony".
 
-**Nowe:**
-- `src/components/admin/MobileNavLivePicker.tsx` — Dialog z iframe
-- `src/components/system/NavPickOverlay.tsx` — przechwytywanie kliknięć w trybie pickowania
-
-**Drugi etap (opcjonalnie, po akceptacji):**
-- Dodanie `data-nav-target` w `AdminSidebar`, `Dashboard` i innych miejscach bez URL.
-
-## Pytanie do Ciebie
-Czy w pierwszym podejściu wystarczy tryb live-picker działający na elementach które **już mają URL/link** (`<a href>`, `Link`, zakładki `TabsTrigger`), a `data-nav-target` dorzucimy stopniowo tam gdzie potrzeba? Czy od razu chcesz mieć obrandowane wszystkie kluczowe sekcje (Dashboard widgets, Admin tabs, PureBox sekcje)?
+Bez zmian schematu DB i bez nowych plików.

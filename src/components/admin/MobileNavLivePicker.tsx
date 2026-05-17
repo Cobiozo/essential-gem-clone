@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, MousePointerClick, Check, X } from 'lucide-react';
+import { ArrowRight, MousePointerClick, Check, X, MapPin } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -21,22 +21,29 @@ const MobileNavLivePicker: React.FC<Props> = ({ open, onOpenChange, onPick, init
   const [addr, setAddr] = useState(initialPath);
   const [iframeSrc, setIframeSrc] = useState(withPickParam(initialPath));
   const [selected, setSelected] = useState<{ path: string; label: string } | null>(null);
+  const [currentIframe, setCurrentIframe] = useState<{ path: string; title: string }>({ path: initialPath, title: '' });
 
   useEffect(() => {
     if (!open) {
       setSelected(null);
       return;
     }
-    setIframeSrc(withPickParam(initialPath));
-    setAddr(initialPath);
+    const start = initialPath || '/dashboard';
+    setIframeSrc(withPickParam(start));
+    setAddr(start);
+    setCurrentIframe({ path: start, title: '' });
   }, [open, initialPath]);
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data;
-      if (d?.type === 'NAV_PICK' && typeof d.path === 'string') {
+      if (!d) return;
+      if (d.type === 'NAV_PICK' && typeof d.path === 'string') {
         setSelected({ path: d.path, label: d.label || d.path });
+      } else if (d.type === 'NAV_LOCATION' && typeof d.path === 'string') {
+        setCurrentIframe({ path: d.path, title: d.title || '' });
+        setAddr(d.path);
       }
     };
     window.addEventListener('message', onMsg);
@@ -47,6 +54,13 @@ const MobileNavLivePicker: React.FC<Props> = ({ open, onOpenChange, onPick, init
     const p = addr.trim();
     if (!p.startsWith('/')) return;
     setIframeSrc(withPickParam(p));
+  };
+
+  const useCurrent = () => {
+    setSelected({
+      path: currentIframe.path,
+      label: currentIframe.title || currentIframe.path,
+    });
   };
 
   const save = () => {
@@ -64,8 +78,8 @@ const MobileNavLivePicker: React.FC<Props> = ({ open, onOpenChange, onPick, init
             Wskaż miejsce w aplikacji kliknięciem
           </DialogTitle>
           <DialogDescription>
-            Przejdź do żądanej strony, a następnie kliknij element (link, zakładka, kafelek),
-            do którego ma prowadzić ta pozycja paska. Każde kliknięcie jest tylko podglądem — nie nawiguje.
+            Kliknij konkretny link/zakładkę w podglądzie, <strong>albo</strong> przejdź do żądanej strony
+            i użyj przycisku „Użyj bieżącej strony" na dole, żeby wskazać całą stronę z podglądu.
           </DialogDescription>
         </DialogHeader>
 
@@ -91,7 +105,7 @@ const MobileNavLivePicker: React.FC<Props> = ({ open, onOpenChange, onPick, init
           />
         </div>
 
-        <div className="p-3 border-t bg-muted/40 flex items-center gap-2">
+        <div className="p-3 border-t bg-muted/40 flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-0">
             {selected ? (
               <div className="text-sm">
@@ -102,10 +116,13 @@ const MobileNavLivePicker: React.FC<Props> = ({ open, onOpenChange, onPick, init
               </div>
             ) : (
               <div className="text-xs text-muted-foreground">
-                Kliknij element wewnątrz podglądu, aby go wybrać.
+                Kliknij element w podglądzie albo użyj „Użyj bieżącej strony", aby wskazać całą stronę.
               </div>
             )}
           </div>
+          <Button variant="outline" onClick={useCurrent} title={`Użyj: ${currentIframe.path}`}>
+            <MapPin className="h-4 w-4 mr-1" /> Użyj bieżącej strony
+          </Button>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4 mr-1" /> Anuluj
           </Button>
