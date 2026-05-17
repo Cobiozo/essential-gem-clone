@@ -617,12 +617,13 @@ const UserWorldMap: React.FC<Props> = ({
               background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
               cursor: gestureRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
-            onWheel={onWheel}
             shapeRendering="geometricPrecision"
           >
             {/* Satellite background texture */}
