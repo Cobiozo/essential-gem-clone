@@ -1,37 +1,29 @@
-## Co naprawić
+Problem nie wynika z samej Akademii, tylko z obecnego podejścia: picker w iframe przechwytuje kliknięcia, ale wiele miejsc w aplikacji nie jest zwykłym linkiem ani adresem `/nazwa`; część to przyciski, zakładki, elementy warunkowe albo akcje `navigate()`. Dlatego klikanie w dowolny tekst/sekcję nie zawsze daje poprawny cel.
 
-W trybie „Wskaż klikając w aplikacji" obecnie da się wybrać tylko element, który ma własny link / zakładkę / atrybut `data-nav-target`. Sama strona (np. `/academy` otwarta w iframe) nie da się wybrać, bo trzeba w coś kliknąć.
+Plan skuteczniejszego rozwiązania:
 
-## Rozwiązanie
+1. Dodać centralny rejestr realnych celów nawigacji
+- Każde miejsce będzie miało: nazwę, ikonę, ścieżkę/akcję, kategorię i role, dla których istnieje.
+- Akademia zostanie wskazana jako właściwa trasa używana przez aplikację: najpewniej `/training`, a jeśli routing faktycznie mapuje `/academy`, zostanie zachowana kompatybilność.
+- Rejestr będzie obsługiwał też cele z parametrami i zakładkami, np. `/admin?tab=...`, `/profile?tab=...`, `#sekcja`.
 
-### 1. Przycisk „Wybierz tę stronę" w MobileNavLivePicker
+2. Zamienić „kliknij w iframe” na pewny wybór miejsca z mini-pulpitu
+- W panelu Admin → System → Dolny pasek mobile przy wyborze celu pokażę miniaturowy pulpit/katalog miejsc aplikacji.
+- Admin będzie klikał kafelek konkretnego miejsca, a nie przypadkowy element strony.
+- Kafelek od razu zapisze poprawny cel techniczny, nawet jeśli w aplikacji normalnie przejście odbywa się przez `navigate()` albo ukryty przycisk.
 
-W stopce dialogu, obok „Zapisz jako cel", dodać przycisk:
-**„📍 Użyj bieżącej strony"** — bierze aktualną ścieżkę z iframe i ustawia ją jako `selected`.
+3. Zachować możliwość ręcznej ścieżki dla wyjątków
+- Pole „ścieżka własna” zostanie, ale jako tryb zaawansowany.
+- Dzięki temu da się ustawić anchor, query string albo nietypową ścieżkę, jeśli pojawi się nowy ekran bez rejestru.
 
-Implementacja:
-- W `NavPickOverlay.tsx` przy montowaniu i przy każdej zmianie `location` wysyłać do parent `postMessage({type:'NAV_LOCATION', path: location.pathname + location.search})`.
-- W `MobileNavLivePicker.tsx` nasłuchiwać `NAV_LOCATION` i trzymać w stanie `currentIframePath`. Pole z adresem startowym aktualizuje się też do tego adresu (żeby admin widział gdzie jest).
-- Przycisk „Użyj bieżącej strony" ustawia `selected = { path: currentIframePath, label: nazwa_z_<title> }`.
+4. Naprawić Akademię
+- Uzupełnię rejestr o prawidłowy cel Akademii zgodny z aktualnym routingiem aplikacji.
+- Po wybraniu kafelka „Akademia” dolny pasek mobile będzie przenosił dokładnie tam, gdzie prowadzi normalna nawigacja aplikacji.
 
-Dodatkowo: w `NavPickOverlay` wysyłać też `document.title` razem z lokalizacją, żeby etykieta sama się podstawiała („Akademia" zamiast „/academy").
+5. Uprościć lub usunąć zawodny live picker
+- Obecny picker iframe zostanie usunięty albo zdegradowany do opcji pomocniczej, żeby nie sugerował, że każde kliknięcie w dowolny tekst może być bezbłędnie zamienione na nawigację.
 
-### 2. Wizualne podświetlenie elementu pod kursorem w iframe
-
-Mały dodatek UX: w `NavPickOverlay` na `mousemove` dodawać outline (np. `outline: 2px solid hsl(var(--primary))`) do elementu który byłby wybrany. Dzięki temu admin od razu widzi co kliknie.
-
-### 3. Lepsza obsługa kliknięć w tekst bez linka
-
-Gdy admin kliknie w element, który nie jest linkiem ani nie ma `data-nav-target`, dziś w toaście pojawia się `pathname` jako fallback. Zachować ten fallback — to znaczy, że kliknięcie w „cokolwiek na stronie /academy" wybiera `/academy`. Już to mamy w kodzie, ale nie jest jasne dla użytkownika — toast powinien być wyraźniejszy: „Wybrano stronę: Akademia → /academy".
-
-### 4. Drobny komunikat w stopce
-
-W stopce zamiast „Kliknij element wewnątrz podglądu, aby go wybrać." pokazać dwie wskazówki:
-- „Kliknij konkretny link/zakładkę, **albo** użyj przycisku »Użyj bieżącej strony«, żeby wskazać całą stronę z podglądu."
-
-## Pliki
-
-- `src/components/system/NavPickOverlay.tsx` — wysyłać `NAV_LOCATION` z `pathname+search+title`, dodać podświetlenie hover.
-- `src/components/admin/MobileNavLivePicker.tsx` — odbierać `NAV_LOCATION`, synchronizować pole adresu, dodać przycisk „Użyj bieżącej strony".
-
-Bez zmian schematu DB i bez nowych plików.
+Technicznie:
+- Zmiany obejmą głównie `mobileNavRegistry`, `MobileNavPathPicker`, `MobileBottomNavSettings` i ewentualnie `MobileBottomNav`.
+- Nie zmieniam logiki bazy danych ani uprawnień.
+- Pasek nadal będzie mógł mieć jedną lub dowolną liczbę pozycji.
