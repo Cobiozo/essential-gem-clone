@@ -98,6 +98,8 @@ const UserWorldMap: React.FC<Props> = ({
   logoLeftUrl,
   logoRightUrl,
 }) => {
+  // If admin passes initialMode, it always wins over localStorage — keeps the widget
+  // deterministic across reloads and users.
   const [mapStyle, setMapStyle] = useState<'classic' | 'satellite'>(() => {
     if (initialMode) return initialMode;
     try {
@@ -107,6 +109,10 @@ const UserWorldMap: React.FC<Props> = ({
       return 'satellite';
     }
   });
+  // Sync when admin changes the default mode in settings (realtime updates).
+  useEffect(() => {
+    if (initialMode) setMapStyle(initialMode);
+  }, [initialMode]);
   const [textureFailed, setTextureFailed] = useState(false);
   const effectiveStyle: 'classic' | 'satellite' = mapStyle === 'satellite' && textureFailed ? 'classic' : mapStyle;
   const changeMapStyle = (v: 'classic' | 'satellite') => {
@@ -147,11 +153,15 @@ const UserWorldMap: React.FC<Props> = ({
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
   }, [effectiveStyle]);
 
-  // Default view: Europe centered (matches reference screenshot)
+  // Default view: Europe centered, tighter zoom (matches reference screenshot:
+  // ~3 wheel steps closer than the previous preset).
+  const DEFAULT_ZOOM_SATELLITE = 9.0;
+  const DEFAULT_ZOOM_CLASSIC = 6.0;
   const defaultView = useMemo(() => {
-    const pt = projection([15, 50]);
-    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom: 6.0 };
-  }, [projection]);
+    const pt = projection([15, 52]);
+    const zoom = effectiveStyle === 'satellite' ? DEFAULT_ZOOM_SATELLITE : DEFAULT_ZOOM_CLASSIC;
+    return { cx: pt?.[0] ?? VIEW_W / 2, cy: pt?.[1] ?? VIEW_H / 2, zoom };
+  }, [projection, effectiveStyle]);
 
   const [view, setView] = useState(defaultView);
   // Reset view when projection changes (style switch)
