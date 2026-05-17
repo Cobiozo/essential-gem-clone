@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Megaphone,
   GraduationCap,
-  Award
+  Award,
+  Mail
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationEventType, UserNotificationPreference } from '@/types/notifications';
