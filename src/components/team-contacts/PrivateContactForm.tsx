@@ -94,6 +94,13 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     contact_source: contact?.contact_source || '',
     contact_reason: contact?.contact_reason || '',
     priority_level: typeof contact?.priority_level === 'number' ? contact.priority_level : 0,
+    priority_traits: {
+      success: Number((contact as any)?.priority_traits?.success) || 0,
+      outgoing: Number((contact as any)?.priority_traits?.outgoing) || 0,
+      positive: Number((contact as any)?.priority_traits?.positive) || 0,
+      entrepreneurial: Number((contact as any)?.priority_traits?.entrepreneurial) || 0,
+      reputation: Number((contact as any)?.priority_traits?.reputation) || 0,
+    },
   });
 
   const [customFields, setCustomFields] = useState<CustomField[]>(initialCustomFields);
