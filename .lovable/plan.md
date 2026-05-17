@@ -1,28 +1,27 @@
-## Problem
+## Plan poprawki widoku wiadomości
 
-W mobilnym widoku rozmowy (`/messages`):
-1. Tekst wpisywany w polu wiadomości jest niewidoczny — `<textarea>` w `MessageInput.tsx` ma `bg-transparent` bez jawnego koloru tekstu, więc na ciemnym tle dziedziczy zbyt słaby kontrast (a placeholder też jest ledwo widoczny).
-2. W nagłówku rozmowy (`FullChatWindow.tsx`) widać tylko imię i nazwisko ("Dawid Kowalczyk") — brak roli odbiorcy (Lider / Partner / Specjalista / Klient / Admin) oraz brak kolorowego pierścienia roli przy awatarze.
+1. **Ustabilizować wysokość ekranu wiadomości**
+   - Zmienić główny kontener `/messages`, aby na mobile używał bezpiecznej wysokości widoku i nie pozwalał całej stronie przewijać się razem z dolnym paskiem.
+   - Dodać dolny odstęp tylko tam, gdzie potrzebny, żeby systemowy `MobileBottomNav` nie zasłaniał pola wpisywania i ikon.
 
-## Zakres (tylko frontend / UI)
+2. **Zrobić stałe elementy rozmowy**
+   - Nagłówek rozmowy zostaje na górze.
+   - Pole wpisywania wiadomości z ikonami załącznika/emoji/nagrywania/wysyłki zostaje stale widoczne nad dolną nawigacją.
+   - Przewijalna ma być wyłącznie lista wiadomości między nagłówkiem a polem wpisywania.
 
-### 1) `src/components/unified-chat/MessageInput.tsx`
-Dodać klasy zapewniające widoczność tekstu w `<textarea>` (linia ~151):
-- dodać `text-foreground`
-- dodać `placeholder:text-muted-foreground`
-- (kontener `bg-muted/50` zostaje bez zmian)
+3. **Poprawić dolny panel wpisywania na mobile**
+   - Dodać stabilne `shrink-0`, bezpieczny odstęp `env(safe-area-inset-bottom)` i tło, żeby panel nie „wchodził” pod dolne menu.
+   - Zachować wszystkie obecne opcje: załącznik, emoji, nagranie głosowe, wysyłka.
 
-### 2) `src/components/messages/FullChatWindow.tsx`
-W nagłówku (linie 96–118):
-- Zamienić zwykły `<Avatar>` na `RoleBadgedAvatar` (`size="sm"`) gdy mamy `directMember` — daje kolorowy pierścień roli + badge (czerwony shield dla admina, amber dla lidera itd.).
-- Pod `displayName` dodać małą etykietę roli przez `ROLE_LABELS` z `@/types/roleChat`:
-  - jeśli `directMember.role === 'partner' && directMember.isLeader` → "Lider"
-  - w przeciwnym razie → `ROLE_LABELS[directMember.role]`
-- Klasa etykiety: `text-xs text-muted-foreground leading-tight`.
-- `displayName` zmienić na układ kolumnowy: `<div class="flex flex-col"><h3>...</h3><span>rola</span></div>`.
+4. **Zabezpieczyć okna dialogowe**
+   - Dla okna załączników/akcji rozmowy zostawić dialog przewijalny, ale bez przesuwania nagłówka, pola wpisywania i dolnej nawigacji.
 
-Brak zmian w logice wysyłania, danych, RLS, ani w `ChatHeader.tsx` (osobny komponent dla widgetu). Dla kanałów grupowych/rolowych (gdy `directMember` jest null) nie pokazujemy etykiety roli — nagłówek pozostaje jak dotychczas.
+## Pliki do zmiany
+
+- `src/pages/MessagesPage.tsx`
+- `src/components/messages/FullChatWindow.tsx`
+- `src/components/unified-chat/MessageInput.tsx`
 
 ## Weryfikacja
-- Wpisanie tekstu w polu — tekst i placeholder widoczne na ciemnym tle.
-- Otwarcie rozmowy bezpośredniej — przy awatarze pierścień w kolorze roli + napis roli pod nazwiskiem.
+
+- Sprawdzić układ na viewport mobile 390×844: widoczne wszystkie ikony na dole, pole wpisywania nie jest przykryte, przewija się tylko historia rozmowy.

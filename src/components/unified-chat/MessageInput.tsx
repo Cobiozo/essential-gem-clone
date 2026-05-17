@@ -87,7 +87,10 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
   // Show voice recorder UI when recording
   if (isRecording) {
     return (
-      <div className="p-4 border-t border-border bg-background/80">
+      <div
+        className="p-4 border-t border-border bg-background shrink-0"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
         <VoiceRecorder
           onRecordingComplete={handleVoiceRecordingComplete}
           onCancel={() => setIsRecording(false)}
@@ -97,7 +100,10 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
   }
 
   return (
-    <div className="p-4 border-t border-border bg-background/80">
+    <div
+      className="p-4 border-t border-border bg-background shrink-0"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    >
       {/* Pending attachment preview */}
       {pendingAttachment && (
         <div className="flex items-center gap-3 mb-3 p-2.5 bg-muted/60 rounded-xl border border-border">
