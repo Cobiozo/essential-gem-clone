@@ -5,11 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate OTP code in format ZW-XXXXXX (ZW = Zdrowa Wiedza)
+// Generate OTP code in format BW-XXXX (4 digits)
 function generateOTPCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'ZW-';
-  for (let i = 0; i < 6; i++) {
+  const chars = '0123456789';
+  let code = 'BW-';
+  for (let i = 0; i < 4; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     // Generate unique OTP code
     let otpCode: string;
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 50;
 
     do {
       otpCode = generateOTPCode();

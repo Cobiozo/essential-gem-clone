@@ -81,10 +81,10 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   const [emailConsent, setEmailConsent] = useState(false);
 
   const cleanCode = (input: string): string => {
-    // Strip ZW- prefix and hyphens, keep only alphanumeric, uppercase
-    let cleaned = input.toUpperCase().replace(/^ZW-?/, '').replace(/-/g, '');
-    cleaned = cleaned.replace(/[^A-Z0-9]/g, '');
-    return cleaned.slice(0, 6);
+    // Strip BW-/ZW- prefix and hyphens, keep digits only, max 4
+    let cleaned = input.toUpperCase().replace(/^(BW|ZW)-?/, '').replace(/-/g, '');
+    cleaned = cleaned.replace(/[^0-9]/g, '');
+    return cleaned.slice(0, 4);
   };
 
   const formatDisplay = (raw: string): string => {
@@ -101,7 +101,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     const pasted = e.clipboardData.getData('text');
     const cleaned = cleanCode(pasted);
     setOtpRaw(cleaned);
-    if (cleaned.length === 6) {
+    if (cleaned.length === 4) {
       // Auto-submit after paste
       setTimeout(() => handleOtpSubmit(cleaned), 100);
     }
@@ -161,13 +161,13 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim()) &&
       guestPhone.replace(/[^\d]/g, '').length >= 9 &&
       emailConsent &&
-      otpRaw.length === 6
+      otpRaw.length === 4
     );
   };
 
   const handleOtpSubmit = async (codeOverride?: string) => {
     const raw = codeOverride || otpRaw;
-    if (raw.length !== 6) {
+    if (raw.length !== 4) {
       toast.error('Wprowadź pełny kod dostępu');
       return;
     }
@@ -181,8 +181,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     setError(null);
 
     try {
-      // Format code as ZW-XXXXXX
-      const formattedCode = `ZW-${raw}`.toUpperCase();
+      // Format code as BW-XXXX
+      const formattedCode = `BW-${raw}`.toUpperCase();
 
       const response = await supabase.functions.invoke('validate-hk-otp', {
         body: {
@@ -419,22 +419,23 @@ const HealthyKnowledgePublicPage: React.FC = () => {
             <div className="flex flex-col items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Lock className="w-4 h-4" />
-                <span>Kod w formacie: ZW-XXXXXX</span>
+                <span>Kod w formacie: BW-XXXX</span>
               </div>
               
               <div className="flex items-center gap-2">
-                <span className="text-lg font-mono font-bold text-muted-foreground">ZW-</span>
+                <span className="text-lg font-mono font-bold text-muted-foreground">BW-</span>
                 <Input
                   value={formatDisplay(otpRaw)}
                   onChange={handleCodeChange}
                   onPaste={handleCodePaste} 
                   onKeyDown={(e) => { if (e.key === 'Enter' && isGuestFormValid()) handleOtpSubmit(); }}
-                  placeholder="XXXXXX"
-                  maxLength={6}
+                  placeholder="XXXX"
+                  maxLength={4}
                   autoComplete="off"
                   spellCheck={false}
-                  inputMode="text"
-                  className="font-mono text-lg tracking-widest uppercase w-[140px] text-center"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  className="font-mono text-lg tracking-widest w-[120px] text-center"
                 />
               </div>
 

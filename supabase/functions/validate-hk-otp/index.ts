@@ -36,12 +36,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalize OTP code: strip hyphens after ZW- prefix, uppercase
+    // Normalize OTP code: strip BW-/ZW- prefix and hyphens, uppercase
+    // Accepts new BW-XXXX format and legacy ZW-XXXXXX (backward compatibility)
     const rawCode = otp_code.toUpperCase().trim();
-    const stripped = rawCode.replace(/^ZW-?/, '').replace(/-/g, '');
-    const normalizedCode = `ZW-${stripped}`;
-    // Also build legacy format for backward compatibility (ZW-XXXX-XX)
-    const legacyCode = stripped.length === 6 ? `ZW-${stripped.slice(0,4)}-${stripped.slice(4)}` : normalizedCode;
+    const stripped = rawCode.replace(/^(BW|ZW)-?/, '').replace(/-/g, '');
+    const bwCode = `BW-${stripped}`;
+    const zwCode = `ZW-${stripped}`;
+    // Legacy split format for very old codes (ZW-XXXX-XX)
+    const legacyCode = stripped.length === 6 ? `ZW-${stripped.slice(0,4)}-${stripped.slice(4)}` : zwCode;
 
     // Find knowledge by slug
     const { data: knowledge, error: knowledgeError } = await supabase
@@ -63,7 +65,7 @@ Deno.serve(async (req) => {
     const { data: otpCodeRecord, error: otpError } = await supabase
       .from('hk_otp_codes')
       .select('*')
-      .in('code', [normalizedCode, legacyCode])
+      .in('code', [bwCode, zwCode, legacyCode])
       .eq('knowledge_id', knowledge.id)
       .eq('is_invalidated', false)
       .gt('expires_at', new Date().toISOString())
