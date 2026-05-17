@@ -484,17 +484,17 @@ const UserWorldMap: React.FC<Props> = ({
               const dimmed = !!selectedIso && !isSelected;
               const baseFill = isSelected
                 ? 'hsl(var(--primary) / 0.18)'
-                : mapStyle === 'satellite'
+                : effectiveStyle === 'satellite'
                 ? 'transparent'
                 : dimmed
                 ? 'hsl(var(--muted-foreground) / 0.2)'
                 : 'hsl(var(--muted-foreground) / 0.35)';
               const stroke = isSelected
                 ? 'hsl(var(--primary))'
-                : mapStyle === 'satellite'
+                : effectiveStyle === 'satellite'
                 ? 'hsl(0 0% 100% / 0.55)'
                 : 'hsl(var(--muted-foreground) / 0.7)';
-              const sw = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
+              const sw = (isSelected ? 0.7 : effectiveStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
               return (
                 <path
                   key={c.key}
@@ -553,9 +553,9 @@ const UserWorldMap: React.FC<Props> = ({
                 >
                   <circle
                     r={r}
-                    fill={markerColor ?? (mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
+                    fill={markerColor ?? (effectiveStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
                     fillOpacity={isCluster ? 0.9 : 1}
-                    stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
+                    stroke={effectiveStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                     strokeWidth={strokeW}
                     pointerEvents="all"
                   />
