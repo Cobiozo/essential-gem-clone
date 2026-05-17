@@ -90,7 +90,7 @@ const UserWorldMap: React.FC<Props> = ({
     } catch {
       features = [];
     }
-    const proj: GeoProjection = (mapStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
+    const proj: GeoProjection = (effectiveStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
     try {
       if (features.length > 0) {
         proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
@@ -101,7 +101,7 @@ const UserWorldMap: React.FC<Props> = ({
       proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
     }
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
-  }, [mapStyle]);
+  }, [effectiveStyle]);
 
   // Default view: center on Poland-ish
   const defaultView = useMemo(() => {
@@ -445,7 +445,7 @@ const UserWorldMap: React.FC<Props> = ({
             style={{
               width: '100%',
               height: '100%',
-              background: mapStyle === 'satellite' ? '#0b1d2a' : 'transparent',
+              background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
               cursor: dragRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
             }}
