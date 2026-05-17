@@ -277,6 +277,17 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 )}
+                {!moved && onDeleteSession && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setDeleteSessionConfirm(s.session_id)}
+                    title={tf('teamContacts.removeFromList', 'Usuń z listy')}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             </div>
           );
