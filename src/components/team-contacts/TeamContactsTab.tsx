@@ -517,7 +517,7 @@ export const TeamContactsTab: React.FC = () => {
                    onClick={() => setPrivateSubTab('hk-materials')}
                  >
                    <BookOpen className="w-3.5 h-3.5 mr-1" />
-                   Z udostępnionego materiału ZW
+                   Z udostępnionego materiału BW
                    {hkSessions.length > 0 && (
                      <Badge variant="secondary" className="ml-2">{hkSessions.length}</Badge>
                    )}
