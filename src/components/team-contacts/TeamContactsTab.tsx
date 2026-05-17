@@ -343,16 +343,16 @@ export const TeamContactsTab: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'team' | 'search' | 'structure')} className="space-y-4">
-        <TabsList className={`grid w-full lg:w-auto lg:inline-flex`} style={{ gridTemplateColumns: `repeat(${visibleTabsCount}, minmax(0, 1fr))` }}>
+        <TabsList className="flex w-full overflow-x-auto whitespace-nowrap gap-1 lg:w-auto lg:inline-flex h-auto">
           {!clientOnlyView && (
-            <TabsTrigger value="private" className="flex items-center gap-2">
+            <TabsTrigger value="private" className="flex items-center gap-2 shrink-0">
               <UserPlus className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.privateContacts', 'Kontakty prywatne')}</span>
               <span className="sm:hidden">{tf('teamContacts.privateContacts', 'Prywatne')}</span>
             </TabsTrigger>
           )}
           {!clientOnlyView && (
-            <TabsTrigger value="team" className="flex items-center gap-2 relative">
+            <TabsTrigger value="team" className="flex items-center gap-2 relative shrink-0">
               <UsersRound className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.teamMembers', 'Członkowie zespołu')}</span>
               <span className="sm:hidden">{tf('teamContacts.teamMembers', 'Zespół')}</span>
