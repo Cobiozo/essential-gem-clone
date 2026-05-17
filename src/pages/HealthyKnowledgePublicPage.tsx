@@ -81,10 +81,10 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   const [emailConsent, setEmailConsent] = useState(false);
 
   const cleanCode = (input: string): string => {
-    // Strip ZW- prefix and hyphens, keep only alphanumeric, uppercase
-    let cleaned = input.toUpperCase().replace(/^ZW-?/, '').replace(/-/g, '');
-    cleaned = cleaned.replace(/[^A-Z0-9]/g, '');
-    return cleaned.slice(0, 6);
+    // Strip BW-/ZW- prefix and hyphens, keep digits only, max 4
+    let cleaned = input.toUpperCase().replace(/^(BW|ZW)-?/, '').replace(/-/g, '');
+    cleaned = cleaned.replace(/[^0-9]/g, '');
+    return cleaned.slice(0, 4);
   };
 
   const formatDisplay = (raw: string): string => {
