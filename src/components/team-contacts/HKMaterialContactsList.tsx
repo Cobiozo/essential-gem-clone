@@ -42,6 +42,7 @@ interface HKMaterialContactsListProps {
   onMoveToOwnList?: (session: HKSessionContact) => Promise<boolean | 'duplicate'>;
   onEdit?: (contact: TeamContact) => void;
   onDelete?: (id: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
   getContactHistory?: (contactId: string) => Promise<TeamContactHistory[]>;
   movedContactIds?: Set<string>; // session_ids that have been moved
   movedContacts?: Map<string, TeamContact>; // session_id -> TeamContact for moved sessions
