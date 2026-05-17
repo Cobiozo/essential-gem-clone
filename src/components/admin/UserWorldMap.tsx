@@ -170,6 +170,12 @@ const UserWorldMap: React.FC<Props> = ({
   // Reset view when projection changes (style switch)
   useEffect(() => { setView(defaultView); }, [defaultView]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPinned(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
   const [pinned, setPinned] = useState<{ x: number; y: number; title: string; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
