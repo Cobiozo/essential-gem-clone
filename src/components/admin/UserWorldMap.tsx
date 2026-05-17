@@ -701,26 +701,26 @@ const UserWorldMap: React.FC<Props> = ({
               const rawR = (1.0 + Math.log2(c.count + 1) * 0.6) / Math.pow(view.zoom, 0.95);
               const r = Math.max(0.15, Math.min(3.0, rawR));
               const strokeW = 0.35 / Math.pow(view.zoom, 0.9);
-              const onEnter = (e: React.MouseEvent) => {
-                const sorted = [...c.items].sort((a, b) => b.count - a.count);
-                const shown = sorted.slice(0, 8).map((it) => `${it.city} (${it.count})`);
-                const more = sorted.length - shown.length;
-                showTooltipAt(e, {
-                  title: isCluster ? `${c.items.length} miast` : `${sorted[0].city}${sorted[0].country ? ', ' + sorted[0].country : ''}`,
-                  lines: isCluster ? [...shown, more > 0 ? `…i ${more} więcej` : ''].filter(Boolean) : [],
-                  count: c.count,
-                });
-              };
-              const onMove = (e: React.MouseEvent) => showTooltipAt(e, { title: hover?.title ?? '', lines: hover?.lines ?? [], count: hover?.count ?? c.count });
+              const sorted = [...c.items].sort((a, b) => b.count - a.count);
+              const shown = sorted.slice(0, 8).map((it) => `${it.city} (${it.count})`);
+              const more = sorted.length - shown.length;
+              const tipTitle = isCluster
+                ? `${c.items.length} miast`
+                : `${sorted[0].city}${sorted[0].country ? ', ' + sorted[0].country : ''}`;
+              const tipLines = isCluster
+                ? [...shown, more > 0 ? `…i ${more} więcej` : ''].filter(Boolean)
+                : [];
+              const showTip = (e: React.MouseEvent) =>
+                showTooltipAt(e, { title: tipTitle, lines: tipLines, count: c.count });
               return (
                 <g
                   key={`cl-${idx}`}
                   transform={`translate(${pt[0]} ${pt[1]})`}
                   style={{ cursor: 'pointer' }}
-                  onMouseEnter={onEnter}
-                  onMouseMove={onMove}
+                  onMouseEnter={showTip}
+                  onMouseMove={showTip}
                   onMouseLeave={() => setHover(null)}
-                  onClick={() => zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40)}
+                  onClick={() => { if (isClickSuppressed()) return; zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40); }}
                 >
                   <circle
                     r={r}
