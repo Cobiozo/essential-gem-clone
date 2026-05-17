@@ -562,21 +562,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             </div>
           </Section>
 
-          {/* Notatki */}
-          <Section
-            title={tf('teamContacts.conversationNotes', 'Notatki z rozmów')}
-            icon={<StickyNote className="h-4 w-4" />}
-            className="lg:col-span-12"
-          >
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Zapisz ważne informacje z rozmów, preferencje, pytania..."
-              rows={4}
-            />
-          </Section>
-
           {/* Pola własne */}
           <Section
             title={`Dodatkowe pola własne (${customFields.length}/${MAX_CUSTOM_FIELDS})`}
