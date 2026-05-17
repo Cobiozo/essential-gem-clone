@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContact } from './types';
 
@@ -9,14 +19,17 @@ interface DeletedContactsListProps {
   contacts: TeamContact[];
   loading: boolean;
   onRestore: (id: string) => void;
+  onPermanentDelete?: (id: string) => void;
 }
 
 export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
   contacts,
   loading,
   onRestore,
+  onPermanentDelete,
 }) => {
   const { tf } = useLanguage();
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -70,19 +83,60 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
                   {deletedDateStr && <span className="text-xs">{tf('teamContacts.deletedAt', 'Usunięto')}: {deletedDateStr}</span>}
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onRestore(contact.id)}
-                className="shrink-0"
-              >
-                <RotateCcw className="w-4 h-4 mr-1" />
-                {tf('teamContacts.restore', 'Przywróć')}
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRestore(contact.id)}
+                >
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  {tf('teamContacts.restore', 'Przywróć')}
+                </Button>
+                {onPermanentDelete && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setPermanentDeleteId(contact.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    {tf('teamContacts.deletePermanently', 'Usuń trwale')}
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
+
+      <AlertDialog open={!!permanentDeleteId} onOpenChange={(open) => !open && setPermanentDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {tf('teamContacts.deletePermanentlyTitle', 'Usunąć kontakt trwale?')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {tf(
+                'teamContacts.deletePermanentlyConfirmation',
+                'Tej operacji nie można cofnąć. Kontakt zostanie nieodwracalnie usunięty z bazy.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (permanentDeleteId && onPermanentDelete) {
+                  onPermanentDelete(permanentDeleteId);
+                  setPermanentDeleteId(null);
+                }
+              }}
+            >
+              {tf('teamContacts.deletePermanently', 'Usuń trwale')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

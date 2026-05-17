@@ -329,6 +329,34 @@ export const useTeamContacts = () => {
     }
   };
 
+  const permanentlyDeleteContact = async (id: string) => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Kontakt usunięty trwale',
+        description: 'Kontakt został nieodwracalnie usunięty z bazy',
+      });
+
+      fetchDeletedContacts();
+      return true;
+    } catch (error: any) {
+      console.error('Error permanently deleting contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się trwale usunąć kontaktu',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   const checkDuplicateBeforeMove = async (id: string): Promise<{ isDuplicate: boolean; existingContact?: TeamContact }> => {
     if (!user) return { isDuplicate: false };
     
@@ -680,6 +708,7 @@ export const useTeamContacts = () => {
     deletedContacts,
     deletedLoading,
     restoreContact,
+    permanentlyDeleteContact,
     moveToOwnList,
     checkDuplicateBeforeMove,
   };

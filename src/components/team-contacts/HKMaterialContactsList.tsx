@@ -42,6 +42,7 @@ interface HKMaterialContactsListProps {
   onMoveToOwnList?: (session: HKSessionContact) => Promise<boolean | 'duplicate'>;
   onEdit?: (contact: TeamContact) => void;
   onDelete?: (id: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
   getContactHistory?: (contactId: string) => Promise<TeamContactHistory[]>;
   movedContactIds?: Set<string>; // session_ids that have been moved
   movedContacts?: Map<string, TeamContact>; // session_id -> TeamContact for moved sessions
@@ -112,12 +113,14 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
   onMoveToOwnList,
   onEdit,
   onDelete,
+  onDeleteSession,
   getContactHistory,
   movedContactIds,
   movedContacts,
 }) => {
   const { tf } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteSessionConfirm, setDeleteSessionConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<HKSessionContact | null>(null);
   const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
@@ -274,6 +277,17 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 )}
+                {!moved && onDeleteSession && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setDeleteSessionConfirm(s.session_id)}
+                    title={tf('teamContacts.removeFromList', 'Usuń z listy')}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                )}
               </div>
             </div>
           );
@@ -296,6 +310,32 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({
                 if (deleteConfirm && onDelete) {
                   onDelete(deleteConfirm);
                   setDeleteConfirm(null);
+                }
+              }}
+            >
+              {tf('teamContacts.deleted', 'Usuń')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Session Delete Confirmation (not-yet-moved sessions) */}
+      <AlertDialog open={!!deleteSessionConfirm} onOpenChange={() => setDeleteSessionConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tf('teamContacts.removeFromList', 'Usunąć z listy?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tf('teamContacts.removeSessionDesc', 'Wpis zostanie ukryty z tej listy. Operacja nie usuwa logu sesji.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteSessionConfirm && onDeleteSession) {
+                  onDeleteSession(deleteSessionConfirm);
+                  setDeleteSessionConfirm(null);
                 }
               }}
             >

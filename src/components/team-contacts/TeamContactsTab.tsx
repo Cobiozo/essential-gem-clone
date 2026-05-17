@@ -68,7 +68,7 @@ interface PendingApproval {
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
   const { tf } = useLanguage();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactIdsBO, eventContactIdsHC, eventContactIdsGeneral, eventContactDetails, eventInviteSubmissions, eventGroupedContacts, eventGroupedContactsBO, eventGroupedContactsHC, eventGroupedContactsGeneral, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactIdsBO, eventContactIdsHC, eventContactIdsGeneral, eventContactDetails, eventInviteSubmissions, eventGroupedContacts, eventGroupedContactsBO, eventGroupedContactsHC, eventGroupedContactsGeneral, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, permanentlyDeleteContact, moveToOwnList } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -343,16 +343,16 @@ export const TeamContactsTab: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'private' | 'team' | 'search' | 'structure')} className="space-y-4">
-        <TabsList className={`grid w-full lg:w-auto lg:inline-flex`} style={{ gridTemplateColumns: `repeat(${visibleTabsCount}, minmax(0, 1fr))` }}>
+        <TabsList className="flex w-full overflow-x-auto whitespace-nowrap gap-1 lg:w-auto lg:inline-flex h-auto">
           {!clientOnlyView && (
-            <TabsTrigger value="private" className="flex items-center gap-2">
+            <TabsTrigger value="private" className="flex items-center gap-2 shrink-0">
               <UserPlus className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.privateContacts', 'Kontakty prywatne')}</span>
               <span className="sm:hidden">{tf('teamContacts.privateContacts', 'Prywatne')}</span>
             </TabsTrigger>
           )}
           {!clientOnlyView && (
-            <TabsTrigger value="team" className="flex items-center gap-2 relative">
+            <TabsTrigger value="team" className="flex items-center gap-2 relative shrink-0">
               <UsersRound className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.teamMembers', 'Członkowie zespołu')}</span>
               <span className="sm:hidden">{tf('teamContacts.teamMembers', 'Zespół')}</span>
@@ -364,14 +364,14 @@ export const TeamContactsTab: React.FC = () => {
             </TabsTrigger>
           )}
           {canSearchSpecialists && (
-            <TabsTrigger value="search" className="flex items-center gap-2">
+            <TabsTrigger value="search" className="flex items-center gap-2 shrink-0">
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.searchSpecialist', 'Szukaj specjalisty')}</span>
               <span className="sm:hidden">{tf('teamContacts.search', 'Szukaj')}</span>
             </TabsTrigger>
           )}
           {canAccessTree() && (
-            <TabsTrigger value="structure" className="flex items-center gap-2">
+            <TabsTrigger value="structure" className="flex items-center gap-2 shrink-0">
               <TreePine className="w-4 h-4" />
               <span className="hidden sm:inline">{tf('teamContacts.structure', 'Struktura')}</span>
               <span className="sm:hidden">{tf('teamContacts.structure', 'Struktura')}</span>
@@ -517,7 +517,7 @@ export const TeamContactsTab: React.FC = () => {
                    onClick={() => setPrivateSubTab('hk-materials')}
                  >
                    <BookOpen className="w-3.5 h-3.5 mr-1" />
-                   Z udostępnionego materiału ZW
+                   Z udostępnionego materiału BW
                    {hkSessions.length > 0 && (
                      <Badge variant="secondary" className="ml-2">{hkSessions.length}</Badge>
                    )}
@@ -549,6 +549,7 @@ export const TeamContactsTab: React.FC = () => {
                   contacts={deletedContacts}
                   loading={deletedLoading}
                   onRestore={restoreContact}
+                  onPermanentDelete={permanentlyDeleteContact}
                 />
               ) : privateSubTab === 'events-bo' ? (
               <EventGroupedContacts
@@ -599,6 +600,7 @@ export const TeamContactsTab: React.FC = () => {
                   onMoveToOwnList={moveHkSessionToOwnList}
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
+                  onDeleteSession={(sessionId) => setHkSessions(prev => prev.filter(s => s.session_id !== sessionId))}
                   getContactHistory={getContactHistory}
                 />
               ) : viewMode === 'accordion' ? (
