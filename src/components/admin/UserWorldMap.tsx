@@ -675,7 +675,7 @@ const UserWorldMap: React.FC<Props> = ({
                   strokeWidth={sw}
                   strokeLinejoin="round"
                   style={{ cursor: c.iso ? 'pointer' : 'default', outline: 'none' }}
-                  onClick={() => handleCountryClick(c.raw)}
+                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
                 />
               );
             })}
