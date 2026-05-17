@@ -171,6 +171,7 @@ const UserWorldMap: React.FC<Props> = ({
   useEffect(() => { setView(defaultView); }, [defaultView]);
 
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
+  const [pinned, setPinned] = useState<{ x: number; y: number; title: string; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   // Click vs drag detection
