@@ -318,24 +318,51 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             className="lg:col-span-6"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 sm:col-span-2">
+              <div className="space-y-3 sm:col-span-2">
                 <Label>Poziom zainteresowania</Label>
-                <div className="flex items-center gap-3">
-                  <RatingElement
-                    value={formData.priority_level}
-                    max={5}
-                    readonly={false}
-                    onChange={(v) => setFormData({ ...formData, priority_level: v })}
-                  />
-                  {formData.priority_level > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, priority_level: 0 })}
-                      className="text-xs text-muted-foreground hover:text-foreground underline"
-                    >
-                      wyczyść
-                    </button>
-                  )}
+                {([
+                  { key: 'success', label: 'Sukces' },
+                  { key: 'outgoing', label: 'Towarzyski' },
+                  { key: 'positive', label: 'Pozytywny' },
+                  { key: 'entrepreneurial', label: 'Przedsiębiorczy' },
+                  { key: 'reputation', label: 'Reputacja' },
+                ] as const).map(({ key, label }) => (
+                  <div key={key} className="flex items-center justify-between gap-3 flex-wrap">
+                    <span className="text-sm text-foreground min-w-[140px]">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <RatingElement
+                        value={formData.priority_traits[key] || 0}
+                        max={5}
+                        readonly={false}
+                        onChange={(v) =>
+                          setFormData({
+                            ...formData,
+                            priority_traits: { ...formData.priority_traits, [key]: v },
+                          })
+                        }
+                      />
+                      {(formData.priority_traits[key] || 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              priority_traits: { ...formData.priority_traits, [key]: 0 },
+                            })
+                          }
+                          className="text-xs text-muted-foreground hover:text-foreground underline"
+                        >
+                          wyczyść
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <span className="text-sm font-semibold text-foreground">Ogólna ocena kontaktu</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {Object.values(formData.priority_traits).reduce((a, b) => a + (Number(b) || 0), 0)} / 25
+                  </span>
                 </div>
               </div>
 
