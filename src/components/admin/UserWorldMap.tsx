@@ -19,6 +19,41 @@ const VIEW_H = 420;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 200;
 
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v1';
+type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
+
+function readGeocodeCache(): GeocodeCache {
+  try {
+    const raw = localStorage.getItem(GEOCODE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed as GeocodeCache : {};
+  } catch { return {}; }
+}
+function writeGeocodeCache(cache: GeocodeCache) {
+  try { localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache)); } catch {}
+}
+function mergeGeocodeCache(results: GeocodeResult[]) {
+  if (!results || results.length === 0) return;
+  const cache = readGeocodeCache();
+  let changed = false;
+  results.forEach((r) => {
+    if (r && typeof r.lat === 'number' && typeof r.lng === 'number' && isFinite(r.lat) && isFinite(r.lng)) {
+      const key = `${r.city.toLowerCase()}|${r.country.toLowerCase()}`;
+      cache[key] = { lat: r.lat, lng: r.lng, ts: Date.now() };
+      changed = true;
+    }
+  });
+  if (changed) writeGeocodeCache(cache);
+}
+function fromCacheResults(items: { city: string; country: string }[]): GeocodeResult[] {
+  const cache = readGeocodeCache();
+  return items.map((i) => {
+    const hit = cache[`${i.city.toLowerCase()}|${i.country.toLowerCase()}`];
+    return { city: i.city, country: i.country, lat: hit?.lat ?? null, lng: hit?.lng ?? null };
+  });
+}
+
 async function geocodeCities(
   items: { city: string; country: string }[],
   forceRetry = false,
@@ -29,12 +64,12 @@ async function geocodeCities(
       body: { items, forceRetry },
     });
     if (error) throw error;
-    return {
-      results: (data?.results ?? []) as GeocodeResult[],
-      pending: (data?.pending ?? 0) as number,
-    };
+    const results = (data?.results ?? []) as GeocodeResult[];
+    mergeGeocodeCache(results);
+    return { results, pending: (data?.pending ?? 0) as number };
   } catch {
-    return { results: [], pending: 0 };
+    // Fallback: serve from local cache so the map still shows previously-known points.
+    return { results: fromCacheResults(items), pending: 0 };
   }
 }
 
@@ -90,15 +125,24 @@ const UserWorldMap: React.FC<Props> = ({
     } catch {
       features = [];
     }
-    const proj: GeoProjection = (effectiveStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
-    try {
-      if (features.length > 0) {
-        proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
-      } else {
+    let proj: GeoProjection;
+    if (effectiveStyle === 'satellite') {
+      // Fixed equirectangular: full [-180..180] x [-90..90] fits VIEW_W,
+      // centered vertically. This keeps the satellite bitmap aligned with country paths.
+      proj = geoEquirectangular()
+        .scale(VIEW_W / (2 * Math.PI))
+        .translate([VIEW_W / 2, VIEW_H / 2]);
+    } else {
+      proj = geoNaturalEarth1();
+      try {
+        if (features.length > 0) {
+          proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
+        } else {
+          proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
+        }
+      } catch {
         proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
       }
-    } catch {
-      proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
     }
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
   }, [effectiveStyle]);
@@ -306,30 +350,123 @@ const UserWorldMap: React.FC<Props> = ({
     } catch {}
   };
 
-  // Pan with pointer drag
+  // Multi-pointer pan + pinch zoom
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const dragRef = useRef<{ x: number; y: number; cx: number; cy: number } | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gestureRef = useRef<{
+    mode: 'pan' | 'pinch';
+    startView: { cx: number; cy: number; zoom: number };
+    startCenter: { x: number; y: number };
+    startDist: number;
+  } | null>(null);
+
+  const clientToViewBox = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: view.cx, y: view.cy };
+    const sx = rect.width / VIEW_W;
+    const sy = rect.height / VIEW_H;
+    const px = (clientX - rect.left) / sx; // in 0..VIEW_W (untransformed) — but svg uses viewBox vbX/vbY/vbW/vbH
+    const py = (clientY - rect.top) / sy;
+    // Map preview pixel back to projection coordinates using current viewBox
+    const x = vbX + (px / VIEW_W) * vbW;
+    const y = vbY + (py / VIEW_H) * vbH;
+    return { x, y };
+  };
+
+  const recomputeGesture = () => {
+    const pts = [...pointersRef.current.values()];
+    if (pts.length === 0) { gestureRef.current = null; return; }
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+    let dist = 0;
+    if (pts.length >= 2) {
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      dist = Math.hypot(dx, dy);
+    }
+    gestureRef.current = {
+      mode: pts.length >= 2 ? 'pinch' : 'pan',
+      startView: { ...view },
+      startCenter: { x: cx, y: cy },
+      startDist: dist || 1,
+    };
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as Element).setPointerCapture?.(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy };
+    cancelAnim();
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    recomputeGesture();
   };
+
   const onPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d || !svgRef.current) return;
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gestureRef.current;
+    if (!g || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const sx = rect.width / VIEW_W;
     const sy = rect.height / VIEW_H;
-    const dx = (e.clientX - d.x) / (sx * view.zoom);
-    const dy = (e.clientY - d.y) / (sy * view.zoom);
-    setView({ cx: d.cx - dx, cy: d.cy - dy, zoom: view.zoom });
+    const pts = [...pointersRef.current.values()];
+    const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+
+    if (g.mode === 'pinch' && pts.length >= 2) {
+      const dx = pts[0].x - pts[1].x;
+      const dy = pts[0].y - pts[1].y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ratio = dist / g.startDist;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, g.startView.zoom * ratio));
+      // Anchor zoom around gesture center (in projection coords at gesture start)
+      const startVbW = VIEW_W / g.startView.zoom;
+      const startVbH = VIEW_H / g.startView.zoom;
+      const startVbX = g.startView.cx - startVbW / 2;
+      const startVbY = g.startView.cy - startVbH / 2;
+      const anchorX = startVbX + ((g.startCenter.x - rect.left) / sx / VIEW_W) * startVbW;
+      const anchorY = startVbY + ((g.startCenter.y - rect.top) / sy / VIEW_H) * startVbH;
+      // Pan delta from gesture center movement (in projection units at new zoom)
+      const panDx = (cx - g.startCenter.x) / (sx * newZoom);
+      const panDy = (cy - g.startCenter.y) / (sy * newZoom);
+      // Keep anchor under fingers: new center = anchor + (startCenter - viewportCenterPx)/zoom - pan
+      const halfW = VIEW_W / newZoom / 2;
+      const halfH = VIEW_H / newZoom / 2;
+      // Position of anchor in the new viewBox: relative to viewport center
+      const anchorOffsetX = ((g.startCenter.x - rect.left) / sx) - VIEW_W / 2;
+      const anchorOffsetY = ((g.startCenter.y - rect.top) / sy) - VIEW_H / 2;
+      const newCx = anchorX - (anchorOffsetX / newZoom) - panDx;
+      const newCy = anchorY - (anchorOffsetY / newZoom) - panDy;
+      setView({ cx: newCx, cy: newCy, zoom: newZoom });
+    } else {
+      // Pure pan
+      const dx = (cx - g.startCenter.x) / (sx * g.startView.zoom);
+      const dy = (cy - g.startCenter.y) / (sy * g.startView.zoom);
+      setView({ cx: g.startView.cx - dx, cy: g.startView.cy - dy, zoom: g.startView.zoom });
+    }
   };
-  const onPointerUp = () => { dragRef.current = null; };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size === 0) gestureRef.current = null;
+    else recomputeGesture();
+  };
 
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
+    cancelAnim();
     const factor = Math.pow(1.0015, -e.deltaY);
     const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.zoom * factor));
-    setView({ ...view, zoom: newZoom });
+    if (newZoom === view.zoom) return;
+    // Anchor zoom around cursor position
+    const anchor = clientToViewBox(e.clientX, e.clientY);
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) { setView({ ...view, zoom: newZoom }); return; }
+    const sx = rect.width / VIEW_W;
+    const sy = rect.height / VIEW_H;
+    const anchorOffsetX = ((e.clientX - rect.left) / sx) - VIEW_W / 2;
+    const anchorOffsetY = ((e.clientY - rect.top) / sy) - VIEW_H / 2;
+    const newCx = anchor.x - anchorOffsetX / newZoom;
+    const newCy = anchor.y - anchorOffsetY / newZoom;
+    setView({ cx: newCx, cy: newCy, zoom: newZoom });
   };
 
   // Compute viewBox based on current view (center + zoom)
@@ -446,7 +583,7 @@ const UserWorldMap: React.FC<Props> = ({
               width: '100%',
               height: '100%',
               background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
-              cursor: dragRef.current ? 'grabbing' : 'grab',
+              cursor: gestureRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
             }}
             onPointerDown={onPointerDown}
@@ -458,8 +595,9 @@ const UserWorldMap: React.FC<Props> = ({
           >
             {/* Satellite background texture */}
             {effectiveStyle === 'satellite' && (() => {
-              const tl = projection([-180, 85]);
-              const br = projection([180, -85]);
+              // Use full world bounds so the satellite bitmap aligns 1:1 with country geometry
+              const tl = projection([-180, 90]);
+              const br = projection([180, -90]);
               if (!tl || !br) return null;
               const w = br[0] - tl[0];
               const h = br[1] - tl[1];
