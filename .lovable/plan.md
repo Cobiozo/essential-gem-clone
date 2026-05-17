@@ -1,23 +1,28 @@
-## Plan poprawki mobile UI
+## Problem
 
-### 1. Górny pasek na stronie „Moje konto”
-- Przebudować header w `src/pages/MyAccount.tsx` pod mobile, żeby elementy nie wychodziły poza ekran 390px.
-- Na mobile zostawić kompaktowy układ: logo + nazwa po lewej oraz ikony akcji po prawej.
-- Ukryć tekst w przyciskach „Akademia”, „Strona główna” i „Wyloguj” na mobile, zostawiając same ikony z dostępnością `aria-label`.
-- Zmniejszyć odstępy, szerokość logo i typografię nazwy PURE LIFE CENTER na małych ekranach.
-- Zachować pełne etykiety i obecny układ na desktopie.
+Na stronie `/zdrowa-wiedza` (Baza wiedzy / Healthy Knowledge) widnieje błędny tytuł "Tytuł strony" i podtytuł "Centrum Zasobów" zamiast "Baza wiedzy".
 
-### 2. Zakładki pod nagłówkiem
-- Zamienić obecny zawijany blok zakładek na mobile w poziomy, przewijalny pasek chipów.
-- Ustawić stałe, czytelne rozmiary triggerów: ikona + krótka etykieta bez nachodzenia tekstu.
-- Dodać `overflow-x-auto`, `snap-x`, `shrink-0`, stabilne odstępy i dolny padding dla wygodnego przesuwania palcem.
-- Na desktopie pozostawić obecny wielowierszowy układ zakładek.
+## Przyczyna
 
-### 3. Spójność i bezpieczeństwo zmian
-- Nie zmieniać logiki konta, aktywnych zakładek, ról ani widoczności kart.
-- Nie ruszać dolnego paska nawigacji ani routingu.
-- Poprawić wyłącznie warstwę prezentacji w `MyAccount.tsx`, ewentualnie klasy pomocnicze tylko tam, gdzie są niezbędne.
+Kod używa `tf('hk.pageTitle', 'Baza wiedzy')` i `tf('hk.subtitle', '...')`. W bazie `i18n_translations` nie ma wpisów dla namespace `hk` / klucz `pageTitle`/`subtitle`. Funkcja `getTranslation` (Strategy 3) szuka wtedy „gołego" klucza we wszystkich namespace'ach i trafia na:
+- `admin.pageTitle` (PL) = "Tytuł strony"
+- `knowledge.subtitle` (PL) = "Centrum Zasobów"
 
-### 4. Weryfikacja
-- Sprawdzić, że w widoku 390x844 header mieści się w jednej linii i nic nie jest ucinane.
-- Sprawdzić, że zakładki można przesuwać poziomo, aktywna zakładka jest widoczna, a tekst nie nachodzi na inne elementy.
+Stąd zła treść w nagłówku — fallback z kodu nie ma szans zadziałać.
+
+## Plan naprawy
+
+1. **Migracja SQL** — dodać do `i18n_translations` brakujące tłumaczenia w namespace `hk` dla wszystkich aktywnych języków (pl, en, de, it, es, fr, pt, no):
+   - `hk.pageTitle` → "Baza wiedzy" (PL) + odpowiedniki
+   - `hk.subtitle` → "Materiały edukacyjne o zdrowiu i wellness" (PL) + odpowiedniki
+   - `hk.testimonialsSubtitle` → "Opinie i efekty kuracji produktami Eqology" (PL) + odpowiedniki
+   - `hk.tabMaterials` → "Materiały" (PL) + odpowiedniki
+   - `hk.tabTestimonials` → "Prawdziwe Historie" (PL) + odpowiedniki
+
+   `INSERT ... ON CONFLICT (language_code, namespace, key) DO UPDATE SET value = EXCLUDED.value` — bezpieczne dla ponownego uruchomienia.
+
+2. **Weryfikacja** — po migracji wejść na `/zdrowa-wiedza` i potwierdzić, że nagłówek = "Baza wiedzy", podtytuł = "Materiały edukacyjne o zdrowiu i wellness". Cache tłumaczeń ładuje się przy starcie sesji — wystarczy hard refresh.
+
+## Zakres
+
+Tylko migracja danych. Bez zmian w komponentach React i bez zmian logiki. Pozostałe miejsca używające `tf('hk.*')` (HealthyKnowledgePlayer) skorzystają z tych samych wpisów.
