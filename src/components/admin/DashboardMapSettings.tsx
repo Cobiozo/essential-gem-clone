@@ -47,14 +47,23 @@ export const DashboardMapSettings: React.FC = () => {
       return;
     }
     setUploadingSide(side);
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session) {
+      setUploadingSide(null);
+      toast.error('Brak aktywnej sesji — zaloguj się ponownie i spróbuj jeszcze raz.');
+      return;
+    }
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    const path = `${side}/${Date.now()}.${ext}`;
+    const path = `${side}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error: upErr } = await supabase.storage
       .from('dashboard-map-logos')
-      .upload(path, file, { upsert: true, contentType: file.type || undefined });
+      .upload(path, file, { upsert: true, contentType: file.type || undefined, cacheControl: '3600' });
     setUploadingSide(null);
     if (upErr) {
-      toast.error(`Błąd uploadu: ${upErr.message}`);
+      const msg = upErr.message?.includes('row-level security')
+        ? 'Brak uprawnień do uploadu (RLS). Wyloguj się i zaloguj ponownie.'
+        : `Błąd uploadu: ${upErr.message}`;
+      toast.error(msg);
       return;
     }
     const { data } = supabase.storage.from('dashboard-map-logos').getPublicUrl(path);
