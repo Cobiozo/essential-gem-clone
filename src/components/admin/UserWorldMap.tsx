@@ -72,8 +72,11 @@ const UserWorldMap: React.FC<Props> = ({
       return 'satellite';
     }
   });
+  const [textureFailed, setTextureFailed] = useState(false);
+  const effectiveStyle: 'classic' | 'satellite' = mapStyle === 'satellite' && textureFailed ? 'classic' : mapStyle;
   const changeMapStyle = (v: 'classic' | 'satellite') => {
     setMapStyle(v);
+    if (v === 'satellite') setTextureFailed(false);
     try { localStorage.setItem('userWorldMap.style', v); } catch {}
   };
 
@@ -87,7 +90,7 @@ const UserWorldMap: React.FC<Props> = ({
     } catch {
       features = [];
     }
-    const proj: GeoProjection = (mapStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
+    const proj: GeoProjection = (effectiveStyle === 'satellite' ? geoEquirectangular() : geoNaturalEarth1());
     try {
       if (features.length > 0) {
         proj.fitSize([VIEW_W, VIEW_H], { type: 'FeatureCollection', features } as any);
@@ -98,7 +101,7 @@ const UserWorldMap: React.FC<Props> = ({
       proj.translate([VIEW_W / 2, VIEW_H / 2]).scale(140);
     }
     return { projection: proj, pathGen: geoPath(proj), worldFeatures: features };
-  }, [mapStyle]);
+  }, [effectiveStyle]);
 
   // Default view: center on Poland-ish
   const defaultView = useMemo(() => {
@@ -442,7 +445,7 @@ const UserWorldMap: React.FC<Props> = ({
             style={{
               width: '100%',
               height: '100%',
-              background: mapStyle === 'satellite' ? '#0b1d2a' : 'transparent',
+              background: effectiveStyle === 'satellite' ? '#0b1d2a' : 'transparent',
               cursor: dragRef.current ? 'grabbing' : 'grab',
               touchAction: 'none',
             }}
@@ -454,19 +457,23 @@ const UserWorldMap: React.FC<Props> = ({
             shapeRendering="geometricPrecision"
           >
             {/* Satellite background texture */}
-            {mapStyle === 'satellite' && (() => {
+            {effectiveStyle === 'satellite' && (() => {
               const tl = projection([-180, 85]);
               const br = projection([180, -85]);
               if (!tl || !br) return null;
+              const w = br[0] - tl[0];
+              const h = br[1] - tl[1];
+              if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
               return (
                 <image
                   href="/textures/earth-bluemarble-2k.jpg"
                   x={tl[0]}
                   y={tl[1]}
-                  width={br[0] - tl[0]}
-                  height={br[1] - tl[1]}
+                  width={w}
+                  height={h}
                   preserveAspectRatio="none"
                   style={{ pointerEvents: 'none' }}
+                  onError={() => setTextureFailed(true)}
                 />
               );
             })()}
@@ -477,17 +484,17 @@ const UserWorldMap: React.FC<Props> = ({
               const dimmed = !!selectedIso && !isSelected;
               const baseFill = isSelected
                 ? 'hsl(var(--primary) / 0.18)'
-                : mapStyle === 'satellite'
+                : effectiveStyle === 'satellite'
                 ? 'transparent'
                 : dimmed
                 ? 'hsl(var(--muted-foreground) / 0.2)'
                 : 'hsl(var(--muted-foreground) / 0.35)';
               const stroke = isSelected
                 ? 'hsl(var(--primary))'
-                : mapStyle === 'satellite'
+                : effectiveStyle === 'satellite'
                 ? 'hsl(0 0% 100% / 0.55)'
                 : 'hsl(var(--muted-foreground) / 0.7)';
-              const sw = (isSelected ? 0.7 : mapStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
+              const sw = (isSelected ? 0.7 : effectiveStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
               return (
                 <path
                   key={c.key}
@@ -546,9 +553,9 @@ const UserWorldMap: React.FC<Props> = ({
                 >
                   <circle
                     r={r}
-                    fill={markerColor ?? (mapStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
+                    fill={markerColor ?? (effectiveStyle === 'satellite' ? '#ef4444' : 'hsl(var(--primary))')}
                     fillOpacity={isCluster ? 0.9 : 1}
-                    stroke={mapStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
+                    stroke={effectiveStyle === 'satellite' ? '#ffffff' : 'hsl(var(--background))'}
                     strokeWidth={strokeW}
                     pointerEvents="all"
                   />

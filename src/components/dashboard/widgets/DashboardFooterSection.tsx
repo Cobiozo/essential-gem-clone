@@ -106,7 +106,15 @@ export const DashboardFooterSection: React.FC = () => {
       </section>
 
       {/* Mapa świata społeczności */}
-      <ErrorBoundary fallback={<></>}>
+      <ErrorBoundary
+        fallback={
+          <div className="col-span-full rounded-lg border bg-card overflow-hidden">
+            <div className="h-[420px] w-full bg-[radial-gradient(ellipse_at_center,hsl(var(--muted)/0.6),hsl(var(--background)))] flex items-center justify-center text-xs text-muted-foreground">
+              Mapa świata
+            </div>
+          </div>
+        }
+      >
         <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
           <UserWorldMapWidget />
         </Suspense>

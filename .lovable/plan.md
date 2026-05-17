@@ -1,36 +1,33 @@
-Problem na produkcji jest najpewniej w samym `react-simple-maps`: biblioteka nadal próbuje robić dynamiczne `projections[projection]()` i przy obecnym bundlu produkcyjnym potrafi skończyć jako `u[i] is not a function`. Żeby to nie wracało, usuwamy tę zależność z renderowania mapy.
+Problem: widżet mapy nadal może dawać zły efekt w produkcji, bo aktualny render opiera satelitę na obrazie SVG `<image>` z dynamicznym viewBox oraz ładuje punkty przez klientowe geokodowanie. To oznacza, że błąd assetu, przeglądarki, uprawnień Edge Function albo geokodowania może zepsuć odbiór całego widżetu.
 
 Plan naprawy:
 
-1. Przebudować `src/components/admin/UserWorldMap.tsx` tak, aby nie używał `react-simple-maps` w runtime:
-   - render SVG zostaje,
-   - mapę świata narysujemy bezpośrednio przez `d3-geo` + `topojson-client`,
-   - kraje, kliknięcia, hover, zoom, reset i punkty użytkowników zostają zachowane.
+1. Ustabilizować sam render mapy
+- Usunąć renderowanie satelity przez `<image href="/textures/earth-bluemarble-2k.jpg">` wewnątrz przesuwanego SVG.
+- Zastąpić je bezpiecznym tłem CSS `<img>`/warstwą absolutną poza SVG, które nie wpływa na geometrię i nie może zepsuć ścieżek mapy.
+- SVG zostawić wyłącznie do granic państw, markerów, tooltipów i kliknięć.
+- Dodać stały fallback: jeśli tekstura albo dane geometrii nie załadują się poprawnie, widoczna ma być klasyczna mapa konturowa, a nie pusty/błędny widżet.
 
-2. Zostawić istniejące funkcje biznesowe:
-   - pobieranie miast z `get_user_city_counts`,
-   - geokodowanie przez `geocode-cities`,
-   - granice miast po dużym przybliżeniu,
-   - widoczność per rola i ustawienia z `dashboard_map_settings`,
-   - Classic/Satellite toggle.
+2. Dodać twardy ErrorBoundary bez ukrywania widżetu
+- Obecnie `DashboardFooterSection` ma fallback pusty (`<></>`), więc przy błędzie widget znika.
+- Zmienić fallback na stabilną, prostą mapę zastępczą z komunikatem neutralnym lub samą konturową grafiką, żeby „błędu widżeta mapy” nigdy nie było w UI.
+- Błąd komponentu mapy nie ma wpływać na resztę pulpitu.
 
-3. Usunąć źródło błędu produkcyjnego:
-   - usunąć importy `ComposableMap`, `Geographies`, `Geography`, `ZoomableGroup`, `Marker`,
-   - nie przekazywać już żadnego `projection` do `react-simple-maps`,
-   - obliczać ścieżki mapy przez `geoPath(projection)` bez dynamicznego lookupu.
+3. Oddzielić dane użytkowników od widoczności mapy
+- `UserWorldMapWidget` ma zawsze pokazywać mapę, nawet jeśli `get_user_city_counts`, `geocode-cities` albo `geocode-city-boundary` zwrócą błąd/403/timeout.
+- W takim przypadku mapa renderuje się bez kropek albo z ostatnim bezpiecznym pustym stanem, bez komunikatu błędu.
+- Geokodowanie granic miast pozostawić opcjonalne i tylko jako dekorację przy dużym zoomie.
 
-4. Dodać twarde zabezpieczenia, żeby widżet mapy nigdy nie wywalał pulpitu:
-   - jeśli dane topo/geokodowanie/granice są puste lub wadliwe, renderować pustą, stabilną mapę zamiast błędu,
-   - filtrować nieprawidłowe współrzędne,
-   - ignorować wadliwe geometry zamiast rzucać wyjątek.
+4. Usunąć pozostałości problematycznej zależności
+- Usunąć `react-simple-maps` oraz `@types/react-simple-maps` z `package.json`, bo komponent już nie powinien z nich korzystać, a ich obecność może nadal trafiać do bundle/cache i mylić produkcyjną diagnostykę.
+- Zostawić bezpośrednie `d3-geo`, `topojson-client`, `world-atlas`.
 
-5. Zweryfikować po wdrożeniu w preview:
-   - `/dashboard` nie pokazuje błędu widżeta,
-   - mapa renderuje się w widoku głównym,
-   - przełącznik Klasyczna/Satelitarna działa,
-   - kontrolki zoom/reset nie powodują błędu.
+5. Zweryfikować po zmianach
+- Sprawdzić `/dashboard` w podglądzie: mapa widoczna, tryb Klasyczna/Satelitarna działa, zoom/reset nie powodują błędów.
+- Sprawdzić logi konsoli pod kątem błędów mapy.
+- Sprawdzić request tekstury i funkcji geokodowania: awaria danych nie może już usuwać ani psuć mapy.
 
-Pliki do zmiany:
-- `src/components/admin/UserWorldMap.tsx`
-
-Bez zmian w bazie danych, RLS, ustawieniach mapy i logotypach.
+Zakres bez zmian:
+- Bez zmian DB/RLS.
+- Bez zmian ustawień admina mapy poza sposobem bezpiecznego renderowania.
+- Bez zmian logiki ról i widoczności widżetu.

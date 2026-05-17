@@ -21,14 +21,20 @@ const UserWorldMapWidget: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data, error } = await (supabase as any).rpc('get_user_city_counts');
-      if (!mounted) return;
-      if (!error && Array.isArray(data)) {
-        setCities(data.map((r: any) => ({
-          city: r.city, country: r.country, count: Number(r.count) || 0,
-        })));
+      try {
+        const { data, error } = await (supabase as any).rpc('get_user_city_counts');
+        if (!mounted) return;
+        if (!error && Array.isArray(data)) {
+          setCities(data.map((r: any) => ({
+            city: r.city, country: r.country, count: Number(r.count) || 0,
+          })));
+        }
+      } catch (e) {
+        // Never crash the widget — render empty map instead
+        console.warn('[UserWorldMapWidget] city counts failed', e);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => { mounted = false; };
   }, []);
