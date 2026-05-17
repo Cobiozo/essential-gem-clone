@@ -726,6 +726,11 @@ const UserWorldMap: React.FC<Props> = ({
                 : [];
               const showTip = (e: React.MouseEvent) =>
                 showTooltipAt(e, { title: tipTitle, lines: tipLines, count: c.count });
+              const labelOpacity = !isCluster && view.zoom >= 6
+                ? Math.max(0, Math.min(1, (view.zoom - 5) / 3))
+                : 0;
+              const labelFontSize = 2.2 / view.zoom;
+              const labelStroke = 0.6 / view.zoom;
               return (
                 <g
                   key={`cl-${idx}`}
@@ -734,7 +739,22 @@ const UserWorldMap: React.FC<Props> = ({
                   onMouseEnter={showTip}
                   onMouseMove={showTip}
                   onMouseLeave={() => setHover(null)}
-                  onClick={() => { if (isClickSuppressed()) return; zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40); }}
+                  onClick={(e) => {
+                    if (isClickSuppressed()) return;
+                    if (!isCluster && view.zoom >= 6) {
+                      const container = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement;
+                      const rect = container?.getBoundingClientRect();
+                      setHover(null);
+                      setPinned({
+                        x: e.clientX - (rect?.left ?? 0),
+                        y: e.clientY - (rect?.top ?? 0),
+                        title: tipTitle,
+                        count: c.count,
+                      });
+                      return;
+                    }
+                    zoomToLngLat(c.lng, c.lat, 2.2, isCluster ? 0 : 40);
+                  }}
                 >
                   <circle
                     r={r}
@@ -744,6 +764,21 @@ const UserWorldMap: React.FC<Props> = ({
                     strokeWidth={strokeW}
                     pointerEvents="all"
                   />
+                  {labelOpacity > 0.02 && (
+                    <text
+                      x={r + 0.4 / view.zoom}
+                      y={0.3 / view.zoom}
+                      fontSize={labelFontSize}
+                      fill="hsl(var(--foreground))"
+                      stroke="hsl(var(--background))"
+                      strokeWidth={labelStroke}
+                      paintOrder="stroke"
+                      opacity={labelOpacity}
+                      style={{ pointerEvents: 'none', fontWeight: 600 }}
+                    >
+                      {sorted[0].city}
+                    </text>
+                  )}
                 </g>
               );
             })}
