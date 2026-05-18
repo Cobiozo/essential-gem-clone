@@ -346,6 +346,7 @@ const UserWorldMap: React.FC<Props> = ({
   const handleReset = () => {
     setSelectedIso(null);
     setSelectedLabel(null);
+    setSelectedCountryKey(null);
     animateTo(defaultView, 600);
   };
 
@@ -356,12 +357,18 @@ const UserWorldMap: React.FC<Props> = ({
     animateTo({ cx: p[0], cy: p[1], zoom: z }, 600);
   };
 
-  const handleCountryClick = (raw: any) => {
+  const handleCountryClick = (raw: any, pathKey: string) => {
     const name = raw?.properties?.name as string | undefined;
     if (!name) return;
     const norm = normalizeCountry(name);
     if (!norm.iso) return;
-    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, isMobile ? 400 : 600); return; }
+    if (selectedCountryKey === pathKey) {
+      setSelectedIso(null);
+      setSelectedLabel(null);
+      setSelectedCountryKey(null);
+      animateTo(defaultView, isMobile ? 400 : 600);
+      return;
+    }
     try {
       const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
       const b = pathGen.bounds(f);
@@ -370,15 +377,18 @@ const UserWorldMap: React.FC<Props> = ({
       const w = b[1][0] - b[0][0];
       const h = b[1][1] - b[0][1];
       if (![cx, cy, w, h].every((n) => isFinite(n)) || w <= 0 || h <= 0) return;
-      const fillFactor = isMobile ? 0.95 : 0.9;
-      const maxZ = isMobile ? 12 : 8;
+      // Tight fit: country fills ~98% of widget frame (like Poland on screenshot)
+      const fillFactor = 0.98;
+      const maxZ = isMobile ? 18 : 16;
       const z = Math.max(1.5, Math.min(maxZ, fillFactor / Math.max(w / VIEW_W, h / VIEW_H)));
       if (!isFinite(z)) return;
       setSelectedIso(norm.iso);
       setSelectedLabel(norm.label);
-      animateTo({ cx, cy, zoom: z }, isMobile ? 400 : 700);
+      setSelectedCountryKey(pathKey);
+      animateTo({ cx, cy, zoom: z }, isMobile ? 450 : 700);
     } catch {}
   };
+
 
   // Multi-pointer pan + pinch zoom
   const svgRef = useRef<SVGSVGElement | null>(null);
