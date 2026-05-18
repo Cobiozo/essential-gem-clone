@@ -117,6 +117,11 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
       bento_size: form.bento_size || 'm',
       content_blocks: form.content_blocks || [],
       author_id: user?.id || null,
+      visibility_mode: form.visibility_mode || 'public',
+      visible_to_admin: form.visible_to_admin !== false,
+      visible_to_partner: form.visible_to_partner !== false,
+      visible_to_client: form.visible_to_client !== false,
+      visible_to_specjalista: form.visible_to_specjalista !== false,
     };
 
     let err: any;
