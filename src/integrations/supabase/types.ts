@@ -5426,6 +5426,160 @@ export type Database = {
         }
         Relationships: []
       }
+      news_hub_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      news_hub_posts: {
+        Row: {
+          author_id: string | null
+          bento_size: Database["public"]["Enums"]["news_hub_bento_size"]
+          category_id: string | null
+          content: string | null
+          cover_url: string | null
+          created_at: string
+          embed_html: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          is_pinned: boolean
+          is_published: boolean
+          link_cta: string | null
+          link_url: string | null
+          media_metadata: Json
+          media_url: string | null
+          published_at: string
+          short_description: string | null
+          slug: string
+          tags: string[]
+          title: string
+          type: Database["public"]["Enums"]["news_hub_post_type"]
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          author_id?: string | null
+          bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
+          category_id?: string | null
+          content?: string | null
+          cover_url?: string | null
+          created_at?: string
+          embed_html?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_pinned?: boolean
+          is_published?: boolean
+          link_cta?: string | null
+          link_url?: string | null
+          media_metadata?: Json
+          media_url?: string | null
+          published_at?: string
+          short_description?: string | null
+          slug: string
+          tags?: string[]
+          title: string
+          type?: Database["public"]["Enums"]["news_hub_post_type"]
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          author_id?: string | null
+          bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
+          category_id?: string | null
+          content?: string | null
+          cover_url?: string | null
+          created_at?: string
+          embed_html?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          is_pinned?: boolean
+          is_published?: boolean
+          link_cta?: string | null
+          link_url?: string | null
+          media_metadata?: Json
+          media_url?: string | null
+          published_at?: string
+          short_description?: string | null
+          slug?: string
+          tags?: string[]
+          title?: string
+          type?: Database["public"]["Enums"]["news_hub_post_type"]
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_hub_posts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      news_hub_views: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string | null
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string | null
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_hub_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_ticker_items: {
         Row: {
           content: string
@@ -10370,6 +10524,15 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "partner" | "client" | "specjalista" | "user"
+      news_hub_bento_size: "s" | "m" | "l"
+      news_hub_post_type:
+        | "announcement"
+        | "article"
+        | "video"
+        | "gallery"
+        | "file"
+        | "link"
+        | "embed"
       resource_status: "active" | "draft" | "archived"
       resource_type: "pdf" | "doc" | "zip" | "form" | "link" | "page" | "image"
     }
@@ -10500,6 +10663,16 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "partner", "client", "specjalista", "user"],
+      news_hub_bento_size: ["s", "m", "l"],
+      news_hub_post_type: [
+        "announcement",
+        "article",
+        "video",
+        "gallery",
+        "file",
+        "link",
+        "embed",
+      ],
       resource_status: ["active", "draft", "archived"],
       resource_type: ["pdf", "doc", "zip", "form", "link", "page", "image"],
     },
