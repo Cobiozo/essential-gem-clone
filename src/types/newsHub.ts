@@ -1,3 +1,5 @@
+import type { NewsHubBlock } from './newsHubBlocks';
+
 export type NewsHubPostType = 'announcement' | 'article' | 'video' | 'gallery' | 'file' | 'link' | 'embed';
 export type NewsHubBentoSize = 's' | 'm' | 'l';
 
