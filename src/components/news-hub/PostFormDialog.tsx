@@ -291,6 +291,17 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
             </label>
           </div>
 
+          <div className="rounded-lg border border-border p-4">
+            <div className="text-sm font-semibold mb-3">Widoczność postu</div>
+            <PostVisibilityEditor
+              draft={form as any}
+              update={update}
+              postId={post?.id}
+            />
+          </div>
+
+
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>Anuluj</Button>
             <Button onClick={save} disabled={saving} className="gap-2">
