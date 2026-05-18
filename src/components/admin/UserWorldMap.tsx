@@ -650,6 +650,8 @@ const UserWorldMap: React.FC<Props> = ({
               touchAction: 'none',
               userSelect: 'none',
               WebkitUserSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+              WebkitTouchCallout: 'none',
             }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
