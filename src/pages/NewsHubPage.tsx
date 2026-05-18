@@ -218,7 +218,7 @@ const NewsHubPage: React.FC = () => {
             {pinned.length > 0 && (
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
             )}
-            <BentoGrid posts={regular} onChanged={refresh} layout={effectiveLayout} />
+            <BentoGrid posts={regular} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
           </div>
         )}
 
