@@ -44,7 +44,7 @@ const EMPTY: Partial<NewsHubPost> = {
   bento_size: 'm',
 };
 
-export const PostFormDialog: React.FC<Props> = ({ open, post, onClose, onSaved }) => {
+export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onClose, onSaved }) => {
   const { user } = useAuth();
   const { categories } = useNewsHubCategories();
   const [form, setForm] = useState<Partial<NewsHubPost>>(EMPTY);
@@ -55,13 +55,15 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, onClose, onSaved }
 
   useEffect(() => {
     if (open) {
-      const init = post || EMPTY;
+      const init: Partial<NewsHubPost> = post
+        ? post
+        : { ...EMPTY, content_blocks: initialBlocks || [] };
       setForm(init);
       setTagsText((init.tags || []).join(', '));
       const gallery = Array.isArray((init as any).media_metadata?.gallery) ? (init as any).media_metadata.gallery : [];
       setGalleryText(gallery.join('\n'));
     }
-  }, [open, post]);
+  }, [open, post, initialBlocks]);
 
   const update = (patch: Partial<NewsHubPost>) => setForm((f) => ({ ...f, ...patch }));
 
