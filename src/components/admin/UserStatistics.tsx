@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -123,11 +123,32 @@ function pct(n: number, total: number): string {
 }
 
 const UserStatistics: React.FC = () => {
+  const qc = useQueryClient();
   const { data: profiles = [], isLoading, error } = useQuery({
     queryKey: ['user-statistics-profiles'],
     queryFn: fetchAllProfiles,
     staleTime: 60_000,
   });
+
+  // Realtime: refetch profile list when anyone registers or updates address.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const schedule = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['user-statistics-profiles'] });
+      }, 1500);
+    };
+    const ch = supabase
+      .channel('admin-user-statistics-profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, schedule)
+      .subscribe();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(ch);
+    };
+  }, [qc]);
 
   // Fallback map: city (lowercased) -> country label from geocoder
   const { data: geocacheCountryMap } = useQuery({

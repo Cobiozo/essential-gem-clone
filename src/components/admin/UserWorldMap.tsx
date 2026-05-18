@@ -362,17 +362,55 @@ const UserWorldMap: React.FC<Props> = ({
   // Guiana to Réunion, so the "France" click would zoom to the middle of the
   // ocean instead of metropolitan France.
   // Format: [minLon, minLat, maxLon, maxLat] — mainland only.
+  // Manual mainland-only bounding boxes [minLon, minLat, maxLon, maxLat].
+  // Used for any country whose TopoJSON geometry stretches across overseas
+  // territories or distant islands. Without this, pathGen.bounds returns a
+  // giant rectangle that centers the zoom on open ocean.
+  // QA list after any edit: FR, NL, US, GB, ES, PT, DK, NO, RU, AU, NZ, NL, IT.
   const COUNTRY_BBOX_OVERRIDES: Record<string, [number, number, number, number]> = {
-    FR: [-5.5, 41.3, 9.8, 51.5],         // Metropolitan France
-    NL: [3.2, 50.7, 7.3, 53.6],          // European Netherlands
-    GB: [-8.8, 49.8, 2.0, 60.9],         // UK only
-    US: [-125.0, 24.5, -66.9, 49.4],     // Contiguous USA
-    PT: [-9.6, 36.9, -6.2, 42.2],        // Mainland Portugal
-    ES: [-9.4, 35.9, 3.4, 43.9],         // Mainland Spain
-    DK: [8.0, 54.5, 15.2, 57.8],         // Denmark (no Greenland)
-    NO: [4.5, 57.9, 31.2, 71.3],         // Mainland Norway
-    RU: [27.0, 41.0, 180.0, 78.0],       // Russia (skip Kaliningrad outlier)
+    FR: [-5.5, 41.3, 9.8, 51.5],
+    NL: [3.2, 50.7, 7.3, 53.6],
+    GB: [-8.8, 49.8, 2.0, 60.9],
+    US: [-125.0, 24.5, -66.9, 49.4],
+    PT: [-9.6, 36.9, -6.2, 42.2],
+    ES: [-9.4, 35.9, 3.4, 43.9],
+    DK: [8.0, 54.5, 15.2, 57.8],
+    NO: [4.5, 57.9, 31.2, 71.3],
+    RU: [27.0, 41.0, 180.0, 78.0],
+    FI: [20.5, 59.7, 31.6, 70.1],
+    IT: [6.6, 36.6, 18.6, 47.1],
+    GR: [19.3, 34.8, 28.3, 41.8],
+    TR: [25.6, 35.8, 44.8, 42.1],
+    DE: [5.8, 47.2, 15.1, 55.1],
+    BE: [2.5, 49.4, 6.5, 51.6],
+    CH: [5.9, 45.8, 10.6, 47.9],
+    AT: [9.5, 46.3, 17.2, 49.1],
+    SE: [11.0, 55.3, 24.2, 69.1],
+    IE: [-10.6, 51.4, -5.9, 55.5],
+    IS: [-24.6, 63.2, -13.4, 66.6],
+    PL: [14.1, 49.0, 24.2, 54.9],
+    CZ: [12.0, 48.5, 18.9, 51.1],
+    SK: [16.8, 47.7, 22.6, 49.6],
+    HU: [16.1, 45.7, 22.9, 48.6],
+    RO: [20.2, 43.6, 29.7, 48.3],
+    BG: [22.3, 41.2, 28.6, 44.3],
+    UA: [22.1, 44.4, 40.2, 52.4],
+    JP: [129.4, 31.0, 145.8, 45.6],
+    KR: [125.9, 33.1, 129.6, 38.7],
+    CN: [73.5, 18.1, 134.8, 53.6],
+    IN: [68.1, 6.7, 97.4, 35.5],
+    AU: [113.1, -39.2, 153.7, -10.7],
+    NZ: [166.4, -47.3, 178.6, -34.4],
+    BR: [-74.0, -33.8, -34.8, 5.3],
+    AR: [-73.6, -55.1, -53.6, -21.8],
+    MX: [-117.1, 14.5, -86.7, 32.7],
+    CA: [-141.0, 41.7, -52.6, 70.0],
+    ZA: [16.5, -34.9, 32.9, -22.1],
+    EG: [24.7, 22.0, 36.9, 31.7],
+    MA: [-13.2, 27.7, -1.0, 35.9],
   };
+  // Countries whose entire TopoJSON bounds are accurate (no overseas issue).
+  const FULL_BBOX_OK = new Set(['RU', 'US', 'CA', 'CN', 'BR', 'AU', 'KZ']);
 
   const handleCountryClick = (raw: any, pathKey: string) => {
     const name = raw?.properties?.name as string | undefined;
@@ -400,17 +438,55 @@ const UserWorldMap: React.FC<Props> = ({
       }
       if (!b) {
         const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
-        b = pathGen.bounds(f);
+        const raw_b = pathGen.bounds(f);
+        const rw = raw_b[1][0] - raw_b[0][0];
+        const rh = raw_b[1][1] - raw_b[0][1];
+        // Fail-safe: if geometry covers >60% of the viewport and country is
+        // not on the FULL_BBOX_OK whitelist, the TopoJSON likely includes
+        // distant overseas territories. Fall back to the largest polygon
+        // centroid instead of the giant bbox.
+        const tooBig = (rw / VIEW_W > 0.6 || rh / VIEW_H > 0.6) && !FULL_BBOX_OK.has(norm.iso);
+        if (tooBig && raw.geometry) {
+          try {
+            const polys = raw.geometry.type === 'MultiPolygon'
+              ? raw.geometry.coordinates
+              : [raw.geometry.coordinates];
+            let best: any = null; let bestArea = 0;
+            for (const poly of polys) {
+              const ring = poly?.[0] ?? [];
+              if (ring.length < 3) continue;
+              let area = 0;
+              for (let i = 0; i < ring.length - 1; i++) {
+                area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+              }
+              area = Math.abs(area);
+              if (area > bestArea) { bestArea = area; best = poly; }
+            }
+            if (best) {
+              const subFeat = { type: 'Feature', geometry: { type: 'Polygon', coordinates: best }, properties: {} } as any;
+              b = pathGen.bounds(subFeat);
+            }
+          } catch {}
+        }
+        if (!b) b = raw_b;
       }
-      const cx = (b[0][0] + b[1][0]) / 2;
-      const cy = (b[0][1] + b[1][1]) / 2;
+      let cx = (b[0][0] + b[1][0]) / 2;
+      let cy = (b[0][1] + b[1][1]) / 2;
       const w = b[1][0] - b[0][0];
       const h = b[1][1] - b[0][1];
       if (![cx, cy, w, h].every((n) => isFinite(n)) || w <= 0 || h <= 0) return;
-      // Tight fit: country fills ~98% of widget frame (like Poland on screenshot)
+      // Center must land inside the viewport (with margin) — otherwise the
+      // computed bounds are corrupt and we'd zoom into open ocean.
+      const margin = Math.max(VIEW_W, VIEW_H);
+      if (cx < -margin || cx > VIEW_W + margin || cy < -margin || cy > VIEW_H + margin) {
+        console.warn('[UserWorldMap] invalid country center, falling back to default view', { iso: norm.iso, cx, cy });
+        animateTo(defaultView, isMobile ? 400 : 600);
+        return;
+      }
       const fillFactor = 0.98;
       const maxZ = isMobile ? 18 : 16;
-      const z = Math.max(1.5, Math.min(maxZ, fillFactor / Math.max(w / VIEW_W, h / VIEW_H)));
+      let z = Math.max(1.5, Math.min(maxZ, fillFactor / Math.max(w / VIEW_W, h / VIEW_H)));
+      z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
       if (!isFinite(z)) return;
       setSelectedIso(norm.iso);
       setSelectedLabel(norm.label);
