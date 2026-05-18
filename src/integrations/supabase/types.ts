@@ -5481,6 +5481,7 @@ export type Database = {
           published_at: string
           short_description: string | null
           slug: string
+          style_overrides: Json
           tags: string[]
           title: string
           type: Database["public"]["Enums"]["news_hub_post_type"]
@@ -5508,6 +5509,7 @@ export type Database = {
           published_at?: string
           short_description?: string | null
           slug: string
+          style_overrides?: Json
           tags?: string[]
           title: string
           type?: Database["public"]["Enums"]["news_hub_post_type"]
@@ -5535,6 +5537,7 @@ export type Database = {
           published_at?: string
           short_description?: string | null
           slug?: string
+          style_overrides?: Json
           tags?: string[]
           title?: string
           type?: Database["public"]["Enums"]["news_hub_post_type"]
