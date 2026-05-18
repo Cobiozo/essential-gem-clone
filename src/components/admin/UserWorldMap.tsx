@@ -356,14 +356,11 @@ const UserWorldMap: React.FC<Props> = ({
   };
 
   const handleCountryClick = (raw: any) => {
-    // Mobile: disable country selection/zoom-to-country entirely to avoid
-    // iOS Safari rendering glitches on tap (NaN bounds, tap-highlight, etc.)
-    if (isMobile) return;
     const name = raw?.properties?.name as string | undefined;
     if (!name) return;
     const norm = normalizeCountry(name);
     if (!norm.iso) return;
-    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, 600); return; }
+    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, isMobile ? 400 : 600); return; }
     try {
       const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
       const b = pathGen.bounds(f);
@@ -372,11 +369,13 @@ const UserWorldMap: React.FC<Props> = ({
       const w = b[1][0] - b[0][0];
       const h = b[1][1] - b[0][1];
       if (![cx, cy, w, h].every((n) => isFinite(n)) || w <= 0 || h <= 0) return;
-      const z = Math.max(1.5, Math.min(8, 0.9 / Math.max(w / VIEW_W, h / VIEW_H)));
+      const fillFactor = isMobile ? 0.95 : 0.9;
+      const maxZ = isMobile ? 12 : 8;
+      const z = Math.max(1.5, Math.min(maxZ, fillFactor / Math.max(w / VIEW_W, h / VIEW_H)));
       if (!isFinite(z)) return;
       setSelectedIso(norm.iso);
       setSelectedLabel(norm.label);
-      animateTo({ cx, cy, zoom: z }, 700);
+      animateTo({ cx, cy, zoom: z }, isMobile ? 400 : 700);
     } catch {}
   };
 
