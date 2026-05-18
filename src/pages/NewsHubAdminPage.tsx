@@ -23,6 +23,7 @@ const NewsHubAdminPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
+  const { adminLayout, saveAdminLayout } = useNewsHubSettings();
 
   if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
