@@ -5,11 +5,10 @@ import { PostCard } from './PostCard';
 
 interface Props {
   posts: NewsHubPost[];
-  onSelect: (p: NewsHubPost) => void;
+  onChanged?: () => void;
 }
 
 const sizeClasses = (size: string, pinned: boolean) => {
-  // Pinned overrides to L
   const s = pinned ? 'l' : size;
   switch (s) {
     case 'l': return 'md:col-span-2 md:row-span-2';
@@ -19,7 +18,7 @@ const sizeClasses = (size: string, pinned: boolean) => {
   }
 };
 
-export const BentoGrid: React.FC<Props> = ({ posts, onSelect }) => {
+export const BentoGrid: React.FC<Props> = ({ posts, onChanged }) => {
   if (posts.length === 0) return null;
   return (
     <div
@@ -30,7 +29,7 @@ export const BentoGrid: React.FC<Props> = ({ posts, onSelect }) => {
         <PostCard
           key={p.id}
           post={p}
-          onClick={() => onSelect(p)}
+          onAdminChanged={onChanged}
           className={cn(sizeClasses(p.bento_size, p.is_pinned))}
         />
       ))}

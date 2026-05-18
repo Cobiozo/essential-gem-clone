@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -6,30 +7,38 @@ import * as LucideIcons from 'lucide-react';
 import { Pin, ExternalLink, Download, Play } from 'lucide-react';
 import type { NewsHubPost } from '@/types/newsHub';
 import { POST_TYPE_ICONS, POST_TYPE_LABELS } from '@/types/newsHub';
+import { useAuth } from '@/contexts/AuthContext';
+import { AdminCardOverlay } from './AdminCardOverlay';
 
 interface Props {
   post: NewsHubPost;
-  onClick: () => void;
   className?: string;
+  onAdminChanged?: () => void;
 }
 
-export const PostCard: React.FC<Props> = ({ post, onClick, className }) => {
+export const PostCard: React.FC<Props> = ({ post, className, onAdminChanged }) => {
+  const { isAdmin } = useAuth();
   const TypeIcon = (LucideIcons as any)[POST_TYPE_ICONS[post.type]] || LucideIcons.FileText;
   const CategoryIcon = post.category?.icon ? (LucideIcons as any)[post.category.icon] : null;
 
   const hasVisual = post.cover_url || post.media_url;
   const visualUrl = post.cover_url || (post.type === 'video' ? null : post.media_url);
 
+  const href = `/aktualnosci/${post.slug || post.id}`;
+
   return (
-    <article
-      onClick={onClick}
+    <Link
+      to={href}
       className={cn(
-        'group relative overflow-hidden rounded-2xl border border-border/60 bg-card cursor-pointer',
+        'group relative overflow-hidden rounded-2xl border border-border/60 bg-card',
         'transition-all duration-300 hover:border-primary/50 hover:shadow-2xl hover:-translate-y-1',
         'flex flex-col h-full',
+        !post.is_published && 'opacity-60',
         className,
       )}
     >
+      {isAdmin && <AdminCardOverlay post={post} onChanged={onAdminChanged} />}
+
       {post.is_pinned && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-primary/90 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur">
           <Pin className="h-3 w-3" /> Przypięte
@@ -94,6 +103,6 @@ export const PostCard: React.FC<Props> = ({ post, onClick, className }) => {
           {post.type === 'link' && <ExternalLink className="h-4 w-4" />}
         </div>
       </div>
-    </article>
+    </Link>
   );
 };
