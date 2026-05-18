@@ -30,6 +30,7 @@ const NewsHubPage: React.FC = () => {
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
+  const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
 
   const { pinned, regular } = useMemo(() => {
     const pinned = posts.filter((p) => p.is_pinned);
