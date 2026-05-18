@@ -125,10 +125,11 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
 
       {/* Tabs */}
       <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid grid-cols-4 mx-3 mt-3">
+        <TabsList className="grid grid-cols-5 mx-3 mt-3">
           <TabsTrigger value="content" className="text-xs">Treść</TabsTrigger>
           <TabsTrigger value="media" className="text-xs">Media</TabsTrigger>
           <TabsTrigger value="design" className="text-xs">Wygląd</TabsTrigger>
+          <TabsTrigger value="visibility" className="text-xs">Dostęp</TabsTrigger>
           <TabsTrigger value="meta" className="text-xs">Meta</TabsTrigger>
         </TabsList>
 
