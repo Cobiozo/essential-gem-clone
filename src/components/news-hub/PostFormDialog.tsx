@@ -43,6 +43,11 @@ const EMPTY: Partial<NewsHubPost> = {
   is_pinned: false,
   is_published: true,
   bento_size: 'm',
+  visibility_mode: 'public',
+  visible_to_admin: true,
+  visible_to_partner: true,
+  visible_to_client: true,
+  visible_to_specjalista: true,
 };
 
 export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onClose, onSaved }) => {
