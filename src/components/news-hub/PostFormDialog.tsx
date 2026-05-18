@@ -12,11 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubCategories, slugify, uploadNewsHubFile } from '@/hooks/useNewsHub';
 import type { NewsHubPost, NewsHubPostType, NewsHubBentoSize } from '@/types/newsHub';
+import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
 interface Props {
   open: boolean;
   post: NewsHubPost | null;
+  initialBlocks?: NewsHubBlock[];
   onClose: () => void;
   onSaved: () => void;
 }
