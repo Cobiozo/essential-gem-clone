@@ -686,9 +686,8 @@ const UserWorldMap: React.FC<Props> = ({
             {countryPaths.map((c) => {
               const isSelected = !!selectedIso && c.iso != null && c.iso === selectedIso;
               const dimmed = !!selectedIso && !isSelected;
-              const baseFill = isSelected
-                ? 'hsl(var(--primary) / 0.18)'
-                : effectiveStyle === 'satellite'
+              // No yellow flood: selected country is shown via stroke only.
+              const baseFill = effectiveStyle === 'satellite'
                 ? 'transparent'
                 : dimmed
                 ? 'hsl(var(--muted-foreground) / 0.2)'
@@ -698,7 +697,7 @@ const UserWorldMap: React.FC<Props> = ({
                 : effectiveStyle === 'satellite'
                 ? 'hsl(0 0% 100% / 0.55)'
                 : 'hsl(var(--muted-foreground) / 0.7)';
-              const sw = (isSelected ? 0.7 : effectiveStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
+              const sw = (isSelected ? 1.2 : effectiveStyle === 'satellite' ? 0.35 : 0.6) / view.zoom;
               return (
                 <path
                   key={c.key}
@@ -718,6 +717,19 @@ const UserWorldMap: React.FC<Props> = ({
                 />
               );
             })}
+
+            {/* Boundaries — stroke only, no fill (prevents yellow flood when polygons overlap or are oversized) */}
+            {boundaryOpacity > 0.02 && boundaryPaths.map((b) => (
+              <path
+                key={b.key}
+                d={b.d}
+                fill="none"
+                stroke={`hsl(var(--primary) / ${0.6 * boundaryOpacity})`}
+                strokeWidth={0.5 / view.zoom}
+                strokeLinejoin="round"
+                pointerEvents="none"
+              />
+            ))}
 
             {/* Boundaries */}
             {boundaryOpacity > 0.02 && boundaryPaths.map((b) => (
