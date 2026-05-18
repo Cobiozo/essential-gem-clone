@@ -67,8 +67,6 @@ export function useNewsHubPosts(opts: UseNewsHubPostsOptions = {}) {
 export async function incrementPostView(postId: string, userId?: string | null) {
   try {
     await (supabase.from('news_hub_views' as any) as any).insert({ post_id: postId, user_id: userId ?? null });
-    await (supabase.rpc as any)('increment', {}).catch(() => {});
-    // Direct update fallback
     const { data } = await (supabase.from('news_hub_posts' as any) as any).select('view_count').eq('id', postId).maybeSingle();
     if (data) {
       await (supabase.from('news_hub_posts' as any) as any).update({ view_count: ((data as any).view_count || 0) + 1 }).eq('id', postId);
