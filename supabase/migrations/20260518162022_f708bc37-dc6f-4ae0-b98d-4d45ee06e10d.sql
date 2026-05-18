@@ -1,0 +1,1 @@
+ALTER TABLE public.news_hub_posts ADD COLUMN IF NOT EXISTS style_overrides jsonb NOT NULL DEFAULT '{}'::jsonb;
