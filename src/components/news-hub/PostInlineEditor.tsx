@@ -17,6 +17,7 @@ import { PageStyleControls } from './editor/PageStyleControls';
 import { MediaControls } from './editor/MediaControls';
 import { MetaControls } from './editor/MetaControls';
 import { BlockListEditor } from './editor/BlockListEditor';
+import { PostVisibilityEditor } from './PostVisibilityEditor';
 import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { makeBlockId } from '@/types/newsHubBlocks';
