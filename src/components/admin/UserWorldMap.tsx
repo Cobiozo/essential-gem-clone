@@ -173,6 +173,7 @@ const UserWorldMap: React.FC<Props> = ({
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
   // Click vs drag detection
   const didDragRef = useRef(false);
   const suppressClickUntilRef = useRef(0);

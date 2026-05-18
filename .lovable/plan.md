@@ -1,33 +1,32 @@
 ## Cel
-Na mobile użytkownik ma móc tapnąć w kraj i mapa ma się przybliżyć tak, aby ten kraj wypełniał całe okienko widżeta (jak Polska na screenie). Obecnie kliknięcia w kraje na mobile są zablokowane.
+Po kliknięciu w kraj ma być zaznaczone wyłącznie kliknięte terytorium, bez dodatkowych obszarów z innych części mapy. Zoom po kliknięciu ma być dużo bliższy — dla Polski efekt ma odpowiadać screenowi, czyli kraj ma wypełniać większość okienka widżeta.
 
-## Zmiany w `src/components/admin/UserWorldMap.tsx`
+## Plan zmian
 
-1. **`handleCountryClick` — zdjąć blokadę mobile**
-   - Usunąć `if (isMobile) return;`.
-   - Logika obliczania bounds + zoom pozostaje, ale na mobile użyję ciaśniejszego dopasowania: docelowy zoom = `Math.max(2, Math.min(12, 0.95 / Math.max(w / VIEW_W, h / VIEW_H)))` (na mobile mnożnik `0.95`, na desktopie zostaje `0.9`) — kraj wypełnia kadr widżeta z minimalnym marginesem.
-   - Po `setSelectedIso` na mobile od razu wywołać `safeSetView` (bez animacji) plus krótkie `animateTo` 400ms, żeby uniknąć glitchy iOS przy długiej animacji.
+1. **Precyzyjne rozpoznawanie kraju po kliknięciu**
+   - Zamiast opierać zaznaczenie wyłącznie na `normalizeCountry(name).iso`, dodam stabilny identyfikator konkretnej geometrii z `world-atlas`.
+   - Kliknięcie we Francję zaznaczy tylko tę konkretną geometrię, którą użytkownik kliknął, a nie inne terytoria/rekordy pasujące do tego samego kraju.
+   - Filtrowanie punktów użytkowników nadal zostanie po kraju (`iso`), żeby markery użytkowników dla wybranego kraju działały jak dotychczas.
 
-2. **SVG path krajów — przywrócić tap na mobile**
-   - W `<path>` krajów: `cursor` zostaje `'pointer'` dla wszystkich (mobile + desktop).
-   - `onClick` aktywny zawsze: `onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}`.
-   - Zachować `WebkitTapHighlightColor: 'transparent'` i `WebkitTouchCallout: 'none'`, żeby nie pojawiał się żółty/szary flash iOS.
-   - `isClickSuppressed()` (już istnieje dla gestów pan/pinch) chroni przed przypadkowym kliknięciem podczas gestu.
+2. **Zaznaczenie tylko klikniętego terytorium**
+   - Render krajów będzie porównywał `selectedCountryKey` z kluczem klikniętej ścieżki.
+   - Dzięki temu dodatkowe terytoria nie dostaną żółtego/aktywnego obrysu.
+   - Pozostałe kraje będą tylko przygaszone albo neutralne, bez zalania kolorem.
 
-3. **Reset selekcji**
-   - Tap w już zaznaczony kraj nadal odznacza i wraca do `defaultView` (zachowane).
-   - Przycisk `RotateCcw` (reset) działa bez zmian.
+3. **Bliższy zoom kraju po kliknięciu**
+   - Zmieniam wyliczenie zoomu dla kraju tak, aby docelowo był około `9x` bliżej dla typowych krajów europejskich, zgodnie z przykładem Polski.
+   - Zamiast obecnego dopasowania z dużym marginesem użyję ciaśniejszego kadrowania: kraj ma wypełnić prawie całe okno mapy.
+   - Zachowam clamp i walidację `isFinite`, żeby mapa nie mogła wejść w niestabilny stan.
 
-4. **Bezpieczeństwo renderu (zachowane)**
-   - Wszystkie `isFinite` guardy w `safeSetView`/`animateTo` zostają.
-   - Clamp zoom do `[MIN_ZOOM, MAX_ZOOM]` zostaje.
-   - Brak żółtego fillu krajów w trybie satelitarnym (już naprawione wcześniej).
+4. **Reset i ponowne kliknięcie**
+   - Drugie kliknięcie w ten sam kraj/terytorium odznaczy wybór i wróci do domyślnego widoku.
+   - Przycisk resetu będzie czyścił zarówno `selectedIso`, jak i nowy `selectedCountryKey`.
 
-## Czego NIE zmieniam
-- CSS, design tokens, layout widżeta.
-- Logika gestów pan/pinch.
-- Markery miast (zachowują obecne zachowanie tap → zoom do miasta).
-- Backend / RLS / hooks.
+## Technicznie
+- Zmiany tylko w `src/components/admin/UserWorldMap.tsx`.
+- Nie zmieniam backendu, RLS, ustawień widgetu ani logiki pobierania markerów.
+- Nie przywracam fillu kraju w trybie satelitarnym, żeby nie wrócił błąd z żółtą mapą na iOS.
+- Dodam identyfikator geometrii kraju do `countryPaths` i przekażę go do `handleCountryClick`.
 
 ## Efekt
-Na iOS/Android tap w kraj płynnie przybliża go do rozmiaru kadru widżeta (jak Polska na screenie), bez żółtego zalania i bez utraty stabilności renderu.
+Kliknięcie w Francję, Polskę lub dowolny inny kraj zaznacza tylko kliknięte terytorium i robi bliski zoom tak, aby wybrany kraj zajmował prawie całe okienko widżeta.
