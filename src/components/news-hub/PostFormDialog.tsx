@@ -109,6 +109,7 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
       is_pinned: !!form.is_pinned,
       is_published: form.is_published !== false,
       bento_size: form.bento_size || 'm',
+      content_blocks: form.content_blocks || [],
       author_id: user?.id || null,
     };
 
