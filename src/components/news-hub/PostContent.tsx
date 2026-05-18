@@ -124,17 +124,22 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
         </div>
       )}
 
-      {cleanHtml && (
-        <div
-          className="prose prose-invert max-w-none text-foreground/90 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: cleanHtml }}
-        />
-      )}
-
-      {plainText && (
-        <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed">
-          {plainText}
-        </div>
+      {Array.isArray(post.content_blocks) && post.content_blocks.length > 0 ? (
+        <BlockListView blocks={post.content_blocks} />
+      ) : (
+        <>
+          {cleanHtml && (
+            <div
+              className="prose prose-invert max-w-none text-foreground/90 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: cleanHtml }}
+            />
+          )}
+          {plainText && (
+            <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed">
+              {plainText}
+            </div>
+          )}
+        </>
       )}
 
       {post.type === 'embed' && post.embed_html && (
