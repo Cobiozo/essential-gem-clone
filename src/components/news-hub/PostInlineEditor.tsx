@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { slugify } from '@/hooks/useNewsHub';
-import { RichTextEditor } from './editor/RichTextEditor';
+
 import { TextStyleControls } from './editor/StyleControls';
 import { CoverControls } from './editor/CoverControls';
 import { PageStyleControls } from './editor/PageStyleControls';
