@@ -12,6 +12,8 @@ export interface NewsHubCategory {
   sort_order: number;
 }
 
+export type NewsHubVisibilityMode = 'public' | 'restricted';
+
 export interface NewsHubPost {
   id: string;
   type: NewsHubPostType;
@@ -41,6 +43,12 @@ export interface NewsHubPost {
   category?: NewsHubCategory | null;
   style_overrides?: NewsHubStyleOverrides;
   content_blocks?: NewsHubBlock[];
+  // Visibility
+  visibility_mode?: NewsHubVisibilityMode;
+  visible_to_admin?: boolean;
+  visible_to_partner?: boolean;
+  visible_to_client?: boolean;
+  visible_to_specjalista?: boolean;
 }
 
 export interface NewsHubTextStyle {
