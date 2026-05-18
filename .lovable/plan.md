@@ -1,16 +1,14 @@
-# Naprawa: partner nie może wejść w Aktualności
+Plan naprawy:
 
-## Przyczyna
+1. Naprawię błąd React #310 na `/aktualnosci` przez usunięcie zależności listy od lokalnego przełączania układu admina na stronie publicznej. Hooki zostaną wywoływane zawsze w tej samej kolejności, a warunkowe renderowanie zostanie ograniczone do UI.
 
-W `src/pages/NewsHubPage.tsx` wczesne `return` (loading / brak dostępu, linie 42–58) są umieszczone **przed** hookami `useMemo` (`availableYears` w linii 60 i `pinned/regular` w linii 69). To łamie Rules of Hooks — gdy `visLoading=true` lub `isModuleVisible=false`, React renderuje mniej hooków niż w poprzednim renderze, co powoduje **Minified React error #310**.
+2. Zmieniam zachowanie ikon układu na stronie `/aktualnosci`:
+   - widzi je tylko admin,
+   - kliknięcie ikony zapisuje układ globalnie jako `adminLayout` w `news_hub_settings`,
+   - nie używamy już lokalnego `userLayout`/`Resetuj` na publicznej stronie Aktualności.
 
-Partner trafia w to za każdym razem, bo dla niego najpierw leci render z `visLoading`, potem render z danymi → zmienna liczba hooków → crash → ErrorBoundary pokazuje "Coś poszło nie tak".
+3. Dla partnera/użytkownika lista będzie renderowana wyłącznie według `adminLayout`, czyli jeśli admin ustawił `cols-3`, partner zobaczy trzy kolumny bez ikon konfiguracji.
 
-## Zmiana (1 plik)
+4. Dodatkowo dopiszę `/aktualnosci` do listy znanych tras w wrapperze czatu (`ChatWidgetsWrapper`), żeby aplikacja nie traktowała tej ścieżki jako strony partnera.
 
-`src/pages/NewsHubPage.tsx`:
-
-1. Przenieść oba bloki `useMemo` (linie 60–89) **przed** wczesne returny (przed linię 42).
-2. Pozostawić logikę returnu dla `visLoading` i `!isModuleVisible` bez zmian, tylko niżej w ciele komponentu — po wszystkich hookach.
-
-Brak zmian w logice biznesowej, RLS ani w innych plikach.
+5. Po wdrożeniu sprawdzę w preview, czy strona nie wpada w ErrorBoundary i czy admin widzi przełącznik układu.

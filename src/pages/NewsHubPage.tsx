@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Loader2, Newspaper, Settings, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ const NewsHubPage: React.FC = () => {
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
-  const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
+  const { adminLayout, saveAdminLayout } = useNewsHubSettings();
 
   const availableYears = useMemo(() => {
     const set = new Set<string>();
@@ -184,16 +184,7 @@ const NewsHubPage: React.FC = () => {
 
           {isAdmin && (
             <div className="ml-auto flex items-center gap-2">
-              <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
-              {userLayout && userLayout !== adminLayout && (
-                <button
-                  onClick={() => setUserLayout(null)}
-                  className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-                  title="Wróć do układu ustawionego przez administratora"
-                >
-                  Resetuj
-                </button>
-              )}
+              <GridLayoutSwitcher value={adminLayout} onChange={saveAdminLayout} />
             </div>
           )}
         </div>
@@ -210,7 +201,7 @@ const NewsHubPage: React.FC = () => {
         {!loading && pinned.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
+            <BentoGrid posts={pinned} onChanged={refresh} layout={adminLayout} />
           </div>
         )}
 
@@ -219,7 +210,7 @@ const NewsHubPage: React.FC = () => {
             {pinned.length > 0 && (
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
             )}
-            <BentoGrid posts={regular} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
+            <BentoGrid posts={regular} onChanged={refresh} layout={adminLayout} />
           </div>
         )}
 
