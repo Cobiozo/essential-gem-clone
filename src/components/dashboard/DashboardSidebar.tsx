@@ -525,6 +525,11 @@ export const DashboardSidebar: React.FC = () => {
       }
     }
 
+    // Check news hub visibility
+    if (item.id === 'news' && !isNewsHubVisible) {
+      return false;
+    }
+
     // Check reflinks visibility
     if (item.id === 'reflinks' && !canGenerateReflinks) {
       return false;
