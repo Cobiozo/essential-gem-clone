@@ -5557,6 +5557,24 @@ export type Database = {
           },
         ]
       }
+      news_hub_settings: {
+        Row: {
+          grid_layout: string
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          grid_layout?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          grid_layout?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       news_hub_templates: {
         Row: {
           blocks: Json

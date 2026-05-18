@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
+import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
+import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
@@ -28,6 +30,7 @@ const NewsHubPage: React.FC = () => {
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
+  const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
 
   const { pinned, regular } = useMemo(() => {
     const pinned = posts.filter((p) => p.is_pinned);
@@ -101,19 +104,33 @@ const NewsHubPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto">
-          {TYPE_TABS.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setType(t.value)}
-              className={cn(
-                'rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap',
-                type === t.value ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted text-foreground',
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="flex flex-wrap gap-2 overflow-x-auto">
+            {TYPE_TABS.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setType(t.value)}
+                className={cn(
+                  'rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap',
+                  type === t.value ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted text-foreground',
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
+            {userLayout && userLayout !== adminLayout && (
+              <button
+                onClick={() => setUserLayout(null)}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                title="Wróć do układu ustawionego przez administratora"
+              >
+                Resetuj
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -127,7 +144,7 @@ const NewsHubPage: React.FC = () => {
         {!loading && pinned.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onChanged={refresh} />
+            <BentoGrid posts={pinned} onChanged={refresh} layout={effectiveLayout} />
           </div>
         )}
 
@@ -136,7 +153,7 @@ const NewsHubPage: React.FC = () => {
             {pinned.length > 0 && (
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
             )}
-            <BentoGrid posts={regular} onChanged={refresh} />
+            <BentoGrid posts={regular} onChanged={refresh} layout={effectiveLayout} />
           </div>
         )}
 
