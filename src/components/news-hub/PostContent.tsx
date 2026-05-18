@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import type { NewsHubPost } from '@/types/newsHub';
+import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
 function youTubeId(url: string): string | null {
@@ -41,16 +42,57 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
 
 interface Props {
   post: NewsHubPost;
+  styleOverrides?: NewsHubStyleOverrides;
   showCover?: boolean;
 }
 
-export const PostContent: React.FC<Props> = ({ post, showCover = true }) => {
+// Detect HTML content vs plain text (legacy posts saved before WYSIWYG)
+const looksLikeHtml = (s: string) => /<\/?(p|div|h[1-6]|ul|ol|li|strong|em|u|s|a|br|img|hr|blockquote|span)\b/i.test(s);
+
+export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover = true }) => {
+  const s = styleOverrides || post.style_overrides || {};
   const gallery: string[] = Array.isArray(post.media_metadata?.gallery) ? post.media_metadata.gallery : [];
+
+  const titleStyle: React.CSSProperties = {
+    fontSize: s.title?.size ? `${s.title.size}px` : undefined,
+    fontWeight: s.title?.weight,
+    color: s.title?.color,
+    textAlign: s.title?.align,
+  };
+  const descStyle: React.CSSProperties = {
+    fontSize: s.shortDescription?.size ? `${s.shortDescription.size}px` : undefined,
+    color: s.shortDescription?.color,
+    textAlign: s.shortDescription?.align,
+  };
+
+  const cover = s.cover || {};
+  const coverWrapStyle: React.CSSProperties = {
+    height: cover.height ? `${cover.height}px` : undefined,
+  };
+  const coverImgStyle: React.CSSProperties = {
+    objectFit: (cover.fit || 'cover') as React.CSSProperties['objectFit'],
+    objectPosition: cover.position || 'center',
+    height: cover.height ? `${cover.height}px` : undefined,
+    width: '100%',
+  };
+
+  const cleanHtml = useMemo(() => {
+    if (!post.content) return '';
+    if (!looksLikeHtml(post.content)) return '';
+    return DOMPurify.sanitize(post.content, { USE_PROFILES: { html: true } });
+  }, [post.content]);
+
+  const plainText = !cleanHtml && post.content ? post.content : '';
 
   return (
     <article className="space-y-4">
       {showCover && post.cover_url && post.type !== 'video' && (
-        <img src={post.cover_url} alt={post.title} className="max-h-[420px] w-full rounded-xl object-cover" />
+        <div className="relative overflow-hidden rounded-xl w-full bg-muted" style={coverWrapStyle}>
+          <img src={post.cover_url} alt={post.title} style={coverImgStyle} className="block max-h-none" />
+          {cover.overlay && (cover.overlayOpacity ?? 0) > 0 && (
+            <div className="absolute inset-0 pointer-events-none" style={{ background: cover.overlay, opacity: cover.overlayOpacity }} />
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -63,10 +105,10 @@ export const PostContent: React.FC<Props> = ({ post, showCover = true }) => {
         <time className="text-muted-foreground">{format(new Date(post.published_at), "d MMMM yyyy 'o' HH:mm", { locale: pl })}</time>
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold leading-tight">{post.title}</h1>
+      <h1 className="text-3xl md:text-4xl font-bold leading-tight" style={titleStyle}>{post.title}</h1>
 
       {post.short_description && (
-        <p className="text-lg text-muted-foreground">{post.short_description}</p>
+        <p className="text-lg text-muted-foreground" style={descStyle}>{post.short_description}</p>
       )}
 
       {post.type === 'video' && post.media_url && <VideoPlayer url={post.media_url} />}
@@ -81,14 +123,21 @@ export const PostContent: React.FC<Props> = ({ post, showCover = true }) => {
         </div>
       )}
 
-      {post.content && (
+      {cleanHtml && (
+        <div
+          className="prose prose-invert max-w-none text-foreground/90 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: cleanHtml }}
+        />
+      )}
+
+      {plainText && (
         <div className="prose prose-invert max-w-none whitespace-pre-wrap text-foreground/90 leading-relaxed">
-          {post.content}
+          {plainText}
         </div>
       )}
 
       {post.type === 'embed' && post.embed_html && (
-        <div className="overflow-hidden rounded-xl border border-border" dangerouslySetInnerHTML={{ __html: post.embed_html }} />
+        <div className="overflow-hidden rounded-xl border border-border" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.embed_html, { ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'scrolling'] }) }} />
       )}
 
       {post.type === 'file' && post.file_url && (
