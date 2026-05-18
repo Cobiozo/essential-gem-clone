@@ -1,94 +1,110 @@
-## Plan: Osobne strony postów + edycja inline dla admina
+## Plan: Boczny edytor postu z live preview, WYSIWYG i pełną kontrolą stylu
 
 ### Cel
-- Każdy kafelek/post w `/aktualnosci` otwiera się jako **osobna strona** (`/aktualnosci/:slug`) zamiast modala — można udostępniać linki, działa wstecz przeglądarki i SEO.
-- Admin zarządza **przez kliknięcie elementu**: na kafelku widzi szybkie akcje (przypnij, ukryj, usuń, edytuj), a na stronie postu może włączyć tryb edycji i zmieniać tytuł, opis, treść bezpośrednio w miejscu.
+Po kliknięciu "Edytuj" na stronie postu (`/aktualnosci/:slug`) admin nie widzi dotychczasowego dialogu, lecz **boczny przewijalny panel (~480 px po prawej)** z pełnym zestawem kontrolek, a strona postu z lewej aktualizuje się **na żywo** wraz z każdą zmianą. Zapis idzie do bazy dopiero po kliknięciu "Zapisz".
 
 ---
 
-### 1. Osobna strona postu
+### 1. Layout
 
-- Nowa trasa: `/aktualnosci/:slug`
-- Nowy plik: `src/pages/NewsHubPostPage.tsx` — pełny widok postu z:
-  - nagłówkiem z linkiem "← Centrum Aktualności"
-  - cover image, kategorią, datą, typem
-  - tytułem, krótkim opisem, treścią
-  - dedykowanym widokiem dla typu (YouTube/Vimeo/galeria/plik/link/embed)
-  - tagami, licznikiem wyświetleń
-  - dynamicznymi meta tagami (`useDynamicMetaTags`) dla og:image, og:title, og:description
-- Wspólny komponent `src/components/news-hub/PostContent.tsx` — wydzielony z obecnego `PostDetailModal` (te same widoki używane w modalu i na osobnej stronie)
-- `PostCard` zamiast `onClick`→modal używa `<Link to={'/aktualnosci/' + slug}>`
-- Modal `PostDetailModal` zostaje usunięty z `NewsHubPage` (nawigacja na stronę)
+```text
+┌─────────────────────────────────┬──────────────────┐
+│  Strona postu — LIVE PREVIEW    │  Edytor (480px)  │
+│  (PostContent + style overlays) │  scrollable      │
+│                                 │  zakładki        │
+│  Aktualizuje się przy każdej    │  + sticky save   │
+│  zmianie w panelu po prawej     │                  │
+└─────────────────────────────────┴──────────────────┘
+```
 
-### 2. Pole `slug` w bazie
+- Panel: stały `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; overflow-y: auto`
+- Strona postu po prawej dostaje `padding-right: 480px` w trybie edycji
+- Backdrop nie zaciemnia strony (live preview musi być widoczny)
+- Sticky pasek na górze panelu z zakładkami; sticky pasek na dole z "Anuluj / Zapisz" + status "Niezapisane zmiany"
+- Stan edycji trzymany w lokalnym `draft` (kopia postu) — `PostContent` renderowany z `draft` przy włączonym edytorze
 
-Migracja:
-- Dodać kolumnę `slug TEXT UNIQUE` do `news_hub_posts`
-- Backfill istniejących wierszy: `slugify(title) + '-' + short(id)`
-- Trigger BEFORE INSERT/UPDATE generujący slug, gdy pusty
-- Fallback: jeśli `useNewsHubPost(slug)` nie znajdzie po slugu, próbuje po `id`
+### 2. Zakładki w panelu
 
-### 3. Szybkie akcje admina na kafelku
+**Treść**
+- Tytuł — `<input>` + sticky-toolbar z kontrolą stylu (rozmiar 16/24/32/48/64 px, waga 400/600/700/900, kolor, wyrównanie L/C/R)
+- Krótki opis — `<textarea>` + kontrola stylu (rozmiar, kolor, wyrównanie)
+- Treść — **TipTap WYSIWYG**:
+  - Pasek narzędzi: B / I / U / S, H1–H4, listy ul/ol, cytat, link, kod, hr, undo/redo
+  - Rozszerzenia: Color, Highlight, TextAlign, Underline, Link, Image (inline), Placeholder
+  - Treść zapisywana jako HTML w polu `content`
 
-Nowy komponent `src/components/news-hub/AdminCardOverlay.tsx`:
-- Widoczny tylko dla admina, pojawia się na hover/tap kafelka
-- Ikony w prawym górnym rogu (nie blokują przejścia do postu):
-  - Pin/Unpin
-  - Eye/EyeOff (publikuj/ukryj)
-  - Pencil (przejście do `/aktualnosci/:slug?edit=1`)
-  - Trash
-- Akcje używają tych samych funkcji co `NewsHubAdminPage` (toggle/remove)
+**Media / Okładka**
+- Cover URL + upload (`uploadNewsHubFile`)
+- `object-fit`: cover / contain / fill
+- Wysokość: slider 200–700 px
+- `object-position`: 9-kierunkowy grid (top-left, top, top-right, ...)
+- Nakładka: kolor + opacity (slider)
+- Galeria / video URL / file / link / embed — kompletny zestaw z obecnego `PostFormDialog`
 
-### 4. Tryb edycji inline na stronie postu
+**Wygląd strony**
+- Tło postu: `none` / kolor / gradient (2 kolory + kąt) / obrazek (upload)
+- Padding strony (kontener), max-width
 
-`NewsHubPostPage` ma dwa tryby:
-- **Podgląd** (domyślny)
-- **Edycja** (uruchamiany przez `?edit=1` lub przycisk "Edytuj" widoczny tylko adminowi)
+**Meta**
+- Typ (Select), Kategoria, Tagi, Slug (auto z tytułu z możliwością edycji), Rozmiar w siatce
+- Przypnięte, Opublikowany
 
-W trybie edycji:
-- Tytuł, krótki opis, treść → edytowalne pola `<Input>` / `<Textarea>` osadzone w miejscu, z auto-podglądem
-- Boczny panel (Sheet) z polami: typ, kategoria, tagi, cover_url, media_url, file_url, link_url, link_cta, embed_html, bento_size, is_pinned, is_published
-- Pasek narzędzi: "Zapisz", "Anuluj", "Usuń"
-- `Zapisz` → update do `news_hub_posts`, wraca do trybu podglądu
-- Anuluj → reset stanu
+### 3. Przechowywanie stylów
 
-Nowy komponent `src/components/news-hub/PostInlineEditor.tsx` obsługujący edycję.
+Nowe pole JSONB `style_overrides` w `news_hub_posts` (migracja). Kształt:
 
-### 5. Zachowane: lista i tworzenie
+```json
+{
+  "title": { "size": 48, "weight": 900, "color": "#fff", "align": "left" },
+  "shortDescription": { "size": 18, "color": "#bbb", "align": "left" },
+  "cover": { "fit": "cover", "height": 420, "position": "center", "overlay": "#000", "overlayOpacity": 0.2 },
+  "page": { "background": "linear-gradient(...)", "maxWidth": 896 }
+}
+```
 
-- `/admin/news-hub` (tabela) pozostaje jako masowy przegląd, ale przycisk "Edytuj" prowadzi do `/aktualnosci/:slug?edit=1` zamiast otwierać `PostFormDialog`
-- `PostFormDialog` używany dalej tylko do **tworzenia nowych** postów (potrzebny wybór typu przed inline)
-- Akcje pin/publish/delete w tabeli bez zmian
+`PostContent` przyjmuje opcjonalny prop `styleOverrides` i aplikuje je inline. Brak overrides = obecny wygląd.
 
-### 6. Hook i routing
+### 4. Live preview
 
-- `src/hooks/useNewsHub.ts`:
-  - dodać `useNewsHubPost(slugOrId: string)` zwracający pojedynczy post w realtime
-  - dodać `updatePost(id, patch)` i `deletePost(id)`
-- `src/App.tsx`: nowa trasa `/aktualnosci/:slug` (chroniona jak pozostałe)
-- `KNOWN_APP_ROUTES` / `PUBLIC_PATHS` / `ProfileCompletionGuard` — dopisać prefix `/aktualnosci/`
+- `NewsHubPostPage` w trybie edycji renderuje `PostContent` z `draft` zamiast `post`, każda zmiana w panelu = `setDraft(...)`, natychmiastowa aktualizacja
+- "Zapisz" wysyła `update` do Supabase + zamyka panel + usuwa `?edit=1`
+- "Anuluj" przy niezapisanych zmianach pokazuje `confirm("Porzucić zmiany?")`
+- Blokada zamknięcia karty przy niezapisanych zmianach (`beforeunload`)
+- `globalEditingStateRef` aktywny w trybie edycji (zgodnie z regułą projektu — blokuje silent re-renders)
 
----
+### 5. Stary `PostFormDialog`
 
-### Pliki
+- Zostaje używany **tylko do tworzenia nowych** postów z `/admin/news-hub` (wymaga typu przed inline)
+- Na stronie postu zastąpiony nowym `PostInlineEditor`
 
-Utworzone:
-- `src/pages/NewsHubPostPage.tsx`
-- `src/components/news-hub/PostContent.tsx`
-- `src/components/news-hub/PostInlineEditor.tsx`
-- `src/components/news-hub/AdminCardOverlay.tsx`
-- migracja SQL: kolumna `slug` + trigger + backfill
+### 6. Zależności
+
+- `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-color`, `@tiptap/extension-text-style`, `@tiptap/extension-text-align`, `@tiptap/extension-underline`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`, `@tiptap/extension-highlight`
+
+### 7. Pliki
+
+Nowe:
+- `src/components/news-hub/PostInlineEditor.tsx` — boczny panel z zakładkami i sticky footer
+- `src/components/news-hub/editor/RichTextEditor.tsx` — TipTap z toolbar
+- `src/components/news-hub/editor/StyleControls.tsx` — wspólne kontrolki (size/color/align/weight)
+- `src/components/news-hub/editor/CoverControls.tsx` — okładka + overlay + fit/position
+- `src/components/news-hub/editor/MediaControls.tsx` — type-specific (video/gallery/file/link/embed)
+- `src/components/news-hub/editor/MetaControls.tsx` — kategoria/typ/tagi/slug/pin/publish/bento
+- `src/components/news-hub/editor/PageStyleControls.tsx` — tło/maxWidth
+- Migracja: kolumna `style_overrides jsonb default '{}'::jsonb`
 
 Zmienione:
-- `src/components/news-hub/PostCard.tsx` (Link + AdminCardOverlay)
-- `src/components/news-hub/PostDetailModal.tsx` (używa `PostContent` lub usunięty)
-- `src/pages/NewsHubPage.tsx` (bez modala)
-- `src/pages/NewsHubAdminPage.tsx` (edytuj → link do strony postu)
-- `src/hooks/useNewsHub.ts` (nowe funkcje)
-- `src/App.tsx` (trasa)
-- `src/components/profile/ProfileCompletionGuard.tsx` (prefix)
+- `src/pages/NewsHubPostPage.tsx` — używa `PostInlineEditor`, layout z padding-right w trybie edycji, render z draftem, prompt przy zamknięciu z niezapisanymi zmianami
+- `src/components/news-hub/PostContent.tsx` — dodaje opcjonalny prop `styleOverrides`, renderuje treść jako HTML (`dangerouslySetInnerHTML`) dla `article`/`announcement` (TipTap HTML), z fallbackiem na obecny tekst dla starych postów
+
+### 8. Bezpieczeństwo HTML
+
+- Treść TipTap przechowywana jako HTML — przy renderze sanitize (`DOMPurify`) przed `dangerouslySetInnerHTML`
+- Dodać `dompurify` do zależności
 
 ---
 
-### Pytanie do potwierdzenia
-Modal podglądu zastępujemy **całkowicie** osobną stroną (rekomendowane: czyste UX, działa share/back/SEO). Jeśli wolisz zachować modal jako szybki podgląd i traktować osobną stronę jako opcję (np. "Otwórz w nowej karcie"), daj znać — wtedy zostawiamy oba.
+### Uwagi
+- Stary `PostDetailModal.tsx` (orphan) — usuwam przy okazji
+- Migracja: dodanie `style_overrides` nullable; bez backfillu
+- Mobile: na <1024 px panel zamiast 480 px zajmuje pełną szerokość (overlay), live preview pod panelem widoczny po zamknięciu
