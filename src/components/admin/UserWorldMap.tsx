@@ -357,6 +357,23 @@ const UserWorldMap: React.FC<Props> = ({
     animateTo({ cx: p[0], cy: p[1], zoom: z }, 600);
   };
 
+  // Manual lon/lat bounds for countries whose TopoJSON geometry includes
+  // overseas territories. Without this, pathGen.bounds(FR) spans from French
+  // Guiana to Réunion, so the "France" click would zoom to the middle of the
+  // ocean instead of metropolitan France.
+  // Format: [minLon, minLat, maxLon, maxLat] — mainland only.
+  const COUNTRY_BBOX_OVERRIDES: Record<string, [number, number, number, number]> = {
+    FR: [-5.5, 41.3, 9.8, 51.5],         // Metropolitan France
+    NL: [3.2, 50.7, 7.3, 53.6],          // European Netherlands
+    GB: [-8.8, 49.8, 2.0, 60.9],         // UK only
+    US: [-125.0, 24.5, -66.9, 49.4],     // Contiguous USA
+    PT: [-9.6, 36.9, -6.2, 42.2],        // Mainland Portugal
+    ES: [-9.4, 35.9, 3.4, 43.9],         // Mainland Spain
+    DK: [8.0, 54.5, 15.2, 57.8],         // Denmark (no Greenland)
+    NO: [4.5, 57.9, 31.2, 71.3],         // Mainland Norway
+    RU: [27.0, 41.0, 180.0, 78.0],       // Russia (skip Kaliningrad outlier)
+  };
+
   const handleCountryClick = (raw: any, pathKey: string) => {
     const name = raw?.properties?.name as string | undefined;
     if (!name) return;
@@ -370,8 +387,21 @@ const UserWorldMap: React.FC<Props> = ({
       return;
     }
     try {
-      const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
-      const b = pathGen.bounds(f);
+      let b: [[number, number], [number, number]] | null = null;
+      const override = COUNTRY_BBOX_OVERRIDES[norm.iso];
+      if (override) {
+        const [minLon, minLat, maxLon, maxLat] = override;
+        const tl = projection([minLon, maxLat]);
+        const br = projection([maxLon, minLat]);
+        if (tl && br && [tl[0], tl[1], br[0], br[1]].every((n) => isFinite(n))) {
+          b = [[Math.min(tl[0], br[0]), Math.min(tl[1], br[1])],
+               [Math.max(tl[0], br[0]), Math.max(tl[1], br[1])]];
+        }
+      }
+      if (!b) {
+        const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
+        b = pathGen.bounds(f);
+      }
       const cx = (b[0][0] + b[1][0]) / 2;
       const cy = (b[0][1] + b[1][1]) / 2;
       const w = b[1][0] - b[0][0];
