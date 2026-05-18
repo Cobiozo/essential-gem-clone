@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Loader2, Newspaper, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
@@ -11,6 +11,9 @@ import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
+
+type SortMode = 'pinned-first' | 'newest' | 'oldest';
+
 
 const TYPE_TABS: Array<{ value: NewsHubPostType | 'all'; label: string }> = [
   { value: 'all', label: 'Wszystko' },
@@ -27,16 +30,44 @@ const NewsHubPage: React.FC = () => {
   const [type, setType] = useState<NewsHubPostType | 'all'>('all');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('pinned-first');
+  const [year, setYear] = useState<string>('all');
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
   const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
 
-  const { pinned, regular } = useMemo(() => {
-    const pinned = posts.filter((p) => p.is_pinned);
-    const regular = posts.filter((p) => !p.is_pinned);
-    return { pinned, regular };
+  const availableYears = useMemo(() => {
+    const set = new Set<string>();
+    posts.forEach((p) => {
+      const d = p.created_at ? new Date(p.created_at) : null;
+      if (d && !isNaN(d.getTime())) set.add(String(d.getFullYear()));
+    });
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
   }, [posts]);
+
+  const { pinned, regular } = useMemo(() => {
+    let filtered = posts;
+    if (year !== 'all') {
+      filtered = filtered.filter((p) => {
+        const d = p.created_at ? new Date(p.created_at) : null;
+        return d && !isNaN(d.getTime()) && String(d.getFullYear()) === year;
+      });
+    }
+    const sorter = (a: typeof posts[number], b: typeof posts[number]) => {
+      const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return sortMode === 'oldest' ? da - db : db - da;
+    };
+    if (sortMode === 'pinned-first') {
+      return {
+        pinned: filtered.filter((p) => p.is_pinned).slice().sort(sorter),
+        regular: filtered.filter((p) => !p.is_pinned).slice().sort(sorter),
+      };
+    }
+    return { pinned: [] as typeof posts, regular: filtered.slice().sort(sorter) };
+  }, [posts, year, sortMode]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -73,53 +104,64 @@ const NewsHubPage: React.FC = () => {
       </section>
 
       <section className="container max-w-7xl mx-auto px-4 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Szukaj..." className="pl-9" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Szukaj..."
+              className="pl-9 h-9"
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setCategoryId(null)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium border transition',
-                !categoryId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary/50',
-              )}
-            >
-              Wszystkie kategorie
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCategoryId(c.id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium border transition',
-                  categoryId === c.id ? 'text-primary-foreground border-transparent' : 'bg-card text-foreground border-border hover:border-primary/50',
-                )}
-                style={categoryId === c.id ? { backgroundColor: c.color || undefined } : undefined}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex flex-wrap gap-2 overflow-x-auto">
-            {TYPE_TABS.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => setType(t.value)}
-                className={cn(
-                  'rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap',
-                  type === t.value ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted text-foreground',
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+            <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder="Sortuj" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pinned-first">Najpierw przypięte</SelectItem>
+              <SelectItem value="newest">Od najnowszych</SelectItem>
+              <SelectItem value="oldest">Od najstarszych</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={year} onValueChange={setYear}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Rok" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie lata</SelectItem>
+              {availableYears.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={categoryId ?? 'all'}
+            onValueChange={(v) => setCategoryId(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Kategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie kategorie</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="inline-flex items-center gap-2">
+                    {c.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />}
+                    {c.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={type} onValueChange={(v) => setType(v as NewsHubPostType | 'all')}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Typ" /></SelectTrigger>
+            <SelectContent>
+              {TYPE_TABS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="ml-auto flex items-center gap-2">
             <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
             {userLayout && userLayout !== adminLayout && (
               <button
@@ -132,6 +174,7 @@ const NewsHubPage: React.FC = () => {
             )}
           </div>
         </div>
+
       </section>
 
       <section className="container max-w-7xl mx-auto px-4 pb-16 space-y-8">
