@@ -11,6 +11,7 @@ import { PostFormDialog } from '@/components/news-hub/PostFormDialog';
 import { TemplatePicker } from '@/components/news-hub/editor/TemplatePicker';
 import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
+import { NewsHubModuleVisibilityPanel } from '@/components/news-hub/NewsHubModuleVisibilityPanel';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
