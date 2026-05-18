@@ -16,7 +16,10 @@ import { CoverControls } from './editor/CoverControls';
 import { PageStyleControls } from './editor/PageStyleControls';
 import { MediaControls } from './editor/MediaControls';
 import { MetaControls } from './editor/MetaControls';
+import { BlockListEditor } from './editor/BlockListEditor';
 import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
+import type { NewsHubBlock } from '@/types/newsHubBlocks';
+import { makeBlockId } from '@/types/newsHubBlocks';
 
 interface Props {
   post: NewsHubPost;
