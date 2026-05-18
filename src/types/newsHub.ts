@@ -37,6 +37,34 @@ export interface NewsHubPost {
   created_at: string;
   updated_at: string;
   category?: NewsHubCategory | null;
+  style_overrides?: NewsHubStyleOverrides;
+}
+
+export interface NewsHubTextStyle {
+  size?: number;
+  weight?: number;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface NewsHubCoverStyle {
+  fit?: 'cover' | 'contain' | 'fill';
+  height?: number;
+  position?: string; // e.g. 'center', 'top', 'top left'
+  overlay?: string; // hex
+  overlayOpacity?: number; // 0-1
+}
+
+export interface NewsHubPageStyle {
+  background?: string; // CSS background value
+  maxWidth?: number;
+}
+
+export interface NewsHubStyleOverrides {
+  title?: NewsHubTextStyle;
+  shortDescription?: NewsHubTextStyle;
+  cover?: NewsHubCoverStyle;
+  page?: NewsHubPageStyle;
 }
 
 export const POST_TYPE_LABELS: Record<NewsHubPostType, string> = {
