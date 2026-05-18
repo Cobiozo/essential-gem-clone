@@ -14,6 +14,7 @@ import { useNewsHubCategories, slugify, uploadNewsHubFile } from '@/hooks/useNew
 import type { NewsHubPost, NewsHubPostType, NewsHubBentoSize } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
+import { PostVisibilityEditor } from './PostVisibilityEditor';
 
 interface Props {
   open: boolean;
@@ -42,6 +43,11 @@ const EMPTY: Partial<NewsHubPost> = {
   is_pinned: false,
   is_published: true,
   bento_size: 'm',
+  visibility_mode: 'public',
+  visible_to_admin: true,
+  visible_to_partner: true,
+  visible_to_client: true,
+  visible_to_specjalista: true,
 };
 
 export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onClose, onSaved }) => {
@@ -111,6 +117,11 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
       bento_size: form.bento_size || 'm',
       content_blocks: form.content_blocks || [],
       author_id: user?.id || null,
+      visibility_mode: form.visibility_mode || 'public',
+      visible_to_admin: form.visible_to_admin !== false,
+      visible_to_partner: form.visible_to_partner !== false,
+      visible_to_client: form.visible_to_client !== false,
+      visible_to_specjalista: form.visible_to_specjalista !== false,
     };
 
     let err: any;
@@ -279,6 +290,17 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
               Opublikowany
             </label>
           </div>
+
+          <div className="rounded-lg border border-border p-4">
+            <div className="text-sm font-semibold mb-3">Widoczność postu</div>
+            <PostVisibilityEditor
+              draft={form as any}
+              update={update}
+              postId={post?.id}
+            />
+          </div>
+
+
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose} disabled={saving}>Anuluj</Button>

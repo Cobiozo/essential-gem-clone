@@ -17,6 +17,7 @@ import { PageStyleControls } from './editor/PageStyleControls';
 import { MediaControls } from './editor/MediaControls';
 import { MetaControls } from './editor/MetaControls';
 import { BlockListEditor } from './editor/BlockListEditor';
+import { PostVisibilityEditor } from './PostVisibilityEditor';
 import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { makeBlockId } from '@/types/newsHubBlocks';
@@ -86,6 +87,11 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
       style_overrides: draft.style_overrides || {},
       content_blocks: draft.content_blocks || [],
       author_id: draft.author_id || user?.id || null,
+      visibility_mode: draft.visibility_mode || 'public',
+      visible_to_admin: draft.visible_to_admin !== false,
+      visible_to_partner: draft.visible_to_partner !== false,
+      visible_to_client: draft.visible_to_client !== false,
+      visible_to_specjalista: draft.visible_to_specjalista !== false,
     };
     const { error } = await (supabase.from('news_hub_posts' as any) as any).update(payload).eq('id', post.id);
     setSaving(false);
@@ -119,10 +125,11 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
 
       {/* Tabs */}
       <Tabs defaultValue="content" className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="grid grid-cols-4 mx-3 mt-3">
+        <TabsList className="grid grid-cols-5 mx-3 mt-3">
           <TabsTrigger value="content" className="text-xs">Treść</TabsTrigger>
           <TabsTrigger value="media" className="text-xs">Media</TabsTrigger>
           <TabsTrigger value="design" className="text-xs">Wygląd</TabsTrigger>
+          <TabsTrigger value="visibility" className="text-xs">Dostęp</TabsTrigger>
           <TabsTrigger value="meta" className="text-xs">Meta</TabsTrigger>
         </TabsList>
 
@@ -190,6 +197,10 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
 
           <TabsContent value="design" className="m-0 space-y-4">
             <PageStyleControls value={styles.page} onChange={(v) => updateStyle({ page: v })} />
+          </TabsContent>
+
+          <TabsContent value="visibility" className="m-0">
+            <PostVisibilityEditor draft={draft} update={update} postId={post.id} />
           </TabsContent>
 
           <TabsContent value="meta" className="m-0">

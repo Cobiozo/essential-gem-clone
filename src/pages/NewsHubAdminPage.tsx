@@ -11,6 +11,7 @@ import { PostFormDialog } from '@/components/news-hub/PostFormDialog';
 import { TemplatePicker } from '@/components/news-hub/editor/TemplatePicker';
 import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
+import { NewsHubModuleVisibilityPanel } from '@/components/news-hub/NewsHubModuleVisibilityPanel';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
@@ -62,6 +63,8 @@ const NewsHubAdminPage: React.FC = () => {
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-4">
+        <NewsHubModuleVisibilityPanel />
+
         <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold">Domyślny układ listy</div>

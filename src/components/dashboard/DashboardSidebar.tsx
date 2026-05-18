@@ -66,6 +66,7 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
+import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -198,6 +199,7 @@ export const DashboardSidebar: React.FC = () => {
   const isPaidEventsVisible = useIsPaidEventsVisible();
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
+  const { isModuleVisible: isNewsHubVisible } = useNewsHubVisibility();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
@@ -521,6 +523,11 @@ export const DashboardSidebar: React.FC = () => {
         }
         return false;
       }
+    }
+
+    // Check news hub visibility
+    if (item.id === 'news' && !isNewsHubVisible) {
+      return false;
     }
 
     // Check reflinks visibility
