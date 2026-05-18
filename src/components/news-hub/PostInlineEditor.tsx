@@ -152,8 +152,29 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
             />
 
             <div>
-              <Label className="text-xs mb-1 block">Treść (WYSIWYG)</Label>
-              <RichTextEditor value={draft.content || ''} onChange={(html) => update({ content: html })} placeholder="Treść artykułu..." />
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs">Treść (bloki)</Label>
+                {(!draft.content_blocks || draft.content_blocks.length === 0) && draft.content && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      const isHtml = /<\/?(p|div|h[1-6]|ul|ol|li|strong|em|u|s|a|br|img|hr|blockquote|span)\b/i.test(draft.content || '');
+                      const block: NewsHubBlock = isHtml
+                        ? { id: makeBlockId(), type: 'legacy_html', data: { html: draft.content } }
+                        : { id: makeBlockId(), type: 'paragraph', data: { html: `<p>${(draft.content || '').replace(/\n/g, '<br/>')}</p>` } };
+                      update({ content_blocks: [block] });
+                    }}
+                  >
+                    Konwertuj starą treść
+                  </Button>
+                )}
+              </div>
+              <BlockListEditor
+                value={draft.content_blocks || []}
+                onChange={(blocks) => update({ content_blocks: blocks })}
+              />
             </div>
           </TabsContent>
 
