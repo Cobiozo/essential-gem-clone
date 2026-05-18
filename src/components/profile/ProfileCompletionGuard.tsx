@@ -58,7 +58,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
     '/events', '/e', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
-    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview', '/auto-webinar', '/a-w', '/skills-assessment', '/moja-strona', '/moje-testy'
+    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview', '/auto-webinar', '/a-w', '/skills-assessment', '/moja-strona', '/moje-testy', '/aktualnosci'
   ];
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
   const isKnownRoute = KNOWN_APP_ROUTES.some(r =>

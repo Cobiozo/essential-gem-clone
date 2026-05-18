@@ -151,6 +151,8 @@ const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"))
 const OmegaTests = lazyWithRetry(() => import("./pages/OmegaTests"));
 const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
 const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewPage"));
+const NewsHubPage = lazyWithRetry(() => import("./pages/NewsHubPage"));
+const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -436,6 +438,8 @@ const AppContent = () => {
                 <Route path="/moje-testy" element={<OmegaTests />} />
                 <Route path="/moja-strona" element={<MyPartnerPage />} />
                 <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
+                <Route path="/aktualnosci" element={<NewsHubPage />} />
+                <Route path="/admin/news-hub" element={<NewsHubAdminPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
