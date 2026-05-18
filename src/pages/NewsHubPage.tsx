@@ -181,18 +181,20 @@ const NewsHubPage: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <div className="ml-auto flex items-center gap-2">
-            <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
-            {userLayout && userLayout !== adminLayout && (
-              <button
-                onClick={() => setUserLayout(null)}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-                title="Wróć do układu ustawionego przez administratora"
-              >
-                Resetuj
-              </button>
-            )}
-          </div>
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-2">
+              <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
+              {userLayout && userLayout !== adminLayout && (
+                <button
+                  onClick={() => setUserLayout(null)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  title="Wróć do układu ustawionego przez administratora"
+                >
+                  Resetuj
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </section>
@@ -207,7 +209,7 @@ const NewsHubPage: React.FC = () => {
         {!loading && pinned.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onChanged={refresh} layout={effectiveLayout} />
+            <BentoGrid posts={pinned} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
           </div>
         )}
 
@@ -216,7 +218,7 @@ const NewsHubPage: React.FC = () => {
             {pinned.length > 0 && (
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
             )}
-            <BentoGrid posts={regular} onChanged={refresh} layout={effectiveLayout} />
+            <BentoGrid posts={regular} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
           </div>
         )}
 
