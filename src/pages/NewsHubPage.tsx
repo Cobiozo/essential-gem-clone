@@ -104,53 +104,64 @@ const NewsHubPage: React.FC = () => {
       </section>
 
       <section className="container max-w-7xl mx-auto px-4 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Szukaj..." className="pl-9" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Szukaj..."
+              className="pl-9 h-9"
+            />
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setCategoryId(null)}
-              className={cn(
-                'rounded-full px-3 py-1 text-xs font-medium border transition',
-                !categoryId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary/50',
-              )}
-            >
-              Wszystkie kategorie
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCategoryId(c.id)}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium border transition',
-                  categoryId === c.id ? 'text-primary-foreground border-transparent' : 'bg-card text-foreground border-border hover:border-primary/50',
-                )}
-                style={categoryId === c.id ? { backgroundColor: c.color || undefined } : undefined}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex flex-wrap gap-2 overflow-x-auto">
-            {TYPE_TABS.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => setType(t.value)}
-                className={cn(
-                  'rounded-lg px-4 py-2 text-sm font-medium transition whitespace-nowrap',
-                  type === t.value ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted text-foreground',
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+            <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder="Sortuj" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pinned-first">Najpierw przypięte</SelectItem>
+              <SelectItem value="newest">Od najnowszych</SelectItem>
+              <SelectItem value="oldest">Od najstarszych</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={year} onValueChange={setYear}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Rok" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie lata</SelectItem>
+              {availableYears.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={categoryId ?? 'all'}
+            onValueChange={(v) => setCategoryId(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Kategoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Wszystkie kategorie</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="inline-flex items-center gap-2">
+                    {c.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.color }} />}
+                    {c.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={type} onValueChange={(v) => setType(v as NewsHubPostType | 'all')}>
+            <SelectTrigger className="h-9 w-[150px]"><SelectValue placeholder="Typ" /></SelectTrigger>
+            <SelectContent>
+              {TYPE_TABS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="ml-auto flex items-center gap-2">
             <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
             {userLayout && userLayout !== adminLayout && (
               <button
@@ -163,6 +174,7 @@ const NewsHubPage: React.FC = () => {
             )}
           </div>
         </div>
+
       </section>
 
       <section className="container max-w-7xl mx-auto px-4 pb-16 space-y-8">
