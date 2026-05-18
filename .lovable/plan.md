@@ -1,10 +1,33 @@
-Naprawię mapę w `src/components/admin/UserWorldMap.tsx` tak, żeby po kliknięciu/tapnięciu na iOS nie mogła już zamienić się w żółtą planszę.
+## Cel
+Na mobile użytkownik ma móc tapnąć w kraj i mapa ma się przybliżyć tak, aby ten kraj wypełniał całe okienko widżeta (jak Polska na screenie). Obecnie kliknięcia w kraje na mobile są zablokowane.
 
-Zakres zmian:
-1. Wyłączę problematyczną warstwę satelitarną na urządzeniach dotykowych/iOS i wymuszę stabilny tryb klasyczny dla mobile/touch, ponieważ obecna żółta plansza pochodzi z renderowania SVG/bitmapy w trybie satelitarnym po interakcji.
-2. Usunę możliwość nadawania aktywnego, żółtego wypełnienia krajom w trybie satelitarnym — kliknięcie kraju nie będzie mogło przykryć mapy kolorem `primary`.
-3. Wszystkie gesty mapy przeprowadzę przez `safeSetView`, także pan/pinch/wheel/markery, aby żaden `NaN`, zbyt duży zoom ani niepoprawny `viewBox` nie trafił do SVG.
-4. Ograniczę zoom markerów na mobile do bezpiecznego poziomu zamiast obecnego minimum `40`, które może dawać ekstremalnie mały `viewBox` i niestabilny render w Safari.
-5. Dodam twardy fallback: jeśli urządzenie jest dotykowe albo iOS i wybrany jest tryb satelitarny, komponent automatycznie pokaże tryb klasyczny bez żółtego tła.
+## Zmiany w `src/components/admin/UserWorldMap.tsx`
 
-Efekt: mapa na iOS będzie stabilna po pojedynczym tapnięciu, bez żółtego zalania ekranu; desktop zachowa możliwość przełączania trybów, ale z bezpieczniejszym zoomem i viewBox.
+1. **`handleCountryClick` — zdjąć blokadę mobile**
+   - Usunąć `if (isMobile) return;`.
+   - Logika obliczania bounds + zoom pozostaje, ale na mobile użyję ciaśniejszego dopasowania: docelowy zoom = `Math.max(2, Math.min(12, 0.95 / Math.max(w / VIEW_W, h / VIEW_H)))` (na mobile mnożnik `0.95`, na desktopie zostaje `0.9`) — kraj wypełnia kadr widżeta z minimalnym marginesem.
+   - Po `setSelectedIso` na mobile od razu wywołać `safeSetView` (bez animacji) plus krótkie `animateTo` 400ms, żeby uniknąć glitchy iOS przy długiej animacji.
+
+2. **SVG path krajów — przywrócić tap na mobile**
+   - W `<path>` krajów: `cursor` zostaje `'pointer'` dla wszystkich (mobile + desktop).
+   - `onClick` aktywny zawsze: `onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}`.
+   - Zachować `WebkitTapHighlightColor: 'transparent'` i `WebkitTouchCallout: 'none'`, żeby nie pojawiał się żółty/szary flash iOS.
+   - `isClickSuppressed()` (już istnieje dla gestów pan/pinch) chroni przed przypadkowym kliknięciem podczas gestu.
+
+3. **Reset selekcji**
+   - Tap w już zaznaczony kraj nadal odznacza i wraca do `defaultView` (zachowane).
+   - Przycisk `RotateCcw` (reset) działa bez zmian.
+
+4. **Bezpieczeństwo renderu (zachowane)**
+   - Wszystkie `isFinite` guardy w `safeSetView`/`animateTo` zostają.
+   - Clamp zoom do `[MIN_ZOOM, MAX_ZOOM]` zostaje.
+   - Brak żółtego fillu krajów w trybie satelitarnym (już naprawione wcześniej).
+
+## Czego NIE zmieniam
+- CSS, design tokens, layout widżeta.
+- Logika gestów pan/pinch.
+- Markery miast (zachowują obecne zachowanie tap → zoom do miasta).
+- Backend / RLS / hooks.
+
+## Efekt
+Na iOS/Android tap w kraj płynnie przybliża go do rozmiaru kadru widżeta (jak Polska na screenie), bez żółtego zalania i bez utraty stabilności renderu.
