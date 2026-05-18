@@ -1,0 +1,238 @@
+
+INSERT INTO public.news_hub_posts (
+  type, title, slug, category_id, tags, cover_url, short_description, content,
+  media_metadata, is_pinned, is_published, bento_size, published_at,
+  style_overrides, content_blocks
+)
+VALUES (
+  'article',
+  'Network Marketing — przewodnik po MLM',
+  'network-marketing',
+  '0289732d-52ec-4aa3-b534-61e45fc277a6',
+  ARRAY['mlm','network marketing','biznes','sprzedaż','rozwój']::text[],
+  '/news-hub-demo/network-marketing-hero.jpg',
+  'Czym naprawdę jest marketing sieciowy, jak działa plan kompensacyjny i na co uważać przed dołączeniem - kompletny przewodnik dla początkujących.',
+  NULL,
+  '{}'::jsonb,
+  false,
+  true,
+  'm',
+  now(),
+  jsonb_build_object(
+    'title', jsonb_build_object('size',44,'weight',800,'color','#ffffff','align','center'),
+    'shortDescription', jsonb_build_object('size',19,'color','hsl(200 90% 75%)','align','center'),
+    'cover', jsonb_build_object('fit','cover','height',440,'position','center','overlay','#000000','overlayOpacity',0.45),
+    'page', jsonb_build_object('maxWidth',1100,'background','linear-gradient(180deg, hsl(220 45% 9%) 0%, hsl(215 35% 14%) 100%)')
+  ),
+  jsonb_build_array(
+    jsonb_build_object('id','nm_h1','type','heading',
+      'data', jsonb_build_object('level',1,'text','Network Marketing — przewodnik po MLM','align','center','color','hsl(200 90% 70%)'),
+      'style', jsonb_build_object('mt',24,'mb',8)),
+    jsonb_build_object('id','nm_lead','type','paragraph',
+      'data', jsonb_build_object('html','<p><strong>Marketing sieciowy</strong> (MLM, network marketing) to model dystrybucji, w którym produkty trafiają do klienta przez sieć niezależnych partnerów - z pominięciem klasycznej reklamy i pośredników. <em>Dobrze prowadzony</em> daje wolność czasu i skalowalny dochód. <a href="/auth">Sprawdź jak zacząć</a>.</p>'),
+      'style', jsonb_build_object('mb',16,'align','center','maxWidth',820)),
+    jsonb_build_object('id','nm_info','type','callout',
+      'data', jsonb_build_object('variant','info','title','W skrócie','text','MLM to legalny model sprzedaży bezpośredniej - kluczem jest realny produkt, etyczna rekomendacja i konsekwentna praca w czasie.','icon','Info'),
+      'style', jsonb_build_object('mt',8,'mb',24,'radius',16)),
+    jsonb_build_object('id','nm_h2_what','type','heading',
+      'data', jsonb_build_object('level',2,'text','Jak działa marketing sieciowy','align','left'),
+      'style', jsonb_build_object('mt',16,'mb',12)),
+    jsonb_build_object('id','nm_img','type','image',
+      'data', jsonb_build_object('url','/news-hub-demo/network-marketing-hero.jpg','alt','Zespół network marketingu','caption','Network marketing to przede wszystkim ludzie i relacje - technologia jedynie wspiera proces.','fit','cover','height',420),
+      'style', jsonb_build_object('mb',24,'radius',18)),
+    jsonb_build_object('id','nm_cols','type','columns',
+      'data', jsonb_build_object('ratio','1-1','columns', jsonb_build_array(
+        jsonb_build_array(
+          jsonb_build_object('id','nm_col_l_h3','type','heading',
+            'data', jsonb_build_object('level',3,'text','Dwa źródła dochodu','align','left'),
+            'style', jsonb_build_object('mb',8)),
+          jsonb_build_object('id','nm_col_l_p','type','paragraph',
+            'data', jsonb_build_object('html','<p>Zarabiasz na <strong>marży</strong> ze sprzedaży produktów oraz na <strong>prowizji</strong> z obrotu zespołu, który zbudujesz. Im lepsi ludzie obok Ciebie, tym stabilniejszy dochód pasywny.</p>'))
+        ),
+        jsonb_build_array(
+          jsonb_build_object('id','nm_col_r_callout','type','callout',
+            'data', jsonb_build_object('variant','success','title','Plusy modelu','text','Niski próg wejścia, gotowy produkt i system szkoleń, brak limitu zarobków, praca z dowolnego miejsca.','icon','TrendingUp'),
+            'style', jsonb_build_object('radius',14))
+        )
+      )),
+      'style', jsonb_build_object('mt',8,'mb',24)),
+    jsonb_build_object('id','nm_div1','type','divider',
+      'data', jsonb_build_object('thickness',2,'color','hsl(200 80% 55%)'),
+      'style', jsonb_build_object('mt',16,'mb',24,'maxWidth',120,'align','center')),
+    jsonb_build_object('id','nm_h2_g','type','heading',
+      'data', jsonb_build_object('level',2,'text','MLM w praktyce','align','center'),
+      'style', jsonb_build_object('mb',16)),
+    jsonb_build_object('id','nm_gal','type','gallery',
+      'data', jsonb_build_object('images', jsonb_build_array(
+        '/news-hub-demo/network-marketing-g1.jpg',
+        '/news-hub-demo/network-marketing-g2.jpg',
+        '/news-hub-demo/network-marketing-g3.jpg',
+        '/news-hub-demo/network-marketing-g4.jpg'
+      ),'columns',4),
+      'style', jsonb_build_object('mb',32,'radius',12)),
+    jsonb_build_object('id','nm_h2_tab','type','heading',
+      'data', jsonb_build_object('level',2,'text','MLM vs klasyczny biznes','align','left'),
+      'style', jsonb_build_object('mb',12)),
+    jsonb_build_object('id','nm_tab','type','table',
+      'data', jsonb_build_object('headerRow',true,'rows', jsonb_build_array(
+        jsonb_build_array('Cecha','Klasyczny biznes','Network marketing'),
+        jsonb_build_array('Koszt startu','Wysoki (lokal, towar, zespół)','Niski - pakiet startowy'),
+        jsonb_build_array('Ryzyko','Spore - własny kapitał','Ograniczone do czasu i zaangażowania'),
+        jsonb_build_array('Skalowanie','Wymaga zatrudniania','Przez budowę zespołu partnerów'),
+        jsonb_build_array('Dochód pasywny','Po latach','Możliwy w 2-5 lat konsekwentnej pracy')
+      )),
+      'style', jsonb_build_object('mb',24)),
+    jsonb_build_object('id','nm_warn','type','callout',
+      'data', jsonb_build_object('variant','warning','title','Czerwone flagi','text','Brak realnego produktu, presja zakupu ogromnych pakietów, obietnice szybkiego bogactwa - to znaki, że masz do czynienia z piramidą, nie z MLM.','icon','AlertTriangle'),
+      'style', jsonb_build_object('mb',24,'radius',16)),
+    jsonb_build_object('id','nm_vid','type','video',
+      'data', jsonb_build_object('url','https://www.youtube.com/watch?v=ScMzIvxBSi4','caption','3 minuty o tym, jak naprawdę działa marketing sieciowy.'),
+      'style', jsonb_build_object('mb',24,'radius',16)),
+    jsonb_build_object('id','nm_file','type','file_download',
+      'data', jsonb_build_object('url','/news-hub-demo/network-marketing-hero.jpg','name','Przewodnik MLM - pierwsze 30 dni (PDF).pdf','description','Plan działania krok po kroku dla nowych partnerów.','size',1843200),
+      'style', jsonb_build_object('mb',24,'radius',14)),
+    jsonb_build_object('id','nm_cta','type','button_cta',
+      'data', jsonb_build_object('text','Zacznij swoją drogę w MLM','url','/auth','variant','default','align','center'),
+      'style', jsonb_build_object('mt',8,'mb',32)),
+    jsonb_build_object('id','nm_embed','type','embed',
+      'data', jsonb_build_object('html','<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=18.5%2C50.0%2C19.2%2C50.3&layer=mapnik" width="100%" height="320" style="border:0;border-radius:12px" loading="lazy"></iframe>'),
+      'style', jsonb_build_object('mb',24)),
+    jsonb_build_object('id','nm_legacy','type','legacy_html',
+      'data', jsonb_build_object('html','<p style="font-size:13px;opacity:.7;text-align:center">Materiał edukacyjny. Wyniki finansowe w MLM zależą od indywidualnego zaangażowania i kompetencji.</p>'),
+      'style', jsonb_build_object('mt',16,'mb',8)),
+    jsonb_build_object('id','nm_div2','type','divider',
+      'data', jsonb_build_object('thickness',1,'color','hsl(220 20% 30%)'),
+      'style', jsonb_build_object('mt',8,'mb',24,'maxWidth',600,'align','center'))
+  )
+)
+ON CONFLICT (slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  category_id = EXCLUDED.category_id,
+  tags = EXCLUDED.tags,
+  cover_url = EXCLUDED.cover_url,
+  short_description = EXCLUDED.short_description,
+  is_pinned = EXCLUDED.is_pinned,
+  is_published = EXCLUDED.is_published,
+  bento_size = EXCLUDED.bento_size,
+  style_overrides = EXCLUDED.style_overrides,
+  content_blocks = EXCLUDED.content_blocks,
+  updated_at = now();
+
+INSERT INTO public.news_hub_posts (
+  type, title, slug, category_id, tags, cover_url, short_description, content,
+  media_metadata, is_pinned, is_published, bento_size, published_at,
+  style_overrides, content_blocks
+)
+VALUES (
+  'article',
+  'Eqology — norweska firma zdrowia',
+  'eqology',
+  '0289732d-52ec-4aa3-b534-61e45fc277a6',
+  ARRAY['eqology','norwegia','omega3','suplementy','zdrowie']::text[],
+  '/news-hub-demo/eqology-hero.jpg',
+  'Norweska marka, która łączy czystość arktycznej natury z nauką - poznaj historię, produkty i filozofię Eqology.',
+  NULL,
+  '{}'::jsonb,
+  false,
+  true,
+  'l',
+  now(),
+  jsonb_build_object(
+    'title', jsonb_build_object('size',48,'weight',800,'color','#ffffff','align','center'),
+    'shortDescription', jsonb_build_object('size',20,'color','hsl(190 70% 75%)','align','center'),
+    'cover', jsonb_build_object('fit','cover','height',480,'position','center','overlay','#001a26','overlayOpacity',0.4),
+    'page', jsonb_build_object('maxWidth',1100,'background','linear-gradient(180deg, hsl(200 60% 8%) 0%, hsl(195 45% 14%) 100%)')
+  ),
+  jsonb_build_array(
+    jsonb_build_object('id','eq_h1','type','heading',
+      'data', jsonb_build_object('level',1,'text','Eqology — czysta moc północy','align','center','color','hsl(190 70% 70%)'),
+      'style', jsonb_build_object('mt',24,'mb',8)),
+    jsonb_build_object('id','eq_lead','type','paragraph',
+      'data', jsonb_build_object('html','<p><strong>Eqology</strong> to norweska firma zdrowia, która od lat łączy <em>arktyczne źródła</em> najwyższej jakości surowców z rygorystyczną nauką. Misja jest prosta: pomóc ludziom dożyć w pełnej formie do późnej starości - dzięki właściwym tłuszczom Omega-3, witaminom i polifenolom. <a href="/auth">Dołącz do społeczności</a>.</p>'),
+      'style', jsonb_build_object('mb',16,'align','center','maxWidth',820)),
+    jsonb_build_object('id','eq_info','type','callout',
+      'data', jsonb_build_object('variant','info','title','Skandynawska filozofia','text','Mniej, ale lepiej. Każdy produkt Eqology powstaje z certyfikowanych źródeł i jest testowany w niezależnych laboratoriach.','icon','Snowflake'),
+      'style', jsonb_build_object('mt',8,'mb',24,'radius',16)),
+    jsonb_build_object('id','eq_h2_about','type','heading',
+      'data', jsonb_build_object('level',2,'text','O firmie i jej norweskich korzeniach','align','left'),
+      'style', jsonb_build_object('mb',12)),
+    jsonb_build_object('id','eq_img','type','image',
+      'data', jsonb_build_object('url','/news-hub-demo/eqology-hero.jpg','alt','Norweski fiord','caption','Czysta woda fiordów i arktyczne zimne morze - źródło najwyższej jakości oleju Omega-3.','fit','cover','height',460),
+      'style', jsonb_build_object('mb',24,'radius',18)),
+    jsonb_build_object('id','eq_cols','type','columns',
+      'data', jsonb_build_object('ratio','1-1','columns', jsonb_build_array(
+        jsonb_build_array(
+          jsonb_build_object('id','eq_col_l_h3','type','heading',
+            'data', jsonb_build_object('level',3,'text','Flagowe produkty','align','left'),
+            'style', jsonb_build_object('mb',8)),
+          jsonb_build_object('id','eq_col_l_p','type','paragraph',
+            'data', jsonb_build_object('html','<p><strong>Pure Arctic Oil</strong> - skoncentrowany olej z dzikich ryb arktycznych z dodatkiem oliwy z oliwek i witaminy D. <strong>EQ Pure Arctic Krill</strong>, <strong>Active Multivitamin</strong> i kolagenowe formuły zdrowia uzupełniają linię.</p>'))
+        ),
+        jsonb_build_array(
+          jsonb_build_object('id','eq_col_r_callout','type','callout',
+            'data', jsonb_build_object('variant','success','title','Jakość potwierdzona','text','Certyfikaty Friend of the Sea, IFOS 5* i badania trzeciej strony - każda partia oleju ma swój numer i raport.','icon','BadgeCheck'),
+            'style', jsonb_build_object('radius',14))
+        )
+      )),
+      'style', jsonb_build_object('mt',8,'mb',24)),
+    jsonb_build_object('id','eq_div1','type','divider',
+      'data', jsonb_build_object('thickness',2,'color','hsl(190 70% 55%)'),
+      'style', jsonb_build_object('mt',16,'mb',24,'maxWidth',120,'align','center')),
+    jsonb_build_object('id','eq_h2_g','type','heading',
+      'data', jsonb_build_object('level',2,'text','Eqology w obrazach','align','center'),
+      'style', jsonb_build_object('mb',16)),
+    jsonb_build_object('id','eq_gal','type','gallery',
+      'data', jsonb_build_object('images', jsonb_build_array(
+        '/news-hub-demo/eqology-g1.jpg',
+        '/news-hub-demo/eqology-g2.jpg',
+        '/news-hub-demo/eqology-g3.jpg',
+        '/news-hub-demo/eqology-g4.jpg'
+      ),'columns',4),
+      'style', jsonb_build_object('mb',32,'radius',12)),
+    jsonb_build_object('id','eq_h2_tab','type','heading',
+      'data', jsonb_build_object('level',2,'text','Cztery filary marki','align','left'),
+      'style', jsonb_build_object('mb',12)),
+    jsonb_build_object('id','eq_tab','type','table',
+      'data', jsonb_build_object('headerRow',true,'rows', jsonb_build_array(
+        jsonb_build_array('Filar','Co to oznacza','Korzyść dla Ciebie'),
+        jsonb_build_array('Czystość','Arktyczne surowce, brak metali ciężkich','Bezpieczna suplementacja każdego dnia'),
+        jsonb_build_array('Nauka','Badanie krwi BalanceTest co 120 dni','Suplementacja oparta o Twoje wyniki'),
+        jsonb_build_array('Etyka','Certyfikat Friend of the Sea','Odpowiedzialny połów i zrównoważony rozwój'),
+        jsonb_build_array('Społeczność','Globalna sieć partnerów','Wsparcie, szkolenia, wspólne wydarzenia')
+      )),
+      'style', jsonb_build_object('mb',24)),
+    jsonb_build_object('id','eq_warn','type','callout',
+      'data', jsonb_build_object('variant','warning','title','Pamiętaj','text','Eqology nie zastępuje leków ani porady lekarskiej. Jeśli przyjmujesz leki przeciwzakrzepowe - skonsultuj suplementację Omega-3 z lekarzem.','icon','AlertCircle'),
+      'style', jsonb_build_object('mb',24,'radius',16)),
+    jsonb_build_object('id','eq_vid','type','video',
+      'data', jsonb_build_object('url','https://www.youtube.com/watch?v=ScMzIvxBSi4','caption','Film prezentacyjny Eqology - jak powstaje Pure Arctic Oil.'),
+      'style', jsonb_build_object('mb',24,'radius',16)),
+    jsonb_build_object('id','eq_file','type','file_download',
+      'data', jsonb_build_object('url','/news-hub-demo/eqology-hero.jpg','name','Katalog produktów Eqology (PDF).pdf','description','Pełen przegląd linii produktowej z opisem składu i wskazań.','size',3145728),
+      'style', jsonb_build_object('mb',24,'radius',14)),
+    jsonb_build_object('id','eq_cta','type','button_cta',
+      'data', jsonb_build_object('text','Poznaj produkty Eqology','url','/auth','variant','default','align','center'),
+      'style', jsonb_build_object('mt',8,'mb',32)),
+    jsonb_build_object('id','eq_embed','type','embed',
+      'data', jsonb_build_object('html','<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=10.5%2C59.7%2C10.95%2C59.95&layer=mapnik" width="100%" height="320" style="border:0;border-radius:12px" loading="lazy"></iframe>'),
+      'style', jsonb_build_object('mb',24)),
+    jsonb_build_object('id','eq_legacy','type','legacy_html',
+      'data', jsonb_build_object('html','<p style="font-size:13px;opacity:.7;text-align:center">Materiał informacyjny. Eqology(R) i nazwy produktów są znakami towarowymi ich właścicieli.</p>'),
+      'style', jsonb_build_object('mt',16,'mb',8)),
+    jsonb_build_object('id','eq_div2','type','divider',
+      'data', jsonb_build_object('thickness',1,'color','hsl(200 20% 30%)'),
+      'style', jsonb_build_object('mt',8,'mb',24,'maxWidth',600,'align','center'))
+  )
+)
+ON CONFLICT (slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  category_id = EXCLUDED.category_id,
+  tags = EXCLUDED.tags,
+  cover_url = EXCLUDED.cover_url,
+  short_description = EXCLUDED.short_description,
+  is_pinned = EXCLUDED.is_pinned,
+  is_published = EXCLUDED.is_published,
+  bento_size = EXCLUDED.bento_size,
+  style_overrides = EXCLUDED.style_overrides,
+  content_blocks = EXCLUDED.content_blocks,
+  updated_at = now();
