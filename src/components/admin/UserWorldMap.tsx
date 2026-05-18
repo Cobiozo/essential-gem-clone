@@ -173,6 +173,7 @@ const UserWorldMap: React.FC<Props> = ({
   const [hover, setHover] = useState<{ x: number; y: number; title: string; lines: string[]; count: number } | null>(null);
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
   // Click vs drag detection
   const didDragRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
@@ -345,6 +346,7 @@ const UserWorldMap: React.FC<Props> = ({
   const handleReset = () => {
     setSelectedIso(null);
     setSelectedLabel(null);
+    setSelectedCountryKey(null);
     animateTo(defaultView, 600);
   };
 
@@ -355,12 +357,18 @@ const UserWorldMap: React.FC<Props> = ({
     animateTo({ cx: p[0], cy: p[1], zoom: z }, 600);
   };
 
-  const handleCountryClick = (raw: any) => {
+  const handleCountryClick = (raw: any, pathKey: string) => {
     const name = raw?.properties?.name as string | undefined;
     if (!name) return;
     const norm = normalizeCountry(name);
     if (!norm.iso) return;
-    if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, isMobile ? 400 : 600); return; }
+    if (selectedCountryKey === pathKey) {
+      setSelectedIso(null);
+      setSelectedLabel(null);
+      setSelectedCountryKey(null);
+      animateTo(defaultView, isMobile ? 400 : 600);
+      return;
+    }
     try {
       const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
       const b = pathGen.bounds(f);
@@ -369,15 +377,18 @@ const UserWorldMap: React.FC<Props> = ({
       const w = b[1][0] - b[0][0];
       const h = b[1][1] - b[0][1];
       if (![cx, cy, w, h].every((n) => isFinite(n)) || w <= 0 || h <= 0) return;
-      const fillFactor = isMobile ? 0.95 : 0.9;
-      const maxZ = isMobile ? 12 : 8;
+      // Tight fit: country fills ~98% of widget frame (like Poland on screenshot)
+      const fillFactor = 0.98;
+      const maxZ = isMobile ? 18 : 16;
       const z = Math.max(1.5, Math.min(maxZ, fillFactor / Math.max(w / VIEW_W, h / VIEW_H)));
       if (!isFinite(z)) return;
       setSelectedIso(norm.iso);
       setSelectedLabel(norm.label);
-      animateTo({ cx, cy, zoom: z }, isMobile ? 400 : 700);
+      setSelectedCountryKey(pathKey);
+      animateTo({ cx, cy, zoom: z }, isMobile ? 450 : 700);
     } catch {}
   };
+
 
   // Multi-pointer pan + pinch zoom
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -569,7 +580,7 @@ const UserWorldMap: React.FC<Props> = ({
             {selectedIso && (
               <button
                 type="button"
-                onClick={() => { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, 600); }}
+                onClick={() => { setSelectedIso(null); setSelectedLabel(null); setSelectedCountryKey(null); animateTo(defaultView, 600); }}
                 className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/15"
               >
                 <Globe2 className="h-3 w-3" />
@@ -683,8 +694,8 @@ const UserWorldMap: React.FC<Props> = ({
 
             {/* Countries */}
             {countryPaths.map((c) => {
-              const isSelected = !!selectedIso && c.iso != null && c.iso === selectedIso;
-              const dimmed = !!selectedIso && !isSelected;
+              const isSelected = selectedCountryKey === c.key;
+              const dimmed = !!selectedCountryKey && !isSelected;
               // No yellow flood: selected country is shown via stroke only.
               const baseFill = effectiveStyle === 'satellite'
                 ? 'transparent'
@@ -712,7 +723,7 @@ const UserWorldMap: React.FC<Props> = ({
                     WebkitTapHighlightColor: 'transparent',
                     WebkitTouchCallout: 'none',
                   }}
-                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
+                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw, c.key); }}
                 />
               );
             })}
