@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
-import { PostDetailModal } from '@/components/news-hub/PostDetailModal';
-import type { NewsHubPost, NewsHubPostType } from '@/types/newsHub';
+import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
 const TYPE_TABS: Array<{ value: NewsHubPostType | 'all'; label: string }> = [
@@ -26,10 +25,9 @@ const NewsHubPage: React.FC = () => {
   const [type, setType] = useState<NewsHubPostType | 'all'>('all');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<NewsHubPost | null>(null);
 
   const { categories } = useNewsHubCategories();
-  const { posts, loading } = useNewsHubPosts({ type, categoryId, search });
+  const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
 
   const { pinned, regular } = useMemo(() => {
     const pinned = posts.filter((p) => p.is_pinned);
@@ -64,6 +62,11 @@ const NewsHubPage: React.FC = () => {
             <p className="text-muted-foreground text-sm md:text-base">Ogłoszenia, artykuły, wideo, pliki i wiele więcej.</p>
           </div>
         </div>
+        {isAdmin && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Najedź na kafelek, aby zobaczyć szybkie akcje (przypnij / ukryj / edytuj / usuń). Kliknij kafelek, aby otworzyć post.
+          </p>
+        )}
       </section>
 
       <section className="container max-w-7xl mx-auto px-4 pb-4">
@@ -124,7 +127,7 @@ const NewsHubPage: React.FC = () => {
         {!loading && pinned.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onSelect={setSelected} />
+            <BentoGrid posts={pinned} onChanged={refresh} />
           </div>
         )}
 
@@ -133,7 +136,7 @@ const NewsHubPage: React.FC = () => {
             {pinned.length > 0 && (
               <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
             )}
-            <BentoGrid posts={regular} onSelect={setSelected} />
+            <BentoGrid posts={regular} onChanged={refresh} />
           </div>
         )}
 
@@ -144,8 +147,6 @@ const NewsHubPage: React.FC = () => {
           </div>
         )}
       </section>
-
-      <PostDetailModal post={selected} open={!!selected} onClose={() => setSelected(null)} />
     </div>
   );
 };

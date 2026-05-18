@@ -152,6 +152,7 @@ const OmegaTests = lazyWithRetry(() => import("./pages/OmegaTests"));
 const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
 const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewPage"));
 const NewsHubPage = lazyWithRetry(() => import("./pages/NewsHubPage"));
+const NewsHubPostPage = lazyWithRetry(() => import("./pages/NewsHubPostPage"));
 const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"));
 
 const queryClient = new QueryClient({
@@ -439,6 +440,7 @@ const AppContent = () => {
                 <Route path="/moja-strona" element={<MyPartnerPage />} />
                 <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
                 <Route path="/aktualnosci" element={<NewsHubPage />} />
+                <Route path="/aktualnosci/:slug" element={<NewsHubPostPage />} />
                 <Route path="/admin/news-hub" element={<NewsHubAdminPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
