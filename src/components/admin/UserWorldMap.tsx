@@ -682,7 +682,7 @@ const UserWorldMap: React.FC<Props> = ({
 
             {/* Countries */}
             {countryPaths.map((c) => {
-              const isSelected = !!selectedIso && c.iso === selectedIso;
+              const isSelected = !!selectedIso && c.iso != null && c.iso === selectedIso;
               const dimmed = !!selectedIso && !isSelected;
               const baseFill = isSelected
                 ? 'hsl(var(--primary) / 0.18)'
@@ -705,8 +705,14 @@ const UserWorldMap: React.FC<Props> = ({
                   stroke={stroke}
                   strokeWidth={sw}
                   strokeLinejoin="round"
-                  style={{ cursor: c.iso ? 'pointer' : 'default', outline: 'none' }}
-                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
+                  tabIndex={-1}
+                  style={{
+                    cursor: c.iso && !isMobile ? 'pointer' : 'default',
+                    outline: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                    WebkitTouchCallout: 'none',
+                  }}
+                  onClick={isMobile ? undefined : () => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
                 />
               );
             })}
