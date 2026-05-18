@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNewsHubPosts } from '@/hooks/useNewsHub';
 import { PostFormDialog } from '@/components/news-hub/PostFormDialog';
 import { TemplatePicker } from '@/components/news-hub/editor/TemplatePicker';
+import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
+import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
