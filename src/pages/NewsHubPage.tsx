@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Search, Loader2, Newspaper, Settings } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { ArrowLeft, Search, Loader2, Newspaper, Settings, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
+import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
 import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
