@@ -1,116 +1,53 @@
-# Analiza: Architektura blokowa w module Aktualności
+# Dlaczego kafelki wyglądają różnie
 
-## Co jest możliwe bez naruszania innych funkcjonalności
+Obecnie siatka działa w trybie **Bento** (mieszane rozmiary) i kafelek różni się przez 3 czynniki ustawiane per post:
 
-Moduł Aktualności (`news_hub_posts`) jest **w pełni izolowany** — własna tabela, własne strony (`/aktualnosci`, `/aktualnosci/:slug`), własny edytor (`PostInlineEditor`). Wszystkie zmiany można wprowadzić **wyłącznie w obrębie tego modułu**, bez ryzyka dla CMS, partner pages, leader landingów, eventów itd.
+1. **Rozmiar bento** (`bento_size`: `s` / `m` / `l`) — „Promocje Maj" ma `l` (zajmuje 2×2), „Artykuł testowy" `m` (2×1), dwa puste to `s` (1×1).
+2. **Przypięcie** — przypięty post jest wymuszany do rozmiaru `l` niezależnie od ustawienia.
+3. **Okładka** — gdy brak `cover_url`/`media_url`, kafelek pokazuje placeholder (gradient w kolorze kategorii + ikona typu). Stąd te dwa „czerwone" prostokąty po prawej — to ogłoszenia bez okładki, w kategorii o czerwonym kolorze.
 
-Dobra wiadomość: w projekcie **już istnieje sprawdzony silnik blokowy** — `LandingBlockRenderer` z `leader-landing/blocks/` (Hero, Text, Image, Video, Quiz, Products, CTA, Testimonial, Form, Divider). Można go zaadaptować zamiast budować od zera.
+Czyli różnice są **zamierzone**, ale dziś nie da się wybrać prostego, równego układu „wszystko po środku / 2 / 3 kolumny". To dodajemy.
 
----
+# Co zbudujemy
 
-## Realna propozycja: hybryda WordPress Gutenberg + szablony
+Globalne ustawienie układu listy postów (admin) + opcjonalny szybki wybór kolumn dla każdego widza.
 
-### Co wdrażamy (możliwe w 100%)
+## 1. Tryby układu (`grid_layout`)
+- `bento` — obecny mieszany układ (domyślny, kompatybilny wstecz).
+- `centered` — jedna kolumna, kafelki wycentrowane, max szerokość ~720 px (czyta się jak „artykuły").
+- `cols-2` — równa siatka 2 kolumny (na mobile 1).
+- `cols-3` — równa siatka 3 kolumny (sm: 2, mobile: 1).
+- `cols-4` — równa siatka 4 kolumny (md: 3, sm: 2, mobile: 1).
 
-**1. Architektura blokowa (jak Gutenberg)** — TAK, w pełni
-- Treść postu = uporządkowana tablica bloków w JSONB (`content_blocks jsonb`), zamiast jednego pola HTML.
-- Każdy blok ma typ, dane i styl. Bloki przesuwane w górę/dół (drag handle ↑↓), duplikowalne, usuwalne.
-- Stare posty (HTML/plain text z TipTap) renderowane jako pojedynczy blok `legacy_html` — **zero utraty danych**.
+W trybach `centered` / `cols-*`:
+- ignorujemy `bento_size` i `is_pinned` (przypięte i tak idą na górę w sekcji „Przypięte", ale w równych rozmiarach),
+- wszystkie kafelki mają **jednakową wysokość i proporcje** (aspect 16:9 okładka + jednolity blok tekstu).
 
-**2. Typy bloków dostępne dla wpisu**
-- `heading` (H1–H4, kolor, waga, align)
-- `paragraph` (TipTap WYSIWYG — to co już mamy)
-- `image` (upload, fit, wysokość, podpis, link)
-- `gallery` (siatka, liczba kolumn)
-- `video` (YouTube/Vimeo/upload — reużyty `VideoPlayer`)
-- `file_download` (PDF/plik + przycisk pobierania + opis)
-- `button_cta` (tekst, link, wariant, align)
-- `quote` / `callout` (ramka z ważnym ogłoszeniem — kolor tła, ikona)
-- `divider` (separator)
-- `columns` (2 lub 3 kolumny — w środku inne bloki)
-- `table` (proste tabele wyników)
-- `embed` (iframe/HTML)
+## 2. Gdzie się ustawia
+- **Admin → Zarządzaj Aktualnościami → ustawienie „Układ listy"** (Select z 5 opcjami + krótki podgląd ikonki). Zapis do nowej tabeli `news_hub_settings` (singleton) — nie miesza się z `cms_*`, izolacja modułu zachowana.
+- **Na stronie `/aktualnosci`** dodajemy mały przełącznik (ikonki: 1/2/3/4 kolumny + bento) widoczny dla każdego, zapisany w `localStorage` jako preferencja użytkownika. Admin ustawia domyślny — użytkownik może go nadpisać dla siebie.
 
-**3. Wzorce / Szablony postów (jak Patterns z Gutenberg)** — TAK
-- Nowa tabela `news_hub_templates` z gotowymi układami bloków.
-- Trzy startowe szablony zgodnie z Twoją propozycją:
-  - **Szybki Update** — heading + paragraph + video
-  - **Wiedza i Wyniki** — heading + paragraph + table + callout + gallery
-  - **Materiały Promocyjne** — heading + paragraph + gallery + file_download (×N) + button_cta
-- Admin przy tworzeniu nowego postu: „Pusty" / „Z szablonu →" (lista).
-- Admin może też zapisać aktualny układ jako własny szablon.
+## 3. Zmiany w kodzie (frontend-only poza migracją settings)
 
-**4. Drag & drop oraz styl per blok**
-- Reorder w bocznym panelu edytora (już mamy 480px sidebar).
-- Każdy blok ma własny mini-panel stylu (margines góra/dół, tło, max-width, align).
-- Bez zewnętrznych page builderów — używamy `@dnd-kit/sortable` (już w projekcie).
+- `src/types/newsHub.ts` — dodanie typu `NewsHubGridLayout`.
+- `src/hooks/useNewsHubSettings.ts` (nowy) — read/write singletona `news_hub_settings.grid_layout`.
+- `src/components/news-hub/BentoGrid.tsx`:
+  - przyjmuje prop `layout`,
+  - dla `bento` zachowuje obecny kod,
+  - dla `centered` renderuje `flex flex-col items-center` z `max-w-3xl`,
+  - dla `cols-N` renderuje `grid grid-cols-1 sm:grid-cols-2 ... gap-4 auto-rows-auto` bez `col-span`.
+- `src/components/news-hub/GridLayoutSwitcher.tsx` (nowy) — pasek ikon nad listą, zapis do `localStorage`.
+- `src/pages/NewsHubPage.tsx` — pobiera setting admina + preferencję usera, przekazuje do `BentoGrid`, renderuje switcher.
+- `src/pages/NewsHubAdminPage.tsx` — sekcja „Ustawienia widoku" z Select layoutu.
 
-**5. Responsywność**
-- Przełącznik podglądu Desktop / Tablet / Mobile w nagłówku edytora (zmienia szerokość iframe podglądu).
-- Per blok: opcjonalne ukryj na mobile / ukryj na desktop.
+## 4. Migracja
 
----
+Pojedyncza tabela `news_hub_settings` (singleton, RLS: read = wszyscy zalogowani, write = admin) z polem `grid_layout TEXT DEFAULT 'bento'`. Domyślnie `bento`, więc obecny wygląd nie zmienia się dla nikogo zanim admin nie wybierze inaczej.
 
-### Czego NIE robimy (i dlaczego)
+## 5. Co NIE zmieniamy
+- Logika edytora bloków / treści postu — bez zmian.
+- `bento_size` zostaje w bazie i działa w trybie `bento`; w pozostałych jest po prostu ignorowany (nic się nie traci).
+- Inne moduły (CMS, partner pages, eventy) — nietknięte.
 
-- **Elementor/Divi/Webflow-style swobodny canvas (absolute positioning)** — to wymagałoby nowego silnika renderowania i zaburzyłoby spójność z resztą aplikacji (dark mode, tokeny semantyczne, mobile). Trzymamy **układ pionowy + kolumny** — daje 95% potrzeb przy zerowym ryzyku.
-- **Edycja bezpośrednio na stronie (inline na froncie)** — zostawiamy obecny model: klik „Edytuj" → boczny panel 480px + live preview. To już działa i jest stabilne.
-- **Globalne motywy/CSS overrides poza modułem** — wszystko zamknięte w `news_hub_*`.
-
----
-
-## Sekcja techniczna
-
-### Schema
-- Migracja: `ALTER TABLE news_hub_posts ADD COLUMN content_blocks jsonb NOT NULL DEFAULT '[]'`.
-- Pole `content` (TEXT) pozostaje dla wstecznej kompatybilności — renderowane jako blok `legacy_html` gdy `content_blocks` puste.
-- Nowa tabela `news_hub_templates`: `id, name, description, preview_url, blocks jsonb, is_system bool, created_by`.
-- RLS: read dla zalogowanych, write dla admina (analogicznie do `news_hub_posts`).
-
-### Struktura bloku
-```ts
-type Block = {
-  id: string;            // nanoid
-  type: 'heading'|'paragraph'|'image'|'gallery'|'video'|'file_download'
-       |'button_cta'|'callout'|'divider'|'columns'|'table'|'embed'|'legacy_html';
-  data: Record<string, any>;
-  style?: { mt?, mb?, bg?, align?, maxWidth?, hideMobile?, hideDesktop? };
-};
-```
-
-### Nowe pliki
-- `src/types/newsHubBlocks.ts` — typy bloków
-- `src/components/news-hub/blocks/` — komponenty renderujące (Heading, Paragraph, Image, Gallery, Video, FileDownload, ButtonCta, Callout, Divider, Columns, Table, Embed, LegacyHtml)
-- `src/components/news-hub/BlockRenderer.tsx` — switch po `block.type`
-- `src/components/news-hub/editor/BlockListEditor.tsx` — lista bloków z `@dnd-kit` + przycisk „Dodaj blok ▾"
-- `src/components/news-hub/editor/BlockInspector.tsx` — panel stylu per blok
-- `src/components/news-hub/editor/TemplatePicker.tsx` — wybór szablonu przy tworzeniu
-- `src/hooks/useNewsHubTemplates.ts`
-- `src/pages/NewsHubTemplatesAdmin.tsx` — zarządzanie szablonami (lista + edytor)
-
-### Zmienione pliki
-- `PostContent.tsx` — jeśli `content_blocks.length > 0` renderuje przez `BlockRenderer`, w przeciwnym razie fallback na obecny HTML/plain (zero regresji dla istniejących postów).
-- `PostInlineEditor.tsx` — w zakładce „Treść" zamiast samego `RichTextEditor` używa `BlockListEditor`. WYSIWYG przenosi się do bloku `paragraph`.
-- `NewsHubAdminPage.tsx` — przy „Nowy post" pokazuje `TemplatePicker`.
-- `useNewsHub.ts` — dodaje `content_blocks` do payloadu.
-
-### Reużycie
-- `VideoPlayer` z `PostContent.tsx` → blok `video`.
-- `RichTextEditor` (TipTap) → blok `paragraph`.
-- Inspiracja z `LandingBlockRenderer` (już sprawdzony wzorzec w projekcie).
-
-### Bez naruszeń
-- Zero zmian w: CMS pages, Partner pages, Leader landings, Events, Training, Knowledge Center, Chat, Video confs.
-- Zero zmian w globalnym routingu, auth, RLS innych tabel.
-- Stare posty działają identycznie (fallback `legacy_html`).
-
----
-
-## Etapy wdrożenia
-
-1. **Etap 1 — silnik bloków + 6 podstawowych typów** (heading, paragraph, image, video, file_download, button_cta) + migracja + fallback dla starych postów.
-2. **Etap 2 — bloki rozszerzone** (gallery, callout, divider, columns, table, embed) + drag & drop reorder + per-block style.
-3. **Etap 3 — szablony** (`news_hub_templates` + TemplatePicker + 3 systemowe szablony + UI „Zapisz jako szablon").
-4. **Etap 4 — podgląd responsywny** (Desktop/Tablet/Mobile toggle + per-block visibility).
-
-Każdy etap zamknięty, testowalny i bezpieczny do wdrożenia osobno.
+# Pytanie zanim wdrożę
+Czy chcesz oba poziomy (admin ustawia domyślny + użytkownik może przełączać przyciskami nad listą), czy tylko jeden z nich?
