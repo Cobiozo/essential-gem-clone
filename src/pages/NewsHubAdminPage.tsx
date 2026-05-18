@@ -61,7 +61,15 @@ const NewsHubAdminPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="container max-w-7xl mx-auto px-4 py-6">
+      <main className="container max-w-7xl mx-auto px-4 py-6 space-y-4">
+        <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Domyślny układ listy</div>
+            <div className="text-xs text-muted-foreground">Użytkownicy mogą tymczasowo przełączyć układ, ale ten jest domyślny.</div>
+          </div>
+          <GridLayoutSwitcher value={adminLayout} onChange={(v) => { saveAdminLayout(v); toast.success('Zapisano układ'); }} />
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>
         ) : posts.length === 0 ? (
