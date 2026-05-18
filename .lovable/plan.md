@@ -1,33 +1,60 @@
-## 1. Zmiana formatu kodu OTP: `ZW-XXXXXX` → `BW-XXXX` (4 cyfry)
+## Problem
 
-**`supabase/functions/generate-hk-otp/index.ts`**
-- Funkcja `generateOTPCode()`: prefix `BW-`, 4 znaki tylko z cyfr (`'0123456789'`). Komentarz nagłówka aktualizuję do „BW = Biznes/Wiedza" (lub krótko „BW").
-- Limit pętli unikalności zostawiam, ale **podnoszę `maxAttempts` z 10 do 50** — przestrzeń 10 000 kombinacji jest mała, kolizje będą częstsze.
+Na iOS w PWA, po jednym tapnięciu w mapę w widgecie dashboardu (`UserWorldMap`), cała mapa zmienia się w jednolitą żółtą plamę (kolor `--primary`). Z screenshotu widać, że wszystkie kraje (Europa, Afryka, Azja) są wypełnione żółtym, mimo trybu "Klasyczna". Markery i granice oceanów są nadal widoczne, ale ląd jest cały primary-yellow.
 
-**`supabase/functions/validate-hk-otp/index.ts`** (linie 39–44)
-- Normalizacja: strip prefiksu `BW-` zamiast `ZW-`. Zachowuję **backward compatibility** — jeśli wejście zaczyna się od `ZW`, akceptujemy je tak samo (stare kody w bazie nadal działają). Buduję obie warianty (`BW-…`, `ZW-…`) i szukam po `IN (...)`.
+## Diagnoza (najbardziej prawdopodobne źródło)
 
-**`src/pages/HealthyKnowledgePublicPage.tsx`** (linie 84–85, 184–185, 422–426)
-- Input: prefix `BW-` w UI i przy formatowaniu wysyłki. Przy normalizacji wejścia akceptuję zarówno `BW` jak i `ZW` (dla starych kodów).
-- Tekst „Kod w formacie: BW-XXXX" + statyczny prefix `BW-` w polu.
-- Pole input długość maks 4 znaki cyfr (`inputMode="numeric"`, `pattern="\d{4}"`).
+W `src/components/admin/UserWorldMap.tsx` w `handleCountryClick`:
 
-**Bez migracji DB.** Kolumna `hk_otp_codes.code` to `text`, nowy format zmieści się bez zmian schematu. Stare rekordy `ZW-…` zostaną nietknięte i wciąż walidują się przez fallback w `validate-hk-otp`.
+```ts
+const b = pathGen.bounds(f);
+const cx = (b[0][0] + b[1][0]) / 2;
+...
+const z = Math.max(1.5, Math.min(40, 0.9 / Math.max(w / VIEW_W, h / VIEW_H)));
+animateTo({ cx, cy, zoom: z }, 700);
+```
 
-**Komunikaty i etykiety w aplikacji**:
-- W `HKMaterialContactsList` i innych widokach kod jest wyświetlany surowo (`s.otp_code`) — nic nie zmieniam, prefix po prostu zmieni się dla nowych kodów.
+Na iOS przy tapnięciu w drobny kraj / wyspę / kraj z geometrią przecinającą antymeridian `pathGen.bounds(f)` zwraca `Infinity`/`NaN`, a `z` puszcza się do `40`. `setView` dostaje wartości `NaN` → `viewBox` jest niepoprawny → przeglądarka iOS renderuje SVG bez transformacji viewport, przez co duży obszar wypełniony jest paletą `fill` jednego elementu (lub wszystkie kraje rysują się skumulowane). Dodatkowo iOS Safari pokazuje `-webkit-tap-highlight-color` na `<path>`, a w niektórych konfiguracjach trzyma `:active` aż do następnego pointer eventa, co potęguje efekt żółtej plamy.
 
-## 2. Poprawa wyglądu listy „Usunięte kontakty"
+Drugi powód: `setSelectedIso` po tapnięciu w nierozpoznany kraj zostaje pustym/dziwnym stringiem, przez co warunek `c.iso === selectedIso` daje true dla wszystkich `null`/pustych iso → wszystkie kraje są malowane jako "selected".
 
-**Problem (widoczny na screenie 390px):** w `DeletedContactsList.tsx` po dodaniu drugiego przycisku „Usuń trwale" obok „Przywróć", blok akcji (`shrink-0`) zajmuje ponad połowę szerokości, a kolumna z imieniem/e-mailem zostaje ściśnięta do 1 znaku — tekst łamie się litera po literze pionowo.
+## Plan naprawy
 
-**`src/components/team-contacts/DeletedContactsList.tsx`** — przebudowa kafelka:
-- Każdy wiersz: `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3` zamiast obecnego `flex items-center justify-between gap-4`.
-- Sekcja info dostaje `min-w-0` + `break-words`, e-mail/telefon w osobnych liniach z `truncate` na mobile, by długie maile nie rozsadzały kafelka.
-- Sekcja akcji na mobile (`flex w-full sm:w-auto`): przyciski na całą szerokość (`flex-1 sm:flex-none`), żeby były ergonomiczne pod kciuk; na ≥sm wracają do auto-szerokości jak teraz.
-- Drobna kosmetyka: nazwisko `text-base font-semibold`, badge `text-[10px]` z whitespace-nowrap, oddzielony delikatnym separatorem od metadanych. Padding kafelka `p-4` zamiast `p-3` dla oddechu.
+Zmiany tylko w `src/components/admin/UserWorldMap.tsx`:
 
-## Bez zmian
-- Schema `hk_otp_codes`, RLS, indeksy.
-- Logika sesji, e-maile, szablony powitalne.
-- Reszta zakładek CRM.
+1. **Walidacja `handleCountryClick`:**
+   - Wczesny return jeśli `pathGen.bounds(f)` zwraca dowolny `NaN`/`Infinity`/`±1e308`.
+   - Sanity-check `cx`, `cy`, `z` przed `animateTo`.
+   - `z` ograniczony do max `8` (zamiast `40`) — pojedynczy tap nie ma prawa zoomować tak głęboko, żeby jeden kraj wypełnił cały kadr.
+
+2. **Walidacja `animateTo` i `setView`:**
+   - Owinąć `setView(...)` w guard: jeśli `cx/cy/zoom` nie są skończonymi liczbami, ignorować klatkę i nie aktualizować stanu (chroni viewBox przed `NaN`).
+   - Clamp `zoom` do `[MIN_ZOOM, MAX_ZOOM]`, a `cx/cy` do `[-VIEW_W*2, VIEW_W*3]` / podobnie dla Y.
+
+3. **Walidacja `selectedIso`:**
+   - Ustawiać `selectedIso` tylko jeśli `norm.iso` to niepusty string (już jest `if (!norm.iso) return;`, ale dodatkowo: jeśli żaden inny kraj nie ma tego iso, lepiej traktować jako brak selekcji).
+   - W `isSelected`/`dimmed` jawnie wymagać `c.iso != null && selectedIso != null && c.iso === selectedIso`.
+
+4. **iOS tap fixes:**
+   - Na SVG i na każdym `<path>` ustawić inline: `WebkitTapHighlightColor: 'transparent'`, `WebkitTouchCallout: 'none'`.
+   - Wyłączyć aktywację koloru przez `:active` przez `style={{ pointerEvents: 'auto', outline: 'none' }}` oraz `tabIndex={-1}`.
+
+5. **Mobile UX guard:**
+   - Na `isMobile`: tapnięcie w kraj NIE wywołuje `setSelectedIso` ani zoomu — tylko marker/cluster reaguje na tap. Click krajów działa tylko na desktop. Dzięki temu przypadkowy tap na ląd nie potrafi sprowokować błędu wizualnego.
+
+6. **Sanity render guard:**
+   - Jeśli `vbX/vbY/vbW/vbH` zawierają `NaN`, fallback do `defaultView` zamiast pchać do SVG niepoprawny atrybut `viewBox`.
+
+## Plik objęty zmianami
+
+- `src/components/admin/UserWorldMap.tsx`
+
+Bez zmian w bazie, bez zmian w innych komponentach.
+
+## Weryfikacja
+
+Po wdrożeniu otworzę preview na viewporcie 390x844 (iPhone), wejdę na `/dashboard`, tapnę w mapę w 3 różnych miejscach (lądowo i w wodzie) i sprawdzę:
+- mapa pozostaje stabilna,
+- żaden tap nie zmienia całej mapy w żółty,
+- markery i pinch‑zoom dalej działają,
+- konsola bez błędów `NaN` w atrybucie `viewBox`.
