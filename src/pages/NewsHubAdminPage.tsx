@@ -115,11 +115,22 @@ const NewsHubAdminPage: React.FC = () => {
         )}
       </main>
 
+      <TemplatePicker
+        open={showTemplatePicker}
+        onClose={() => setShowTemplatePicker(false)}
+        onPick={(blocks) => {
+          setInitialBlocks(blocks);
+          setShowTemplatePicker(false);
+          setShowForm(true);
+        }}
+      />
+
       <PostFormDialog
         open={showForm}
         post={editing}
-        onClose={() => { setShowForm(false); setEditing(null); }}
-        onSaved={() => { setShowForm(false); setEditing(null); refresh(); }}
+        initialBlocks={initialBlocks}
+        onClose={() => { setShowForm(false); setEditing(null); setInitialBlocks(undefined); }}
+        onSaved={() => { setShowForm(false); setEditing(null); setInitialBlocks(undefined); refresh(); }}
       />
     </div>
   );
