@@ -1,32 +1,76 @@
-## Cel
-Po kliknięciu w kraj ma być zaznaczone wyłącznie kliknięte terytorium, bez dodatkowych obszarów z innych części mapy. Zoom po kliknięciu ma być dużo bliższy — dla Polski efekt ma odpowiadać screenowi, czyli kraj ma wypełniać większość okienka widżeta.
 
-## Plan zmian
+# News Hub — centrum ogłoszeń Pure Life
 
-1. **Precyzyjne rozpoznawanie kraju po kliknięciu**
-   - Zamiast opierać zaznaczenie wyłącznie na `normalizeCountry(name).iso`, dodam stabilny identyfikator konkretnej geometrii z `world-atlas`.
-   - Kliknięcie we Francję zaznaczy tylko tę konkretną geometrię, którą użytkownik kliknął, a nie inne terytoria/rekordy pasujące do tego samego kraju.
-   - Filtrowanie punktów użytkowników nadal zostanie po kraju (`iso`), żeby markery użytkowników dla wybranego kraju działały jak dotychczas.
+Nowy, dedykowany moduł zastępujący prymitywną stronę CMS „Aktualności". Pozwala adminom publikować ogłoszenia, artykuły, wideo, galerie, pliki i linki/embedy w atrakcyjnym layoucie Bento Grid.
 
-2. **Zaznaczenie tylko klikniętego terytorium**
-   - Render krajów będzie porównywał `selectedCountryKey` z kluczem klikniętej ścieżki.
-   - Dzięki temu dodatkowe terytoria nie dostaną żółtego/aktywnego obrysu.
-   - Pozostałe kraje będą tylko przygaszone albo neutralne, bez zalania kolorem.
+## Co użytkownik zobaczy
 
-3. **Bliższy zoom kraju po kliknięciu**
-   - Zmieniam wyliczenie zoomu dla kraju tak, aby docelowo był około `9x` bliżej dla typowych krajów europejskich, zgodnie z przykładem Polski.
-   - Zamiast obecnego dopasowania z dużym marginesem użyję ciaśniejszego kadrowania: kraj ma wypełnić prawie całe okno mapy.
-   - Zachowam clamp i walidację `isFinite`, żeby mapa nie mogła wejść w niestabilny stan.
+**Strona `/aktualnosci`** (dla zalogowanych użytkowników):
+- Hero z tytułem i krótkim opisem (edytowalne w ustawieniach modułu)
+- Pasek filtrów: Wszystko / Ogłoszenia / Artykuły / Wideo / Galerie / Pliki / Linki + wyszukiwarka
+- **Bento Grid** — mieszane rozmiary kart (1x1, 2x1, 2x2). Featured posty zajmują większe pola, zwykłe mniejsze. Karty pokazują miniaturę/ikonę typu, kategorię, tytuł, datę, autora.
+- Klik w kartę → modal/strona szczegółów (zależnie od typu):
+  - Ogłoszenie/Artykuł: pełna treść Markdown, okładka, galeria
+  - Wideo: odtwarzacz (YouTube/Vimeo/MP4)
+  - Galeria: lightbox
+  - Plik: przycisk pobierz
+  - Link/Embed: przekierowanie / osadzony iframe
+- Paginacja / „załaduj więcej"
+- Sekcja „Przypięte" na górze dla najważniejszych ogłoszeń
 
-4. **Reset i ponowne kliknięcie**
-   - Drugie kliknięcie w ten sam kraj/terytorium odznaczy wybór i wróci do domyślnego widoku.
-   - Przycisk resetu będzie czyścił zarówno `selectedIso`, jak i nowy `selectedCountryKey`.
+**Panel admina `/admin/news-hub`** (nowa zakładka w admin sidebarze):
+- Tabela wszystkich postów z filtrami (typ, status, kategoria, data)
+- Akcje: Edytuj, Przypnij/Odepnij, Aktywuj/Dezaktywuj, Duplikuj, Usuń
+- Formularz nowego posta z dynamicznymi polami zależnymi od typu:
+  - Wybór typu (radio: Ogłoszenie / Artykuł / Wideo / Galeria / Plik / Link / Embed)
+  - Wspólne: tytuł, slug (auto), kategoria, tagi, okładka, krótki opis, data publikacji, autor, status (szkic/opublikowany), przypięty, rozmiar w bento (S/M/L)
+  - Typ-specyficzne pola: treść Markdown, URL wideo, upload pliku/galerii, URL linku + opis CTA, HTML embed
+- Zarządzanie kategoriami (CRUD)
+- Statystyki: liczba wyświetleń per post
 
-## Technicznie
-- Zmiany tylko w `src/components/admin/UserWorldMap.tsx`.
-- Nie zmieniam backendu, RLS, ustawień widgetu ani logiki pobierania markerów.
-- Nie przywracam fillu kraju w trybie satelitarnym, żeby nie wrócił błąd z żółtą mapą na iOS.
-- Dodam identyfikator geometrii kraju do `countryPaths` i przekażę go do `handleCountryClick`.
+## Sekcja techniczna
 
-## Efekt
-Kliknięcie w Francję, Polskę lub dowolny inny kraj zaznacza tylko kliknięte terytorium i robi bliski zoom tak, aby wybrany kraj zajmował prawie całe okienko widżeta.
+**Baza danych** (migracja):
+- `news_hub_posts` — id, type (enum: announcement/article/video/gallery/file/link/embed), title, slug, category_id, tags[], cover_url, short_description, content (markdown), media_url, media_metadata (jsonb: dla galerii/wideo/embed), file_url, file_name, file_size, link_url, link_cta, embed_html, author_id, is_pinned, is_published, bento_size (s/m/l), published_at, view_count, timestamps
+- `news_hub_categories` — id, name, slug, color, icon, sort_order
+- `news_hub_views` — id, post_id, user_id, viewed_at (do statystyk)
+- RLS: SELECT dla wszystkich zalogowanych (is_published=true); INSERT/UPDATE/DELETE tylko admin via `has_role(auth.uid(),'admin')`
+- Storage bucket `news-hub-media` (public) dla okładek/galerii/plików
+
+**Routing**:
+- `/aktualnosci` — publiczna strona modułu (zalogowani)
+- `/admin/news-hub` — panel administracyjny
+- Dodać do `KNOWN_APP_ROUTES`
+- Stara strona CMS `/page/aktualnosci` — przekierowanie 301 → `/aktualnosci` (lub usunięcie wpisu CMS po migracji)
+
+**Komponenty** (`src/components/news-hub/`):
+- `NewsHubPage.tsx` — kontener, filtry, paginacja
+- `BentoGrid.tsx` — responsywny grid z mieszanymi rozmiarami (CSS grid `grid-auto-flow: dense`)
+- `PostCard.tsx` — uniwersalna karta z wariantem per typ
+- `PostDetailModal.tsx` — szczegóły z odpowiednim viewerem
+- `MediaViewer.tsx`, `Lightbox.tsx`, `EmbedRenderer.tsx`
+- Admin: `NewsHubAdminPage.tsx`, `PostFormDialog.tsx`, `CategoryManager.tsx`
+
+**Hooks**:
+- `useNewsHubPosts(filters)` — fetch z paginacją + realtime subskrypcja
+- `useNewsHubCategories()`
+- `useNewsHubAdmin()` — CRUD dla admina
+
+**Stylistyka**: semantic tokens z `index.css`; karty z `bg-card`, `border-border`, hover lift z `shadow-elegant`; featured z gradientem `--gradient-primary`. Animacje wejścia (framer-motion stagger).
+
+**Integracje opcjonalne** (do rozważenia w v2, nie w tym kroku):
+- Link z News Tickera → post w News Hub
+- RSS feed
+- Komentarze / reakcje
+
+## Zakres tej iteracji
+
+1. Migracja DB (tabele + RLS + storage bucket)
+2. Hooks + typy TS
+3. Strona `/aktualnosci` z Bento Grid + filtrami + modalem szczegółów
+4. Panel admina `/admin/news-hub` z formularzem dla wszystkich 7 typów
+5. Dodanie linku do admin sidebar
+6. Zaktualizowanie routingu (KNOWN_APP_ROUTES + przekierowanie ze starej strony)
+7. Seed kilku przykładowych kategorii (Ogłoszenia, Wydarzenia, Edukacja, Promocje)
+
+Bez zmian w istniejącym News Tickerze ani innych modułach.
