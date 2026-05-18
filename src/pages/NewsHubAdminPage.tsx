@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNewsHubPosts } from '@/hooks/useNewsHub';
 import { PostFormDialog } from '@/components/news-hub/PostFormDialog';
+import { TemplatePicker } from '@/components/news-hub/editor/TemplatePicker';
 import type { NewsHubPost } from '@/types/newsHub';
+import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { format } from 'date-fns';
 
@@ -17,6 +19,8 @@ const NewsHubAdminPage: React.FC = () => {
   const { posts, loading, refresh } = useNewsHubPosts({ adminMode: true });
   const [editing, setEditing] = useState<NewsHubPost | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
 
   if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
