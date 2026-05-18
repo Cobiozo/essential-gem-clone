@@ -314,7 +314,15 @@ const UserWorldMap: React.FC<Props> = ({
   // Animation
   const animRef = useRef<number | null>(null);
   const cancelAnim = () => { if (animRef.current != null) { cancelAnimationFrame(animRef.current); animRef.current = null; } };
+  const safeSetView = (v: { cx: number; cy: number; zoom: number }) => {
+    if (!isFinite(v.cx) || !isFinite(v.cy) || !isFinite(v.zoom)) return;
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom));
+    const cx = Math.max(-VIEW_W * 2, Math.min(VIEW_W * 3, v.cx));
+    const cy = Math.max(-VIEW_H * 2, Math.min(VIEW_H * 3, v.cy));
+    setView({ cx, cy, zoom });
+  };
   const animateTo = (target: { cx: number; cy: number; zoom: number }, duration = 600) => {
+    if (!isFinite(target.cx) || !isFinite(target.cy) || !isFinite(target.zoom)) return;
     cancelAnim();
     const start = performance.now();
     const from = { ...view };
@@ -325,7 +333,7 @@ const UserWorldMap: React.FC<Props> = ({
       const cx = from.cx + (target.cx - from.cx) * e;
       const cy = from.cy + (target.cy - from.cy) * e;
       const logZ = Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * e;
-      setView({ cx, cy, zoom: Math.exp(logZ) });
+      safeSetView({ cx, cy, zoom: Math.exp(logZ) });
       if (t < 1) animRef.current = requestAnimationFrame(step);
       else animRef.current = null;
     };
@@ -342,19 +350,20 @@ const UserWorldMap: React.FC<Props> = ({
 
   const zoomToLngLat = (lng: number, lat: number, factor = 2.2, minZ = 0) => {
     const p = projection([lng, lat]);
-    if (!p) return;
+    if (!p || !isFinite(p[0]) || !isFinite(p[1])) return;
     const z = Math.min(MAX_ZOOM, Math.max(minZ, view.zoom * factor));
     animateTo({ cx: p[0], cy: p[1], zoom: z }, 600);
   };
 
   const handleCountryClick = (raw: any) => {
+    // Mobile: disable country selection/zoom-to-country entirely to avoid
+    // iOS Safari rendering glitches on tap (NaN bounds, tap-highlight, etc.)
+    if (isMobile) return;
     const name = raw?.properties?.name as string | undefined;
     if (!name) return;
     const norm = normalizeCountry(name);
     if (!norm.iso) return;
     if (selectedIso === norm.iso) { setSelectedIso(null); setSelectedLabel(null); animateTo(defaultView, 600); return; }
-    setSelectedIso(norm.iso);
-    setSelectedLabel(norm.label);
     try {
       const f = { type: 'Feature', geometry: raw.geometry, properties: {} } as any;
       const b = pathGen.bounds(f);
@@ -362,7 +371,11 @@ const UserWorldMap: React.FC<Props> = ({
       const cy = (b[0][1] + b[1][1]) / 2;
       const w = b[1][0] - b[0][0];
       const h = b[1][1] - b[0][1];
-      const z = Math.max(1.5, Math.min(40, 0.9 / Math.max(w / VIEW_W, h / VIEW_H)));
+      if (![cx, cy, w, h].every((n) => isFinite(n)) || w <= 0 || h <= 0) return;
+      const z = Math.max(1.5, Math.min(8, 0.9 / Math.max(w / VIEW_W, h / VIEW_H)));
+      if (!isFinite(z)) return;
+      setSelectedIso(norm.iso);
+      setSelectedLabel(norm.label);
       animateTo({ cx, cy, zoom: z }, 700);
     } catch {}
   };
