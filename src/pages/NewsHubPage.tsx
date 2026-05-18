@@ -181,18 +181,20 @@ const NewsHubPage: React.FC = () => {
             </SelectContent>
           </Select>
 
-          <div className="ml-auto flex items-center gap-2">
-            <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
-            {userLayout && userLayout !== adminLayout && (
-              <button
-                onClick={() => setUserLayout(null)}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-                title="Wróć do układu ustawionego przez administratora"
-              >
-                Resetuj
-              </button>
-            )}
-          </div>
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-2">
+              <GridLayoutSwitcher value={effectiveLayout} onChange={setUserLayout} />
+              {userLayout && userLayout !== adminLayout && (
+                <button
+                  onClick={() => setUserLayout(null)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  title="Wróć do układu ustawionego przez administratora"
+                >
+                  Resetuj
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </section>
