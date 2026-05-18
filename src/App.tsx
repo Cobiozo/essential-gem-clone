@@ -151,6 +151,8 @@ const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"))
 const OmegaTests = lazyWithRetry(() => import("./pages/OmegaTests"));
 const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
 const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewPage"));
+const NewsHubPage = lazyWithRetry(() => import("./pages/NewsHubPage"));
+const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
