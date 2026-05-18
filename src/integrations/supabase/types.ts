@@ -5459,6 +5459,35 @@ export type Database = {
         }
         Relationships: []
       }
+      news_hub_post_user_access: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_hub_post_user_access_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_hub_posts: {
         Row: {
           author_id: string | null
@@ -5488,6 +5517,11 @@ export type Database = {
           type: Database["public"]["Enums"]["news_hub_post_type"]
           updated_at: string
           view_count: number
+          visibility_mode: string
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
         }
         Insert: {
           author_id?: string | null
@@ -5517,6 +5551,11 @@ export type Database = {
           type?: Database["public"]["Enums"]["news_hub_post_type"]
           updated_at?: string
           view_count?: number
+          visibility_mode?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
         }
         Update: {
           author_id?: string | null
@@ -5546,6 +5585,11 @@ export type Database = {
           type?: Database["public"]["Enums"]["news_hub_post_type"]
           updated_at?: string
           view_count?: number
+          visibility_mode?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: [
           {
@@ -5561,17 +5605,32 @@ export type Database = {
         Row: {
           grid_layout: string
           id: boolean
+          is_active: boolean
           updated_at: string
+          visible_to_admin: boolean
+          visible_to_client: boolean
+          visible_to_partner: boolean
+          visible_to_specjalista: boolean
         }
         Insert: {
           grid_layout?: string
           id?: boolean
+          is_active?: boolean
           updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
         }
         Update: {
           grid_layout?: string
           id?: boolean
+          is_active?: boolean
           updated_at?: string
+          visible_to_admin?: boolean
+          visible_to_client?: boolean
+          visible_to_partner?: boolean
+          visible_to_specjalista?: boolean
         }
         Relationships: []
       }
@@ -5611,6 +5670,27 @@ export type Database = {
           preview_url?: string | null
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      news_hub_user_access: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          user_id?: string
         }
         Relationships: []
       }
@@ -10481,6 +10561,10 @@ export type Database = {
       }
       has_active_admin_conversation: {
         Args: { _user_a: string; _user_b: string }
+        Returns: boolean
+      }
+      has_news_post_access: {
+        Args: { _post_id: string; _user: string }
         Returns: boolean
       }
       has_role: {
