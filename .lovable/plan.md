@@ -1,110 +1,116 @@
-## Plan: Boczny edytor postu z live preview, WYSIWYG i pełną kontrolą stylu
+# Analiza: Architektura blokowa w module Aktualności
 
-### Cel
-Po kliknięciu "Edytuj" na stronie postu (`/aktualnosci/:slug`) admin nie widzi dotychczasowego dialogu, lecz **boczny przewijalny panel (~480 px po prawej)** z pełnym zestawem kontrolek, a strona postu z lewej aktualizuje się **na żywo** wraz z każdą zmianą. Zapis idzie do bazy dopiero po kliknięciu "Zapisz".
+## Co jest możliwe bez naruszania innych funkcjonalności
 
----
+Moduł Aktualności (`news_hub_posts`) jest **w pełni izolowany** — własna tabela, własne strony (`/aktualnosci`, `/aktualnosci/:slug`), własny edytor (`PostInlineEditor`). Wszystkie zmiany można wprowadzić **wyłącznie w obrębie tego modułu**, bez ryzyka dla CMS, partner pages, leader landingów, eventów itd.
 
-### 1. Layout
-
-```text
-┌─────────────────────────────────┬──────────────────┐
-│  Strona postu — LIVE PREVIEW    │  Edytor (480px)  │
-│  (PostContent + style overlays) │  scrollable      │
-│                                 │  zakładki        │
-│  Aktualizuje się przy każdej    │  + sticky save   │
-│  zmianie w panelu po prawej     │                  │
-└─────────────────────────────────┴──────────────────┘
-```
-
-- Panel: stały `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; overflow-y: auto`
-- Strona postu po prawej dostaje `padding-right: 480px` w trybie edycji
-- Backdrop nie zaciemnia strony (live preview musi być widoczny)
-- Sticky pasek na górze panelu z zakładkami; sticky pasek na dole z "Anuluj / Zapisz" + status "Niezapisane zmiany"
-- Stan edycji trzymany w lokalnym `draft` (kopia postu) — `PostContent` renderowany z `draft` przy włączonym edytorze
-
-### 2. Zakładki w panelu
-
-**Treść**
-- Tytuł — `<input>` + sticky-toolbar z kontrolą stylu (rozmiar 16/24/32/48/64 px, waga 400/600/700/900, kolor, wyrównanie L/C/R)
-- Krótki opis — `<textarea>` + kontrola stylu (rozmiar, kolor, wyrównanie)
-- Treść — **TipTap WYSIWYG**:
-  - Pasek narzędzi: B / I / U / S, H1–H4, listy ul/ol, cytat, link, kod, hr, undo/redo
-  - Rozszerzenia: Color, Highlight, TextAlign, Underline, Link, Image (inline), Placeholder
-  - Treść zapisywana jako HTML w polu `content`
-
-**Media / Okładka**
-- Cover URL + upload (`uploadNewsHubFile`)
-- `object-fit`: cover / contain / fill
-- Wysokość: slider 200–700 px
-- `object-position`: 9-kierunkowy grid (top-left, top, top-right, ...)
-- Nakładka: kolor + opacity (slider)
-- Galeria / video URL / file / link / embed — kompletny zestaw z obecnego `PostFormDialog`
-
-**Wygląd strony**
-- Tło postu: `none` / kolor / gradient (2 kolory + kąt) / obrazek (upload)
-- Padding strony (kontener), max-width
-
-**Meta**
-- Typ (Select), Kategoria, Tagi, Slug (auto z tytułu z możliwością edycji), Rozmiar w siatce
-- Przypnięte, Opublikowany
-
-### 3. Przechowywanie stylów
-
-Nowe pole JSONB `style_overrides` w `news_hub_posts` (migracja). Kształt:
-
-```json
-{
-  "title": { "size": 48, "weight": 900, "color": "#fff", "align": "left" },
-  "shortDescription": { "size": 18, "color": "#bbb", "align": "left" },
-  "cover": { "fit": "cover", "height": 420, "position": "center", "overlay": "#000", "overlayOpacity": 0.2 },
-  "page": { "background": "linear-gradient(...)", "maxWidth": 896 }
-}
-```
-
-`PostContent` przyjmuje opcjonalny prop `styleOverrides` i aplikuje je inline. Brak overrides = obecny wygląd.
-
-### 4. Live preview
-
-- `NewsHubPostPage` w trybie edycji renderuje `PostContent` z `draft` zamiast `post`, każda zmiana w panelu = `setDraft(...)`, natychmiastowa aktualizacja
-- "Zapisz" wysyła `update` do Supabase + zamyka panel + usuwa `?edit=1`
-- "Anuluj" przy niezapisanych zmianach pokazuje `confirm("Porzucić zmiany?")`
-- Blokada zamknięcia karty przy niezapisanych zmianach (`beforeunload`)
-- `globalEditingStateRef` aktywny w trybie edycji (zgodnie z regułą projektu — blokuje silent re-renders)
-
-### 5. Stary `PostFormDialog`
-
-- Zostaje używany **tylko do tworzenia nowych** postów z `/admin/news-hub` (wymaga typu przed inline)
-- Na stronie postu zastąpiony nowym `PostInlineEditor`
-
-### 6. Zależności
-
-- `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-color`, `@tiptap/extension-text-style`, `@tiptap/extension-text-align`, `@tiptap/extension-underline`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-placeholder`, `@tiptap/extension-highlight`
-
-### 7. Pliki
-
-Nowe:
-- `src/components/news-hub/PostInlineEditor.tsx` — boczny panel z zakładkami i sticky footer
-- `src/components/news-hub/editor/RichTextEditor.tsx` — TipTap z toolbar
-- `src/components/news-hub/editor/StyleControls.tsx` — wspólne kontrolki (size/color/align/weight)
-- `src/components/news-hub/editor/CoverControls.tsx` — okładka + overlay + fit/position
-- `src/components/news-hub/editor/MediaControls.tsx` — type-specific (video/gallery/file/link/embed)
-- `src/components/news-hub/editor/MetaControls.tsx` — kategoria/typ/tagi/slug/pin/publish/bento
-- `src/components/news-hub/editor/PageStyleControls.tsx` — tło/maxWidth
-- Migracja: kolumna `style_overrides jsonb default '{}'::jsonb`
-
-Zmienione:
-- `src/pages/NewsHubPostPage.tsx` — używa `PostInlineEditor`, layout z padding-right w trybie edycji, render z draftem, prompt przy zamknięciu z niezapisanymi zmianami
-- `src/components/news-hub/PostContent.tsx` — dodaje opcjonalny prop `styleOverrides`, renderuje treść jako HTML (`dangerouslySetInnerHTML`) dla `article`/`announcement` (TipTap HTML), z fallbackiem na obecny tekst dla starych postów
-
-### 8. Bezpieczeństwo HTML
-
-- Treść TipTap przechowywana jako HTML — przy renderze sanitize (`DOMPurify`) przed `dangerouslySetInnerHTML`
-- Dodać `dompurify` do zależności
+Dobra wiadomość: w projekcie **już istnieje sprawdzony silnik blokowy** — `LandingBlockRenderer` z `leader-landing/blocks/` (Hero, Text, Image, Video, Quiz, Products, CTA, Testimonial, Form, Divider). Można go zaadaptować zamiast budować od zera.
 
 ---
 
-### Uwagi
-- Stary `PostDetailModal.tsx` (orphan) — usuwam przy okazji
-- Migracja: dodanie `style_overrides` nullable; bez backfillu
-- Mobile: na <1024 px panel zamiast 480 px zajmuje pełną szerokość (overlay), live preview pod panelem widoczny po zamknięciu
+## Realna propozycja: hybryda WordPress Gutenberg + szablony
+
+### Co wdrażamy (możliwe w 100%)
+
+**1. Architektura blokowa (jak Gutenberg)** — TAK, w pełni
+- Treść postu = uporządkowana tablica bloków w JSONB (`content_blocks jsonb`), zamiast jednego pola HTML.
+- Każdy blok ma typ, dane i styl. Bloki przesuwane w górę/dół (drag handle ↑↓), duplikowalne, usuwalne.
+- Stare posty (HTML/plain text z TipTap) renderowane jako pojedynczy blok `legacy_html` — **zero utraty danych**.
+
+**2. Typy bloków dostępne dla wpisu**
+- `heading` (H1–H4, kolor, waga, align)
+- `paragraph` (TipTap WYSIWYG — to co już mamy)
+- `image` (upload, fit, wysokość, podpis, link)
+- `gallery` (siatka, liczba kolumn)
+- `video` (YouTube/Vimeo/upload — reużyty `VideoPlayer`)
+- `file_download` (PDF/plik + przycisk pobierania + opis)
+- `button_cta` (tekst, link, wariant, align)
+- `quote` / `callout` (ramka z ważnym ogłoszeniem — kolor tła, ikona)
+- `divider` (separator)
+- `columns` (2 lub 3 kolumny — w środku inne bloki)
+- `table` (proste tabele wyników)
+- `embed` (iframe/HTML)
+
+**3. Wzorce / Szablony postów (jak Patterns z Gutenberg)** — TAK
+- Nowa tabela `news_hub_templates` z gotowymi układami bloków.
+- Trzy startowe szablony zgodnie z Twoją propozycją:
+  - **Szybki Update** — heading + paragraph + video
+  - **Wiedza i Wyniki** — heading + paragraph + table + callout + gallery
+  - **Materiały Promocyjne** — heading + paragraph + gallery + file_download (×N) + button_cta
+- Admin przy tworzeniu nowego postu: „Pusty" / „Z szablonu →" (lista).
+- Admin może też zapisać aktualny układ jako własny szablon.
+
+**4. Drag & drop oraz styl per blok**
+- Reorder w bocznym panelu edytora (już mamy 480px sidebar).
+- Każdy blok ma własny mini-panel stylu (margines góra/dół, tło, max-width, align).
+- Bez zewnętrznych page builderów — używamy `@dnd-kit/sortable` (już w projekcie).
+
+**5. Responsywność**
+- Przełącznik podglądu Desktop / Tablet / Mobile w nagłówku edytora (zmienia szerokość iframe podglądu).
+- Per blok: opcjonalne ukryj na mobile / ukryj na desktop.
+
+---
+
+### Czego NIE robimy (i dlaczego)
+
+- **Elementor/Divi/Webflow-style swobodny canvas (absolute positioning)** — to wymagałoby nowego silnika renderowania i zaburzyłoby spójność z resztą aplikacji (dark mode, tokeny semantyczne, mobile). Trzymamy **układ pionowy + kolumny** — daje 95% potrzeb przy zerowym ryzyku.
+- **Edycja bezpośrednio na stronie (inline na froncie)** — zostawiamy obecny model: klik „Edytuj" → boczny panel 480px + live preview. To już działa i jest stabilne.
+- **Globalne motywy/CSS overrides poza modułem** — wszystko zamknięte w `news_hub_*`.
+
+---
+
+## Sekcja techniczna
+
+### Schema
+- Migracja: `ALTER TABLE news_hub_posts ADD COLUMN content_blocks jsonb NOT NULL DEFAULT '[]'`.
+- Pole `content` (TEXT) pozostaje dla wstecznej kompatybilności — renderowane jako blok `legacy_html` gdy `content_blocks` puste.
+- Nowa tabela `news_hub_templates`: `id, name, description, preview_url, blocks jsonb, is_system bool, created_by`.
+- RLS: read dla zalogowanych, write dla admina (analogicznie do `news_hub_posts`).
+
+### Struktura bloku
+```ts
+type Block = {
+  id: string;            // nanoid
+  type: 'heading'|'paragraph'|'image'|'gallery'|'video'|'file_download'
+       |'button_cta'|'callout'|'divider'|'columns'|'table'|'embed'|'legacy_html';
+  data: Record<string, any>;
+  style?: { mt?, mb?, bg?, align?, maxWidth?, hideMobile?, hideDesktop? };
+};
+```
+
+### Nowe pliki
+- `src/types/newsHubBlocks.ts` — typy bloków
+- `src/components/news-hub/blocks/` — komponenty renderujące (Heading, Paragraph, Image, Gallery, Video, FileDownload, ButtonCta, Callout, Divider, Columns, Table, Embed, LegacyHtml)
+- `src/components/news-hub/BlockRenderer.tsx` — switch po `block.type`
+- `src/components/news-hub/editor/BlockListEditor.tsx` — lista bloków z `@dnd-kit` + przycisk „Dodaj blok ▾"
+- `src/components/news-hub/editor/BlockInspector.tsx` — panel stylu per blok
+- `src/components/news-hub/editor/TemplatePicker.tsx` — wybór szablonu przy tworzeniu
+- `src/hooks/useNewsHubTemplates.ts`
+- `src/pages/NewsHubTemplatesAdmin.tsx` — zarządzanie szablonami (lista + edytor)
+
+### Zmienione pliki
+- `PostContent.tsx` — jeśli `content_blocks.length > 0` renderuje przez `BlockRenderer`, w przeciwnym razie fallback na obecny HTML/plain (zero regresji dla istniejących postów).
+- `PostInlineEditor.tsx` — w zakładce „Treść" zamiast samego `RichTextEditor` używa `BlockListEditor`. WYSIWYG przenosi się do bloku `paragraph`.
+- `NewsHubAdminPage.tsx` — przy „Nowy post" pokazuje `TemplatePicker`.
+- `useNewsHub.ts` — dodaje `content_blocks` do payloadu.
+
+### Reużycie
+- `VideoPlayer` z `PostContent.tsx` → blok `video`.
+- `RichTextEditor` (TipTap) → blok `paragraph`.
+- Inspiracja z `LandingBlockRenderer` (już sprawdzony wzorzec w projekcie).
+
+### Bez naruszeń
+- Zero zmian w: CMS pages, Partner pages, Leader landings, Events, Training, Knowledge Center, Chat, Video confs.
+- Zero zmian w globalnym routingu, auth, RLS innych tabel.
+- Stare posty działają identycznie (fallback `legacy_html`).
+
+---
+
+## Etapy wdrożenia
+
+1. **Etap 1 — silnik bloków + 6 podstawowych typów** (heading, paragraph, image, video, file_download, button_cta) + migracja + fallback dla starych postów.
+2. **Etap 2 — bloki rozszerzone** (gallery, callout, divider, columns, table, embed) + drag & drop reorder + per-block style.
+3. **Etap 3 — szablony** (`news_hub_templates` + TemplatePicker + 3 systemowe szablony + UI „Zapisz jako szablon").
+4. **Etap 4 — podgląd responsywny** (Desktop/Tablet/Mobile toggle + per-block visibility).
+
+Każdy etap zamknięty, testowalny i bezpieczny do wdrożenia osobno.
