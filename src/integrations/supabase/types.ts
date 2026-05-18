@@ -5465,6 +5465,7 @@ export type Database = {
           bento_size: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id: string | null
           content: string | null
+          content_blocks: Json
           cover_url: string | null
           created_at: string
           embed_html: string | null
@@ -5493,6 +5494,7 @@ export type Database = {
           bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id?: string | null
           content?: string | null
+          content_blocks?: Json
           cover_url?: string | null
           created_at?: string
           embed_html?: string | null
@@ -5521,6 +5523,7 @@ export type Database = {
           bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id?: string | null
           content?: string | null
+          content_blocks?: Json
           cover_url?: string | null
           created_at?: string
           embed_html?: string | null
@@ -5553,6 +5556,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      news_hub_templates: {
+        Row: {
+          blocks: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          preview_url: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          preview_url?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          preview_url?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       news_hub_views: {
         Row: {

@@ -1,3 +1,5 @@
+import type { NewsHubBlock } from './newsHubBlocks';
+
 export type NewsHubPostType = 'announcement' | 'article' | 'video' | 'gallery' | 'file' | 'link' | 'embed';
 export type NewsHubBentoSize = 's' | 'm' | 'l';
 
@@ -38,6 +40,7 @@ export interface NewsHubPost {
   updated_at: string;
   category?: NewsHubCategory | null;
   style_overrides?: NewsHubStyleOverrides;
+  content_blocks?: NewsHubBlock[];
 }
 
 export interface NewsHubTextStyle {
