@@ -84,6 +84,7 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
       is_published: draft.is_published !== false,
       bento_size: draft.bento_size || 'm',
       style_overrides: draft.style_overrides || {},
+      content_blocks: draft.content_blocks || [],
       author_id: draft.author_id || user?.id || null,
     };
     const { error } = await (supabase.from('news_hub_posts' as any) as any).update(payload).eq('id', post.id);
