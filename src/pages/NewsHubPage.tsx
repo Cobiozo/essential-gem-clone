@@ -39,24 +39,6 @@ const NewsHubPage: React.FC = () => {
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
   const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
 
-  if (visLoading) {
-    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  }
-  if (!isModuleVisible) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4">
-        <EyeOff className="h-12 w-12 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-bold mb-2">Brak dostępu</h1>
-        <p className="text-muted-foreground mb-6 text-center max-w-md">
-          Centrum Aktualności jest obecnie niedostępne dla Twojego konta.
-        </p>
-        <Link to="/dashboard">
-          <Button variant="outline" className="gap-2"><ArrowLeft className="h-4 w-4" /> Wróć na stronę główną</Button>
-        </Link>
-      </div>
-    );
-  }
-
   const availableYears = useMemo(() => {
     const set = new Set<string>();
     posts.forEach((p) => {
@@ -87,6 +69,25 @@ const NewsHubPage: React.FC = () => {
     }
     return { pinned: [] as typeof posts, regular: filtered.slice().sort(sorter) };
   }, [posts, year, sortMode]);
+
+  if (visLoading) {
+    return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+  if (!isModuleVisible) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4">
+        <EyeOff className="h-12 w-12 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Brak dostępu</h1>
+        <p className="text-muted-foreground mb-6 text-center max-w-md">
+          Centrum Aktualności jest obecnie niedostępne dla Twojego konta.
+        </p>
+        <Link to="/dashboard">
+          <Button variant="outline" className="gap-2"><ArrowLeft className="h-4 w-4" /> Wróć na stronę główną</Button>
+        </Link>
+      </div>
+    );
+  }
+
 
 
   return (

@@ -1,10 +1,16 @@
-## Cel
-Ukryć przełącznik układu siatki (`GridLayoutSwitcher`) na `/aktualnosci` dla wszystkich oprócz admina. Zwykły użytkownik widzi zawsze układ ustawiony przez admina.
+# Naprawa: partner nie może wejść w Aktualności
 
-## Zmiana
+## Przyczyna
+
+W `src/pages/NewsHubPage.tsx` wczesne `return` (loading / brak dostępu, linie 42–58) są umieszczone **przed** hookami `useMemo` (`availableYears` w linii 60 i `pinned/regular` w linii 69). To łamie Rules of Hooks — gdy `visLoading=true` lub `isModuleVisible=false`, React renderuje mniej hooków niż w poprzednim renderze, co powoduje **Minified React error #310**.
+
+Partner trafia w to za każdym razem, bo dla niego najpierw leci render z `visLoading`, potem render z danymi → zmienna liczba hooków → crash → ErrorBoundary pokazuje "Coś poszło nie tak".
+
+## Zmiana (1 plik)
+
 `src/pages/NewsHubPage.tsx`:
-- Cały blok `<div className="ml-auto flex items-center gap-2">…</div>` (switcher + przycisk „Resetuj") renderujemy tylko gdy `isAdmin`.
-- Do `BentoGrid` przekazujemy `adminLayout` zamiast `effectiveLayout` dla nie-adminów, czyli prosto: `layout={isAdmin ? effectiveLayout : adminLayout}`.
-- Usuwamy zapis lokalnego `userLayout` dla nie-adminów (nie ma jak go zmienić, więc nic dodatkowego — po prostu nie ma UI).
 
-Nic więcej nie zmieniam: admin nadal może w `/admin/news-hub` ustawić domyślny układ, a sam może na froncie przełączać dla podglądu.
+1. Przenieść oba bloki `useMemo` (linie 60–89) **przed** wczesne returny (przed linię 42).
+2. Pozostawić logikę returnu dla `visLoading` i `!isModuleVisible` bez zmian, tylko niżej w ciele komponentu — po wszystkich hookach.
+
+Brak zmian w logice biznesowej, RLS ani w innych plikach.
