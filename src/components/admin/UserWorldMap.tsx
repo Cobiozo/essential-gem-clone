@@ -694,8 +694,8 @@ const UserWorldMap: React.FC<Props> = ({
 
             {/* Countries */}
             {countryPaths.map((c) => {
-              const isSelected = !!selectedIso && c.iso != null && c.iso === selectedIso;
-              const dimmed = !!selectedIso && !isSelected;
+              const isSelected = selectedCountryKey === c.key;
+              const dimmed = !!selectedCountryKey && !isSelected;
               // No yellow flood: selected country is shown via stroke only.
               const baseFill = effectiveStyle === 'satellite'
                 ? 'transparent'
@@ -723,7 +723,7 @@ const UserWorldMap: React.FC<Props> = ({
                     WebkitTapHighlightColor: 'transparent',
                     WebkitTouchCallout: 'none',
                   }}
-                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
+                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw, c.key); }}
                 />
               );
             })}
