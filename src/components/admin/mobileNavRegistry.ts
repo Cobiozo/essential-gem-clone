@@ -18,6 +18,7 @@ export const APP_LOCATIONS: AppLocation[] = [
   { label: 'Profil', path: '/my-account?tab=profile', iconName: 'IdCard', group: 'Główne' },
   { label: 'Preferencje', path: '/my-account?tab=preferences', iconName: 'Settings', group: 'Główne' },
   { label: 'Bezpieczeństwo', path: '/my-account?tab=security', iconName: 'Shield', group: 'Główne' },
+  { label: 'Aktualności', path: '/aktualnosci', iconName: 'Newspaper', group: 'Główne' },
 
   // Wydarzenia
   { label: 'Webinary', path: '/events/webinars', iconName: 'Video', group: 'Wydarzenia' },

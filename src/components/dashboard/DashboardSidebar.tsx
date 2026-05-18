@@ -439,7 +439,7 @@ export const DashboardSidebar: React.FC = () => {
       ],
       visibleFor: ['partner', 'specjalista', 'admin']
     },
-    { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/page/aktualnosci' },
+    { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/aktualnosci' },
     { 
       id: 'events', 
       icon: CalendarDays, 
