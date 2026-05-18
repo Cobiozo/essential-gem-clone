@@ -707,12 +707,12 @@ const UserWorldMap: React.FC<Props> = ({
                   strokeLinejoin="round"
                   tabIndex={-1}
                   style={{
-                    cursor: c.iso && !isMobile ? 'pointer' : 'default',
+                    cursor: c.iso ? 'pointer' : 'default',
                     outline: 'none',
                     WebkitTapHighlightColor: 'transparent',
                     WebkitTouchCallout: 'none',
                   }}
-                  onClick={isMobile ? undefined : () => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
+                  onClick={() => { if (isClickSuppressed()) return; handleCountryClick(c.raw); }}
                 />
               );
             })}
