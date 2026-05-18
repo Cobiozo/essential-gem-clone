@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
+import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
+import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
