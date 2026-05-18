@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Search, Loader2, Newspaper, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
@@ -11,6 +11,9 @@ import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
+
+type SortMode = 'pinned-first' | 'newest' | 'oldest';
+
 
 const TYPE_TABS: Array<{ value: NewsHubPostType | 'all'; label: string }> = [
   { value: 'all', label: 'Wszystko' },
