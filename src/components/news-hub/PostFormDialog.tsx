@@ -14,6 +14,7 @@ import { useNewsHubCategories, slugify, uploadNewsHubFile } from '@/hooks/useNew
 import type { NewsHubPost, NewsHubPostType, NewsHubBentoSize } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
+import { PostVisibilityEditor } from './PostVisibilityEditor';
 
 interface Props {
   open: boolean;
