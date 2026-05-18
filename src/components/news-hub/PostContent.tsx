@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
+import { BlockListView } from './BlockRenderer';
 
 function youTubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
