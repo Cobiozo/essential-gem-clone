@@ -731,18 +731,7 @@ const UserWorldMap: React.FC<Props> = ({
               />
             ))}
 
-            {/* Boundaries */}
-            {boundaryOpacity > 0.02 && boundaryPaths.map((b) => (
-              <path
-                key={b.key}
-                d={b.d}
-                fill={`hsl(var(--primary) / ${0.08 * boundaryOpacity})`}
-                stroke={`hsl(var(--primary) / ${0.75 * boundaryOpacity})`}
-                strokeWidth={0.5 / view.zoom}
-                strokeLinejoin="round"
-                pointerEvents="none"
-              />
-            ))}
+
 
             {/* Markers */}
             {clusters.map((c, idx) => {
