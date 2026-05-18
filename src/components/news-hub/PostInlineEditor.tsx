@@ -199,6 +199,10 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
             <PageStyleControls value={styles.page} onChange={(v) => updateStyle({ page: v })} />
           </TabsContent>
 
+          <TabsContent value="visibility" className="m-0">
+            <PostVisibilityEditor draft={draft} update={update} postId={post.id} />
+          </TabsContent>
+
           <TabsContent value="meta" className="m-0">
             <MetaControls draft={draft} update={update} tagsText={tagsText} setTagsText={setTagsText} />
           </TabsContent>
