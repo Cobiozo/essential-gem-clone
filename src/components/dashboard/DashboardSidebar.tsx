@@ -199,6 +199,7 @@ export const DashboardSidebar: React.FC = () => {
   const isPaidEventsVisible = useIsPaidEventsVisible();
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
+  const { isModuleVisible: isNewsHubVisible } = useNewsHubVisibility();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
