@@ -40,6 +40,7 @@ export interface NewsHubPost {
   updated_at: string;
   category?: NewsHubCategory | null;
   style_overrides?: NewsHubStyleOverrides;
+  content_blocks?: NewsHubBlock[];
 }
 
 export interface NewsHubTextStyle {
