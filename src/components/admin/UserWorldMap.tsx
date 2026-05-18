@@ -528,10 +528,15 @@ const UserWorldMap: React.FC<Props> = ({
   }, []);
 
   // Compute viewBox based on current view (center + zoom)
-  const vbW = VIEW_W / view.zoom;
-  const vbH = VIEW_H / view.zoom;
-  const vbX = view.cx - vbW / 2;
-  const vbY = view.cy - vbH / 2;
+  const _vbW = VIEW_W / view.zoom;
+  const _vbH = VIEW_H / view.zoom;
+  const _vbX = view.cx - _vbW / 2;
+  const _vbY = view.cy - _vbH / 2;
+  const vbValid = [_vbX, _vbY, _vbW, _vbH].every((n) => isFinite(n)) && _vbW > 0 && _vbH > 0;
+  const vbW = vbValid ? _vbW : VIEW_W / defaultView.zoom;
+  const vbH = vbValid ? _vbH : VIEW_H / defaultView.zoom;
+  const vbX = vbValid ? _vbX : defaultView.cx - vbW / 2;
+  const vbY = vbValid ? _vbY : defaultView.cy - vbH / 2;
 
   const showTooltipAt = (e: React.MouseEvent, payload: { title: string; lines: string[]; count: number }) => {
     const container = (e.currentTarget as SVGElement).ownerSVGElement?.parentElement;
