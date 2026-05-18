@@ -30,16 +30,44 @@ const NewsHubPage: React.FC = () => {
   const [type, setType] = useState<NewsHubPostType | 'all'>('all');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('pinned-first');
+  const [year, setYear] = useState<string>('all');
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
   const { effectiveLayout, userLayout, setUserLayout, adminLayout } = useNewsHubSettings();
 
-  const { pinned, regular } = useMemo(() => {
-    const pinned = posts.filter((p) => p.is_pinned);
-    const regular = posts.filter((p) => !p.is_pinned);
-    return { pinned, regular };
+  const availableYears = useMemo(() => {
+    const set = new Set<string>();
+    posts.forEach((p) => {
+      const d = p.created_at ? new Date(p.created_at) : null;
+      if (d && !isNaN(d.getTime())) set.add(String(d.getFullYear()));
+    });
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
   }, [posts]);
+
+  const { pinned, regular } = useMemo(() => {
+    let filtered = posts;
+    if (year !== 'all') {
+      filtered = filtered.filter((p) => {
+        const d = p.created_at ? new Date(p.created_at) : null;
+        return d && !isNaN(d.getTime()) && String(d.getFullYear()) === year;
+      });
+    }
+    const sorter = (a: typeof posts[number], b: typeof posts[number]) => {
+      const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return sortMode === 'oldest' ? da - db : db - da;
+    };
+    if (sortMode === 'pinned-first') {
+      return {
+        pinned: filtered.filter((p) => p.is_pinned).slice().sort(sorter),
+        regular: filtered.filter((p) => !p.is_pinned).slice().sort(sorter),
+      };
+    }
+    return { pinned: [] as typeof posts, regular: filtered.slice().sort(sorter) };
+  }, [posts, year, sortMode]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
