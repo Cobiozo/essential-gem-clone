@@ -209,7 +209,7 @@ const NewsHubPage: React.FC = () => {
         {!loading && pinned.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onChanged={refresh} layout={effectiveLayout} />
+            <BentoGrid posts={pinned} onChanged={refresh} layout={isAdmin ? effectiveLayout : adminLayout} />
           </div>
         )}
 
