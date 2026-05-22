@@ -1,14 +1,20 @@
-Plan naprawy:
+# Naprawa kodu BW- w bazie wiedzy
 
-1. Naprawię błąd React #310 na `/aktualnosci` przez usunięcie zależności listy od lokalnego przełączania układu admina na stronie publicznej. Hooki zostaną wywoływane zawsze w tej samej kolejności, a warunkowe renderowanie zostanie ograniczone do UI.
+## Problem
+Gość po wpisaniu kodu (np. `BW-7837`) widzi błąd: **"Edge Function returned a non-2xx status code"** i nie może wejść do materiału.
 
-2. Zmieniam zachowanie ikon układu na stronie `/aktualnosci`:
-   - widzi je tylko admin,
-   - kliknięcie ikony zapisuje układ globalnie jako `adminLayout` w `news_hub_settings`,
-   - nie używamy już lokalnego `userLayout`/`Resetuj` na publicznej stronie Aktualności.
+## Przyczyna
+W edge function `validate-hk-otp/index.ts` po refaktorze (obsługa formatu `BW-XXXX` obok starego `ZW-XXXXXX`) pozostały dwa odwołania do nieistniejącej już zmiennej `normalizedCode`:
 
-3. Dla partnera/użytkownika lista będzie renderowana wyłącznie według `adminLayout`, czyli jeśli admin ustawił `cols-3`, partner zobaczy trzy kolumny bez ikon konfiguracji.
+- linia 115: `console.log(...HK OTP ${normalizedCode}...)`
+- linia 193: `console.log(...Validated HK OTP ${normalizedCode}...)`
 
-4. Dodatkowo dopiszę `/aktualnosci` do listy znanych tras w wrapperze czatu (`ChatWidgetsWrapper`), żeby aplikacja nie traktowała tej ścieżki jako strony partnera.
+Zmienna została zastąpiona przez `bwCode` / `zwCode` / `stripped`, ale stare `console.log` nie zostały zaktualizowane. Przy pierwszym użyciu kodu (po updacie `first_used_at`) interpreter wykonuje linię 115 → `ReferenceError: normalizedCode is not defined` → blok `catch` zwraca HTTP 500 → frontend pokazuje czerwony komunikat.
 
-5. Po wdrożeniu sprawdzę w preview, czy strona nie wpada w ErrorBoundary i czy admin widzi przełącznik układu.
+## Naprawa
+W `supabase/functions/validate-hk-otp/index.ts` zamienić obie referencje `${normalizedCode}` na `${bwCode}` (czytelna, znormalizowana postać kodu używana do logów).
+
+Brak innych zmian — logika walidacji, sesji, signed URL pozostaje bez zmian.
+
+## Walidacja
+Po wdrożeniu sprawdzić logi `validate-hk-otp` po ponownym wpisaniu kodu `BW-7837` — powinien zwrócić `200 OK` z `session_token` i materiał załaduje się poprawnie.

@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       }
       
       effectiveExpiresAt = accessExpiresAt;
-      console.log(`First use of HK OTP ${normalizedCode}, access expires at ${accessExpiresAt.toISOString()}`);
+      console.log(`First use of HK OTP ${bwCode}, access expires at ${accessExpiresAt.toISOString()}`);
     } else {
       // Code was already used - use existing expires_at
       effectiveExpiresAt = new Date(otpCodeRecord.expires_at);
