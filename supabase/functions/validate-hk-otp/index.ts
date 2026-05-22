@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Validated HK OTP ${normalizedCode} for knowledge ${knowledge.slug}, session created, expires in ${remainingSeconds}s`);
+    console.log(`Validated HK OTP ${bwCode} for knowledge ${knowledge.slug}, session created, expires in ${remainingSeconds}s`);
 
     return new Response(
       JSON.stringify({
