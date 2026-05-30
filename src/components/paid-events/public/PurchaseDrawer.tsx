@@ -28,6 +28,7 @@ interface PurchaseDrawerProps {
   currency?: string;
   paymentMethodPayu?: boolean;
   paymentMethodTransfer?: boolean;
+  paymentMethodPaypal?: boolean;
   transferPaymentDetails?: string | null;
   refCode?: string | null;
 }
