@@ -1,45 +1,51 @@
-# Łącze PayPal per bilet
+## Problem
 
-## Cel
-Każdy bilet (`paid_event_tickets`) może mieć opcjonalne łącze PayPal (np. `https://www.paypal.com/ncp/payment/PAVHPCA68FL8S`). Gdy łącze jest ustawione, klient w trakcie zakupu może wybrać „Zapłać przez PayPal" i zostaje przekierowany na PayPal — bez integracji API, jako prosty link.
+Link PayPal jest zapisany w bazie (zweryfikowane: bilet „Przedpłata" ma `paypal_payment_link = https://www.paypal.com/...`), ale opcja PayPal nie pojawia się na stronie `/checkout/:orderId`.
 
-## Zmiany
+Kod w `CheckoutPage.tsx` wygląda poprawnie, więc najpewniejsza przyczyna to jeden z dwóch problemów:
 
-### 1. Baza danych (migracja)
-- Dodać kolumnę `paypal_payment_link TEXT NULL` w `paid_event_tickets`.
-- Walidacja po stronie aplikacji (link musi zaczynać się od `https://`); brak zmian w RLS / GRANT (kolumna dziedziczy istniejące polityki).
+1. **PostgREST zwraca `paid_event_tickets` jako tablicę (a nie obiekt)** w odpowiedzi embed'a — wtedy `order.paid_event_tickets?.paypal_payment_link` jest `undefined`, więc `hasPaypal = false`.
+2. **Cache przeglądarki / testowanie na opublikowanej wersji** (`purelife.lovable.app`), na której najnowszy build z PayPal jeszcze nie został wypchnięty.
 
-### 2. Panel admina — `EventTicketsPanel.tsx`
-Po polu „Cena (PLN)" dodać nowe pole:
-- Label: „Łącze do płatności PayPal (opcjonalne)"
-- Input typu URL, placeholder: `https://www.paypal.com/ncp/payment/XXXXX`
-- Pomocniczy tekst: „Jeśli wypełnione, klient zobaczy dodatkową opcję płatności PayPal i zostanie przekierowany na to łącze."
-- Zapis przez istniejący `updateMutation` (nowe pole `paypal_payment_link` w typie `Ticket`).
+## Plan naprawy
 
-### 3. Drawer zakupu — `PurchaseDrawer.tsx`
-- Pobrać `paypal_payment_link` razem z biletem.
-- Jeżeli aktywny bilet ma `paypal_payment_link`, w sekcji wyboru metody płatności pojawia się trzecia opcja: „PayPal" (z ikoną/etykietą).
-- Po wyborze PayPal przycisk „Przejdź do płatności" zmienia tekst na „Zapłać przez PayPal". Klik:
-  1. tworzy zamówienie (status `pending`, `payment_provider: 'paypal_link'`, `payment_method: 'paypal_link'`) przez istniejący endpoint `create-event-order` (rozszerzony o przyjmowanie metody `paypal_link`),
-  2. otwiera `paypal_payment_link` w nowej karcie i pokazuje stronę dziękczynną z informacją: „Po opłaceniu wyślij potwierdzenie na adres organizatora — bilet zostanie aktywowany ręcznie.".
-- Łącze PayPal jest niezależne od statusu PayU (działa nawet gdy PayU jest wyłączony).
+### 1. `src/pages/CheckoutPage.tsx` — defensywne odczytywanie embed'a
 
-### 4. Strona checkout — `CheckoutPage.tsx`
-- Analogicznie do (3): jeśli `paid_event_tickets.paypal_payment_link` istnieje, dodać `RadioGroupItem` „PayPal".
-- Opcja PayPal nigdy nie jest blokowana flagą `!payuReady`.
-- Przy wyborze PayPal przycisk „Kupuję i płacę" → otwiera `paypal_payment_link`, aktualizuje zamówienie (`payment_method: 'paypal_link'`), przekierowuje na stronę informacyjną o oczekiwaniu na ręczne potwierdzenie.
+Zmienić odczyt na taki, który działa zarówno dla obiektu jak i tablicy:
 
-### 5. Edge function `create-event-order`
-- Dopuścić `payment_method = 'paypal_link'` i zapisać `payment_provider = 'paypal_link'`. Brak wywołań do PayPal API — to tylko link.
+```ts
+const ticketRow = Array.isArray(order?.paid_event_tickets)
+  ? order.paid_event_tickets[0]
+  : order?.paid_event_tickets;
+const paypalLink = ticketRow?.paypal_payment_link?.trim() || null;
+const hasPaypal = !!paypalLink && /^https?:\/\//i.test(paypalLink);
+```
 
-### 6. Panel admina — zamówienia
-- Lista zamówień (`AdminEventOrders`/podobne) — dodać badge „PayPal (ręczne)" dla zamówień z `payment_method = 'paypal_link'`, aby admin wiedział, że trzeba potwierdzić wpłatę ręcznie (istniejący przycisk „Oznacz jako opłacone" już działa).
+To samo zastosować w miejscach gdzie używane jest `order.paid_event_tickets.name` (podsumowanie zamówienia).
 
-## Szczegóły techniczne
-- Typ `Ticket` w `EventTicketsPanel.tsx` i `PurchaseDrawer.tsx`: dodać `paypal_payment_link: string | null`.
-- `src/integrations/supabase/types.ts` — regeneracja po migracji.
-- Walidacja URL po stronie panelu admina: prosty regex `^https:\/\/.+`.
-- Brak zmian w `payu-*` funkcjach.
+Dodać `console.log('[checkout] paypal debug', { ticketRow, paypalLink, hasPaypal, availableMethods })` w `useEffect` po załadowaniu zamówienia, żeby w konsoli było jednoznacznie widać dlaczego opcja się nie pokazuje.
 
-## Co NIE wchodzi w zakres
-- Integracja z PayPal API (webhook / weryfikacja płatności) — to jest tylko czysty link „Smart Payment Button" / NCP, więc potwierdzenie pozostaje ręczne (admin oznacza zamówienie jako opłacone w panelu).
+Rozluźnić regex do `https?` (test/dev linki bywają http).
+
+### 2. Drugi tor — fallback z pobieraniem ticketu
+
+Jeśli mimo defensywnego odczytu `ticketRow` nadal jest `null` (np. RLS odrzuca embed dla anonimowego użytkownika w niektórych przypadkach), dograć osobno bilet po `ticket_id`:
+
+```ts
+.from('paid_event_tickets').select('name, price_pln, paypal_payment_link').eq('id', order.ticket_id).maybeSingle()
+```
+
+i zmergować z `order` w stanie.
+
+### 3. Weryfikacja
+
+Po wdrożeniu otworzyć `/checkout/<id istniejącego zamówienia>` i sprawdzić:
+- Konsola pokazuje `hasPaypal: true` i link.
+- Karta „PayPal" pojawia się jako opcja na liście metod płatności.
+- Po kliknięciu „Kupuję i płacę" otwiera się link PayPal w nowej karcie.
+
+Jeśli logi pokażą `hasPaypal: false` i pusty `ticketRow` → fallback z #2 to rozwiąże.
+
+## Pliki do edycji
+
+- `src/pages/CheckoutPage.tsx` (defensywny odczyt embed'a, dodatkowy fallback fetch ticketu, log diagnostyczny)
