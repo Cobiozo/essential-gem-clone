@@ -518,6 +518,7 @@ const PaidEventPage: React.FC = () => {
         ticket={selectedTicket}
         paymentMethodPayu={(event as any).payment_method_payu ?? true}
         paymentMethodTransfer={(event as any).payment_method_transfer ?? false}
+        paymentMethodPaypal={(event as any).payment_method_paypal ?? false}
         transferPaymentDetails={(event as any).transfer_payment_details ?? null}
         refCode={myRefCode ?? null}
       />
