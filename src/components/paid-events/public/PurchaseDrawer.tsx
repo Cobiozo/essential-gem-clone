@@ -32,7 +32,7 @@ interface PurchaseDrawerProps {
   refCode?: string | null;
 }
 
-type SubmitMode = 'payu' | 'transfer';
+type SubmitMode = 'checkout';
 
 interface Attendee {
   firstName: string;
