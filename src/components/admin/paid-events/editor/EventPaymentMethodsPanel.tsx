@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, CreditCard, Banknote } from 'lucide-react';
+import { Loader2, Save, CreditCard, Banknote, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EventPaymentMethodsPanelProps {
@@ -17,6 +17,7 @@ interface EventPaymentMethodsPanelProps {
 interface PaymentConfig {
   payment_method_payu: boolean;
   payment_method_transfer: boolean;
+  payment_method_paypal: boolean;
   transfer_payment_details: string | null;
 }
 
@@ -33,7 +34,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
     queryFn: async () => {
       const { data, error } = await supabase
         .from('paid_events')
-        .select('payment_method_payu, payment_method_transfer, transfer_payment_details')
+        .select('payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -48,7 +49,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
   const updateMutation = useMutation({
     mutationFn: async (payload: PaymentConfig) => {
       // Validation: at least one method required
-      if (!payload.payment_method_payu && !payload.payment_method_transfer) {
+      if (!payload.payment_method_payu && !payload.payment_method_transfer && !payload.payment_method_paypal) {
         throw new Error('Włącz przynajmniej jedną metodę płatności');
       }
       if (payload.payment_method_transfer && !(payload.transfer_payment_details || '').trim()) {
@@ -84,6 +85,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
   const isDirty =
     draft.payment_method_payu !== data?.payment_method_payu ||
     draft.payment_method_transfer !== data?.payment_method_transfer ||
+    draft.payment_method_paypal !== data?.payment_method_paypal ||
     (draft.transfer_payment_details || '') !== (data?.transfer_payment_details || '');
 
   return (
@@ -128,6 +130,25 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
             onCheckedChange={(v) => setDraft({ ...draft, payment_method_transfer: v })}
           />
         </div>
+
+        {/* PayPal */}
+        <div className="flex items-start justify-between gap-3 p-3 rounded-md border bg-muted/30">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 font-medium text-sm">
+              <Wallet className="w-4 h-4 text-primary" />
+              Płatność przez PayPal
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Wymaga ustawienia linku PayPal na poziomie biletu. Gość po wyborze PayPal jest przekierowany pod ten link; potwierdzenie wpłaty admin oznacza ręcznie.
+            </p>
+          </div>
+          <Switch
+            checked={draft.payment_method_paypal}
+            onCheckedChange={(v) => setDraft({ ...draft, payment_method_paypal: v })}
+          />
+        </div>
+
+
 
         {draft.payment_method_transfer && (
           <div>

@@ -25,7 +25,7 @@ interface OrderInfo {
   quantity: number;
   paid_events: {
     title: string; slug: string; event_date: string; location: string | null;
-    payment_method_payu: boolean; payment_method_transfer: boolean;
+    payment_method_payu: boolean; payment_method_transfer: boolean; payment_method_paypal: boolean;
     transfer_payment_details: string | null;
   };
   ticket_id: string | null;
@@ -73,7 +73,7 @@ const CheckoutPage: React.FC = () => {
       const { data, error } = await supabase
         .from('paid_event_orders')
         .select(`id, event_id, ticket_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
-                 paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, transfer_payment_details ),
+                 paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details ),
                  paid_event_tickets ( name, price_pln, paypal_payment_link )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
@@ -116,7 +116,7 @@ const CheckoutPage: React.FC = () => {
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
-    if (hasPaypal) list.push('paypal');
+    if (order.paid_events.payment_method_paypal && hasPaypal) list.push('paypal');
     return list;
   }, [order, hasPaypal]);
 

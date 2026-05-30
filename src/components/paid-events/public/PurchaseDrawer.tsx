@@ -28,6 +28,7 @@ interface PurchaseDrawerProps {
   currency?: string;
   paymentMethodPayu?: boolean;
   paymentMethodTransfer?: boolean;
+  paymentMethodPaypal?: boolean;
   transferPaymentDetails?: string | null;
   refCode?: string | null;
 }
@@ -51,6 +52,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   currency = 'PLN',
   paymentMethodPayu = true,
   paymentMethodTransfer = false,
+  paymentMethodPaypal = false,
   transferPaymentDetails = null,
   refCode = null,
 }) => {
@@ -288,7 +290,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   if (!ticket) return null;
 
-  const noMethods = !paymentMethodPayu && !paymentMethodTransfer;
+  const noMethods = !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
