@@ -25,7 +25,7 @@ interface OrderInfo {
   quantity: number;
   paid_events: {
     title: string; slug: string; event_date: string; location: string | null;
-    payment_method_payu: boolean; payment_method_transfer: boolean;
+    payment_method_payu: boolean; payment_method_transfer: boolean; payment_method_paypal: boolean;
     transfer_payment_details: string | null;
   };
   ticket_id: string | null;
