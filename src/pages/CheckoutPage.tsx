@@ -103,12 +103,11 @@ const CheckoutPage: React.FC = () => {
     }
 
     if (method === 'transfer') {
-      // Mark as pending_transfer and send confirmation; navigate to ticket page with instructions.
       setBusy(true);
       try {
         await supabase
           .from('paid_event_orders')
-          .update({ payment_method: 'transfer', payment_provider: 'transfer', status: 'pending_transfer' })
+          .update({ payment_method: 'transfer', payment_provider: 'transfer', status: 'awaiting_transfer' })
           .eq('id', order.id);
       } catch { /* non-blocking */ }
       navigate(`/ticket/${order.ticket_code}?status=transfer-pending`);
