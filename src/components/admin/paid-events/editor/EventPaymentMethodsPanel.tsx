@@ -131,6 +131,22 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
           />
         </div>
 
+        {/* PayPal */}
+        <div className="flex items-start justify-between gap-3 p-3 rounded-md border bg-muted/30">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 font-medium text-sm">
+              <Wallet className="w-4 h-4 text-primary" />
+              Płatność przez PayPal
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Wymaga ustawienia linku PayPal na poziomie biletu. Gość po wyborze PayPal jest przekierowany pod ten link; potwierdzenie wpłaty admin oznacza ręcznie.
+            </p>
+          </div>
+          <Switch
+            checked={draft.payment_method_paypal}
+            onCheckedChange={(v) => setDraft({ ...draft, payment_method_paypal: v })}
+          />
+
         {draft.payment_method_transfer && (
           <div>
             <Label htmlFor="transfer-details">Dane do przelewu *</Label>
