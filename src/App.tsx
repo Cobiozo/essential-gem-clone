@@ -445,6 +445,9 @@ const AppContent = () => {
                 <Route path="/aktualnosci" element={<NewsHubPage />} />
                 <Route path="/aktualnosci/:slug" element={<NewsHubPostPage />} />
                 <Route path="/admin/news-hub" element={<NewsHubAdminPage />} />
+                <Route path="/admin/payments" element={<PaymentsAdminPage />} />
+                <Route path="/checkout/:orderId" element={<CheckoutPage />} />
+                <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
