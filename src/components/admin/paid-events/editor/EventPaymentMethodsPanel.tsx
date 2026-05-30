@@ -17,6 +17,7 @@ interface EventPaymentMethodsPanelProps {
 interface PaymentConfig {
   payment_method_payu: boolean;
   payment_method_transfer: boolean;
+  payment_method_paypal: boolean;
   transfer_payment_details: string | null;
 }
 
