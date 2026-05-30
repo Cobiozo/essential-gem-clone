@@ -154,6 +154,9 @@ const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewP
 const NewsHubPage = lazyWithRetry(() => import("./pages/NewsHubPage"));
 const NewsHubPostPage = lazyWithRetry(() => import("./pages/NewsHubPostPage"));
 const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"));
+const CheckoutPage = lazyWithRetry(() => import("./pages/CheckoutPage"));
+const TicketPage = lazyWithRetry(() => import("./pages/TicketPage"));
+const PaymentsAdminPage = lazyWithRetry(() => import("./pages/PaymentsAdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
