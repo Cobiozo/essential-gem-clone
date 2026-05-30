@@ -1,51 +1,44 @@
-## Problem
+## Cel
 
-Link PayPal jest zapisany w bazie (zweryfikowane: bilet „Przedpłata" ma `paypal_payment_link = https://www.paypal.com/...`), ale opcja PayPal nie pojawia się na stronie `/checkout/:orderId`.
+Na poziomie pojedynczego płatnego wydarzenia dodać trzeci przełącznik metody płatności **PayPal** (obok PayU i przelewu). Jedna z włączonych metod = jedyna dostępna w checkout. Jeśli bilet ma dodatkowo `paypal_payment_link`, to przy wyborze PayPal kupujący trafia bezpośrednio pod ten link (już zaimplementowane w `CheckoutPage`).
 
-Kod w `CheckoutPage.tsx` wygląda poprawnie, więc najpewniejsza przyczyna to jeden z dwóch problemów:
+## Zmiany
 
-1. **PostgREST zwraca `paid_event_tickets` jako tablicę (a nie obiekt)** w odpowiedzi embed'a — wtedy `order.paid_event_tickets?.paypal_payment_link` jest `undefined`, więc `hasPaypal = false`.
-2. **Cache przeglądarki / testowanie na opublikowanej wersji** (`purelife.lovable.app`), na której najnowszy build z PayPal jeszcze nie został wypchnięty.
-
-## Plan naprawy
-
-### 1. `src/pages/CheckoutPage.tsx` — defensywne odczytywanie embed'a
-
-Zmienić odczyt na taki, który działa zarówno dla obiektu jak i tablicy:
-
-```ts
-const ticketRow = Array.isArray(order?.paid_event_tickets)
-  ? order.paid_event_tickets[0]
-  : order?.paid_event_tickets;
-const paypalLink = ticketRow?.paypal_payment_link?.trim() || null;
-const hasPaypal = !!paypalLink && /^https?:\/\//i.test(paypalLink);
+### 1. Migracja bazy
+Dodać do `paid_events` kolumnę:
+```sql
+ALTER TABLE public.paid_events
+  ADD COLUMN payment_method_paypal boolean NOT NULL DEFAULT false;
 ```
 
-To samo zastosować w miejscach gdzie używane jest `order.paid_event_tickets.name` (podsumowanie zamówienia).
+### 2. `src/components/admin/paid-events/editor/EventPaymentMethodsPanel.tsx`
+- Dodać `payment_method_paypal: boolean` do `PaymentConfig` i do `select(...)`.
+- Dodać trzeci kafelek z `Switch` „Płatność przez PayPal" + krótki opis: „Bilet zawiera bezpośredni link PayPal (ustawiany na poziomie biletu). Potwierdzenie wpłaty ręczne przez organizatora."
+- Update walidacji: wymagana ≥1 z trzech metod (`payu || transfer || paypal`).
+- `isDirty` uwzględnia nowe pole.
+- Mutacja zapisu i query invalidation bez zmian.
 
-Dodać `console.log('[checkout] paypal debug', { ticketRow, paypalLink, hasPaypal, availableMethods })` w `useEffect` po załadowaniu zamówienia, żeby w konsoli było jednoznacznie widać dlaczego opcja się nie pokazuje.
+### 3. `src/pages/PaidEventPage.tsx`
+- Przekazać `paymentMethodPaypal={(event as any).payment_method_paypal ?? false}` do `PurchaseDrawer`.
 
-Rozluźnić regex do `https?` (test/dev linki bywają http).
+### 4. `src/components/paid-events/public/PurchaseDrawer.tsx`
+- Dodać prop `paymentMethodPaypal?: boolean` (default `false`).
+- `noMethods = !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal`.
 
-### 2. Drugi tor — fallback z pobieraniem ticketu
+### 5. `src/pages/CheckoutPage.tsx`
+- W `select(...)` dodać `payment_method_paypal` z `paid_events`.
+- W `OrderInfo.paid_events` dodać `payment_method_paypal: boolean`.
+- `availableMethods`: `paypal` dodawane **tylko** gdy `order.paid_events.payment_method_paypal === true` (a nie samo `hasPaypal`).
+- Gdy `payment_method_paypal === true` ale brak `paypalLink` w bilecie → pokazać kafelek PayPal z komunikatem „Skontaktuj się z organizatorem — link PayPal nie jest dostępny", przycisk `disabled`. (Albo: PayPal opcja widoczna tylko gdy jest link — proszę o decyzję; domyślnie zakładam wariant z linkiem.)
 
-Jeśli mimo defensywnego odczytu `ticketRow` nadal jest `null` (np. RLS odrzuca embed dla anonimowego użytkownika w niektórych przypadkach), dograć osobno bilet po `ticket_id`:
+Decyzja domyślna: **PayPal w checkout aktywny tylko gdy `payment_method_paypal=true` AND bilet ma `paypal_payment_link`**. To zgodne z prośbą: „jeżeli jest dodany do biletu link do paypal to wtedy działa bezpośrednio".
 
-```ts
-.from('paid_event_tickets').select('name, price_pln, paypal_payment_link').eq('id', order.ticket_id).maybeSingle()
-```
+## Pliki
 
-i zmergować z `order` w stanie.
+- `supabase/migrations/<timestamp>_add_paypal_payment_method.sql`
+- `src/components/admin/paid-events/editor/EventPaymentMethodsPanel.tsx`
+- `src/pages/PaidEventPage.tsx`
+- `src/components/paid-events/public/PurchaseDrawer.tsx`
+- `src/pages/CheckoutPage.tsx`
 
-### 3. Weryfikacja
-
-Po wdrożeniu otworzyć `/checkout/<id istniejącego zamówienia>` i sprawdzić:
-- Konsola pokazuje `hasPaypal: true` i link.
-- Karta „PayPal" pojawia się jako opcja na liście metod płatności.
-- Po kliknięciu „Kupuję i płacę" otwiera się link PayPal w nowej karcie.
-
-Jeśli logi pokażą `hasPaypal: false` i pusty `ticketRow` → fallback z #2 to rozwiąże.
-
-## Pliki do edycji
-
-- `src/pages/CheckoutPage.tsx` (defensywny odczyt embed'a, dodatkowy fallback fetch ticketu, log diagnostyczny)
+Po migracji `types.ts` zaktualizuje się automatycznie.
