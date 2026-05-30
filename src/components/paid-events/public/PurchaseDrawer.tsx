@@ -57,6 +57,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
