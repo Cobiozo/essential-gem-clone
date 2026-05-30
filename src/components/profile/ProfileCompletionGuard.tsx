@@ -30,6 +30,8 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/landing-preview', // Leader landing page preview
     '/a-w/',              // Public auto-webinar watch page (short URL)
     '/event-form/',       // Public paid-event registration forms (+ confirm/cancel tokens)
+    '/checkout/',         // Public checkout page (payment method selection)
+    '/ticket/',           // Public ticket status/download page
   ];
   
   const isPublicPath = PUBLIC_PATHS.some(path => {
