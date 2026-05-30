@@ -1,6 +1,7 @@
 // Edge function: payu-test-connection
-// Admin-only. Pulls credentials from public.payu_settings and tries to obtain an OAuth token.
-// Returns { ok: true } on success or a clear error message.
+// Admin-only. Pulls credentials from public.payu_settings, attempts OAuth,
+// persists the result (last_test_at / last_test_ok / last_test_message)
+// and returns a clear payload to the UI.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPayUConfig, getPayUAccessToken } from "../_shared/payu-config.ts";
@@ -12,6 +13,33 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const service = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  const persist = async (ok: boolean, message: string) => {
+    try {
+      const { data: row } = await service
+        .from("payu_settings")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      if (row?.id) {
+        await service
+          .from("payu_settings")
+          .update({
+            last_test_at: new Date().toISOString(),
+            last_test_ok: ok,
+            last_test_message: message.slice(0, 300),
+          })
+          .eq("id", row.id);
+      }
+    } catch (e) {
+      console.error("[payu-test-connection] persist failed", e);
+    }
+  };
 
   try {
     // Admin gate
@@ -34,10 +62,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const service = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
     const { data: hasAdmin } = await service.rpc("has_role", {
       _user_id: user.id,
       _role: "admin",
@@ -51,6 +75,9 @@ Deno.serve(async (req) => {
 
     const cfg = await getPayUConfig();
     const token = await getPayUAccessToken(cfg);
+    const message = `Połączono ze środowiskiem: ${cfg.environment}`;
+    const tested_at = new Date().toISOString();
+    await persist(true, message);
 
     return new Response(
       JSON.stringify({
@@ -58,15 +85,22 @@ Deno.serve(async (req) => {
         environment: cfg.environment,
         token_preview: token.slice(0, 8) + "…",
         is_enabled: cfg.isEnabled,
+        message,
+        tested_at,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[payu-test-connection]", message);
-    return new Response(JSON.stringify({ ok: false, error: message }), {
-      status: 200, // 200 so the frontend can show the message
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const tested_at = new Date().toISOString();
+    await persist(false, message);
+    return new Response(
+      JSON.stringify({ ok: false, error: message, message, tested_at }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
