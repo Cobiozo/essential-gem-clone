@@ -491,30 +491,8 @@ export const PaidEventsSettings: React.FC = () => {
       {/* Per-user visibility overrides */}
       <PaidEventsUserOverrides />
 
-      {/* PayU Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-yellow-500" />
-            Konfiguracja PayU
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            Aby płatności działały poprawnie, musisz skonfigurować następujące sekrety w Supabase:
-          </p>
-          <ul className="list-disc list-inside space-y-1">
-            <li><code className="bg-muted px-1 rounded">PAYU_CLIENT_ID</code> - ID klienta OAuth</li>
-            <li><code className="bg-muted px-1 rounded">PAYU_CLIENT_SECRET</code> - Secret klienta OAuth</li>
-            <li><code className="bg-muted px-1 rounded">PAYU_MERCHANT_POS_ID</code> - ID punktu płatności</li>
-            <li><code className="bg-muted px-1 rounded">PAYU_SECOND_KEY</code> - Drugi klucz MD5 do weryfikacji podpisów</li>
-          </ul>
-          <p className="pt-2">
-            <strong>Sandbox:</strong> Używaj danych z panelu testowego PayU (secure.snd.payu.com)<br />
-            <strong>Produkcja:</strong> Używaj danych z panelu produkcyjnego PayU (secure.payu.com)
-          </p>
-        </CardContent>
-      </Card>
+      {/* PayU full configuration (writes to payu_settings) */}
+      <PayUConfigCard />
 
       {/* Save Button */}
       <div className="flex justify-end">
