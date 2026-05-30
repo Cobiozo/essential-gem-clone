@@ -52,6 +52,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   currency = 'PLN',
   paymentMethodPayu = true,
   paymentMethodTransfer = false,
+  paymentMethodPaypal = false,
   transferPaymentDetails = null,
   refCode = null,
 }) => {
