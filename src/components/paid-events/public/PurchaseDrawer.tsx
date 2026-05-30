@@ -270,11 +270,48 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       if (data?.error) throw new Error(data.error);
       if (!data?.orderId) throw new Error('Brak identyfikatora zamówienia');
 
-      // Refresh "Moje bilety" so the new (pending) order shows up
       qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
       qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
       qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
       qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
+
+      // If PayU is enabled, go straight to the hosted PayU page.
+      // Otherwise fall back to the internal /checkout (e.g. bank transfer details).
+      if (paymentMethodPayu) {
+        try {
+          const { data: payuData, error: payuErr } = await supabase.functions.invoke('payu-create-order', {
+            body: { orderId: data.orderId },
+          });
+          if (payuErr) {
+            let detail = payuErr.message || 'Nie udało się zainicjować płatności PayU';
+            try {
+              const ctxRes = (payuErr as any).context?.response;
+              if (ctxRes && typeof ctxRes.json === 'function') {
+                const j = await ctxRes.json();
+                if (j?.error) detail = j.error;
+              }
+            } catch { /* ignore */ }
+            throw new Error(detail);
+          }
+          if ((payuData as any)?.error) throw new Error((payuData as any).error);
+          const redirectUri = (payuData as any)?.redirectUri;
+          if (redirectUri) {
+            onOpenChange(false);
+            window.location.href = redirectUri;
+            return;
+          }
+          throw new Error('PayU nie zwróciło adresu przekierowania');
+        } catch (payuErr: any) {
+          toast({
+            title: 'PayU niedostępne',
+            description: (payuErr?.message || 'Spróbuj ponownie lub wybierz inną metodę płatności') + ' — przekierowuję do wyboru metody.',
+            variant: 'destructive',
+          });
+          onOpenChange(false);
+          navigate(`/checkout/${data.orderId}`);
+          return;
+        }
+      }
 
       onOpenChange(false);
       navigate(`/checkout/${data.orderId}`);
