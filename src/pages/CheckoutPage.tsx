@@ -11,7 +11,7 @@ import { Loader2, Shield, Lock, BadgeCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { usePayUStatus } from '@/hooks/usePayUStatus';
 
-type Method = 'transfer' | 'payu' | 'blik';
+type Method = 'transfer' | 'payu' | 'blik' | 'paypal';
 
 interface OrderInfo {
   id: string;
@@ -28,7 +28,7 @@ interface OrderInfo {
     payment_method_payu: boolean; payment_method_transfer: boolean;
     transfer_payment_details: string | null;
   };
-  paid_event_tickets: { name: string; price_pln: number };
+  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null };
 }
 
 const formatPrice = (groszy: number) =>
@@ -71,7 +71,7 @@ const CheckoutPage: React.FC = () => {
         .from('paid_event_orders')
         .select(`id, event_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, transfer_payment_details ),
-                 paid_event_tickets ( name, price_pln )`)
+                 paid_event_tickets ( name, price_pln, paypal_payment_link )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
@@ -85,20 +85,32 @@ const CheckoutPage: React.FC = () => {
     })();
   }, [orderId, navigate, toast]);
 
+  const paypalLink = order?.paid_event_tickets?.paypal_payment_link?.trim() || null;
+  const hasPaypal = !!paypalLink && /^https:\/\//i.test(paypalLink);
+
   const availableMethods = useMemo<Method[]>(() => {
     if (!order) return [];
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
+    if (hasPaypal) list.push('paypal');
     return list;
-  }, [order]);
+  }, [order, hasPaypal]);
+
+  // PayPal is independent of PayU readiness — treat the page as "actionable"
+  // whenever PayU is ready OR PayPal link is available.
+  const anyMethodActionable = payuReady || hasPaypal;
 
   useEffect(() => {
     if (payuLoading) return;
     if (!method && availableMethods.length > 0) {
-      setMethod(availableMethods[0]);
+      // Prefer a method that the user can actually use right now.
+      const firstUsable = availableMethods.find((m) =>
+        m === 'paypal' ? hasPaypal : payuReady,
+      );
+      setMethod(firstUsable ?? availableMethods[0]);
     }
-  }, [availableMethods, method, payuLoading]);
+  }, [availableMethods, method, payuLoading, payuReady, hasPaypal]);
 
   const handlePay = async () => {
     if (!order || !method) return;
@@ -129,6 +141,24 @@ const CheckoutPage: React.FC = () => {
         toast({ title: 'Błąd PayU', description: e.message, variant: 'destructive' });
         setBusy(false);
       }
+      return;
+    }
+
+    if (method === 'paypal') {
+      if (!paypalLink) {
+        toast({ title: 'Brak łącza PayPal', variant: 'destructive' });
+        return;
+      }
+      setBusy(true);
+      try {
+        await supabase
+          .from('paid_event_orders')
+          .update({ payment_method: 'paypal_link', payment_provider: 'paypal_link', status: 'awaiting_transfer' })
+          .eq('id', order.id);
+      } catch { /* non-blocking */ }
+      // Otwórz PayPal w nowej karcie i przekieruj kupującego na stronę „oczekuje na ręczne potwierdzenie".
+      window.open(paypalLink, '_blank', 'noopener,noreferrer');
+      navigate(`/ticket/${order.ticket_code}?status=paypal-pending`);
       return;
     }
 
@@ -190,7 +220,8 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>
-                  Płatności są tymczasowo niedostępne{payuReason ? `: ${payuReason}` : ''}. Spróbuj ponownie później lub skontaktuj się z organizatorem.
+                  Płatności kartą / BLIK / przelewem online są tymczasowo niedostępne{payuReason ? `: ${payuReason}` : ''}.
+                  {hasPaypal ? ' Możesz nadal opłacić zamówienie przez PayPal poniżej.' : ' Spróbuj ponownie później lub skontaktuj się z organizatorem.'}
                 </span>
               </div>
             )}
@@ -199,8 +230,10 @@ const CheckoutPage: React.FC = () => {
             ) : (
               <RadioGroup
                 value={method ?? ''}
-                onValueChange={(v) => payuReady && setMethod(v as Method)}
-                disabled={!payuReady}
+                onValueChange={(v) => {
+                  const next = v as Method;
+                  if (next === 'paypal' || payuReady) setMethod(next);
+                }}
                 className="space-y-3"
               >
                 {availableMethods.includes('transfer') && (
@@ -281,8 +314,34 @@ const CheckoutPage: React.FC = () => {
                     </div>
                   </label>
                 )}
+                {availableMethods.includes('paypal') && (
+                  <label
+                    htmlFor="m-paypal"
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition cursor-pointer ${
+                      method === 'paypal'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-paypal" value="paypal" />
+                    <div className="flex-1 flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">PayPal</span>
+                      <span className="text-xs text-muted-foreground">płatność przez łącze PayPal — potwierdzenie ręczne</span>
+                    </div>
+                  </label>
+                )}
               </RadioGroup>
             )}
+
+            {method === 'paypal' && hasPaypal && (
+              <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                <div className="font-semibold text-foreground">Płatność przez PayPal</div>
+                <p className="text-muted-foreground">
+                  Po kliknięciu „Kupuję i płacę" otworzymy stronę PayPal w nowej karcie. Po opłaceniu wyślij potwierdzenie do organizatora — bilet zostanie aktywowany ręcznie po zaksięgowaniu wpłaty.
+                </p>
+              </div>
+            )}
+
 
             {method === 'transfer' && payuReady && order.paid_events.transfer_payment_details && (
               <div className="rounded-md border bg-muted/30 p-3">
@@ -300,7 +359,7 @@ const CheckoutPage: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-2">
-              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} disabled={!payuReady} />
+              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} disabled={!anyMethodActionable} />
               <Label htmlFor="accept" className="text-sm cursor-pointer">
                 Przeczytałem/am i akceptuję warunki i zasady *
               </Label>
@@ -314,10 +373,10 @@ const CheckoutPage: React.FC = () => {
                   busy ||
                   !method ||
                   !acceptTerms ||
-                  !payuReady ||
+                  (method !== 'paypal' && !payuReady) ||
                   (method === 'blik' && blikCode.length !== 6)
                 }
-                title={!payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
+                title={method !== 'paypal' && !payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
                 className="min-w-[200px]"
               >
                 {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{polling ? 'Czekam…' : 'Przetwarzanie…'}</> : 'Kupuję i płacę'}

@@ -7061,6 +7061,7 @@ export type Database = {
           is_active: boolean | null
           is_featured: boolean | null
           name: string
+          paypal_payment_link: string | null
           position: number | null
           price_pln: number
           quantity_available: number | null
@@ -7080,6 +7081,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           name: string
+          paypal_payment_link?: string | null
           position?: number | null
           price_pln?: number
           quantity_available?: number | null
@@ -7099,6 +7101,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           name?: string
+          paypal_payment_link?: string | null
           position?: number | null
           price_pln?: number
           quantity_available?: number | null
