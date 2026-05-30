@@ -7578,6 +7578,9 @@ export type Database = {
           environment: string
           id: string
           is_enabled: boolean
+          last_test_at: string | null
+          last_test_message: string | null
+          last_test_ok: boolean | null
           md5_key: string | null
           notes: string | null
           pos_id: string | null
@@ -7592,6 +7595,9 @@ export type Database = {
           environment?: string
           id?: string
           is_enabled?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_ok?: boolean | null
           md5_key?: string | null
           notes?: string | null
           pos_id?: string | null
@@ -7606,6 +7612,9 @@ export type Database = {
           environment?: string
           id?: string
           is_enabled?: boolean
+          last_test_at?: string | null
+          last_test_message?: string | null
+          last_test_ok?: boolean | null
           md5_key?: string | null
           notes?: string | null
           pos_id?: string | null

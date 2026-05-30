@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Eye, EyeOff, PlugZap, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Eye, EyeOff, PlugZap, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { formatDistanceToNow, format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 interface PayUSettings {
   pos_id: string;
@@ -22,6 +24,13 @@ interface PayUSettings {
   environment: 'sandbox' | 'production';
   is_enabled: boolean;
   notes: string;
+}
+
+interface TestState {
+  ok: boolean;
+  message: string;
+  testedAt: string | null;
+  environment?: string;
 }
 
 const empty: PayUSettings = {
@@ -39,13 +48,13 @@ const PaymentsAdminPage: React.FC = () => {
   const [showMd5, setShowMd5] = useState(false);
   const [rowId, setRowId] = useState<string | null>(null);
   const [settings, setSettings] = useState<PayUSettings>(empty);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testState, setTestState] = useState<TestState | null>(null);
 
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
         .from('payu_settings')
-        .select('id, pos_id, client_id, client_secret, md5_key, second_md5_key, environment, is_enabled, notes')
+        .select('id, pos_id, client_id, client_secret, md5_key, second_md5_key, environment, is_enabled, notes, last_test_at, last_test_ok, last_test_message')
         .limit(1)
         .maybeSingle();
       if (error) toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -61,6 +70,14 @@ const PaymentsAdminPage: React.FC = () => {
           is_enabled: !!data.is_enabled,
           notes: data.notes || '',
         });
+        if (data.last_test_at) {
+          setTestState({
+            ok: !!data.last_test_ok,
+            message: data.last_test_message || '',
+            testedAt: data.last_test_at,
+            environment: data.environment || undefined,
+          });
+        }
       }
       setLoading(false);
     })();
@@ -86,21 +103,33 @@ const PaymentsAdminPage: React.FC = () => {
   };
 
   const test = async () => {
-    setTesting(true); setTestResult(null);
+    setTesting(true);
     try {
       const { data, error } = await supabase.functions.invoke('payu-test-connection');
       if (error) throw error;
+      const testedAt = data?.tested_at || new Date().toISOString();
       if (data?.ok) {
-        setTestResult({ ok: true, message: `Połączono ze środowiskiem: ${data.environment}` });
+        setTestState({ ok: true, message: data?.message || `Połączono ze środowiskiem: ${data.environment}`, testedAt, environment: data.environment });
+        toast({ title: 'Test PayU OK', description: `Środowisko: ${data.environment}` });
       } else {
-        setTestResult({ ok: false, message: data?.error || 'Nieznany błąd' });
+        setTestState({ ok: false, message: data?.error || data?.message || 'Nieznany błąd', testedAt });
+        toast({ title: 'Test PayU nie powiódł się', description: data?.error || 'Sprawdź dane uwierzytelniające', variant: 'destructive' });
       }
     } catch (e: any) {
-      setTestResult({ ok: false, message: e.message });
+      setTestState({ ok: false, message: e.message, testedAt: new Date().toISOString() });
+      toast({ title: 'Błąd testu', description: e.message, variant: 'destructive' });
     } finally { setTesting(false); }
   };
 
-  const fullyConfigured = settings.pos_id && settings.client_id && settings.client_secret && settings.md5_key;
+  const fullyConfigured = !!(settings.pos_id && settings.client_id && settings.client_secret && settings.md5_key);
+  const canEnable = fullyConfigured && testState?.ok === true;
+
+  const statusBadge = () => {
+    if (!fullyConfigured) return <Badge variant="secondary">⚠️ Brak danych</Badge>;
+    if (!testState) return <Badge variant="outline">Skonfigurowane — nieprzetestowane</Badge>;
+    if (testState.ok) return <Badge className="bg-emerald-500 hover:bg-emerald-500/90">✅ Aktywne</Badge>;
+    return <Badge variant="destructive">❌ Test nieudany</Badge>;
+  };
 
   if (loading) {
     return <DashboardLayout backTo={{ label: 'Panel admina', path: '/admin' }}>
@@ -124,17 +153,23 @@ const PaymentsAdminPage: React.FC = () => {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-base">Status integracji</CardTitle>
-            <Badge variant={fullyConfigured ? 'default' : 'secondary'}>
-              {fullyConfigured ? '✅ Skonfigurowane' : '⚠️ Brak danych'}
-            </Badge>
+            {statusBadge()}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-3 p-3 border rounded-md">
               <div>
                 <div className="font-medium text-sm">Włącz płatności PayU na platformie</div>
-                <p className="text-xs text-muted-foreground">Gdy wyłączone — opcja PayU znika z checkoutu mimo poprawnej konfiguracji.</p>
+                <p className="text-xs text-muted-foreground">
+                  {canEnable
+                    ? 'Klienci mogą wybrać PayU/BLIK podczas zakupu biletu.'
+                    : 'Najpierw uzupełnij dane i wykonaj udany test połączenia.'}
+                </p>
               </div>
-              <Switch checked={settings.is_enabled} onCheckedChange={(v) => setSettings({ ...settings, is_enabled: v })} />
+              <Switch
+                checked={settings.is_enabled}
+                disabled={!canEnable}
+                onCheckedChange={(v) => setSettings({ ...settings, is_enabled: v })}
+              />
             </div>
 
             <div>
@@ -203,21 +238,54 @@ const PaymentsAdminPage: React.FC = () => {
               <Input value={settings.notes} onChange={(e) => setSettings({ ...settings, notes: e.target.value })} placeholder="np. data ostatniej rotacji klucza" />
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              <Button onClick={save} disabled={saving}>
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <Button onClick={save} disabled={saving} variant="outline">
                 {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
                 Zapisz
               </Button>
-              <Button variant="outline" onClick={test} disabled={testing || !fullyConfigured}>
+              <Button onClick={test} disabled={testing || !fullyConfigured} title={!fullyConfigured ? 'Uzupełnij wszystkie wymagane pola' : ''}>
                 {testing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <PlugZap className="w-4 h-4 mr-1" />}
-                Testuj połączenie
+                Testuj połączenie PayU
               </Button>
             </div>
 
-            {testResult && (
-              <div className={`p-3 rounded-md text-sm flex items-start gap-2 ${testResult.ok ? 'bg-emerald-500/10 text-emerald-700' : 'bg-destructive/10 text-destructive'}`}>
-                {testResult.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5" /> : <AlertTriangle className="w-4 h-4 mt-0.5" />}
-                <span>{testResult.message}</span>
+            {testState && (
+              <div
+                className={`p-4 rounded-md border text-sm space-y-2 ${
+                  testState.ok
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-destructive/10 border-destructive/30 text-destructive'
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  {testState.ok ? <CheckCircle2 className="w-5 h-5 mt-0.5 shrink-0" /> : <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />}
+                  <div className="flex-1">
+                    <div className="font-semibold">
+                      {testState.ok ? 'Połączenie z PayU działa' : 'Połączenie z PayU nie powiodło się'}
+                    </div>
+                    <div className="opacity-90 break-words">{testState.message}</div>
+                    {testState.environment && (
+                      <div className="text-xs opacity-75 mt-1">Środowisko: <strong>{testState.environment}</strong></div>
+                    )}
+                  </div>
+                </div>
+                {testState.testedAt && (
+                  <div className="flex items-center gap-1.5 text-xs opacity-80 pt-1 border-t border-current/10">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>
+                      Ostatni test:{' '}
+                      <strong>{format(new Date(testState.testedAt), 'd MMM yyyy, HH:mm:ss', { locale: pl })}</strong>{' '}
+                      ({formatDistanceToNow(new Date(testState.testedAt), { addSuffix: true, locale: pl })})
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!testState && fullyConfigured && (
+              <div className="p-3 rounded-md border border-dashed text-xs text-muted-foreground flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5" />
+                Brak historii testu — kliknij „Testuj połączenie PayU”, aby sprawdzić konfigurację.
               </div>
             )}
           </CardContent>
@@ -228,7 +296,7 @@ const PaymentsAdminPage: React.FC = () => {
           <CardContent className="text-xs text-muted-foreground space-y-1">
             <p>1. Zaloguj się do panelu <a className="underline" target="_blank" rel="noreferrer" href="https://secure.payu.com">PayU Merchant</a> (lub <a className="underline" target="_blank" rel="noreferrer" href="https://secure.snd.payu.com">sandbox</a>).</p>
             <p>2. Wejdź w <strong>Punkt płatności (POS)</strong> → skopiuj <strong>POS ID</strong>, <strong>Client ID</strong>, <strong>Client Secret</strong> i <strong>Drugi klucz (MD5)</strong>.</p>
-            <p>3. W konfiguracji PowiadomieŃ ustaw URL: <code className="bg-muted px-1 rounded">{import.meta.env.VITE_SUPABASE_URL}/functions/v1/payu-webhook</code></p>
+            <p>3. W konfiguracji powiadomień ustaw URL: <code className="bg-muted px-1 rounded">{import.meta.env.VITE_SUPABASE_URL}/functions/v1/payu-webhook</code></p>
           </CardContent>
         </Card>
       </div>
