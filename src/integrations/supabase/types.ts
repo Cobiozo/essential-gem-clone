@@ -7570,6 +7570,51 @@ export type Database = {
           },
         ]
       }
+      payu_settings: {
+        Row: {
+          client_id: string | null
+          client_secret: string | null
+          created_at: string
+          environment: string
+          id: string
+          is_enabled: boolean
+          md5_key: string | null
+          notes: string | null
+          pos_id: string | null
+          second_md5_key: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          md5_key?: string | null
+          notes?: string | null
+          pos_id?: string | null
+          second_md5_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          is_enabled?: boolean
+          md5_key?: string | null
+          notes?: string | null
+          pos_id?: string | null
+          second_md5_key?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       platform_team_actions: {
         Row: {
           action_type: string
