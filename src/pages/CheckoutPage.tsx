@@ -116,7 +116,7 @@ const CheckoutPage: React.FC = () => {
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
-    if (hasPaypal) list.push('paypal');
+    if (order.paid_events.payment_method_paypal && hasPaypal) list.push('paypal');
     return list;
   }, [order, hasPaypal]);
 
