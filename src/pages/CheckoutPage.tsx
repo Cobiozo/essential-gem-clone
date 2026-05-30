@@ -11,7 +11,7 @@ import { Loader2, Shield, Lock, BadgeCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { usePayUStatus } from '@/hooks/usePayUStatus';
 
-type Method = 'transfer' | 'payu' | 'blik';
+type Method = 'transfer' | 'payu' | 'blik' | 'paypal';
 
 interface OrderInfo {
   id: string;
@@ -28,7 +28,7 @@ interface OrderInfo {
     payment_method_payu: boolean; payment_method_transfer: boolean;
     transfer_payment_details: string | null;
   };
-  paid_event_tickets: { name: string; price_pln: number };
+  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null };
 }
 
 const formatPrice = (groszy: number) =>
