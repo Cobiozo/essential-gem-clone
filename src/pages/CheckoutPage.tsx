@@ -62,6 +62,7 @@ const CheckoutPage: React.FC = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [blikCode, setBlikCode] = useState('');
   const [polling, setPolling] = useState(false);
+  const { payuReady, reason: payuReason, loading: payuLoading } = usePayUStatus();
 
   useEffect(() => {
     if (!orderId) return;
