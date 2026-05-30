@@ -49,7 +49,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
   const updateMutation = useMutation({
     mutationFn: async (payload: PaymentConfig) => {
       // Validation: at least one method required
-      if (!payload.payment_method_payu && !payload.payment_method_transfer) {
+      if (!payload.payment_method_payu && !payload.payment_method_transfer && !payload.payment_method_paypal) {
         throw new Error('Włącz przynajmniej jedną metodę płatności');
       }
       if (payload.payment_method_transfer && !(payload.transfer_payment_details || '').trim()) {
