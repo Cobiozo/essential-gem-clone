@@ -144,6 +144,24 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (method === 'paypal') {
+      if (!paypalLink) {
+        toast({ title: 'Brak łącza PayPal', variant: 'destructive' });
+        return;
+      }
+      setBusy(true);
+      try {
+        await supabase
+          .from('paid_event_orders')
+          .update({ payment_method: 'paypal_link', payment_provider: 'paypal_link', status: 'awaiting_transfer' })
+          .eq('id', order.id);
+      } catch { /* non-blocking */ }
+      // Otwórz PayPal w nowej karcie i przekieruj kupującego na stronę „oczekuje na ręczne potwierdzenie".
+      window.open(paypalLink, '_blank', 'noopener,noreferrer');
+      navigate(`/ticket/${order.ticket_code}?status=paypal-pending`);
+      return;
+    }
+
     if (method === 'blik') {
       if (!/^\d{6}$/.test(blikCode)) {
         toast({ title: 'Wpisz 6-cyfrowy kod BLIK', variant: 'destructive' }); return;
