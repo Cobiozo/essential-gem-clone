@@ -1,8 +1,16 @@
+// Edge function: payu-create-order
+// Refactored to read credentials from public.payu_settings (via shared helper).
+// Two modes:
+//   1) { orderId } — use existing order created by create-event-order (preferred from /checkout page)
+//   2) Legacy: { eventId, ticketId, buyer, quantity, attendees, ... } — creates order then initiates PayU.
+// Returns { success, orderId, redirectUri }.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getPayUConfig, getPayUAccessToken } from "../_shared/payu-config.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface BuyerData {
@@ -19,310 +27,215 @@ interface AttendeeInput {
 }
 
 interface OrderRequest {
-  eventId: string;
-  ticketId: string;
-  quantity: number;
-  buyer: BuyerData;
+  orderId?: string;
+  eventId?: string;
+  ticketId?: string;
+  quantity?: number;
+  buyer?: BuyerData;
   attendees?: AttendeeInput[];
   refCode?: string | null;
-  acceptMarketing?: boolean;
-  /** When false, no seat is auto-filled with buyer data — all seats are guests. */
   buyerIsAttendee?: boolean;
 }
 
+const APP_URL = "https://purelife.lovable.app";
+
 function generateTicketCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 12; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 12; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return code;
 }
 
-async function getPayUAccessToken(): Promise<string> {
-  const clientId = Deno.env.get('PAYU_CLIENT_ID');
-  const clientSecret = Deno.env.get('PAYU_CLIENT_SECRET');
-  
-  if (!clientId || !clientSecret) {
-    throw new Error('PayU credentials not configured');
-  }
-
-  const response = await fetch('https://secure.snd.payu.com/pl/standard/user/oauth/authorize', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('PayU OAuth error:', error);
-    throw new Error('Failed to get PayU access token');
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const body: OrderRequest = await req.json();
-    const { eventId, ticketId, buyer } = body;
-    const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
-    const attendeesInput: AttendeeInput[] = Array.isArray(body.attendees) ? body.attendees : [];
 
-    // Validate input
-    if (!eventId || !ticketId || !buyer?.email) {
+    // --- Load PayU config (fail-fast if not configured) ---
+    let cfg;
+    try {
+      cfg = await getPayUConfig();
+    } catch (err) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: "Płatności PayU nie są skonfigurowane. Skontaktuj się z administratorem.",
+          detail: err instanceof Error ? err.message : String(err),
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    console.log('Creating order for event:', eventId, 'ticket:', ticketId);
+    // --- Mode 1: existing orderId ---
+    let order: any;
+    let event: any;
+    let ticket: any;
+    let buyer: BuyerData;
+    let quantity: number;
 
-    // Get event and ticket data
-    const { data: ticket, error: ticketError } = await supabase
-      .from('paid_event_tickets')
-      .select(`
-        *,
-        paid_events (
-          id, title, slug, event_date, location, is_online
-        )
-      `)
-      .eq('id', ticketId)
-      .eq('event_id', eventId)
-      .eq('is_active', true)
-      .single();
-
-    if (ticketError || !ticket) {
-      console.error('Ticket not found:', ticketError);
-      return new Response(
-        JSON.stringify({ error: 'Ticket not found or not available' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check availability
-    const availableQty = ticket.quantity_available - ticket.quantity_sold;
-    if (availableQty < quantity) {
-      return new Response(
-        JSON.stringify({ error: 'Not enough tickets available', available: availableQty }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check sale period
-    const now = new Date();
-    if (ticket.sale_start && new Date(ticket.sale_start) > now) {
-      return new Response(
-        JSON.stringify({ error: 'Sale has not started yet' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    if (ticket.sale_end && new Date(ticket.sale_end) < now) {
-      return new Response(
-        JSON.stringify({ error: 'Sale has ended' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const totalAmount = ticket.price_pln * quantity;
-    const ticketCode = generateTicketCode();
-    const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
-    const totalSeats = quantity * seatsPerTicket;
-
-    // Determine whether the buyer takes seat #1. If a matching email already has a
-    // non-cancelled order for this event, force guest-only mode.
-    let buyerIsAttendee = body.buyerIsAttendee !== false;
-    if (buyerIsAttendee) {
-      const lowerBuyerEmail = (buyer.email || '').trim().toLowerCase();
-      if (lowerBuyerEmail) {
-        const { data: existingForBuyer } = await supabase
-          .from('paid_event_orders')
-          .select('id, status')
-          .eq('event_id', eventId)
-          .eq('email', lowerBuyerEmail)
-          .not('status', 'in', '("cancelled","refunded")')
-          .limit(1);
-        if ((existingForBuyer?.length ?? 0) > 0) {
-          buyerIsAttendee = false;
-          console.log(`[buyer-dedup] buyer already has a ticket for event=${eventId}; switching to guest-only mode`);
-        }
-      }
-    }
-
-    // Normalize attendees: pad up to totalSeats.
-    const rawAttendees: AttendeeInput[] = attendeesInput.map(a => ({
-      firstName: (a.firstName || '').trim(),
-      lastName: (a.lastName || '').trim(),
-      email: (a.email || '').trim() || null,
-    }));
-    const attendeesNormalized: AttendeeInput[] = [];
-    for (let i = 0; i < totalSeats; i++) {
-      const a = rawAttendees[i];
-      if (i === 0 && buyerIsAttendee) {
-        attendeesNormalized.push({
-          firstName: a?.firstName || buyer.firstName,
-          lastName: a?.lastName || buyer.lastName,
-          email: a?.email || buyer.email,
-        });
-      } else {
-        attendeesNormalized.push({
-          firstName: a?.firstName || 'Gość',
-          lastName: a?.lastName || `#${i + 1}`,
-          email: a?.email || null,
+    if (body.orderId) {
+      const { data: existing, error: oErr } = await supabase
+        .from("paid_event_orders")
+        .select(`*, paid_events (id, title, slug, event_date, location, is_online), paid_event_tickets (id, name, price_pln)`)
+        .eq("id", body.orderId)
+        .maybeSingle();
+      if (oErr || !existing) {
+        return new Response(JSON.stringify({ error: "Order not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
-
-    // Create order in database
-    const { data: order, error: orderError } = await supabase
-      .from('paid_event_orders')
-      .insert({
-        event_id: eventId,
-        ticket_id: ticketId,
-        email: buyer.email,
-        first_name: buyer.firstName,
-        last_name: buyer.lastName,
-        phone: buyer.phone,
-        quantity,
-        total_amount: totalAmount,
-        status: 'pending',
-        payment_provider: 'payu',
-        ticket_code: ticketCode,
-      })
-      .select()
-      .single();
-
-    if (orderError) {
-      console.error('Failed to create order:', orderError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to create order' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Order created:', order.id);
-
-    // Insert per-attendee rows (one QR code per seat).
-    const attendeeRows = attendeesNormalized.map((a, idx) => ({
-      order_id: order.id,
-      event_id: eventId,
-      seat_index: idx + 1,
-      first_name: a.firstName,
-      last_name: a.lastName,
-      email: a.email,
-      ticket_code: generateTicketCode(),
-    }));
-    if (attendeeRows.length !== totalSeats) {
-      console.error(`[attendees] mismatch: rows=${attendeeRows.length} expected=${totalSeats} order=${order.id}`);
-    }
-    const { error: attErr } = await supabase
-      .from('paid_event_order_attendees')
-      .insert(attendeeRows);
-    if (attErr) {
-      console.error(`[attendees] INSERT FAILED order=${order.id} totalSeats=${totalSeats}`, attErr);
+      if (existing.status === "paid" || existing.status === "completed") {
+        return new Response(JSON.stringify({ error: "Order already paid" }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      order = existing;
+      event = (existing as any).paid_events;
+      ticket = (existing as any).paid_event_tickets;
+      buyer = {
+        email: existing.email,
+        firstName: existing.first_name,
+        lastName: existing.last_name,
+        phone: existing.phone || "",
+      };
+      quantity = existing.quantity;
     } else {
-      console.log(`[attendees] inserted ${attendeeRows.length} rows for order=${order.id} (qty=${quantity}, seats_per_ticket=${seatsPerTicket})`);
+      // --- Mode 2: legacy inline creation ---
+      if (!body.eventId || !body.ticketId || !body.buyer?.email) {
+        return new Response(JSON.stringify({ error: "Missing required fields" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      buyer = body.buyer;
+      quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
+
+      const { data: t, error: tErr } = await supabase
+        .from("paid_event_tickets")
+        .select(`*, paid_events ( id, title, slug, event_date, location, is_online )`)
+        .eq("id", body.ticketId)
+        .eq("event_id", body.eventId)
+        .eq("is_active", true)
+        .single();
+      if (tErr || !t) {
+        return new Response(JSON.stringify({ error: "Ticket not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      ticket = t;
+      event = (t as any).paid_events;
+      const totalAmount = t.price_pln * quantity;
+      const ticketCode = generateTicketCode();
+      const seatsPerTicket = Math.max(1, Number((t as any).seats_per_ticket) || 1);
+      const totalSeats = quantity * seatsPerTicket;
+
+      const { data: created, error: cErr } = await supabase
+        .from("paid_event_orders")
+        .insert({
+          event_id: body.eventId,
+          ticket_id: body.ticketId,
+          email: buyer.email,
+          first_name: buyer.firstName,
+          last_name: buyer.lastName,
+          phone: buyer.phone,
+          quantity,
+          total_amount: totalAmount,
+          status: "pending",
+          payment_provider: "payu",
+          payment_method: "payu",
+          ticket_code: ticketCode,
+        })
+        .select()
+        .single();
+      if (cErr || !created) {
+        return new Response(JSON.stringify({ error: "Failed to create order", detail: cErr?.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      order = created;
+
+      // attendees (best-effort)
+      const incoming = Array.isArray(body.attendees) ? body.attendees : [];
+      const rows: any[] = [];
+      for (let i = 0; i < totalSeats; i++) {
+        const a = incoming[i];
+        const isBuyerSeat = i === 0 && body.buyerIsAttendee !== false;
+        rows.push({
+          order_id: order.id,
+          event_id: body.eventId,
+          seat_index: i + 1,
+          first_name: a?.firstName?.trim() || (isBuyerSeat ? buyer.firstName : "Gość"),
+          last_name: a?.lastName?.trim() || (isBuyerSeat ? buyer.lastName : `#${i + 1}`),
+          email: a?.email?.trim() || (isBuyerSeat ? buyer.email : null),
+          ticket_code: generateTicketCode(),
+        });
+      }
+      await supabase.from("paid_event_order_attendees").insert(rows);
     }
 
-    // Get PayU access token
-    const accessToken = await getPayUAccessToken();
-    const posId = Deno.env.get('PAYU_MERCHANT_POS_ID');
+    // --- Call PayU API ---
+    const accessToken = await getPayUAccessToken(cfg);
+    const customerIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
 
-    if (!posId) {
-      throw new Error('PayU POS ID not configured');
-    }
-
-    // Prepare PayU order
-    const event = ticket.paid_events;
     const payuOrder = {
       notifyUrl: `${supabaseUrl}/functions/v1/payu-webhook`,
-      continueUrl: `https://purelife.lovable.app/event/${event.slug}/confirmation?orderId=${order.id}`,
-      customerIp: req.headers.get('x-forwarded-for') || '127.0.0.1',
-      merchantPosId: posId,
+      continueUrl: `${APP_URL}/ticket/${order.ticket_code}?orderId=${order.id}`,
+      customerIp,
+      merchantPosId: cfg.posId,
       description: `${event.title} - ${ticket.name}`,
-      currencyCode: 'PLN',
-      totalAmount: totalAmount.toString(),
+      currencyCode: "PLN",
+      totalAmount: String(order.total_amount),
       extOrderId: order.id,
       buyer: {
         email: buyer.email,
         firstName: buyer.firstName,
         lastName: buyer.lastName,
-        phone: buyer.phone,
+        phone: buyer.phone || "",
       },
       products: [
-        {
-          name: `${ticket.name} - ${event.title}`,
-          unitPrice: ticket.price_pln.toString(),
-          quantity: quantity.toString(),
-        },
+        { name: `${ticket.name} - ${event.title}`, unitPrice: String(ticket.price_pln), quantity: String(quantity) },
       ],
     };
 
-    console.log('Creating PayU order:', JSON.stringify(payuOrder));
-
-    // Create PayU order
-    const payuResponse = await fetch('https://secure.snd.payu.com/api/v2_1/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
+    const payuResponse = await fetch(`${cfg.baseUrl}/api/v2_1/orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify(payuOrder),
-      redirect: 'manual', // Don't follow redirects
+      redirect: "manual",
     });
+    const payuData = await payuResponse.json().catch(() => ({}));
 
-    const payuData = await payuResponse.json();
-    console.log('PayU response:', JSON.stringify(payuData));
-
-    if (payuData.status?.statusCode !== 'SUCCESS') {
-      console.error('PayU order creation failed:', payuData);
-      
-      // Mark order as failed
-      await supabase
-        .from('paid_event_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', order.id);
-
+    if (payuData?.status?.statusCode !== "SUCCESS") {
+      console.error("[payu-create-order] PayU rejected:", JSON.stringify(payuData));
+      await supabase.from("paid_event_orders").update({ status: "failed" }).eq("id", order.id);
       return new Response(
-        JSON.stringify({ error: 'Payment initialization failed', details: payuData }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Inicjalizacja płatności nie powiodła się", detail: payuData?.status }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Update order with PayU order ID
     await supabase
-      .from('paid_event_orders')
-      .update({ payment_order_id: payuData.orderId })
-      .eq('id', order.id);
-
-    console.log('Order updated with PayU ID:', payuData.orderId);
+      .from("paid_event_orders")
+      .update({ payment_order_id: payuData.orderId, payment_method: "payu" })
+      .eq("id", order.id);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        orderId: order.id,
-        redirectUri: payuData.redirectUri,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: true, orderId: order.id, redirectUri: payuData.redirectUri }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error) {
-    console.error('Error in payu-create-order:', error);
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[payu-create-order] error:", message);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
