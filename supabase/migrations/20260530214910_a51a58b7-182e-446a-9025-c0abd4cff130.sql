@@ -1,0 +1,1 @@
+ALTER TABLE public.paid_events ADD COLUMN IF NOT EXISTS payment_method_paypal boolean NOT NULL DEFAULT false;

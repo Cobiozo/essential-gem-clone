@@ -7139,6 +7139,7 @@ export type Database = {
           is_published: boolean | null
           location: string | null
           max_tickets: number | null
+          payment_method_paypal: boolean
           payment_method_payu: boolean
           payment_method_transfer: boolean
           short_description: string | null
@@ -7172,6 +7173,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_tickets?: number | null
+          payment_method_paypal?: boolean
           payment_method_payu?: boolean
           payment_method_transfer?: boolean
           short_description?: string | null
@@ -7205,6 +7207,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_tickets?: number | null
+          payment_method_paypal?: boolean
           payment_method_payu?: boolean
           payment_method_transfer?: boolean
           short_description?: string | null

@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, CreditCard, Banknote } from 'lucide-react';
+import { Loader2, Save, CreditCard, Banknote, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EventPaymentMethodsPanelProps {
