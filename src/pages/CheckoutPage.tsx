@@ -213,21 +213,49 @@ const CheckoutPage: React.FC = () => {
                   </label>
                 )}
                 {availableMethods.includes('payu') && (
-                  <label htmlFor="m-payu" className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${method === 'payu' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <RadioGroupItem id="m-payu" value="payu" />
-                    <div className="flex-1 flex items-center gap-2">
+                  <label
+                    htmlFor="m-payu"
+                    title={!payuReady ? (payuReason ?? 'PayU jest tymczasowo niedostępne') : undefined}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition ${
+                      !payuReady
+                        ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                        : method === 'payu'
+                          ? 'border-primary bg-primary/5 cursor-pointer'
+                          : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-payu" value="payu" disabled={!payuReady} />
+                    <div className="flex-1 flex items-center gap-2 flex-wrap">
                       <span className="font-medium">PayU</span>
                       <span className="text-xs text-muted-foreground">karta · szybki przelew · Apple/Google Pay</span>
+                      {!payuReady && (
+                        <span className="text-xs text-destructive">Tymczasowo niedostępne</span>
+                      )}
                     </div>
                   </label>
                 )}
                 {availableMethods.includes('blik') && (
-                  <label htmlFor="m-blik" className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${method === 'blik' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <RadioGroupItem id="m-blik" value="blik" className="mt-1" />
+                  <label
+                    htmlFor="m-blik"
+                    title={!payuReady ? (payuReason ?? 'BLIK przez PayU jest tymczasowo niedostępny') : undefined}
+                    className={`flex items-start gap-3 p-4 rounded-lg border-2 transition ${
+                      !payuReady
+                        ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                        : method === 'blik'
+                          ? 'border-primary bg-primary/5 cursor-pointer'
+                          : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-blik" value="blik" className="mt-1" disabled={!payuReady} />
                     <div className="flex-1">
-                      <div className="font-medium">BLIK</div>
+                      <div className="font-medium flex items-center gap-2 flex-wrap">
+                        BLIK
+                        {!payuReady && (
+                          <span className="text-xs text-destructive font-normal">Tymczasowo niedostępne</span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">Wpisz 6-cyfrowy kod z aplikacji bankowej.</p>
-                      {method === 'blik' && (
+                      {method === 'blik' && payuReady && (
                         <div className="mt-3 max-w-xs">
                           <Label className="text-xs">Kod BLIK</Label>
                           <Input
