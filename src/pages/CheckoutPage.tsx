@@ -94,8 +94,22 @@ const CheckoutPage: React.FC = () => {
   }, [order]);
 
   useEffect(() => {
-    if (!method && availableMethods.length > 0) setMethod(availableMethods[0]);
-  }, [availableMethods, method]);
+    if (payuLoading) return;
+    const isPayuMethod = (m: Method | null) => m === 'payu' || m === 'blik';
+    // Pick first non-PayU method if PayU not ready; otherwise first available.
+    if (!method && availableMethods.length > 0) {
+      const preferred = !payuReady
+        ? (availableMethods.find((m) => !isPayuMethod(m)) ?? availableMethods[0])
+        : availableMethods[0];
+      setMethod(preferred);
+      return;
+    }
+    // If a PayU method got auto-selected but PayU isn't ready, switch to a usable one.
+    if (method && isPayuMethod(method) && !payuReady) {
+      const fallback = availableMethods.find((m) => !isPayuMethod(m));
+      if (fallback) setMethod(fallback);
+    }
+  }, [availableMethods, method, payuReady, payuLoading]);
 
   const handlePay = async () => {
     if (!order || !method) return;
