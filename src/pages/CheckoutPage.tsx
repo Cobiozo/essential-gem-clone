@@ -186,13 +186,36 @@ const CheckoutPage: React.FC = () => {
         <Card>
           <CardHeader><CardTitle>Wybierz metodę płatności</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {!payuReady && !payuLoading && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  Płatności są tymczasowo niedostępne{payuReason ? `: ${payuReason}` : ''}. Spróbuj ponownie później lub skontaktuj się z organizatorem.
+                </span>
+              </div>
+            )}
             {availableMethods.length === 0 ? (
               <p className="text-sm text-destructive">Brak skonfigurowanych metod płatności dla tego wydarzenia.</p>
             ) : (
-              <RadioGroup value={method ?? ''} onValueChange={(v) => setMethod(v as Method)} className="space-y-3">
+              <RadioGroup
+                value={method ?? ''}
+                onValueChange={(v) => payuReady && setMethod(v as Method)}
+                disabled={!payuReady}
+                className="space-y-3"
+              >
                 {availableMethods.includes('transfer') && (
-                  <label htmlFor="m-transfer" className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${method === 'transfer' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <RadioGroupItem id="m-transfer" value="transfer" className="mt-1" />
+                  <label
+                    htmlFor="m-transfer"
+                    title={!payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
+                    className={`flex items-start gap-3 p-4 rounded-lg border-2 transition ${
+                      !payuReady
+                        ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                        : method === 'transfer'
+                          ? 'border-primary bg-primary/5 cursor-pointer'
+                          : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-transfer" value="transfer" className="mt-1" disabled={!payuReady} />
                     <div className="flex-1">
                       <div className="font-medium">Przelew bankowy</div>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -261,7 +284,7 @@ const CheckoutPage: React.FC = () => {
               </RadioGroup>
             )}
 
-            {method === 'transfer' && order.paid_events.transfer_payment_details && (
+            {method === 'transfer' && payuReady && order.paid_events.transfer_payment_details && (
               <div className="rounded-md border bg-muted/30 p-3">
                 <div className="text-xs font-semibold mb-1">Dane do przelewu (zostaną też wysłane mailem):</div>
                 <pre className="text-xs whitespace-pre-wrap font-mono">{order.paid_events.transfer_payment_details}</pre>
@@ -277,21 +300,11 @@ const CheckoutPage: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-2">
-              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} />
+              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} disabled={!payuReady} />
               <Label htmlFor="accept" className="text-sm cursor-pointer">
                 Przeczytałem/am i akceptuję warunki i zasady *
               </Label>
             </div>
-
-            {(method === 'payu' || method === 'blik') && !payuReady && !payuLoading && (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>
-                  {payuReason ?? 'PayU jest tymczasowo niedostępne.'} Wybierz inną metodę płatności
-                  {availableMethods.includes('transfer') ? ' (np. przelew bankowy).' : '.'}
-                </span>
-              </div>
-            )}
 
             <div className="flex justify-end pt-2">
               <Button
@@ -301,9 +314,10 @@ const CheckoutPage: React.FC = () => {
                   busy ||
                   !method ||
                   !acceptTerms ||
-                  (method === 'blik' && blikCode.length !== 6) ||
-                  ((method === 'payu' || method === 'blik') && !payuReady)
+                  !payuReady ||
+                  (method === 'blik' && blikCode.length !== 6)
                 }
+                title={!payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
                 className="min-w-[200px]"
               >
                 {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{polling ? 'Czekam…' : 'Przetwarzanie…'}</> : 'Kupuję i płacę'}
