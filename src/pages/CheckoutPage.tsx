@@ -294,11 +294,27 @@ const CheckoutPage: React.FC = () => {
               </Label>
             </div>
 
+            {(method === 'payu' || method === 'blik') && !payuReady && !payuLoading && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  {payuReason ?? 'PayU jest tymczasowo niedostępne.'} Wybierz inną metodę płatności
+                  {availableMethods.includes('transfer') ? ' (np. przelew bankowy).' : '.'}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-end pt-2">
               <Button
                 size="lg"
                 onClick={handlePay}
-                disabled={busy || !method || !acceptTerms || (method === 'blik' && blikCode.length !== 6)}
+                disabled={
+                  busy ||
+                  !method ||
+                  !acceptTerms ||
+                  (method === 'blik' && blikCode.length !== 6) ||
+                  ((method === 'payu' || method === 'blik') && !payuReady)
+                }
                 className="min-w-[200px]"
               >
                 {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{polling ? 'Czekam…' : 'Przetwarzanie…'}</> : 'Kupuję i płacę'}
