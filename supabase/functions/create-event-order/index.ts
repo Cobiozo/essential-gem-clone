@@ -1,0 +1,117 @@
+// Edge function: create-event-order
+// Unified order creator. Creates a pending order + attendee rows.
+// Frontend then redirects to /checkout/{orderId} where the user picks the payment method.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface Buyer { email: string; firstName: string; lastName: string; phone: string }
+interface Attendee { firstName: string; lastName: string; email?: string | null }
+
+function ticketCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let c = ""; for (let i = 0; i < 12; i++) c += chars.charAt(Math.floor(Math.random() * chars.length));
+  return c;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const body = await req.json();
+    const { eventId, ticketId, buyer, attendees = [], buyerIsAttendee = true, refCode = null, quantity = 1 } = body as {
+      eventId: string; ticketId: string; buyer: Buyer; attendees?: Attendee[];
+      buyerIsAttendee?: boolean; refCode?: string | null; quantity?: number;
+    };
+    if (!eventId || !ticketId || !buyer?.email || !buyer.firstName || !buyer.lastName) {
+      return new Response(JSON.stringify({ error: "Brak wymaganych danych kupującego" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const qty = Math.max(1, Math.min(50, Number(quantity) || 1));
+
+    const { data: ticket, error: tErr } = await supabase
+      .from("paid_event_tickets")
+      .select("id, name, price_pln, seats_per_ticket, is_active, quantity_available, quantity_sold, sale_start, sale_end")
+      .eq("id", ticketId).eq("event_id", eventId).maybeSingle();
+    if (tErr || !ticket || !ticket.is_active) {
+      return new Response(JSON.stringify({ error: "Bilet niedostępny" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const now = new Date();
+    if (ticket.sale_start && new Date(ticket.sale_start) > now) {
+      return new Response(JSON.stringify({ error: "Sprzedaż jeszcze nie rozpoczęta" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (ticket.sale_end && new Date(ticket.sale_end) < now) {
+      return new Response(JSON.stringify({ error: "Sprzedaż zakończona" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const avail = (ticket.quantity_available ?? 0) - (ticket.quantity_sold ?? 0);
+    if (ticket.quantity_available != null && avail < qty) {
+      return new Response(JSON.stringify({ error: "Za mało dostępnych biletów" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const seatsPerTicket = Math.max(1, Number(ticket.seats_per_ticket) || 1);
+    const totalSeats = qty * seatsPerTicket;
+    const totalAmount = ticket.price_pln * qty;
+    const code = ticketCode();
+
+    const { data: order, error: oErr } = await supabase.from("paid_event_orders").insert({
+      event_id: eventId,
+      ticket_id: ticketId,
+      email: buyer.email,
+      first_name: buyer.firstName,
+      last_name: buyer.lastName,
+      phone: buyer.phone || null,
+      quantity: qty,
+      total_amount: totalAmount,
+      status: "pending",
+      payment_provider: "pending",
+      ticket_code: code,
+    }).select().single();
+    if (oErr || !order) {
+      return new Response(JSON.stringify({ error: "Nie udało się utworzyć zamówienia", detail: oErr?.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const rows: any[] = [];
+    for (let i = 0; i < totalSeats; i++) {
+      const a = attendees[i];
+      const isBuyerSeat = i === 0 && buyerIsAttendee;
+      rows.push({
+        order_id: order.id,
+        event_id: eventId,
+        seat_index: i + 1,
+        first_name: (a?.firstName || "").trim() || (isBuyerSeat ? buyer.firstName : "Gość"),
+        last_name: (a?.lastName || "").trim() || (isBuyerSeat ? buyer.lastName : `#${i + 1}`),
+        email: (a?.email || "").trim() || (isBuyerSeat ? buyer.email : null),
+        ticket_code: ticketCode(),
+      });
+    }
+    const { error: attErr } = await supabase.from("paid_event_order_attendees").insert(rows);
+    if (attErr) console.error("[create-event-order] attendees insert:", attErr);
+
+    return new Response(JSON.stringify({ success: true, orderId: order.id, ticketCode: code }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[create-event-order]", message);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
