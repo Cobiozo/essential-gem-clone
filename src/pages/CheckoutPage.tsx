@@ -314,8 +314,34 @@ const CheckoutPage: React.FC = () => {
                     </div>
                   </label>
                 )}
+                {availableMethods.includes('paypal') && (
+                  <label
+                    htmlFor="m-paypal"
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition cursor-pointer ${
+                      method === 'paypal'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-paypal" value="paypal" />
+                    <div className="flex-1 flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">PayPal</span>
+                      <span className="text-xs text-muted-foreground">płatność przez łącze PayPal — potwierdzenie ręczne</span>
+                    </div>
+                  </label>
+                )}
               </RadioGroup>
             )}
+
+            {method === 'paypal' && hasPaypal && (
+              <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                <div className="font-semibold text-foreground">Płatność przez PayPal</div>
+                <p className="text-muted-foreground">
+                  Po kliknięciu „Kupuję i płacę" otworzymy stronę PayPal w nowej karcie. Po opłaceniu wyślij potwierdzenie do organizatora — bilet zostanie aktywowany ręcznie po zaksięgowaniu wpłaty.
+                </p>
+              </div>
+            )}
+
 
             {method === 'transfer' && payuReady && order.paid_events.transfer_payment_details && (
               <div className="rounded-md border bg-muted/30 p-3">
