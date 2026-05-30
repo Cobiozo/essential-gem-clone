@@ -561,10 +561,18 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               )}
 
-              {paymentMethodPayu && (
+              {paymentMethodPayu && payuReady && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4" />
                   <span>Płatność zabezpieczona przez PayU</span>
+                </div>
+              )}
+              {payuBlocked && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                  PayU jest tymczasowo niedostępne ({payuReason ?? 'brak aktywnego połączenia'}).
+                  {paymentMethodTransfer
+                    ? ' Możesz dokończyć zakup wybierając przelew bankowy.'
+                    : ' Spróbuj ponownie później.'}
                 </div>
               )}
             </form>
@@ -579,7 +587,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               </div>
             ) : (
               <>
-                <Button size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={loadingMode !== null}>
+                <Button
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleSubmit}
+                  disabled={loadingMode !== null || noUsableMethod}
+                  title={noUsableMethod ? (payuReason ?? 'PayU jest tymczasowo niedostępne') : undefined}
+                >
                   {loadingMode === 'checkout' ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
                   ) : (
