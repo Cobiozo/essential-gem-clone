@@ -85,20 +85,32 @@ const CheckoutPage: React.FC = () => {
     })();
   }, [orderId, navigate, toast]);
 
+  const paypalLink = order?.paid_event_tickets?.paypal_payment_link?.trim() || null;
+  const hasPaypal = !!paypalLink && /^https:\/\//i.test(paypalLink);
+
   const availableMethods = useMemo<Method[]>(() => {
     if (!order) return [];
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
+    if (hasPaypal) list.push('paypal');
     return list;
-  }, [order]);
+  }, [order, hasPaypal]);
+
+  // PayPal is independent of PayU readiness — treat the page as "actionable"
+  // whenever PayU is ready OR PayPal link is available.
+  const anyMethodActionable = payuReady || hasPaypal;
 
   useEffect(() => {
     if (payuLoading) return;
     if (!method && availableMethods.length > 0) {
-      setMethod(availableMethods[0]);
+      // Prefer a method that the user can actually use right now.
+      const firstUsable = availableMethods.find((m) =>
+        m === 'paypal' ? hasPaypal : payuReady,
+      );
+      setMethod(firstUsable ?? availableMethods[0]);
     }
-  }, [availableMethods, method, payuLoading]);
+  }, [availableMethods, method, payuLoading, payuReady, hasPaypal]);
 
   const handlePay = async () => {
     if (!order || !method) return;
