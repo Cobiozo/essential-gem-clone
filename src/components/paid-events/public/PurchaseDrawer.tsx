@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,7 @@ interface PurchaseDrawerProps {
   refCode?: string | null;
 }
 
-type SubmitMode = 'payu' | 'transfer';
+type SubmitMode = 'checkout';
 
 interface Attendee {
   firstName: string;
@@ -56,6 +57,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
@@ -246,64 +248,39 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       refCode: refCode || null,
     };
   };
-  const handlePayU = async () => {
+  const handleSubmit = async () => {
     if (!validate() || !ticket) return;
-    setLoadingMode('payu');
+    setLoadingMode('checkout');
     try {
       const payload = buildPayload();
-      console.log('[purchase] payu payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
-      const { data, error } = await supabase.functions.invoke('payu-create-order', { body: payload });
-      if (error) throw error;
-      if (data?.redirectUri) {
-        window.location.href = data.redirectUri;
-      } else {
-        throw new Error('Brak URL przekierowania');
-      }
-    } catch (error: any) {
-      console.error('Purchase error:', error);
-      toast({ title: 'Błąd płatności', description: error.message || 'Wystąpił błąd podczas tworzenia zamówienia', variant: 'destructive' });
-    } finally {
-      setLoadingMode(null);
-    }
-  };
-
-  const handleTransfer = async () => {
-    if (!validate() || !ticket) return;
-    setLoadingMode('transfer');
-    try {
-      const payload = buildPayload();
-      console.log('[purchase] transfer payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
-      const { data, error } = await supabase.functions.invoke('register-event-transfer-order', { body: payload });
-      if (error) throw error;
-      if (data?.success) {
-        // Verify what actually got persisted (helps detect quantity/attendees mismatches)
-        if (data?.orderId) {
-          const { data: saved } = await supabase
-            .from('paid_event_orders')
-            .select('quantity, total_amount')
-            .eq('id', data.orderId)
-            .maybeSingle();
-          console.log('[purchase] saved order', saved, 'expected qty=', payload.quantity);
-          if (saved && saved.quantity !== payload.quantity) {
-            toast({
-              title: 'Uwaga: rozbieżność',
-              description: `Wybrano ${payload.quantity} biletów, ale w bazie zapisano ${saved.quantity}. Skontaktuj się z administratorem.`,
-              variant: 'destructive',
-            });
+      console.log('[purchase] create order payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      const { data, error } = await supabase.functions.invoke('create-event-order', { body: payload });
+      if (error) {
+        // Try to extract server-side error message from the FunctionsHttpError response
+        let detail = error.message || 'Nie udało się utworzyć zamówienia';
+        try {
+          const ctxRes = (error as any).context?.response;
+          if (ctxRes && typeof ctxRes.json === 'function') {
+            const j = await ctxRes.json();
+            if (j?.error) detail = j.error;
           }
-        }
-        // Refresh "Moje bilety" so the new order shows up immediately
-        qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
-        qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
-        qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
-        qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
-        setTransferSuccess(true);
-      } else {
-        throw new Error(data?.error || 'Nie udało się zarejestrować rezerwacji');
+        } catch { /* ignore */ }
+        throw new Error(detail);
       }
-    } catch (error: any) {
-      console.error('Transfer registration error:', error);
-      toast({ title: 'Błąd rejestracji', description: error.message || 'Wystąpił błąd podczas rejestracji', variant: 'destructive' });
+      if (data?.error) throw new Error(data.error);
+      if (!data?.orderId) throw new Error('Brak identyfikatora zamówienia');
+
+      // Refresh "Moje bilety" so the new (pending) order shows up
+      qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
+      qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
+      qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+      qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
+
+      onOpenChange(false);
+      navigate(`/checkout/${data.orderId}`);
+    } catch (err: any) {
+      console.error('Purchase error:', err);
+      toast({ title: 'Błąd', description: err.message || 'Wystąpił błąd podczas tworzenia zamówienia', variant: 'destructive' });
     } finally {
       setLoadingMode(null);
     }
@@ -560,26 +537,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               </div>
             ) : (
               <>
-                {paymentMethodPayu && (
-                  <Button size="lg" className="w-full gap-2" onClick={handlePayU} disabled={loadingMode !== null}>
-                    {loadingMode === 'payu' ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
-                    ) : (
-                      <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
-                    )}
-                  </Button>
-                )}
-
-                {paymentMethodTransfer && (
-                  <Button size="lg" variant={paymentMethodPayu ? 'outline' : 'default'} className="w-full gap-2" onClick={handleTransfer} disabled={loadingMode !== null}>
-                    {loadingMode === 'transfer' ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Rejestrowanie...</>
-                    ) : (
-                      <><Banknote className="w-4 h-4" />{hasOwnTicket ? 'Zarejestruj gości i wyślij dane do przelewu' : 'Zarejestruj mnie i wyślij dane do przelewu'}</>
-                    )}
-                  </Button>
-                )}
-
+                <Button size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={loadingMode !== null}>
+                  {loadingMode === 'checkout' ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
+                  ) : (
+                    <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
+                  )}
+                </Button>
                 <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loadingMode !== null}>Anuluj</Button>
               </>
             )}

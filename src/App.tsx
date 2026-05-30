@@ -154,6 +154,9 @@ const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewP
 const NewsHubPage = lazyWithRetry(() => import("./pages/NewsHubPage"));
 const NewsHubPostPage = lazyWithRetry(() => import("./pages/NewsHubPostPage"));
 const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"));
+const CheckoutPage = lazyWithRetry(() => import("./pages/CheckoutPage"));
+const TicketPage = lazyWithRetry(() => import("./pages/TicketPage"));
+const PaymentsAdminPage = lazyWithRetry(() => import("./pages/PaymentsAdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,7 +205,7 @@ const ChatWidgetsWrapper = () => {
   const isMeetingPage = location.pathname.startsWith('/meeting-room/');
 
   // Known app route prefixes — anything else at top level is a partner page
-  const knownPrefixes = ['/admin', '/dashboard', '/login', '/register', '/reset', '/messages', '/calendar', '/training', '/settings', '/my-account', '/events', '/tools', '/compass', '/clients', '/team', '/knowledge', '/meeting-room', '/infolink', '/auto-webinar', '/a-w', '/certificates', '/leaderboard', '/auth', '/aktualnosci'];
+  const knownPrefixes = ['/admin', '/dashboard', '/login', '/register', '/reset', '/messages', '/calendar', '/training', '/settings', '/my-account', '/events', '/tools', '/compass', '/clients', '/team', '/knowledge', '/meeting-room', '/infolink', '/auto-webinar', '/a-w', '/certificates', '/leaderboard', '/auth', '/aktualnosci', '/checkout', '/ticket'];
   const path = location.pathname;
   const isPartnerPage = path !== '/' && !knownPrefixes.some(p => path.startsWith(p));
 
@@ -442,6 +445,9 @@ const AppContent = () => {
                 <Route path="/aktualnosci" element={<NewsHubPage />} />
                 <Route path="/aktualnosci/:slug" element={<NewsHubPostPage />} />
                 <Route path="/admin/news-hub" element={<NewsHubAdminPage />} />
+                <Route path="/admin/payments" element={<PaymentsAdminPage />} />
+                <Route path="/checkout/:orderId" element={<CheckoutPage />} />
+                <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

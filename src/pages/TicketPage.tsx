@@ -118,7 +118,7 @@ const TicketPage: React.FC = () => {
   }
 
   const isPaid = order.status === 'paid' || order.status === 'completed';
-  const isTransferPending = order.status === 'pending_transfer' || (fromTransfer && order.status === 'pending');
+  const isTransferPending = order.status === 'awaiting_transfer' || (fromTransfer && order.status === 'pending');
   const isCancelled = ['cancelled', 'failed', 'refunded'].includes(order.status);
   const isProcessing = !isPaid && !isCancelled && !isTransferPending;
 
