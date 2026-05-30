@@ -537,26 +537,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               </div>
             ) : (
               <>
-                {paymentMethodPayu && (
-                  <Button size="lg" className="w-full gap-2" onClick={handlePayU} disabled={loadingMode !== null}>
-                    {loadingMode === 'payu' ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
-                    ) : (
-                      <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
-                    )}
-                  </Button>
-                )}
-
-                {paymentMethodTransfer && (
-                  <Button size="lg" variant={paymentMethodPayu ? 'outline' : 'default'} className="w-full gap-2" onClick={handleTransfer} disabled={loadingMode !== null}>
-                    {loadingMode === 'transfer' ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Rejestrowanie...</>
-                    ) : (
-                      <><Banknote className="w-4 h-4" />{hasOwnTicket ? 'Zarejestruj gości i wyślij dane do przelewu' : 'Zarejestruj mnie i wyślij dane do przelewu'}</>
-                    )}
-                  </Button>
-                )}
-
+                <Button size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={loadingMode !== null}>
+                  {loadingMode === 'checkout' ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
+                  ) : (
+                    <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
+                  )}
+                </Button>
                 <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loadingMode !== null}>Anuluj</Button>
               </>
             )}
