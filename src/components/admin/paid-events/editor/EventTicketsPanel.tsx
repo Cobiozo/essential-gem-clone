@@ -30,6 +30,7 @@ interface Ticket {
   position: number;
   benefits: string[] | null;
   seats_per_ticket: number | null;
+  paypal_payment_link: string | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
