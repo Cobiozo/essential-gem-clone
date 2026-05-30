@@ -72,7 +72,7 @@ const CheckoutPage: React.FC = () => {
     (async () => {
       const { data, error } = await supabase
         .from('paid_event_orders')
-        .select(`id, event_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
+        .select(`id, event_id, ticket_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, transfer_payment_details ),
                  paid_event_tickets ( name, price_pln, paypal_payment_link )`)
         .eq('id', orderId).maybeSingle();
@@ -80,16 +80,36 @@ const CheckoutPage: React.FC = () => {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
         navigate('/paid-events'); return;
       }
-      setOrder(data as any);
-      if ((data as any).status === 'paid' || (data as any).status === 'completed') {
-        navigate(`/ticket/${(data as any).ticket_code}`);
+      let orderData = data as any;
+      // Defensive fallback: if embed didn't return the ticket row (RLS / cardinality
+      // edge cases), fetch it directly so PayPal link is still picked up.
+      const embedded = Array.isArray(orderData.paid_event_tickets)
+        ? orderData.paid_event_tickets[0]
+        : orderData.paid_event_tickets;
+      if (!embedded && orderData.ticket_id) {
+        const { data: t } = await supabase
+          .from('paid_event_tickets')
+          .select('name, price_pln, paypal_payment_link')
+          .eq('id', orderData.ticket_id).maybeSingle();
+        if (t) orderData = { ...orderData, paid_event_tickets: t };
+      }
+      console.log('[checkout] loaded order', {
+        id: orderData.id,
+        ticket: Array.isArray(orderData.paid_event_tickets) ? orderData.paid_event_tickets[0] : orderData.paid_event_tickets,
+      });
+      setOrder(orderData);
+      if (orderData.status === 'paid' || orderData.status === 'completed') {
+        navigate(`/ticket/${orderData.ticket_code}`);
       }
       setLoading(false);
     })();
   }, [orderId, navigate, toast]);
 
-  const paypalLink = order?.paid_event_tickets?.paypal_payment_link?.trim() || null;
-  const hasPaypal = !!paypalLink && /^https:\/\//i.test(paypalLink);
+  const ticketRow = Array.isArray(order?.paid_event_tickets)
+    ? order!.paid_event_tickets[0]
+    : order?.paid_event_tickets ?? null;
+  const paypalLink = ticketRow?.paypal_payment_link?.trim() || null;
+  const hasPaypal = !!paypalLink && /^https?:\/\//i.test(paypalLink);
 
   const availableMethods = useMemo<Method[]>(() => {
     if (!order) return [];
