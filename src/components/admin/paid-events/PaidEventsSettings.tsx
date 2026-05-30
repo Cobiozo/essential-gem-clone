@@ -383,55 +383,15 @@ export const PaidEventsSettings: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="currency">Domyślna waluta</Label>
-              <Input
-                id="currency"
-                value={formData.default_currency || 'PLN'}
-                onChange={(e) => setFormData({ ...formData, default_currency: e.target.value })}
-                className="mt-1"
-                maxLength={3}
-              />
-            </div>
-            <div>
-              <Label htmlFor="payu_environment">Środowisko PayU</Label>
-              <Select 
-                value={formData.payu_environment || 'sandbox'} 
-                onValueChange={(value) => setFormData({ ...formData, payu_environment: value })}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sandbox">Sandbox (testowe)</SelectItem>
-                  <SelectItem value="production">Production (produkcyjne)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="payu_merchant_id">PayU Merchant ID</Label>
-              <Input
-                id="payu_merchant_id"
-                value={formData.payu_merchant_id || ''}
-                onChange={(e) => setFormData({ ...formData, payu_merchant_id: e.target.value })}
-                placeholder="ID sprzedawcy"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="payu_pos_id">PayU POS ID</Label>
-              <Input
-                id="payu_pos_id"
-                value={formData.payu_pos_id || ''}
-                onChange={(e) => setFormData({ ...formData, payu_pos_id: e.target.value })}
-                placeholder="ID punktu płatności"
-                className="mt-1"
-              />
-            </div>
+          <div>
+            <Label htmlFor="currency">Domyślna waluta</Label>
+            <Input
+              id="currency"
+              value={formData.default_currency || 'PLN'}
+              onChange={(e) => setFormData({ ...formData, default_currency: e.target.value })}
+              className="mt-1 max-w-[160px]"
+              maxLength={3}
+            />
           </div>
         </CardContent>
       </Card>
