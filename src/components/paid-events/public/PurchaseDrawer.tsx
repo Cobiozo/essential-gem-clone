@@ -10,7 +10,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { usePayUStatus } from '@/hooks/usePayUStatus';
 
 interface TicketInfo {
   id: string;
@@ -60,10 +59,6 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const qc = useQueryClient();
   const navigate = useNavigate();
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
-  const { payuReady, reason: payuReason } = usePayUStatus();
-  const effectivePayu = paymentMethodPayu && payuReady;
-  const payuBlocked = paymentMethodPayu && !payuReady;
-  const noUsableMethod = payuBlocked && !paymentMethodTransfer;
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -280,44 +275,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
       qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
 
-      // If PayU is enabled, go straight to the hosted PayU page.
-      // Otherwise fall back to the internal /checkout (e.g. bank transfer details).
-      if (effectivePayu) {
-        try {
-          const { data: payuData, error: payuErr } = await supabase.functions.invoke('payu-create-order', {
-            body: { orderId: data.orderId },
-          });
-          if (payuErr) {
-            let detail = payuErr.message || 'Nie udało się zainicjować płatności PayU';
-            try {
-              const ctxRes = (payuErr as any).context?.response;
-              if (ctxRes && typeof ctxRes.json === 'function') {
-                const j = await ctxRes.json();
-                if (j?.error) detail = j.error;
-              }
-            } catch { /* ignore */ }
-            throw new Error(detail);
-          }
-          if ((payuData as any)?.error) throw new Error((payuData as any).error);
-          const redirectUri = (payuData as any)?.redirectUri;
-          if (redirectUri) {
-            onOpenChange(false);
-            window.location.href = redirectUri;
-            return;
-          }
-          throw new Error('PayU nie zwróciło adresu przekierowania');
-        } catch (payuErr: any) {
-          toast({
-            title: 'PayU niedostępne',
-            description: (payuErr?.message || 'Spróbuj ponownie lub wybierz inną metodę płatności') + ' — przekierowuję do wyboru metody.',
-            variant: 'destructive',
-          });
-          onOpenChange(false);
-          navigate(`/checkout/${data.orderId}`);
-          return;
-        }
-      }
-
+      // Always go to the internal checkout page; user picks payment method there.
       onOpenChange(false);
       navigate(`/checkout/${data.orderId}`);
     } catch (err: any) {
@@ -561,18 +519,10 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 </div>
               )}
 
-              {paymentMethodPayu && payuReady && (
+              {paymentMethodPayu && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Shield className="w-4 h-4" />
                   <span>Płatność zabezpieczona przez PayU</span>
-                </div>
-              )}
-              {payuBlocked && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-                  PayU jest tymczasowo niedostępne ({payuReason ?? 'brak aktywnego połączenia'}).
-                  {paymentMethodTransfer
-                    ? ' Możesz dokończyć zakup wybierając przelew bankowy.'
-                    : ' Spróbuj ponownie później.'}
                 </div>
               )}
             </form>
@@ -591,8 +541,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   size="lg"
                   className="w-full gap-2"
                   onClick={handleSubmit}
-                  disabled={loadingMode !== null || noUsableMethod}
-                  title={noUsableMethod ? (payuReason ?? 'PayU jest tymczasowo niedostępne') : undefined}
+                  disabled={loadingMode !== null}
                 >
                   {loadingMode === 'checkout' ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>

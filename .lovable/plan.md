@@ -1,36 +1,30 @@
-Cel: jeśli PayU nie jest "aktywne" (czyli `payu_settings.is_enabled = false` lub `last_test_ok ≠ true`), użytkownik nie może wybrać PayU/BLIK jako formy płatności — przycisk „Kupuję i płacę” pozostaje nieaktywny z czytelnym komunikatem, a w drawerze zakupu opcja PayU jest również zablokowana.
+## Cel
+
+Po kliknięciu „Przejdź do płatności" klient ZAWSZE trafia do okna wyboru formy płatności (`/checkout/:orderId`). Jeżeli PayU nie jest skonfigurowane/aktywne:
+- żadna opcja płatności nie jest zaznaczalna (wszystkie radio disabled),
+- przycisk „Kupuję i płacę" jest disabled,
+- widoczny komunikat z powodem (`reason` z `usePayUStatus`).
 
 ## Zmiany
 
-### 1. Nowy hook `usePayUStatus`
-- Plik: `src/hooks/usePayUStatus.ts`
-- Czyta z `payu_settings` (singleton) pola `is_enabled`, `last_test_ok`, `last_test_at`, `last_test_message`.
-- Zwraca:
-  - `payuReady: boolean` — `is_enabled === true && last_test_ok === true`
-  - `reason: string | null` — np. „PayU nie jest włączone", „Ostatni test połączenia nie powiódł się", „Brak testu połączenia"
-  - `loading: boolean`
-- Cache przez `react-query`, krótki staleTime (30 s), bez auto-refetch.
+### 1. `src/components/paid-events/public/PurchaseDrawer.tsx`
+Cofnąć poprzednią logikę blokującą redirect:
+- usunąć `effectivePayu`, `payuBlocked`, warunkowe disable przycisku „Przejdź do płatności" oraz komunikaty o niedostępności PayU w stopce drawera.
+- `handleSubmit` znów używa `paymentMethodPayu` tylko do decyzji „czy w ogóle pokazywać checkout vs bezpośredni flow przelewu". Jeśli `paymentMethodPayu === true` (admin skonfigurował metodę w evencie) → zawsze redirect do `/checkout/:orderId`, niezależnie od `payuReady`.
+- Hook `usePayUStatus` zostaje usunięty z tego pliku (nieużywany).
 
-### 2. `CheckoutPage.tsx` (wewnętrzny ekran wyboru metody)
-- Użyć `usePayUStatus`.
-- Jeśli `!payuReady`:
-  - Opcje `payu` i `blik` w `RadioGroup` renderowane jako wyszarzone (opacity-50, cursor-not-allowed, `RadioGroupItem disabled`), z małym komunikatem pod nazwą: „Tymczasowo niedostępne — {reason}".
-  - Domyślny wybór metody przełączyć na pierwszą dostępną metodę inną niż PayU/BLIK (np. transfer); jeśli brak takiej, żadnej.
-- Przycisk „Kupuję i płacę": dodać do `disabled` warunek `(method === 'payu' || method === 'blik') && !payuReady`.
-- Gdy PayU/BLIK jest wybrane i niedostępne, pod przyciskiem wyświetlić mały alert: „PayU jest tymczasowo niedostępne. Wybierz inną metodę płatności.".
+### 2. `src/pages/CheckoutPage.tsx`
+Rozszerzyć obecne disable PayU/BLIK na WSZYSTKIE metody, gdy `!payuReady`:
+- Każdy `RadioGroupItem` (PayU, BLIK, transfer, ewentualne inne) otrzymuje `disabled={!payuReady}` + `opacity-50 cursor-not-allowed`.
+- `RadioGroup` jako całość: `disabled={!payuReady}`.
+- Przycisk „Kupuję i płacę": `disabled` gdy `!payuReady` (oprócz dotychczasowych warunków — submitting, brak metody, brak zgód).
+- Alert na górze formularza z `reason` z `usePayUStatus`, np. „Płatności są tymczasowo niedostępne: {reason}. Spróbuj ponownie później.".
+- Domyślny `method` pozostaje pierwszą dostępną metodą (bez specjalnego fallbacku — i tak nic nie można kliknąć).
 
-### 3. `PurchaseDrawer.tsx` (drawer „Przejdź do płatności")
-- Użyć `usePayUStatus`.
-- Wyliczyć `effectivePayu = paymentMethodPayu && payuReady`.
-- Jeśli skonfigurowane są obie metody (PayU + przelew) i PayU jest niedostępne — `paymentMethodPayu` traktować jako wyłączone (czyli flow przejdzie bezpośrednio do `/checkout/:orderId`, gdzie zostanie tylko przelew).
-- Jeśli wydarzenie ma tylko PayU i `!payuReady`:
-  - Przycisk „Przejdź do płatności" → `disabled`, tooltip/komunikat pod nim: „PayU jest tymczasowo niedostępne. Spróbuj ponownie później.".
-- Jeśli `paymentMethodTransfer` jest dostępne — przycisk pozostaje aktywny, flow leci przez `/checkout/:orderId` (przelew).
+### 3. Bez zmian
+- Hook `usePayUStatus` i RPC `get_payu_public_status` — bez zmian.
+- Brak migracji.
 
-### 4. Brak zmian backendu / DB
-- Tabela `payu_settings` i edge function `payu-test-connection` już zapisują `last_test_ok`. Nie ruszamy.
-
-## Szczegóły techniczne
-
-- `payu_settings` ma RLS — sprawdzę szybko, czy `anon`/`authenticated` mogą czytać `is_enabled`/`last_test_ok`. Jeśli polityka pozwala tylko adminom, dodam dedykowany SELECT policy dla `authenticated` na te cztery kolumny przez widok publiczny (`payu_status_public` view) lub `SECURITY DEFINER` RPC `get_payu_public_status()`. Migracja tylko w razie potrzeby.
-- W obu komponentach dodać `aria-disabled` i `title` z powodem, żeby wsparcie dostępności było zachowane.
+## Efekt
+- Drawer: „Przejdź do płatności" zawsze aktywny dla wariantu PayU → redirect do `/checkout/:orderId`.
+- Checkout przy `!payuReady`: pełna blokada UI + komunikat, tak jak prosi użytkownik.
