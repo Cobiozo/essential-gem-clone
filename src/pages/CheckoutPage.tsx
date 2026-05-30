@@ -31,7 +31,7 @@ interface OrderInfo {
 }
 
 const formatPrice = (groszy: number) =>
-  new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(groszy);
+  new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(groszy / 100);
 
 async function invokeWithError<T = any>(name: string, body: any): Promise<T> {
   const { data, error } = await supabase.functions.invoke(name, { body });
