@@ -282,7 +282,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
       // If PayU is enabled, go straight to the hosted PayU page.
       // Otherwise fall back to the internal /checkout (e.g. bank transfer details).
-      if (paymentMethodPayu) {
+      if (effectivePayu) {
         try {
           const { data: payuData, error: payuErr } = await supabase.functions.invoke('payu-create-order', {
             body: { orderId: data.orderId },
