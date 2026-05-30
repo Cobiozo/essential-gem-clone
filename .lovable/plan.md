@@ -1,112 +1,103 @@
+# Plan: Dokończenie systemu płatności PayU + biletów PDF
 
-# Pełna obsługa płatności + bilet PDF — z konfiguracją PayU w panelu admina
+## Zakres pozostały do realizacji
 
-## Zmiana vs poprzedni plan
-PayU credentials **nie** trafiają do Lovable Secrets — admin wpisuje je w panelu (`/admin/payments`). Edge functions czytają je z bazy zamiast z `Deno.env`.
+### 1. `src/pages/TicketPage.tsx` (publiczna strona biletu)
+- Route: `/ticket/:code` (publiczna, bez auth)
+- Pobiera dane zamówienia + uczestników po `access_code`
+- Pokazuje: status płatności, dane wydarzenia, listę uczestników z linkami do PDF
+- Dla statusu `pending_transfer`: instrukcje przelewu (nr konta, tytuł, kwota)
+- Dla statusu `paid`: przyciski "Pobierz bilet PDF" (signed URL z bucketu)
+- Dla statusu `failed/cancelled`: komunikat + link do ponowienia
+- Auto-refresh co 10s gdy `processing` (PayU polling)
 
-## Co już mamy ✅
-- Migracja DB wykonana: `event_ticket_templates`, kolumny `payment_method`/`payu_blik_auth_code`/`ticket_pdf_url`
-- Bucket `event-tickets`
-- Funkcje: `payu-create-order`, `payu-webhook`, `register-event-transfer-order`, `admin-mark-event-payment`, `verify-event-ticket`
-- `EventPaymentMethodsPanel` (przełączniki per event)
-- `PurchaseDrawer` (zbiera dane uczestników)
+### 2. `src/components/admin/events/EventTicketTemplatePanel.tsx`
+- Tab w panelu edycji eventu (`/admin/events/:id`)
+- Upload PNG/JPG do `event-tickets/templates/{eventId}/bg.{ext}` (max 5MB)
+- Canvas z tłem + drag&drop pól: Imię, Nazwisko, Numer biletu, QR, Data, Lokalizacja, Tytuł, Miejsce
+- Per pole: x, y, fontSize, color, textAlign, fontWeight (QR tylko x/y/size)
+- Wybór formatu: A4, A5, custom (mm)
+- Zapis JSON do `event_ticket_templates.fields` + `background_url`
+- Przycisk "Wygeneruj testowy bilet" → wywołuje `generate-event-ticket-pdf` z `test=true`
 
-## Plan implementacji
+### 3. Routing & Guards (`src/App.tsx`)
+- Dodanie publicznych ścieżek: `/ticket/:code`, `/checkout/:orderId`
+- Dodanie `/checkout/:orderId` do `PUBLIC_PATHS` (lub jako auth-aware: działa dla guestów i zalogowanych)
+- `/admin/payments` → tylko `admin` role
+- Dodanie `/ticket/:code` do `KNOWN_APP_ROUTES`
+- `ProfileCompletionGuard` pomija `/ticket/*`, `/checkout/*`, `/admin/payments`
 
-### KROK A — Tabela ustawień PayU + panel admina
-- Migracja: tabela `payu_settings` (1 wiersz):
-  `pos_id, client_id, client_secret, md5_key, second_md5_key, environment ('sandbox'|'production'), is_enabled`
-- RLS: tylko admin SELECT/UPDATE; service_role pełny dostęp dla edge functions
-- Nowa strona admina `/admin/payments` (`PaymentsAdminPage.tsx`):
-  - Formularz z 6 polami (klient/sekret jako password z toggle "pokaż")
-  - Przycisk **"Testuj połączenie"** → wywołuje `payu-test-connection` (pobiera OAuth token z PayU)
-  - Status karty: ✅ skonfigurowane / ⚠️ brak danych
-- Link do strony dodać w `AdminPanel` przy istniejących sekcjach płatności
-- Nowy `_shared/payu-config.ts` w edge functions — funkcja `getPayUConfig()` czytająca z bazy
+### 4. Refactor `PurchaseDrawer.tsx`
+- Usunięcie wyboru metody płatności z drawera
+- Drawer zbiera tylko: buyer (imię, nazwisko, email, telefon) + attendees (lista) + zgody
+- Submit → wywołuje `create-event-order` → otrzymuje `orderId` → `navigate('/checkout/'+orderId)`
+- Loading state + obsługa błędów (slot full, registration closed, duplicate)
 
-### KROK B — Polityki storage dla biletów
-- Migracja storage: bucket `event-tickets` już istnieje; dodaję polityki:
-  - SELECT (anon + authenticated) — bilety i tła publiczne (chronione obscure path)
-  - INSERT/UPDATE/DELETE — tylko admin (templates) i service_role (tickets)
+### 5. Patch `payu-webhook/index.ts`
+- Po update statusu na `COMPLETED` → wywołanie `generate-event-ticket-pdf` (service role) dla każdego attendee
+- Po wygenerowaniu PDF → wywołanie `send-event-ticket-email`
+- Idempotencja: sprawdza czy PDFy już istnieją (`ticket_pdf_url IS NOT NULL`)
 
-### KROK C — Refaktor `payu-create-order` + nowa `payu-blik-charge`
-- `payu-create-order`: czyta config z bazy (zamiast env), zwraca jasny błąd jeśli brak konfiguracji
-- Nowa `payu-blik-charge`: tworzy order z `payMethod.type='PBL', value='blik-token'` z kodem 6-cyfrowym
-- Nowa `payu-check-order`: GET `/api/v2_1/orders/{orderId}` — używana do pollingu po BLIK
-- `payu-webhook`: bez zmian + woła `generate-event-ticket-pdf` po COMPLETED
+### 6. Patch `admin-mark-event-payment/index.ts`
+- Po oznaczeniu przelewu jako opłacony → te same kroki co webhook (PDF + email)
+- Idempotencja jw.
 
-### KROK D — Strona checkout (`/checkout/:orderId`)
-- Nowy `CheckoutPage.tsx` (publiczny, dodać do `PUBLIC_PATHS` + `KNOWN_APP_ROUTES`)
-- Pobiera order z bazy (po orderId — sygnatura tokenowa nie potrzebna, bo orderId jest losowy UUID)
-- 3 kafle metod płatności (tylko te włączone w evencie):
-  1. **PayU (karta/szybki przelew)** — przycisk → redirect na payu.com
-  2. **BLIK** — pole 6 cyfr + przycisk → polling statusu z toastem postępu
-  3. **Przelew tradycyjny** — wyświetla dane do przelewu + info "wyślemy bilet po zaksięgowaniu"
-- Po sukcesie → redirect na `/ticket/:code`
+### 7. Nowa funkcja `send-event-ticket-email/index.ts`
+- Input: `{ orderId }`
+- Pobiera order + attendees + event
+- Per uczestnik: email z załączonym PDF (lub linkiem signed URL 7 dni) + linkiem do `/ticket/:code`
+- Buyer: osobny email "podsumowanie zamówienia" z listą uczestników i linkiem
+- Branding wg `email-system-technical-governance` (SMTP, szablon)
 
-### KROK E — Refaktor flow zakupu
-- `PurchaseDrawer` po kliknięciu "Kup" tworzy order ze statusem `pending` (nowy edge `create-event-order` — wspólny endpoint) i przekierowuje na `/checkout/:orderId`
-- Drawer już **nie wybiera** metody — tylko zbiera dane buyer + attendees
-- `register-event-transfer-order` przerabiam na bardziej ogólny `create-event-order` z parametrem `payment_method_preference` (do oznaczenia, ale finalny wybór i tak na checkout)
-
-### KROK F — Edytor szablonu biletu (`/admin/events/:id/ticket-template`)
-- Nowa zakładka w edytorze eventu: **"Szablon biletu"** (`EventTicketTemplatePanel.tsx`)
-- Upload PNG/JPG do `event-tickets/templates/{eventId}/bg.{ext}` (max 5MB, crop opcjonalny)
-- Canvas z podglądem blankietu w skali (responsive zoom)
-- Paleta pól do drag&drop: `firstName`, `lastName`, `ticketCode`, `qr`, `eventTitle`, `eventDate`, `eventLocation`, `seatNumber`, `ticketName`
-- Per pole: pozycja x/y (px), rozmiar w/h (px), fontSize, fontWeight (normal/bold), color (hex), textAlign (left/center/right)
-- Format strony: A4 / A5 / custom (US Letter, bilet 105×148)
-- Przycisk **"Wygeneruj testowy bilet"** → woła `generate-event-ticket-pdf` z mock-data i otwiera PDF w nowej karcie
-- Zapis do `event_ticket_templates` (upsert per event)
-
-### KROK G — Generator PDF biletu (`generate-event-ticket-pdf`)
-- Deno + `npm:pdf-lib` + `npm:qrcode`
-- Input: `{ orderId, attendeeId? }` (gdy brak attendeeId → bilet dla buyera lub wszystkie)
-- Algorytm:
-  1. Pobierz template (jeśli brak → użyj domyślnego białego A5 z polami w stałych pozycjach)
-  2. Pobierz attendee + event + order
-  3. Wygeneruj QR PNG (URL `https://purelife.lovable.app/ticket/{code}`)
-  4. Wczytaj background image (jeśli ustawiony)
-  5. Stwórz PDF strony w rozmiarze odpowiadającym formatowi
-  6. Embed background, render każde pole w odpowiedniej pozycji (konwersja px@150DPI → pt)
-  7. Render QR jako embedded PNG
-  8. Upload do `event-tickets/tickets/{orderId}/{attendeeId}.pdf`
-  9. UPDATE `paid_event_order_attendees.ticket_pdf_url`
-  10. Zwróć URL
-- Wywoływana z: `payu-webhook`, `payu-blik-charge`, `admin-mark-event-payment`
-
-### KROK H — Email z biletem
-- Nowa funkcja `send-event-ticket-email` (lub edycja w 3 miejscach):
-  - Iteruje po attendees, pobiera/generuje PDF każdego
-  - Wysyła email per uczestnik (jeśli ma email) z załącznikiem PDF + linkiem "Pobierz / Mój bilet"
-  - Buyer dostaje email zbiorczy z linkami do wszystkich biletów
-- Edycja istniejących emaili w `payu-webhook` i `admin-mark-event-payment` → wołają `send-event-ticket-email`
-
-### KROK I — Strona biletu publiczna (`/ticket/:code`)
-- Publiczna (dodać do `PUBLIC_PATHS`)
-- Wyświetla:
-  - Iframe/preview PDF biletu (lub HTML render z QR jako fallback)
-  - Dane wydarzenia + uczestnika
-  - Status: ✅ ważny / ⏳ oczekuje na płatność / ✓ użyty (checked-in)
-  - Przycisk "Pobierz PDF"
-
-### KROK J — Walidacja i testy
-- Test panelu PayU: wpisanie danych → testuj połączenie → ✓
-- Test sandbox PayU karta + BLIK
-- Test przelewu: admin oznacza opłacone → generuje się PDF → email dochodzi
-- Test edytora: upload tła + ustawienie 4 pól + testowy bilet
-- Skan QR z PDF → otwiera `/ticket/:code`
-
----
+### 8. Drobne poprawki
+- `src/pages/EventDetailPage.tsx` / komponent z PurchaseDrawer: ścieżka po sukcesie zmieniona na `/checkout/:orderId`
+- Dodanie linku "Płatności PayU" w sidebar admina (`AdminSidebar.tsx`)
+- Hook `useTicketTemplate(eventId)` do pobierania templatu (cache)
 
 ## Szczegóły techniczne
-- **PDF lib:** `pdf-lib` (Deno-compatible przez npm:)
-- **QR:** `npm:qrcode` (zwraca PNG buffer)
-- **Konfiguracja PayU w bazie:** tabela 1-wierszowa z RLS admin-only, edge functions czytają przez service_role
-- **Bezpieczeństwo client_secret/md5_key:** RLS blokuje odczyt z anon, frontend admina dostaje zamaskowane wartości (`****`) i POST aktualizuje tylko jeśli wpisano nową wartość
 
-## Co Ty robisz, a co ja
-**Ja (po zatwierdzeniu):** migracja `payu_settings`, polityki storage, wszystkie edge functions, wszystkie strony i panele
-**Ty:** wchodzisz na `/admin/payments` po wdrożeniu, wpisujesz dane PayU z panelu PayU.pl, klikasz "Testuj" → gotowe
+### Format `event_ticket_templates.fields` (JSONB)
+```json
+{
+  "format": "A4",
+  "width_mm": 210,
+  "height_mm": 297,
+  "fields": [
+    { "key": "first_name", "x": 50, "y": 100, "fontSize": 24, "color": "#000", "align": "left", "weight": "bold" },
+    { "key": "last_name", "x": 50, "y": 130, "fontSize": 24, "color": "#000" },
+    { "key": "ticket_number", "x": 50, "y": 200, "fontSize": 14 },
+    { "key": "qr", "x": 400, "y": 100, "size": 100 },
+    { "key": "event_date", "x": 50, "y": 250, "fontSize": 16 },
+    { "key": "location", "x": 50, "y": 280, "fontSize": 14 },
+    { "key": "event_title", "x": 50, "y": 70, "fontSize": 28, "weight": "bold" }
+  ]
+}
+```
 
-**Zatwierdź żeby zaczął implementację.**
+### Przepływ statusów zamówienia
+```text
+created → (PayU redirect) → processing → COMPLETED → paid → [PDF gen + email]
+created → (BLIK 6-cyfr) → processing → COMPLETED → paid → [PDF gen + email]
+created → (przelew) → pending_transfer → [admin oznacza] → paid → [PDF gen + email]
+```
+
+### Bezpieczeństwo
+- `/ticket/:code` używa `access_code` (32-znakowy, gen_random_uuid w bazie) — nie da się zgadnąć
+- Signed URL do PDF: 7 dni TTL
+- `generate-event-ticket-pdf`: tylko service_role (wywoływane przez webhook/admin)
+- `send-event-ticket-email`: tylko service_role
+
+## Pliki do utworzenia (8)
+- `src/pages/TicketPage.tsx`
+- `src/components/admin/events/EventTicketTemplatePanel.tsx`
+- `src/hooks/useTicketTemplate.ts`
+- `supabase/functions/send-event-ticket-email/index.ts`
+
+## Pliki do edycji (5)
+- `src/App.tsx` (routing + PUBLIC_PATHS + KNOWN_APP_ROUTES)
+- `src/components/events/PurchaseDrawer.tsx` (usunięcie wyboru metody, redirect)
+- `src/components/admin/AdminSidebar.tsx` (link Płatności PayU)
+- `supabase/functions/payu-webhook/index.ts` (trigger PDF + email)
+- `supabase/functions/admin-mark-event-payment/index.ts` (trigger PDF + email)
+
+Po akceptacji wykonam wszystko w jednym przebiegu i zweryfikuję buildem.
