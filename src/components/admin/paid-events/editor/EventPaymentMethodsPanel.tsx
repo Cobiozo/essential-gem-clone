@@ -146,6 +146,9 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
             checked={draft.payment_method_paypal}
             onCheckedChange={(v) => setDraft({ ...draft, payment_method_paypal: v })}
           />
+        </div>
+
+
 
         {draft.payment_method_transfer && (
           <div>
