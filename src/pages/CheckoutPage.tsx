@@ -71,7 +71,7 @@ const CheckoutPage: React.FC = () => {
         .from('paid_event_orders')
         .select(`id, event_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, transfer_payment_details ),
-                 paid_event_tickets ( name, price_pln )`)
+                 paid_event_tickets ( name, price_pln, paypal_payment_link )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
