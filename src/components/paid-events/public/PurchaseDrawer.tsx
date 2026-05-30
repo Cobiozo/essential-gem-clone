@@ -541,8 +541,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   size="lg"
                   className="w-full gap-2"
                   onClick={handleSubmit}
-                  disabled={loadingMode !== null || noUsableMethod}
-                  title={noUsableMethod ? (payuReason ?? 'PayU jest tymczasowo niedostępne') : undefined}
+                  disabled={loadingMode !== null}
                 >
                   {loadingMode === 'checkout' ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
