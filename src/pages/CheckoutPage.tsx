@@ -227,7 +227,7 @@ const CheckoutPage: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             <div className="text-lg font-semibold">{order.paid_events.title}</div>
-            <div className="text-muted-foreground">{order.paid_event_tickets.name} × {order.quantity}</div>
+            <div className="text-muted-foreground">{ticketRow?.name ?? ''} × {order.quantity}</div>
             <div className="text-muted-foreground">Kupujący: {order.first_name} {order.last_name} ({order.email})</div>
             <div className="flex justify-between items-baseline pt-3 border-t mt-3">
               <span className="text-sm text-muted-foreground">Do zapłaty</span>
