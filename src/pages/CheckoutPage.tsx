@@ -220,7 +220,8 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>
-                  Płatności są tymczasowo niedostępne{payuReason ? `: ${payuReason}` : ''}. Spróbuj ponownie później lub skontaktuj się z organizatorem.
+                  Płatności kartą / BLIK / przelewem online są tymczasowo niedostępne{payuReason ? `: ${payuReason}` : ''}.
+                  {hasPaypal ? ' Możesz nadal opłacić zamówienie przez PayPal poniżej.' : ' Spróbuj ponownie później lub skontaktuj się z organizatorem.'}
                 </span>
               </div>
             )}
@@ -229,8 +230,10 @@ const CheckoutPage: React.FC = () => {
             ) : (
               <RadioGroup
                 value={method ?? ''}
-                onValueChange={(v) => payuReady && setMethod(v as Method)}
-                disabled={!payuReady}
+                onValueChange={(v) => {
+                  const next = v as Method;
+                  if (next === 'paypal' || payuReady) setMethod(next);
+                }}
                 className="space-y-3"
               >
                 {availableMethods.includes('transfer') && (
