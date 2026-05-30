@@ -28,7 +28,10 @@ interface OrderInfo {
     payment_method_payu: boolean; payment_method_transfer: boolean;
     transfer_payment_details: string | null;
   };
-  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null };
+  ticket_id: string | null;
+  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null }
+    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null }>
+    | null;
 }
 
 const formatPrice = (groszy: number) =>
