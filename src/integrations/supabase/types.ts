@@ -3311,6 +3311,53 @@ export type Database = {
           },
         ]
       }
+      event_ticket_templates: {
+        Row: {
+          background_url: string | null
+          created_at: string
+          event_id: string
+          fields: Json
+          height_px: number
+          id: string
+          orientation: string
+          page_format: string
+          updated_at: string
+          width_px: number
+        }
+        Insert: {
+          background_url?: string | null
+          created_at?: string
+          event_id: string
+          fields?: Json
+          height_px?: number
+          id?: string
+          orientation?: string
+          page_format?: string
+          updated_at?: string
+          width_px?: number
+        }
+        Update: {
+          background_url?: string | null
+          created_at?: string
+          event_id?: string
+          fields?: Json
+          height_px?: number
+          id?: string
+          orientation?: string
+          page_format?: string
+          updated_at?: string
+          width_px?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_templates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "paid_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           allow_guest_access: boolean
@@ -6708,6 +6755,7 @@ export type Database = {
           order_id: string
           seat_index: number
           ticket_code: string
+          ticket_pdf_url: string | null
           updated_at: string
         }
         Insert: {
@@ -6722,6 +6770,7 @@ export type Database = {
           order_id: string
           seat_index: number
           ticket_code: string
+          ticket_pdf_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -6736,6 +6785,7 @@ export type Database = {
           order_id?: string
           seat_index?: number
           ticket_code?: string
+          ticket_pdf_url?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6765,15 +6815,18 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          payment_method: string | null
           payment_order_id: string | null
           payment_provider: string | null
           payment_transaction_id: string | null
+          payu_blik_auth_code: string | null
           phone: string | null
           quantity: number | null
           status: string
           ticket_code: string | null
           ticket_generated_at: string | null
           ticket_id: string
+          ticket_pdf_url: string | null
           ticket_sent_at: string | null
           total_amount: number
           updated_at: string
@@ -6788,15 +6841,18 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          payment_method?: string | null
           payment_order_id?: string | null
           payment_provider?: string | null
           payment_transaction_id?: string | null
+          payu_blik_auth_code?: string | null
           phone?: string | null
           quantity?: number | null
           status?: string
           ticket_code?: string | null
           ticket_generated_at?: string | null
           ticket_id: string
+          ticket_pdf_url?: string | null
           ticket_sent_at?: string | null
           total_amount: number
           updated_at?: string
@@ -6811,15 +6867,18 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          payment_method?: string | null
           payment_order_id?: string | null
           payment_provider?: string | null
           payment_transaction_id?: string | null
+          payu_blik_auth_code?: string | null
           phone?: string | null
           quantity?: number | null
           status?: string
           ticket_code?: string | null
           ticket_generated_at?: string | null
           ticket_id?: string
+          ticket_pdf_url?: string | null
           ticket_sent_at?: string | null
           total_amount?: number
           updated_at?: string
