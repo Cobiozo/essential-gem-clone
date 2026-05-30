@@ -10490,6 +10490,14 @@ export type Database = {
           session_id: string
         }[]
       }
+      get_payu_public_status: {
+        Args: never
+        Returns: {
+          is_enabled: boolean
+          last_test_at: string
+          last_test_ok: boolean
+        }[]
+      }
       get_pending_leader_approvals: {
         Args: never
         Returns: {

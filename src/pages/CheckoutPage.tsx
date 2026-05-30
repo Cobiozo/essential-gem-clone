@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Shield, Lock, BadgeCheck } from 'lucide-react';
+import { Loader2, Shield, Lock, BadgeCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { usePayUStatus } from '@/hooks/usePayUStatus';
 
 type Method = 'transfer' | 'payu' | 'blik';
 
@@ -61,6 +62,7 @@ const CheckoutPage: React.FC = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [blikCode, setBlikCode] = useState('');
   const [polling, setPolling] = useState(false);
+  const { payuReady, reason: payuReason, loading: payuLoading } = usePayUStatus();
 
   useEffect(() => {
     if (!orderId) return;
@@ -92,8 +94,22 @@ const CheckoutPage: React.FC = () => {
   }, [order]);
 
   useEffect(() => {
-    if (!method && availableMethods.length > 0) setMethod(availableMethods[0]);
-  }, [availableMethods, method]);
+    if (payuLoading) return;
+    const isPayuMethod = (m: Method | null) => m === 'payu' || m === 'blik';
+    // Pick first non-PayU method if PayU not ready; otherwise first available.
+    if (!method && availableMethods.length > 0) {
+      const preferred = !payuReady
+        ? (availableMethods.find((m) => !isPayuMethod(m)) ?? availableMethods[0])
+        : availableMethods[0];
+      setMethod(preferred);
+      return;
+    }
+    // If a PayU method got auto-selected but PayU isn't ready, switch to a usable one.
+    if (method && isPayuMethod(method) && !payuReady) {
+      const fallback = availableMethods.find((m) => !isPayuMethod(m));
+      if (fallback) setMethod(fallback);
+    }
+  }, [availableMethods, method, payuReady, payuLoading]);
 
   const handlePay = async () => {
     if (!order || !method) return;
@@ -197,21 +213,49 @@ const CheckoutPage: React.FC = () => {
                   </label>
                 )}
                 {availableMethods.includes('payu') && (
-                  <label htmlFor="m-payu" className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${method === 'payu' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <RadioGroupItem id="m-payu" value="payu" />
-                    <div className="flex-1 flex items-center gap-2">
+                  <label
+                    htmlFor="m-payu"
+                    title={!payuReady ? (payuReason ?? 'PayU jest tymczasowo niedostępne') : undefined}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition ${
+                      !payuReady
+                        ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                        : method === 'payu'
+                          ? 'border-primary bg-primary/5 cursor-pointer'
+                          : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-payu" value="payu" disabled={!payuReady} />
+                    <div className="flex-1 flex items-center gap-2 flex-wrap">
                       <span className="font-medium">PayU</span>
                       <span className="text-xs text-muted-foreground">karta · szybki przelew · Apple/Google Pay</span>
+                      {!payuReady && (
+                        <span className="text-xs text-destructive">Tymczasowo niedostępne</span>
+                      )}
                     </div>
                   </label>
                 )}
                 {availableMethods.includes('blik') && (
-                  <label htmlFor="m-blik" className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${method === 'blik' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
-                    <RadioGroupItem id="m-blik" value="blik" className="mt-1" />
+                  <label
+                    htmlFor="m-blik"
+                    title={!payuReady ? (payuReason ?? 'BLIK przez PayU jest tymczasowo niedostępny') : undefined}
+                    className={`flex items-start gap-3 p-4 rounded-lg border-2 transition ${
+                      !payuReady
+                        ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                        : method === 'blik'
+                          ? 'border-primary bg-primary/5 cursor-pointer'
+                          : 'border-border hover:border-primary/50 cursor-pointer'
+                    }`}
+                  >
+                    <RadioGroupItem id="m-blik" value="blik" className="mt-1" disabled={!payuReady} />
                     <div className="flex-1">
-                      <div className="font-medium">BLIK</div>
+                      <div className="font-medium flex items-center gap-2 flex-wrap">
+                        BLIK
+                        {!payuReady && (
+                          <span className="text-xs text-destructive font-normal">Tymczasowo niedostępne</span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">Wpisz 6-cyfrowy kod z aplikacji bankowej.</p>
-                      {method === 'blik' && (
+                      {method === 'blik' && payuReady && (
                         <div className="mt-3 max-w-xs">
                           <Label className="text-xs">Kod BLIK</Label>
                           <Input
@@ -250,11 +294,27 @@ const CheckoutPage: React.FC = () => {
               </Label>
             </div>
 
+            {(method === 'payu' || method === 'blik') && !payuReady && !payuLoading && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  {payuReason ?? 'PayU jest tymczasowo niedostępne.'} Wybierz inną metodę płatności
+                  {availableMethods.includes('transfer') ? ' (np. przelew bankowy).' : '.'}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-end pt-2">
               <Button
                 size="lg"
                 onClick={handlePay}
-                disabled={busy || !method || !acceptTerms || (method === 'blik' && blikCode.length !== 6)}
+                disabled={
+                  busy ||
+                  !method ||
+                  !acceptTerms ||
+                  (method === 'blik' && blikCode.length !== 6) ||
+                  ((method === 'payu' || method === 'blik') && !payuReady)
+                }
                 className="min-w-[200px]"
               >
                 {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{polling ? 'Czekam…' : 'Przetwarzanie…'}</> : 'Kupuję i płacę'}
