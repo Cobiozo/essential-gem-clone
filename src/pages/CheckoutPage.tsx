@@ -359,7 +359,7 @@ const CheckoutPage: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-2">
-              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} disabled={!payuReady} />
+              <Checkbox id="accept" checked={acceptTerms} onCheckedChange={(c) => setAcceptTerms(c === true)} disabled={!anyMethodActionable} />
               <Label htmlFor="accept" className="text-sm cursor-pointer">
                 Przeczytałem/am i akceptuję warunki i zasady *
               </Label>
@@ -373,10 +373,10 @@ const CheckoutPage: React.FC = () => {
                   busy ||
                   !method ||
                   !acceptTerms ||
-                  !payuReady ||
+                  (method !== 'paypal' && !payuReady) ||
                   (method === 'blik' && blikCode.length !== 6)
                 }
-                title={!payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
+                title={method !== 'paypal' && !payuReady ? (payuReason ?? 'Płatności tymczasowo niedostępne') : undefined}
                 className="min-w-[200px]"
               >
                 {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{polling ? 'Czekam…' : 'Przetwarzanie…'}</> : 'Kupuję i płacę'}
