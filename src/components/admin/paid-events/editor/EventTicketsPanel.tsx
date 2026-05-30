@@ -251,6 +251,20 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                 </div>
 
                 <div>
+                  <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
+                  <Input
+                    id={`paypal-${ticket.id}`}
+                    type="url"
+                    value={getEditingValue(ticket.id, 'paypal_payment_link', ticket.paypal_payment_link ?? '') as string}
+                    onChange={(e) => setEditingValue(ticket.id, 'paypal_payment_link', e.target.value.trim() || null)}
+                    placeholder="https://www.paypal.com/ncp/payment/XXXXX"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Jeśli wypełnione, klient zobaczy dodatkową opcję płatności „PayPal" i zostanie przekierowany na to łącze. Status płatności potwierdzasz ręcznie w zamówieniach.
+                  </p>
+                </div>
+
+                <div>
                   <Label htmlFor={`description-${ticket.id}`}>Opis</Label>
                   <Textarea
                     id={`description-${ticket.id}`}
