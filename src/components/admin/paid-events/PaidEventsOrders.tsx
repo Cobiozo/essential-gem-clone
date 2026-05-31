@@ -280,7 +280,7 @@ export const PaidEventsOrders: React.FC = () => {
                       {order.paid_events?.is_free || order.payment_provider === 'free' ? (
                         <Badge variant="outline" className="text-xs">Bezpłatne</Badge>
                       ) : (
-                        <span>{(order.total_amount / 100).toFixed(2)} PLN</span>
+                        <span>{order.total_amount.toFixed(2)} PLN</span>
                       )}
                     </TableCell>
                     <TableCell>
