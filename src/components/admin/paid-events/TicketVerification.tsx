@@ -4,11 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 interface VerificationResult {
   valid: boolean;
