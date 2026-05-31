@@ -4,8 +4,24 @@
 // Stores PDF in event-tickets/tickets/{orderId}/{attendeeId}.pdf and updates DB.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, rgb } from "npm:pdf-lib@1.17.1";
+import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
 import QRCode from "npm:qrcode@1.5.4";
+
+const FONT_REGULAR_URL = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf";
+const FONT_BOLD_URL = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf";
+
+let cachedRegular: Uint8Array | null = null;
+let cachedBold: Uint8Array | null = null;
+async function loadFont(url: string, cache: "r" | "b"): Promise<Uint8Array> {
+  if (cache === "r" && cachedRegular) return cachedRegular;
+  if (cache === "b" && cachedBold) return cachedBold;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Font fetch failed ${res.status}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (cache === "r") cachedRegular = bytes; else cachedBold = bytes;
+  return bytes;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
