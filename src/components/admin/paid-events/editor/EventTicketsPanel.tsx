@@ -43,7 +43,24 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const [editingData, setEditingData] = useState<Record<string, Partial<Ticket>>>({});
   const [newBenefit, setNewBenefit] = useState<Record<string, string>>({});
 
-  // Fetch tickets
+  // Fetch event meta (is_free flag)
+  const { data: eventMeta } = useQuery({
+    queryKey: ['paid-event-meta-tickets-panel', eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_events')
+        .select('is_free')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { is_free: boolean | null } | null;
+    },
+  });
+  const isFree = !!eventMeta?.is_free;
+  const unitLabel = isFree ? 'Rezerwacja' : 'Bilet';
+  const unitLabelLower = isFree ? 'rezerwacja' : 'bilet';
+
+  // Fetch tickets (only non-archived)
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['paid-event-tickets-edit', eventId],
     queryFn: async () => {
@@ -51,6 +68,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         .from('paid_event_tickets')
         .select('*')
         .eq('event_id', eventId)
+        .is('deleted_at', null)
         .order('position', { ascending: true });
       if (error) throw error;
       return data as Ticket[];
