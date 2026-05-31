@@ -86,6 +86,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
   }
 
   const isDirty =
+    draft.is_free !== data?.is_free ||
     draft.payment_method_payu !== data?.payment_method_payu ||
     draft.payment_method_transfer !== data?.payment_method_transfer ||
     draft.payment_method_paypal !== data?.payment_method_paypal ||
