@@ -76,6 +76,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
   const [loadingMode, setLoadingMode] = useState<SubmitMode | null>(null);
   const [transferSuccess, setTransferSuccess] = useState(false);
+  const [freeSuccess, setFreeSuccess] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [formData, setFormData] = useState({
     firstName: '',
