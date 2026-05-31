@@ -4,11 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 interface VerificationResult {
   valid: boolean;
@@ -30,7 +32,14 @@ export const TicketVerification: React.FC = () => {
   const [ticketCode, setTicketCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const extractCode = (raw: string): string => {
+    const trimmed = raw.trim();
+    const m = trimmed.match(/\/ticket\/([A-Z0-9-]+)/i);
+    return (m ? m[1] : trimmed).toUpperCase();
+  };
 
   // Auto-focus input for scanner mode
   useEffect(() => {
@@ -166,9 +175,50 @@ export const TicketVerification: React.FC = () => {
                 </Button>
               </div>
             </div>
+            <Button type="button" variant="secondary" className="w-full" onClick={() => setScannerOpen(true)}>
+              <Camera className="w-4 h-4 mr-2" />
+              Skanuj aparatem telefonu
+            </Button>
           </form>
         </CardContent>
       </Card>
+
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Camera className="w-5 h-5" />Skanuj kod QR</DialogTitle>
+            <DialogDescription>
+              Skieruj aparat na kod QR z biletu. Check-in zostanie wykonany automatycznie.
+            </DialogDescription>
+          </DialogHeader>
+          {scannerOpen && (
+            <div className="rounded-md overflow-hidden bg-black aspect-square">
+              <Scanner
+                onScan={(codes) => {
+                  if (!codes || codes.length === 0) return;
+                  const raw = codes[0].rawValue || '';
+                  if (!raw) return;
+                  const code = extractCode(raw);
+                  setScannerOpen(false);
+                  setTicketCode(code);
+                  verifyTicket(code, true);
+                }}
+                onError={(err) => {
+                  console.error('[QR Scanner]', err);
+                  toast({ title: 'Błąd kamery', description: 'Nie udało się uruchomić aparatu. Sprawdź uprawnienia w przeglądarce.', variant: 'destructive' });
+                }}
+                constraints={{ facingMode: 'environment' }}
+                scanDelay={400}
+                allowMultiple={false}
+                components={{ finder: true }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Wymagany dostęp do kamery (HTTPS lub localhost). Na iPhonie użyj Safari.
+          </p>
+        </DialogContent>
+      </Dialog>
 
       {/* Result */}
       {result && (
@@ -251,10 +301,9 @@ export const TicketVerification: React.FC = () => {
           <CardTitle className="text-base">Instrukcja</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Podłącz czytnik kodów QR/kreskowych do komputera</p>
-          <p>• Czytnik automatycznie wprowadzi kod w pole tekstowe</p>
-          <p>• Naciśnij Enter lub kliknij "Sprawdź" aby zweryfikować bilet</p>
-          <p>• Kliknij "Wykonaj check-in" aby zarejestrować wejście uczestnika</p>
+          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — check-in zostanie wykonany od razu po zeskanowaniu</p>
+          <p>• <strong>Sprzętowy czytnik:</strong> podłącz czytnik QR/kreskowy — kod pojawi się w polu tekstowym, kliknij „Sprawdź"</p>
+          <p>• <strong>Ręcznie:</strong> wpisz kod biletu i kliknij „Sprawdź", następnie „Wykonaj check-in"</p>
         </CardContent>
       </Card>
     </div>

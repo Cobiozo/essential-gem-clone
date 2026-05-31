@@ -1,45 +1,66 @@
-## Diagnoza
+## Co naprawiamy
 
-1. **Rezerwacja została zapisana w bazie**
-   - Zamówienie dla `sebastiansnopek87+freetest2@gmail.com` istnieje w `paid_event_orders`.
-   - Status: `awaiting_email_confirmation`.
-   - To oznacza: rezerwacja po kliknięciu „Zarezerwuj miejsce” działa, ale panel admina nie pokazuje tego stanu czytelnie / może korzystać ze starego cache.
+Z analizy kodu i logów Edge Function znaleziono cztery realne przyczyny:
 
-2. **Kliknięcie CTA z maila kieruje do logowania, bo brakuje trasy publicznej**
-   - Email prowadzi na: `/free-event/confirm/:token`.
-   - Strona `FreeEventConfirmPage` już istnieje i ma poprawny baner sukcesu.
-   - Problem: ta trasa nie jest podpięta w `App.tsx`, a specjalny „fast path” dla linków z maili obsługuje tylko `/event-form/confirm/...` i `/event-form/cancel/...`.
-   - Efekt: gość wpada w pełne drzewo aplikacji z auth guardem i widzi logowanie.
+1. **Drag pól nie działa** — w `EventTicketTemplatePanel.tsx` używamy `setPointerCapture` na przeciąganym elemencie, a `onPointerMove` jest podpięty na rodzicu (canvas). Po przechwyceniu wskaźnika eventy nie docierają już do rodzica → pole nie rusza się za myszą.
+2. **Podgląd PDF zwraca błąd** („Edge Function returned a non-2xx status code"). Logi `generate-event-ticket-pdf` pokazują: `WinAnsi cannot encode "Ł"`. Standardowe fonty pdf-lib nie obsługują polskich znaków. Trzeba osadzić font Unicode (Roboto, już mamy w `src/assets/fonts/roboto-base64.ts`) przez `fontkit`.
+3. **Upload PNG bez wyraźnego efektu** — bucket `event-tickets` i polityki RLS są OK, ale obecny `<Button asChild><span>…</span></Button>` wewnątrz `<Label>` w niektórych przeglądarkach nie wywołuje `input.click()`. Zamienimy na zwykły przycisk wywołujący `inputRef.current.click()` + dodamy walidację typu/komunikaty.
+4. **Brak skanera QR z aparatu telefonu** — `TicketVerification.tsx` zakłada tylko sprzętowy czytnik kodów. Dodamy tryb skanowania kamerą.
 
-3. **Szablon biletu istnieje, ale nie jest widoczny w panelu**
-   - Komponent `EventTicketTemplatePanel` jest już zbudowany: upload tła PNG/JPG, pozycjonowanie pól, QR, zapis i podgląd PDF.
-   - Tabela `event_ticket_templates` też istnieje.
-   - Problem: panel nie jest nigdzie podpięty w edytorze wydarzenia.
-   - Obecny model to **jeden szablon biletu na wydarzenie**, nie osobny szablon dla każdego typu biletu.
+---
 
-## Plan naprawy
+## Plan zmian
 
-1. **Naprawić publiczny link potwierdzenia bez logowania**
-   - Dodać import `FreeEventConfirmPage` w `App.tsx`.
-   - Dodać trasę `/free-event/confirm/:token` do publicznego `EmailLinkFastPath`.
-   - Dodać `/free-event/confirm/...` do warunku `isEmailLink`, żeby link z maila omijał AuthProvider, MFA i redirect do logowania.
-   - Po kliknięciu CTA użytkownik zobaczy baner: email potwierdzony, bilet z QR zostanie wysłany / został wysłany.
+### 1. `src/components/admin/paid-events/editor/EventTicketTemplatePanel.tsx`
 
-2. **Poprawić zakładkę Eventy → Zamówienia**
-   - Dodać status `awaiting_email_confirmation` jako „Oczekuje na potwierdzenie email”.
-   - Pokazać go w filtrze statusów i statystykach.
-   - Oznaczyć zamówienia bezpłatne jako `Bezpłatne / Rezerwacja` zamiast traktować je jak zwykłą płatność.
-   - Ustawić odświeżanie / brak długiego cache dla listy zamówień, żeby nowe rezerwacje pojawiały się od razu po wejściu w zakładkę.
-   - W eksporcie Excel dodać informację o statusie potwierdzenia email.
+- Upload: jawny `<input ref>` + `<Button onClick={() => inputRef.current?.click()}>`; pokazujemy nazwę pliku i miniaturę tła nad canvasem; toast błędu przy złym typie.
+- Drag fix: usuwamy `setPointerCapture`; `onPointerMove`/`onPointerUp` rejestrujemy na `window` po `pointerdown`, odpinamy w `up`. Dzięki temu pole jedzie płynnie nawet przy szybkich ruchach poza canvas.
+- Dodajemy uchwyt resize (róg) dla pola QR — ciągnięcie zmienia `width/height`.
+- Po udanym uploadzie ustawiamy `background_url` i od razu zapisujemy szablon (autosave), żeby podgląd PDF używał nowego tła.
+- Klik na pustym canvasie odznacza pole (`setSelectedField(null)`).
 
-3. **Podpiąć edytor szablonu biletu do wydarzenia**
-   - W edytorze wydarzenia dodać osobną zakładkę „Szablon biletu”.
-   - Podpiąć istniejący `EventTicketTemplatePanel`.
-   - Dzięki temu miejsce konfiguracji będzie: **Admin → Eventy → Wydarzenia → Edytuj wydarzenie → Szablon biletu**.
-   - Szablon będzie automatycznie przypisany do aktualnie edytowanego wydarzenia przez `event_id`.
+### 2. `supabase/functions/generate-event-ticket-pdf/index.ts`
 
-4. **Zweryfikować pełny cykl**
-   - Sprawdzić, że zamówienie bezpłatne widnieje w Zamówieniach ze statusem oczekiwania na email.
-   - Sprawdzić kliknięcie `/free-event/confirm/:token` bez zalogowania.
-   - Sprawdzić, że po potwierdzeniu status zmienia się na `paid`, generuje się `ticket_code`, tworzy się uczestnik i wysyłany jest email z biletem.
-   - Sprawdzić, że edytor szablonu biletu zapisuje konfigurację i podgląd PDF korzysta z tego szablonu.
+- Importujemy `fontkit` (`npm:@pdf-lib/fontkit`) i osadzamy `Roboto-Regular` + `Roboto-Bold` z base64 (przenosimy stałą do funkcji jako osobny plik `_fonts.ts` w katalogu funkcji — Edge Functions nie czytają `src/`).
+- `pdfDoc.registerFontkit(fontkit)` + `embedFont(robotoRegularBytes, { subset: true })`.
+- Wszystkie `drawText` używają nowych fontów zamiast `StandardFonts.Helvetica*` → polskie znaki działają.
+- Drobne: gdy `background_url` zawiera `?t=...`, pobieramy bez zmian (działa), ale dodajemy `try/catch` z czytelnym komunikatem.
+
+### 3. Skaner QR z aparatu telefonu — `TicketVerification.tsx`
+
+- Dodajemy bibliotekę `@yudiel/react-qr-scanner` (lekka, działa na mobile, używa `getUserMedia`).
+- Nowy przycisk „Skanuj aparatem" otwiera `Dialog` z komponentem `<Scanner>` (kamera tylna, `facingMode: 'environment'`).
+- Po wykryciu kodu QR: parsujemy URL `…/ticket/{code}`, wyciągamy `code`, automatycznie wywołujemy `verifyTicket(code, true)` (od razu check-in), zamykamy dialog i pokazujemy wynik tak jak teraz.
+- Obsługa braku zgody na kamerę / braku HTTPS → komunikat „Włącz dostęp do kamery w przeglądarce telefonu".
+- Pole tekstowe + sprzętowy czytnik nadal działa równolegle.
+
+### 4. Drobne sprzątanie
+
+- W panelu edytora pokazujemy hint: „Kliknij pole, aby je zaznaczyć; przeciągnij, aby ustawić pozycję. QR ma uchwyt do zmiany rozmiaru."
+- Po `Zapisz szablon` odświeżamy `tpl` z bazy (źródło prawdy).
+
+---
+
+## Szczegóły techniczne (dla developera)
+
+```text
+EventTicketTemplatePanel
+├── fileInputRef + handleClickUpload()
+├── beginDrag(key) → window.addEventListener('pointermove'/'pointerup')
+└── QR resize handle (bottom-right corner div, drag → width/height)
+
+generate-event-ticket-pdf
+├── _fonts.ts (Roboto-Regular base64, Roboto-Bold base64)
+├── pdfDoc.registerFontkit(fontkit)
+├── const font = await pdfDoc.embedFont(robotoBytes, { subset: true })
+└── page.drawText(text, { font, ... })
+
+TicketVerification
+├── npm i @yudiel/react-qr-scanner
+├── <Dialog> z <Scanner onScan={handleScanResult} constraints={{ facingMode: 'environment' }}>
+└── handleScanResult(text) → extractCode(text) → verifyTicket(code, true)
+```
+
+QR w PDF od początku koduje URL `https://purelife.lovable.app/ticket/{code}`, więc skaner aparatem od razu zwróci poprawny kod.
+
+Po zatwierdzeniu wdrażam wszystkie 4 zmiany w jednej iteracji i weryfikuję: upload → drag → Podgląd PDF (polskie znaki) → skan testowy aparatem.
