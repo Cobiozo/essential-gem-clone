@@ -1,18 +1,20 @@
-## Problem
-„Failed to send a request to the Edge Function" przy klikaniu „Zarezerwuj miejsce" — funkcje `register-free-event-order` i `confirm-free-event-reservation` nie są wpisane w `supabase/config.toml`, więc nie są deployowane.
+## Diagnoza
 
-## Fix
-Dopisać na końcu `supabase/config.toml`:
+Funkcja `register-free-event-order` działa poprawnie i zwraca 409 `already_registered` — dlatego we frontendzie pojawia się "Edge Function returned a non-2xx status code".
 
-```toml
-[functions.register-free-event-order]
-verify_jwt = false
+Powód: w bazie istnieje 7 starych zamówień dla `sebastiansnopek87@gmail.com` na to wydarzenie (event `c38f3e14…`) ze statusem `pending` (pozostałości z poprzedniego, płatnego trybu — sprzed przełączenia eventu na bezpłatny). Obecny dedup wyklucza tylko `cancelled/refunded/failed/expired`, więc `pending` blokuje nowe rezerwacje.
 
-[functions.confirm-free-event-reservation]
-verify_jwt = false
-```
+## Plan naprawy
 
-Oba endpointy są publiczne (gość niezalogowany rezerwuje / klika link z maila) — `verify_jwt = false`.
+1. **`supabase/functions/register-free-event-order/index.ts`** — zawęzić dedup: blokować tylko gdy istniejące zamówienie ma status istotny dla flow bezpłatnego, tj. `awaiting_email_confirmation` lub `confirmed`. Pozostałe (`pending`, `awaiting_transfer` itp. z dawnego trybu płatnego) ignorujemy.
 
-## Pliki
-- `supabase/config.toml`
+   ```ts
+   .in("status", ["awaiting_email_confirmation", "confirmed"])
+   ```
+
+2. **Migracja czyszcząca** — oznaczyć stare „martwe" zamówienia jako `cancelled`, żeby nie zaśmiecały statystyk:
+   - `UPDATE paid_event_orders SET status='cancelled' WHERE event_id IN (SELECT id FROM paid_events WHERE is_free=true) AND status IN ('pending','awaiting_transfer') AND payment_provider <> 'free';`
+
+3. Deploy edge function i weryfikacja przez ponowną próbę rezerwacji.
+
+Bez zmian w UI ani logice płatnych eventów.
