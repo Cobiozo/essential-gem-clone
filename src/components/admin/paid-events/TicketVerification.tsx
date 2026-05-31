@@ -301,10 +301,9 @@ export const TicketVerification: React.FC = () => {
           <CardTitle className="text-base">Instrukcja</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Podłącz czytnik kodów QR/kreskowych do komputera</p>
-          <p>• Czytnik automatycznie wprowadzi kod w pole tekstowe</p>
-          <p>• Naciśnij Enter lub kliknij "Sprawdź" aby zweryfikować bilet</p>
-          <p>• Kliknij "Wykonaj check-in" aby zarejestrować wejście uczestnika</p>
+          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — check-in zostanie wykonany od razu po zeskanowaniu</p>
+          <p>• <strong>Sprzętowy czytnik:</strong> podłącz czytnik QR/kreskowy — kod pojawi się w polu tekstowym, kliknij „Sprawdź"</p>
+          <p>• <strong>Ręcznie:</strong> wpisz kod biletu i kliknij „Sprawdź", następnie „Wykonaj check-in"</p>
         </CardContent>
       </Card>
     </div>
