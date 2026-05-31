@@ -248,6 +248,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       buyer,
       attendees: attendeesPayload,
       buyerIsAttendee,
+      consent: formData.acceptTerms,
       acceptMarketing: formData.acceptMarketing,
       refCode: refCode || null,
     };

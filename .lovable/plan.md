@@ -1,20 +1,28 @@
-## Diagnoza
+## Dlaczego nadal nie działa
 
-Funkcja `register-free-event-order` działa poprawnie i zwraca 409 `already_registered` — dlatego we frontendzie pojawia się "Edge Function returned a non-2xx status code".
+Frontend wysyła do `register-free-event-order` payload bez pola `consent`, a Edge Function wymaga dokładnie `consent: true`. W aktualnym kodzie `PurchaseDrawer` wysyła tylko:
 
-Powód: w bazie istnieje 7 starych zamówień dla `sebastiansnopek87@gmail.com` na to wydarzenie (event `c38f3e14…`) ze statusem `pending` (pozostałości z poprzedniego, płatnego trybu — sprzed przełączenia eventu na bezpłatny). Obecny dedup wyklucza tylko `cancelled/refunded/failed/expired`, więc `pending` blokuje nowe rezerwacje.
+```ts
+acceptMarketing: formData.acceptMarketing
+```
+
+dlatego funkcja zwraca `400 { "error": "consent_required" }`, a UI pokazuje ogólny komunikat `Edge Function returned a non-2xx status code`.
+
+Dodatkowo moje testy z ręcznym `ticketId` zwracały `ticket_not_found`, bo użyty ID biletu nie był ID z tej strony. To nie jest główna przyczyna Twojego kliknięcia — główna przyczyna z kodu formularza to brak `consent`.
 
 ## Plan naprawy
 
-1. **`supabase/functions/register-free-event-order/index.ts`** — zawęzić dedup: blokować tylko gdy istniejące zamówienie ma status istotny dla flow bezpłatnego, tj. `awaiting_email_confirmation` lub `confirmed`. Pozostałe (`pending`, `awaiting_transfer` itp. z dawnego trybu płatnego) ignorujemy.
+1. W `src/components/paid-events/public/PurchaseDrawer.tsx` dodać do payloadu:
 
-   ```ts
-   .in("status", ["awaiting_email_confirmation", "confirmed"])
-   ```
+```ts
+consent: formData.acceptTerms
+```
 
-2. **Migracja czyszcząca** — oznaczyć stare „martwe" zamówienia jako `cancelled`, żeby nie zaśmiecały statystyk:
-   - `UPDATE paid_event_orders SET status='cancelled' WHERE event_id IN (SELECT id FROM paid_events WHERE is_free=true) AND status IN ('pending','awaiting_transfer') AND payment_provider <> 'free';`
+2. Poprawić obsługę błędu Edge Function tak, aby zamiast generycznego `Edge Function returned a non-2xx status code` pokazywać realny komunikat z odpowiedzi, np.:
+- `consent_required` → „Zaakceptuj regulamin i politykę prywatności.”
+- `already_registered` → komunikat z backendu
+- `ticket_not_found` → „Ten bilet nie jest już dostępny.”
 
-3. Deploy edge function i weryfikacja przez ponowną próbę rezerwacji.
+3. Zweryfikować wywołanie przez `supabase.functions.invoke` po zmianie, żeby rezerwacja bezpłatna kończyła się komunikatem o wysłaniu maila potwierdzającego.
 
-Bez zmian w UI ani logice płatnych eventów.
+Bez zmian w bazie danych i bez zmian w płatnych wydarzeniach.
