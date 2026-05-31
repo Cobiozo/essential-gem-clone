@@ -234,9 +234,14 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">
-                      {formatPrice(ticket.price_pln)} PLN
-                    </Badge>
+                    {!isFree && (
+                      <Badge variant="secondary">
+                        {formatPrice(ticket.price_pln)} PLN
+                      </Badge>
+                    )}
+                    {isFree && (
+                      <Badge variant="secondary">Rezerwacja</Badge>
+                    )}
                     <ChevronDown 
                       className={cn(
                         'w-4 h-4 transition-transform',
