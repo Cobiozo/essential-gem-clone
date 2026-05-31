@@ -175,9 +175,50 @@ export const TicketVerification: React.FC = () => {
                 </Button>
               </div>
             </div>
+            <Button type="button" variant="secondary" className="w-full" onClick={() => setScannerOpen(true)}>
+              <Camera className="w-4 h-4 mr-2" />
+              Skanuj aparatem telefonu
+            </Button>
           </form>
         </CardContent>
       </Card>
+
+      <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Camera className="w-5 h-5" />Skanuj kod QR</DialogTitle>
+            <DialogDescription>
+              Skieruj aparat na kod QR z biletu. Check-in zostanie wykonany automatycznie.
+            </DialogDescription>
+          </DialogHeader>
+          {scannerOpen && (
+            <div className="rounded-md overflow-hidden bg-black aspect-square">
+              <Scanner
+                onScan={(codes) => {
+                  if (!codes || codes.length === 0) return;
+                  const raw = codes[0].rawValue || '';
+                  if (!raw) return;
+                  const code = extractCode(raw);
+                  setScannerOpen(false);
+                  setTicketCode(code);
+                  verifyTicket(code, true);
+                }}
+                onError={(err) => {
+                  console.error('[QR Scanner]', err);
+                  toast({ title: 'Błąd kamery', description: 'Nie udało się uruchomić aparatu. Sprawdź uprawnienia w przeglądarce.', variant: 'destructive' });
+                }}
+                constraints={{ facingMode: 'environment' }}
+                scanDelay={400}
+                allowMultiple={false}
+                components={{ finder: true }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Wymagany dostęp do kamery (HTTPS lub localhost). Na iPhonie użyj Safari.
+          </p>
+        </DialogContent>
+      </Dialog>
 
       {/* Result */}
       {result && (
