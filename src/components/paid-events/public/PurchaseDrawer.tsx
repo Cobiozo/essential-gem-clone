@@ -26,6 +26,7 @@ interface PurchaseDrawerProps {
   eventTitle: string;
   ticket: TicketInfo | null;
   currency?: string;
+  isFree?: boolean;
   paymentMethodPayu?: boolean;
   paymentMethodTransfer?: boolean;
   paymentMethodPaypal?: boolean;
@@ -50,6 +51,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   eventTitle,
   ticket,
   currency = 'PLN',
+  isFree = false,
   paymentMethodPayu = true,
   paymentMethodTransfer = false,
   paymentMethodPaypal = false,
@@ -255,10 +257,36 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     setLoadingMode('checkout');
     try {
       const payload = buildPayload();
-      console.log('[purchase] create order payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      console.log('[purchase] create order payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats, isFree });
+
+      if (isFree) {
+        const { data, error } = await supabase.functions.invoke('register-free-event-order', { body: payload });
+        if (error) {
+          let detail = error.message || 'Nie udało się utworzyć rezerwacji';
+          try {
+            const ctxRes = (error as any).context?.response;
+            if (ctxRes && typeof ctxRes.json === 'function') {
+              const j = await ctxRes.json();
+              if (j?.error) detail = j.error;
+            }
+          } catch { /* ignore */ }
+          throw new Error(detail);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
+        qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+
+        toast({
+          title: 'Rezerwacja przyjęta',
+          description: `Wysłaliśmy link potwierdzający na ${formData.email}. Kliknij w niego, aby otrzymać bilet QR.`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-event-order', { body: payload });
       if (error) {
-        // Try to extract server-side error message from the FunctionsHttpError response
         let detail = error.message || 'Nie udało się utworzyć zamówienia';
         try {
           const ctxRes = (error as any).context?.response;
@@ -277,12 +305,11 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
       qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
 
-      // Always go to the internal checkout page; user picks payment method there.
       onOpenChange(false);
       navigate(`/checkout/${data.orderId}`);
     } catch (err: any) {
       console.error('Purchase error:', err);
-      toast({ title: 'Błąd', description: err.message || 'Wystąpił błąd podczas tworzenia zamówienia', variant: 'destructive' });
+      toast({ title: 'Błąd', description: err.message || 'Wystąpił błąd podczas tworzenia rezerwacji', variant: 'destructive' });
     } finally {
       setLoadingMode(null);
     }
@@ -290,14 +317,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   if (!ticket) return null;
 
-  const noMethods = !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
+  const noMethods = !isFree && !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
         <div className="overflow-y-auto">
           <DrawerHeader className="text-left">
-            <DrawerTitle>{transferSuccess ? 'Rezerwacja przyjęta' : 'Kup bilet'}</DrawerTitle>
+            <DrawerTitle>{transferSuccess ? 'Rezerwacja przyjęta' : (isFree ? 'Zarezerwuj miejsce' : 'Kup bilet')}</DrawerTitle>
             <DrawerDescription>
               {eventTitle} - {ticket.name}
             </DrawerDescription>
@@ -342,13 +369,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               {/* Order Summary */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span>Bilet:</span>
+                  <span>{isFree ? 'Rezerwacja:' : 'Bilet:'}</span>
                   <span className="font-medium text-right">{ticket.name}</span>
                 </div>
 
                 {/* Quantity selector */}
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm">Liczba biletów</Label>
+                  <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -377,31 +404,35 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 {seatsPerTicket > 1 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Users className="w-3.5 h-3.5" />
-                    <span>1 bilet = {seatsPerTicket} osób · razem <strong className="text-foreground">{totalSeats} uczestników</strong></span>
+                    <span>1 {isFree ? 'rezerwacja' : 'bilet'} = {seatsPerTicket} osób · razem <strong className="text-foreground">{totalSeats} uczestników</strong></span>
                   </div>
                 )}
 
-                {/* Detailed cost breakdown — always visible */}
-                <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
-                  <div className="flex justify-between">
-                    <span>Cena za bilet:</span>
-                    <span>{formatPrice(ticket?.price ?? 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
-                    <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
-                  </div>
-                  {hasOwnTicket && (
-                    <div className="text-[11px] italic pt-1">
-                      Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                {!isFree && (
+                  <>
+                    {/* Detailed cost breakdown — always visible */}
+                    <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                      <div className="flex justify-between">
+                        <span>Cena za bilet:</span>
+                        <span>{formatPrice(ticket?.price ?? 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
+                        <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
+                      </div>
+                      {hasOwnTicket && (
+                        <div className="text-[11px] italic pt-1">
+                          Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="flex justify-between pt-2 border-t border-border/50">
-                  <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
-                  <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
-                </div>
+                    <div className="flex justify-between pt-2 border-t border-border/50">
+                      <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
+                      <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Buyer Data — locked & empty when user already has a ticket */}
@@ -547,6 +578,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 >
                   {loadingMode === 'checkout' ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
+                  ) : isFree ? (
+                    <><CheckCircle2 className="w-4 h-4" />Zarezerwuj miejsce<ArrowRight className="w-4 h-4" /></>
                   ) : (
                     <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
                   )}
