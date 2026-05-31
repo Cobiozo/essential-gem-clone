@@ -239,15 +239,26 @@ async function renderTicket(args: {
   template: TemplateRow | null;
 }): Promise<Uint8Array> {
   const tpl = args.template;
-  const format = tpl?.page_format || "A5";
-  const orientation = tpl?.orientation || "landscape";
-  const { width: pageW, height: pageH } = pageSize(format, orientation);
-
   const tplW = tpl?.width_px || 1240;
   const tplH = tpl?.height_px || 874;
   const fields = (tpl?.fields && Array.isArray(tpl.fields) && tpl.fields.length > 0)
     ? tpl.fields
     : DEFAULT_FIELDS;
+
+  // When a custom background is uploaded, the PDF page mirrors that image's
+  // aspect ratio exactly (no A4/A5 letterboxing). Otherwise fall back to the
+  // chosen paper format.
+  let pageW: number, pageH: number;
+  if (tpl?.background_url) {
+    // 1 px @ 96 DPI = 0.75 pt — preserves the canvas proportions
+    pageW = tplW * 0.75;
+    pageH = tplH * 0.75;
+  } else {
+    const format = tpl?.page_format || "A5";
+    const orientation = tpl?.orientation || "landscape";
+    const sz = pageSize(format, orientation);
+    pageW = sz.width; pageH = sz.height;
+  }
 
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit as any);
@@ -263,8 +274,16 @@ async function renderTicket(args: {
   if (tpl?.background_url) {
     try {
       const bgBytes = await fetchBytes(tpl.background_url);
-      const isPng = tpl.background_url.toLowerCase().endsWith(".png");
-      const img = isPng ? await pdf.embedPng(bgBytes) : await pdf.embedJpg(bgBytes);
+      // Strip query string before sniffing extension (cache busters etc.)
+      const cleanUrl = tpl.background_url.split("?")[0].toLowerCase();
+      const isPng = cleanUrl.endsWith(".png");
+      let img;
+      try {
+        img = isPng ? await pdf.embedPng(bgBytes) : await pdf.embedJpg(bgBytes);
+      } catch {
+        // Fallback: try the opposite codec if extension was misleading
+        img = isPng ? await pdf.embedJpg(bgBytes) : await pdf.embedPng(bgBytes);
+      }
       page.drawImage(img, { x: 0, y: 0, width: pageW, height: pageH });
     } catch (e) {
       console.warn("[generate-event-ticket-pdf] bg load failed:", (e as Error).message);

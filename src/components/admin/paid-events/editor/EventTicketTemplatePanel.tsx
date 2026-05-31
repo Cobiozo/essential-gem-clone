@@ -165,30 +165,27 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   const preview = async () => {
     try {
       await save();
-      const { data, error } = await supabase.functions.invoke('generate-event-ticket-pdf', {
-        body: { preview: true, eventId },
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-event-ticket-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ preview: true, eventId }),
       });
-      if (error) throw error;
-      if (data instanceof Blob) {
-        const url = URL.createObjectURL(data);
-        window.open(url, '_blank');
-      } else {
-        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-event-ticket-pdf`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ preview: true, eventId }),
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+      const ct = resp.headers.get('content-type') || '';
+      if (!resp.ok || !ct.includes('application/pdf')) {
+        const txt = await resp.text();
+        let msg = txt;
+        try { msg = JSON.parse(txt).error || txt; } catch {}
+        throw new Error(msg || `HTTP ${resp.status}`);
       }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
     } catch (e: any) {
-      toast({ title: 'Błąd podglądu', description: e.message, variant: 'destructive' });
+      toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
     }
   };
 
