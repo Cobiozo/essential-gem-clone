@@ -597,7 +597,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           )}
 
           <DrawerFooter className="pt-4">
-            {transferSuccess ? (
+            {transferSuccess || freeSuccess ? (
               <Button size="lg" className="w-full" onClick={() => onOpenChange(false)}>Zamknij</Button>
             ) : noMethods ? (
               <div className="text-sm text-center text-muted-foreground py-2">
