@@ -250,9 +250,14 @@ async function renderTicket(args: {
     : DEFAULT_FIELDS;
 
   const pdf = await PDFDocument.create();
+  pdf.registerFontkit(fontkit as any);
   const page = pdf.addPage([pageW, pageH]);
-  const fontRegular = await pdf.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const [regBytes, boldBytes] = await Promise.all([
+    loadFont(FONT_REGULAR_URL, "r"),
+    loadFont(FONT_BOLD_URL, "b"),
+  ]);
+  const fontRegular = await pdf.embedFont(regBytes, { subset: true });
+  const fontBold = await pdf.embedFont(boldBytes, { subset: true });
 
   // Background
   if (tpl?.background_url) {
