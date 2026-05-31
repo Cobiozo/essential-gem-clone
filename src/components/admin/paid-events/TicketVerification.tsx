@@ -32,7 +32,14 @@ export const TicketVerification: React.FC = () => {
   const [ticketCode, setTicketCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [result, setResult] = useState<VerificationResult | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const extractCode = (raw: string): string => {
+    const trimmed = raw.trim();
+    const m = trimmed.match(/\/ticket\/([A-Z0-9-]+)/i);
+    return (m ? m[1] : trimmed).toUpperCase();
+  };
 
   // Auto-focus input for scanner mode
   useEffect(() => {
