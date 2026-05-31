@@ -339,13 +339,33 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       <DrawerContent className="max-h-[90vh]">
         <div className="overflow-y-auto">
           <DrawerHeader className="text-left">
-            <DrawerTitle>{transferSuccess ? 'Rezerwacja przyjęta' : (isFree ? 'Zarezerwuj miejsce' : 'Kup bilet')}</DrawerTitle>
+            <DrawerTitle>{transferSuccess || freeSuccess ? 'Rezerwacja przyjęta' : (isFree ? 'Zarezerwuj miejsce' : 'Kup bilet')}</DrawerTitle>
             <DrawerDescription>
               {eventTitle} - {ticket.name}
             </DrawerDescription>
           </DrawerHeader>
 
-          {transferSuccess ? (
+          {freeSuccess ? (
+            <div className="px-4 pb-4 space-y-4">
+              <div className="flex flex-col items-center text-center py-6 gap-3">
+                <CheckCircle2 className="w-16 h-16 text-primary" />
+                <h3 className="text-lg font-semibold">Dziękujemy za rezerwację!</h3>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Wysłaliśmy email potwierdzający na adres <strong>{formData.email}</strong>.
+                  Otwórz wiadomość i kliknij przycisk <strong>„Potwierdzam mój adres email”</strong>, aby otrzymać bilet z kodem QR.
+                </p>
+                <div className="bg-muted/50 rounded-lg p-3 text-sm w-full max-w-sm space-y-1 text-left">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Wydarzenie:</span><span className="font-medium text-right">{eventTitle}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Rezerwacja:</span><span className="font-medium">{ticket.name}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Liczba miejsc:</span><span className="font-medium">{totalSeats}</span></div>
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Mail className="w-4 h-4" />
+                <span>Sprawdź folder Spam, jeśli email nie dotarł w ciągu kilku minut.</span>
+              </div>
+            </div>
+          ) : transferSuccess ? (
             <div className="px-4 pb-4 space-y-4">
               <div className="flex flex-col items-center text-center py-6 gap-3">
                 <CheckCircle2 className="w-16 h-16 text-primary" />
