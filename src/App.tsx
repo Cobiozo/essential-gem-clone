@@ -137,6 +137,7 @@ const EventFormPublicPage = lazyWithRetry(() => import("./pages/EventFormPublicP
 // would otherwise leave the user staring at a spinner or blank screen).
 import EventFormConfirmPage from "./pages/EventFormConfirmPage";
 import EventFormCancelPage from "./pages/EventFormCancelPage";
+import FreeEventConfirmPage from "./pages/FreeEventConfirmPage";
 const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
@@ -448,6 +449,7 @@ const AppContent = () => {
                 <Route path="/admin/payments" element={<PaymentsAdminPage />} />
                 <Route path="/checkout/:orderId" element={<CheckoutPage />} />
                 <Route path="/ticket/:code" element={<TicketPage />} />
+                <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
@@ -510,8 +512,9 @@ const EmailLinkFastPath: React.FC = () => {
   const path = window.location.pathname;
   const confirmMatch = path.match(/^\/event-form\/confirm\/([^/]+)\/?$/);
   const cancelMatch = path.match(/^\/event-form\/cancel\/([^/]+)\/?$/);
+  const freeConfirmMatch = path.match(/^\/free-event\/confirm\/([^/]+)\/?$/);
 
-  if (!confirmMatch && !cancelMatch) return null;
+  if (!confirmMatch && !cancelMatch && !freeConfirmMatch) return null;
 
   return (
     <ErrorBoundary>
@@ -523,6 +526,7 @@ const EmailLinkFastPath: React.FC = () => {
             <Routes>
               <Route path="/event-form/confirm/:token" element={<EventFormConfirmPage />} />
               <Route path="/event-form/cancel/:token" element={<EventFormCancelPage />} />
+              <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />
               <Route path="*" element={<EventFormConfirmPage />} />
             </Routes>
           </BrowserRouter>
@@ -536,7 +540,9 @@ const App = () => {
   // Publiczne linki z maili obsługujemy poza pełnym drzewem auth/MFA/guard
   const path = typeof window !== 'undefined' ? window.location.pathname : '';
   const isEmailLink =
-    /^\/event-form\/confirm\//.test(path) || /^\/event-form\/cancel\//.test(path);
+    /^\/event-form\/confirm\//.test(path) ||
+    /^\/event-form\/cancel\//.test(path) ||
+    /^\/free-event\/confirm\//.test(path);
 
   if (isEmailLink) {
     return (

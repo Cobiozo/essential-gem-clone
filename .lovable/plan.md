@@ -1,48 +1,45 @@
-## Co jest faktycznie zepsute
+## Diagnoza
 
-Problem nie jest już w klikaniu zgód ani w samym formularzu. Aktualny błąd z logów backendu to:
+1. **Rezerwacja została zapisana w bazie**
+   - Zamówienie dla `sebastiansnopek87+freetest2@gmail.com` istnieje w `paid_event_orders`.
+   - Status: `awaiting_email_confirmation`.
+   - To oznacza: rezerwacja po kliknięciu „Zarezerwuj miejsce” działa, ale panel admina nie pokazuje tego stanu czytelnie / może korzystać ze starego cache.
 
-`paid_event_orders_status_check` odrzuca status `awaiting_email_confirmation`.
+2. **Kliknięcie CTA z maila kieruje do logowania, bo brakuje trasy publicznej**
+   - Email prowadzi na: `/free-event/confirm/:token`.
+   - Strona `FreeEventConfirmPage` już istnieje i ma poprawny baner sukcesu.
+   - Problem: ta trasa nie jest podpięta w `App.tsx`, a specjalny „fast path” dla linków z maili obsługuje tylko `/event-form/confirm/...` i `/event-form/cancel/...`.
+   - Efekt: gość wpada w pełne drzewo aplikacji z auth guardem i widzi logowanie.
 
-Czyli formularz dochodzi do backendu, backend próbuje utworzyć rezerwację, ale baza danych blokuje zapis, bo tabela `paid_event_orders` pozwala tylko na stare statusy: `pending`, `awaiting_transfer`, `paid`, `cancelled`, `refunded`.
-
-## Zasada działania, którą wdrażamy
-
-Dla wydarzenia bezpłatnego flow ma działać tak:
-
-1. Użytkownik wybiera `Rezerwacja` przy wydarzeniu bezpłatnym.
-2. W drawerze `Zarezerwuj miejsce` akceptuje regulamin i zgodę marketingową.
-3. Kliknięcie `Zarezerwuj miejsce` tworzy zamówienie/rezerwację ze statusem oczekiwania na potwierdzenie email.
-4. UI pokazuje komunikat sukcesu: rezerwacja przyjęta, wysłano email potwierdzający.
-5. System wysyła email z CTA do potwierdzenia adresu.
-6. Po kliknięciu CTA system potwierdza rezerwację, generuje bilet QR/PDF i wysyła drugi email z biletem.
+3. **Szablon biletu istnieje, ale nie jest widoczny w panelu**
+   - Komponent `EventTicketTemplatePanel` jest już zbudowany: upload tła PNG/JPG, pozycjonowanie pól, QR, zapis i podgląd PDF.
+   - Tabela `event_ticket_templates` też istnieje.
+   - Problem: panel nie jest nigdzie podpięty w edytorze wydarzenia.
+   - Obecny model to **jeden szablon biletu na wydarzenie**, nie osobny szablon dla każdego typu biletu.
 
 ## Plan naprawy
 
-1. **Naprawić ograniczenie statusów w bazie**
-   - Rozszerzyć constraint `paid_event_orders_status_check`, żeby dopuszczał `awaiting_email_confirmation`.
-   - Dodać również statusy techniczne używane/oczekiwane przez istniejący kod, jeżeli są potrzebne do spójnego przepływu (`failed`, `expired`), żeby późniejsze anulowanie/wygasanie rezerwacji nie rozbijało się o tę samą blokadę.
+1. **Naprawić publiczny link potwierdzenia bez logowania**
+   - Dodać import `FreeEventConfirmPage` w `App.tsx`.
+   - Dodać trasę `/free-event/confirm/:token` do publicznego `EmailLinkFastPath`.
+   - Dodać `/free-event/confirm/...` do warunku `isEmailLink`, żeby link z maila omijał AuthProvider, MFA i redirect do logowania.
+   - Po kliknięciu CTA użytkownik zobaczy baner: email potwierdzony, bilet z QR zostanie wysłany / został wysłany.
 
-2. **Dopiąć backend rezerwacji bezpłatnej do logiki płatności przelewem**
-   - `register-free-event-order` ma tworzyć rezerwację analogicznie do zamówienia przelewowego, ale z kwotą `0` i statusem `awaiting_email_confirmation`.
-   - Zachować token potwierdzający email i datę wysłania potwierdzenia.
-   - Zweryfikować, czy insert obejmuje pola wymagane przez dalsze kroki generowania biletu.
+2. **Poprawić zakładkę Eventy → Zamówienia**
+   - Dodać status `awaiting_email_confirmation` jako „Oczekuje na potwierdzenie email”.
+   - Pokazać go w filtrze statusów i statystykach.
+   - Oznaczyć zamówienia bezpłatne jako `Bezpłatne / Rezerwacja` zamiast traktować je jak zwykłą płatność.
+   - Ustawić odświeżanie / brak długiego cache dla listy zamówień, żeby nowe rezerwacje pojawiały się od razu po wejściu w zakładkę.
+   - W eksporcie Excel dodać informację o statusie potwierdzenia email.
 
-3. **Poprawić ekran sukcesu w drawerze**
-   - Po udanej rezerwacji bezpłatnej nie tylko zamykać drawer z toastem, ale pokazać czytelny stan sukcesu podobny do płatności przelewem:
-     - „Rezerwacja przyjęta”
-     - informacja, że wysłano email z linkiem potwierdzającym
-     - przypomnienie o folderze Spam
-   - Dzięki temu użytkownik zobaczy dokładnie ten baner/komunikat, którego oczekujesz.
+3. **Podpiąć edytor szablonu biletu do wydarzenia**
+   - W edytorze wydarzenia dodać osobną zakładkę „Szablon biletu”.
+   - Podpiąć istniejący `EventTicketTemplatePanel`.
+   - Dzięki temu miejsce konfiguracji będzie: **Admin → Eventy → Wydarzenia → Edytuj wydarzenie → Szablon biletu**.
+   - Szablon będzie automatycznie przypisany do aktualnie edytowanego wydarzenia przez `event_id`.
 
-4. **Sprawdzić potwierdzenie email i drugi email z biletem**
-   - Przetestować `register-free-event-order` na realnym wydarzeniu `kompleksowe szkolenie test`.
-   - Potwierdzić w logach, że pierwszy email został wysłany.
-   - Sprawdzić, czy `confirm-free-event-reservation` po kliknięciu tokenu aktualizuje zamówienie na `paid`, generuje kod biletu i uruchamia wysyłkę emaila z biletem.
-
-5. **Jeśli wyjdzie kolejna blokada po potwierdzeniu**
-   - Jeżeli drugi etap zatrzyma się na generowaniu PDF/biletu albo SMTP, naprawić to w tym samym przepływie, bo celem jest pełny cykl: rezerwacja → email potwierdzający → kliknięcie CTA → email z biletem.
-
-## Oczekiwany efekt po wdrożeniu
-
-Po kliknięciu `Zarezerwuj miejsce` dla bezpłatnego wydarzenia użytkownik zobaczy komunikat sukcesu, a system zapisze rezerwację i wyśle email potwierdzający. Po kliknięciu CTA w emailu użytkownik otrzyma bilet QR/PDF tak jak w logice płatności przelewem, tylko bez płatności.
+4. **Zweryfikować pełny cykl**
+   - Sprawdzić, że zamówienie bezpłatne widnieje w Zamówieniach ze statusem oczekiwania na email.
+   - Sprawdzić kliknięcie `/free-event/confirm/:token` bez zalogowania.
+   - Sprawdzić, że po potwierdzeniu status zmienia się na `paid`, generuje się `ticket_code`, tworzy się uczestnik i wysyłany jest email z biletem.
+   - Sprawdzić, że edytor szablonu biletu zapisuje konfigurację i podgląd PDF korzysta z tego szablonu.
