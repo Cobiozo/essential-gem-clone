@@ -1,0 +1,2 @@
+ALTER TABLE public.paid_event_tickets ADD COLUMN IF NOT EXISTS deleted_at timestamptz NULL;
+CREATE INDEX IF NOT EXISTS idx_paid_event_tickets_event_active ON public.paid_event_tickets (event_id) WHERE deleted_at IS NULL;
