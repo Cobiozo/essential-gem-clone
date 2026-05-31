@@ -44,6 +44,17 @@ interface Attendee {
 
 const MAX_TICKETS = 10;
 
+function mapFreeError(code: string): string {
+  switch (code) {
+    case 'consent_required': return 'Zaakceptuj regulamin i politykę prywatności, aby kontynuować.';
+    case 'missing_fields': return 'Uzupełnij wymagane pola (imię, nazwisko, email).';
+    case 'ticket_not_found': return 'Ten bilet nie jest już dostępny.';
+    case 'event_not_free': return 'To wydarzenie nie jest bezpłatne.';
+    case 'already_registered': return 'Ten adres email ma już rezerwację na to wydarzenie. Sprawdź skrzynkę (także folder Spam).';
+    default: return code || 'Nie udało się utworzyć rezerwacji.';
+  }
+}
+
 export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   open,
   onOpenChange,
@@ -248,6 +259,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       buyer,
       attendees: attendeesPayload,
       buyerIsAttendee,
+      consent: formData.acceptTerms,
       acceptMarketing: formData.acceptMarketing,
       refCode: refCode || null,
     };
@@ -267,12 +279,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
             const ctxRes = (error as any).context?.response;
             if (ctxRes && typeof ctxRes.json === 'function') {
               const j = await ctxRes.json();
-              if (j?.error) detail = j.error;
+              if (j?.message) detail = j.message;
+              else if (j?.error) detail = j.error;
             }
           } catch { /* ignore */ }
-          throw new Error(detail);
+          throw new Error(mapFreeError(detail));
         }
-        if (data?.error) throw new Error(data.error);
+        if (data?.error) throw new Error(mapFreeError(data.error));
 
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
