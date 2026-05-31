@@ -268,12 +268,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
             const ctxRes = (error as any).context?.response;
             if (ctxRes && typeof ctxRes.json === 'function') {
               const j = await ctxRes.json();
-              if (j?.error) detail = j.error;
+              if (j?.message) detail = j.message;
+              else if (j?.error) detail = j.error;
             }
           } catch { /* ignore */ }
-          throw new Error(detail);
+          throw new Error(mapFreeError(detail));
         }
-        if (data?.error) throw new Error(data.error);
+        if (data?.error) throw new Error(mapFreeError(data.error));
 
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
