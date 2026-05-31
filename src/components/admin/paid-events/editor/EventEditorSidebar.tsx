@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, FileText, Ticket, Users } from 'lucide-react';
+import { Settings, FileText, Ticket, Users, QrCode } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EventMainSettingsPanel } from './EventMainSettingsPanel';
 import { EventSectionsPanel } from './EventSectionsPanel';
 import { EventTicketsPanel } from './EventTicketsPanel';
 import { EventSpeakersPanel } from './EventSpeakersPanel';
 import { EventPaymentMethodsPanel } from './EventPaymentMethodsPanel';
+import { EventTicketTemplatePanel } from './EventTicketTemplatePanel';
 
 interface EventEditorSidebarProps {
   eventId: string;
@@ -25,7 +26,7 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-4 pb-2 border-b bg-background/80 backdrop-blur-sm shrink-0">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="main" className="text-xs sm:text-sm">
               <Settings className="w-4 h-4 sm:mr-1" />
               <span className="hidden sm:inline">Główne</span>
@@ -37,6 +38,10 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
             <TabsTrigger value="tickets" className="text-xs sm:text-sm">
               <Ticket className="w-4 h-4 sm:mr-1" />
               <span className="hidden sm:inline">Bilety</span>
+            </TabsTrigger>
+            <TabsTrigger value="template" className="text-xs sm:text-sm">
+              <QrCode className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Szablon</span>
             </TabsTrigger>
             <TabsTrigger value="speakers" className="text-xs sm:text-sm">
               <Users className="w-4 h-4 sm:mr-1" />
@@ -62,6 +67,10 @@ export const EventEditorSidebar: React.FC<EventEditorSidebarProps> = ({
             <TabsContent value="tickets" className="m-0 space-y-4">
               <EventPaymentMethodsPanel eventId={eventId} onDataChange={onDataChange} />
               <EventTicketsPanel eventId={eventId} onDataChange={onDataChange} />
+            </TabsContent>
+
+            <TabsContent value="template" className="m-0">
+              <EventTicketTemplatePanel eventId={eventId} onDataChange={onDataChange} />
             </TabsContent>
 
             <TabsContent value="speakers" className="m-0">

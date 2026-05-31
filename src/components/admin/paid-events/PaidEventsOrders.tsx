@@ -36,14 +36,19 @@ interface PaidEventOrder {
   paid_events: {
     title: string;
     event_date: string;
+    is_free?: boolean;
   } | null;
 }
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
   pending: { label: 'Oczekuje', variant: 'secondary', icon: <Clock className="w-3 h-3" /> },
+  awaiting_email_confirmation: { label: 'Oczekuje na potwierdzenie email', variant: 'secondary', icon: <Mail className="w-3 h-3" /> },
+  awaiting_transfer: { label: 'Oczekuje na przelew', variant: 'secondary', icon: <Clock className="w-3 h-3" /> },
   paid: { label: 'Opłacony', variant: 'default', icon: <CheckCircle className="w-3 h-3" /> },
   cancelled: { label: 'Anulowany', variant: 'destructive', icon: <XCircle className="w-3 h-3" /> },
   refunded: { label: 'Zwrócony', variant: 'outline', icon: <XCircle className="w-3 h-3" /> },
+  failed: { label: 'Nieudane', variant: 'destructive', icon: <XCircle className="w-3 h-3" /> },
+  expired: { label: 'Wygasłe', variant: 'outline', icon: <XCircle className="w-3 h-3" /> },
 };
 
 export const PaidEventsOrders: React.FC = () => {
@@ -61,7 +66,8 @@ export const PaidEventsOrders: React.FC = () => {
           *,
           paid_events (
             title,
-            event_date
+            event_date,
+            is_free
           )
         `)
         .order('created_at', { ascending: false });
@@ -69,6 +75,9 @@ export const PaidEventsOrders: React.FC = () => {
       if (error) throw error;
       return data as PaidEventOrder[];
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 
   // Get unique events for filter
@@ -196,6 +205,8 @@ export const PaidEventsOrders: React.FC = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Wszystkie statusy</SelectItem>
+            <SelectItem value="awaiting_email_confirmation">Oczekuje na potwierdzenie email</SelectItem>
+            <SelectItem value="awaiting_transfer">Oczekuje na przelew</SelectItem>
             <SelectItem value="paid">Opłacone</SelectItem>
             <SelectItem value="pending">Oczekujące</SelectItem>
             <SelectItem value="cancelled">Anulowane</SelectItem>
@@ -265,7 +276,13 @@ export const PaidEventsOrders: React.FC = () => {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>{order.total_amount.toFixed(2)} PLN</TableCell>
+                    <TableCell>
+                      {order.paid_events?.is_free || order.payment_provider === 'free' ? (
+                        <Badge variant="outline" className="text-xs">Bezpłatne</Badge>
+                      ) : (
+                        <span>{order.total_amount.toFixed(2)} PLN</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={status.variant} className="flex items-center gap-1 w-fit">
                         {status.icon}
