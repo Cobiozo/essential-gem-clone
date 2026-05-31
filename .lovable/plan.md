@@ -1,76 +1,63 @@
 ## Cel
-Dodać schemat **bezpłatnej rejestracji na wydarzenie** z dwustopniowym potwierdzeniem (Double Opt-In) — analogiczny do płatnych biletów, ale bez płatności. Bilet (z numerem, danymi rezerwującego i kodem QR) wysyłany jest dopiero po kliknięciu linku potwierdzającego adres email.
 
-## Przepływ użytkownika (krok po kroku)
-1. **Admin** w edytorze wydarzenia w panelu „Metody płatności" włącza nowy przełącznik **„Wydarzenie bezpłatne (rezerwacja z potwierdzeniem email)"**. Gdy włączony — pozostałe metody (PayU / przelew / PayPal) są wyszarzone i nieaktywne. Cena biletu ignorowana (traktowana jak 0).
-2. **Gość/Partner** na stronie wydarzenia widzi przycisk **„Zarezerwuj bezpłatnie"** zamiast „Kup bilet". Otwiera się drawer z formularzem: imię, nazwisko, email, telefon + **obowiązkowy checkbox**: *„Świadomie deklaruję obecność tego dnia i zobowiązuję się do uczestnictwa w wydarzeniu."*
-3. Po wysłaniu → zamówienie zapisane ze statusem `awaiting_email_confirmation`. Wyświetla się **baner sukcesu** w drawerze: *„Rezerwacja przyjęta. Sprawdź skrzynkę {email} — wysłaliśmy link potwierdzający adres email. Bilet otrzymasz po kliknięciu w link."*
-4. Klient dostaje **email #1 (potwierdzenie adresu)** z brandingiem wydarzenia i przyciskiem CTA **„Potwierdzam mój adres email"** → kieruje na `/events/confirm-reservation/:token`.
-5. Po kliknięciu: token weryfikowany, status zmienia się na `paid` (lub nowy `confirmed`), generowany jest `ticket_code` + PDF biletu (istniejąca funkcja `generate-event-ticket-pdf`), wysyłany **email #2 (bilet)** z PDF + kodem QR. Strona pokazuje sukces.
-6. **Admin → panel weryfikacji** widzi bilet na liście, może go zeskanować/zweryfikować jak każdy inny (istniejąca infrastruktura `TicketVerification` + `verify-event-ticket`).
+1. Naprawi膰 b艂膮d usuwania biletu (FK `paid_event_orders_ticket_id_fkey` RESTRICT) przez wdro偶enie soft-delete.
+2. Dla wydarze艅 oznaczonych jako bezp艂atne (`is_free = true`) prze艂膮czy膰 sekcj臋 "Bilety" w tryb "Rezerwacje" 鈥� bez ceny i metod p艂atno艣ci.
 
-## Zmiany techniczne
+---
 
-### Migracja DB
-- `paid_events`: + `is_free boolean NOT NULL DEFAULT false`, + `free_event_consent_text text` (opcjonalny custom tekst zgody, domyślnie z aplikacji).
-- `paid_event_orders`: + `email_confirmation_token text UNIQUE`, + `email_confirmation_sent_at timestamptz`, + `email_confirmed_at timestamptz`. Dopuścić nowy status `awaiting_email_confirmation` (kolumna już jest `text`, brak CHECK constraint — wystarczy frontend).
-- Index na `email_confirmation_token`.
+## 1. Soft-delete biletu
 
-### Admin UI
-- `EventPaymentMethodsPanel.tsx`: nowy **pierwszy** kafelek „Wydarzenie bezpłatne" (Switch). Gdy włączony → ukryj/zablokuj pozostałe 3 metody i pokaż info: *„Rezerwacja bezpłatna z potwierdzeniem email — bilety wysyłane automatycznie po potwierdzeniu."* Walidacja: gdy `is_free=true`, pomiń wymóg ≥1 metody płatności.
+### Migracja
+- `paid_event_tickets`: doda膰 kolumn臋 `deleted_at timestamptz NULL` (je艣li brak) oraz indeks cz臋艣ciowy na `(event_id) WHERE deleted_at IS NULL`.
+- Pozosta膰 przy `is_active boolean` jako flaga publicznej widoczno艣ci; `deleted_at` oznacza "usuni臋ty z panelu admina".
 
-### Frontend public
-- `PaidEventPage.tsx` + `PurchaseDrawer.tsx`: jeśli `event.is_free` → tryb „free reservation":
-  - Ukryj wybór metody płatności i cenę.
-  - Pokaż obowiązkowy checkbox zgody-zobowiązania.
-  - Submit → wywołanie nowej edge function `register-free-event-order`.
-  - Po sukcesie: pełnoekranowy baner sukcesu z instrukcją sprawdzenia maila (bez przekierowania na checkout).
-- Nowa strona `src/pages/FreeEventConfirmPage.tsx` na trasie `/events/confirm-reservation/:token` → wywołuje `confirm-free-event-reservation` → pokazuje stan: ładowanie / sukces („Email potwierdzony, bilet wysłany na {email}") / błąd (token nieprawidłowy/wygasły/już użyty). Dodać do `App.tsx` jako publiczna trasa.
+### Frontend (`PaidEventTicketsTab` / komponent biletu w edytorze)
+- Przycisk **Usu艅** wywo艂uje `UPDATE paid_event_tickets SET deleted_at = now(), is_active = false WHERE id = ?` zamiast `DELETE`.
+- Lista bilet贸w w edytorze filtruje `deleted_at IS NULL`.
+- Publiczne zapytanie (`PaidEventPage`, `PurchaseDrawer`) ju偶 filtruje `is_active = true` 鈥� dodatkowo doda膰 `deleted_at IS NULL` dla pewno艣ci.
+- Toast po sukcesie: "Bilet zosta艂 zarchiwizowany. Istniej膮ce zam贸wienia pozostaj膮 nienaruszone."
 
-### Edge Functions (nowe)
-- `register-free-event-order`:
-  - Waliduje `event.is_free=true`, sprawdza limit miejsc (`max_tickets` / `quantity_available`), brak duplikatu email dla danego eventu.
-  - Tworzy order: `status='awaiting_email_confirmation'`, `total_amount=0`, `payment_provider='free'`, generuje `email_confirmation_token` (crypto.randomUUID + 32-bytes hex), `email_confirmation_sent_at=now()`.
-  - Wysyła email #1 (SMTP, branding wydarzenia) z linkiem `${SITE_URL}/events/confirm-reservation/{token}`.
-- `confirm-free-event-reservation`:
-  - Znajduje order po `email_confirmation_token`.
-  - Sprawdza: nie wygasł (TTL np. 7 dni), nie był już potwierdzony.
-  - Ustawia `email_confirmed_at=now()`, `status='paid'`, generuje `ticket_code`, ustawia `ticket_generated_at`.
-  - Wywołuje wewnętrznie `generate-event-ticket-pdf` (lub inline renderuje PDF analogicznie do `register-event-transfer-order`).
-  - Wysyła email #2 z biletem (PDF + QR), ustawia `ticket_sent_at`.
-  - Zwraca `{success, email}` do strony.
+### RLS / GRANT
+- Bez zmian (UPDATE dla adminow贸w ju偶 istnieje).
 
-### Bezpieczeństwo
-- Tokeny 256-bit, unique, jednorazowe (sprawdzane przez `email_confirmed_at IS NULL`).
-- Edge functions z `SUPABASE_SERVICE_ROLE_KEY` (bypassują RLS w kontrolowany sposób).
-- Limit prób potwierdzenia (TTL 7 dni — po tym order zostaje `awaiting_email_confirmation` ale link zwraca błąd).
-- Walidacja po stronie serwera: nie generujemy biletu, jeśli `event.is_free=false` (ochrona przed użyciem ścieżki dla płatnych).
+---
 
-## Testowanie krok po kroku
-1. Włącz `is_free` na evencie testowym → zapis.
-2. Otwórz publiczną stronę → drawer pokazuje formularz bezpłatny + checkbox.
-3. Submit bez checkboxa → błąd walidacji.
-4. Submit z checkboxem → baner sukcesu + status w DB = `awaiting_email_confirmation`, brak `ticket_code`.
-5. Sprawdź email #1 → kliknij CTA.
-6. Strona `/events/confirm-reservation/:token` → sukces, status zmienia się na `paid`, generuje się `ticket_code` i `ticket_pdf_url`.
-7. Sprawdź email #2 → bilet PDF z QR + imię, nazwisko, numer.
-8. Panel admina → weryfikacja: zeskanuj QR → status „checked_in" działa.
-9. Ponowne kliknięcie linku → komunikat „już potwierdzony".
-10. Próba rejestracji z tym samym emailem na ten sam event → odpowiedni komunikat.
+## 2. Tryb "Rezerwacja" dla wydarze艅 bezp艂atnych
 
-## Pliki
-**Nowe:**
-- `supabase/migrations/<ts>_add_free_event_reservation.sql`
-- `supabase/functions/register-free-event-order/index.ts`
-- `supabase/functions/confirm-free-event-reservation/index.ts`
-- `src/pages/FreeEventConfirmPage.tsx`
+### Edytor (zak艂adka **Bilety**)
+Gdy `event.is_free === true`:
+- Nag艂贸wek zak艂adki: **"Rezerwacje"** zamiast **"Bilety"**.
+- Etykiety w UI bilet贸w: **"Rezerwacja"** zamiast **"Bilet"** (przycisk "Dodaj rezerwacj臋", nag艂贸wek karty, komunikaty).
+- **Ukryte pola**: cena (`price_pln`), wszystkie warianty cenowe (early bird, standard, late), link PayPal per-bilet, ustawienia PayU/przelew per-bilet.
+- **Widoczne pola**: nazwa, opis, dost臋pna ilo艣膰, os贸b na 1 rezerwacj臋, benefity/regulamin, aktywny, wyr贸偶niony.
+- Walidacja zapisu: w trybie `is_free` cena ustawiana automatycznie na `0` w mutacji.
 
-**Edytowane:**
-- `src/components/admin/paid-events/editor/EventPaymentMethodsPanel.tsx`
-- `src/components/paid-events/public/PurchaseDrawer.tsx`
-- `src/pages/PaidEventPage.tsx`
-- `src/App.tsx` (nowa trasa)
-- `src/integrations/supabase/types.ts` (auto po migracji)
+### Publiczna karta rejestracji (`PurchaseDrawer` / `PaidEventPage`)
+- Wcze艣niej zaplanowany free-flow ju偶 dzia艂a; teraz pokazuje **list臋 typ贸w rezerwacji** (je艣li wi臋cej ni偶 jeden aktywny), z opisem/benefitami, bez ceny.
+- Etykieta CTA: **"Zarezerwuj miejsce"**.
 
-## Plan wdrożenia
-Migracja → edge functions → admin toggle → frontend drawer + strona potwierdzająca → testy E2E krok po kroku.
+### Bez migracji
+Nie ma zmian schematu 鈥� wykorzystujemy istniej膮ce `paid_event_tickets` z `price_pln = 0`.
+
+---
+
+## Pliki do zmiany
+
+**Migracja:**
+- nowa: `supabase/migrations/..._add_ticket_deleted_at.sql`
+
+**Frontend:**
+- `src/components/admin/paid-events/editor/PaidEventTicketsTab.tsx` (lub odpowiednik z list膮 bilet贸w + przycisk Usu艅) 鈥� soft-delete + warunki `is_free`.
+- `src/components/admin/paid-events/editor/TicketCard.tsx` (lub komponent karty edycji biletu) 鈥� ukrywanie p贸l cenowych i p艂atno艣ci w trybie `is_free`, zmiana etykiet.
+- `src/components/paid-events/public/PurchaseDrawer.tsx` 鈥� etykieta "Zarezerwuj", lista bez ceny gdy `is_free`.
+- `src/pages/PaidEventPage.tsx` 鈥� filtr `deleted_at IS NULL` w zapytaniu o bilety.
+
+**Typy:** `src/integrations/supabase/types.ts` zostanie zregenerowany po migracji.
+
+---
+
+## Krok po kroku QA
+1. Edytuj bilet 鈫� **Usu艅** 鈫� znika z listy, brak b艂臋du FK, zam贸wienia zachowane.
+2. W "G艂贸wne" w艂膮cz **Wydarzenie bezp艂atne** 鈫� zak艂adka pokazuje "Rezerwacje", brak p贸l cenowych.
+3. Wy艂膮cz tryb bezp艂atny 鈫� wracaj膮 pola cenowe i metody p艂atno艣ci.
+4. Public preview free-event 鈫� formularz "Zarezerwuj miejsce" + double-opt-in email (ju偶 wdro偶one).
