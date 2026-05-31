@@ -162,6 +162,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   useEffect(() => {
     if (!open) {
       setTransferSuccess(false);
+      setFreeSuccess(false);
       setLoadingMode(null);
       setQuantity(1);
       setAttendees([]);
