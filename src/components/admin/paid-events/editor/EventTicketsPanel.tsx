@@ -124,19 +124,22 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
     },
   });
 
-  // Delete ticket mutation
+  // Soft-delete ticket mutation (archive — preserves order history via FK)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('paid_event_tickets')
-        .delete()
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet usunięty' });
+      toast({
+        title: `${unitLabel} zarchiwizowana`,
+        description: 'Istniejące zamówienia pozostają nienaruszone.',
+      });
       onDataChange();
     },
     onError: (error: Error) => {
