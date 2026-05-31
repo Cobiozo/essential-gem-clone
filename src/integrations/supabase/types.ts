@@ -6811,6 +6811,9 @@ export type Database = {
           checked_in_at: string | null
           created_at: string
           email: string
+          email_confirmation_sent_at: string | null
+          email_confirmation_token: string | null
+          email_confirmed_at: string | null
           event_id: string
           first_name: string
           id: string
@@ -6837,6 +6840,9 @@ export type Database = {
           checked_in_at?: string | null
           created_at?: string
           email: string
+          email_confirmation_sent_at?: string | null
+          email_confirmation_token?: string | null
+          email_confirmed_at?: string | null
           event_id: string
           first_name: string
           id?: string
@@ -6863,6 +6869,9 @@ export type Database = {
           checked_in_at?: string | null
           created_at?: string
           email?: string
+          email_confirmation_sent_at?: string | null
+          email_confirmation_token?: string | null
+          email_confirmed_at?: string | null
           event_id?: string
           first_name?: string
           id?: string
@@ -7129,12 +7138,14 @@ export type Database = {
           description: string | null
           event_date: string
           event_end_date: string | null
+          free_event_consent_text: string | null
           guests_show_description: boolean
           guests_show_schedule: boolean
           guests_show_speakers: boolean
           guests_show_tickets: boolean
           id: string
           is_active: boolean | null
+          is_free: boolean
           is_online: boolean | null
           is_published: boolean | null
           location: string | null
@@ -7163,12 +7174,14 @@ export type Database = {
           description?: string | null
           event_date: string
           event_end_date?: string | null
+          free_event_consent_text?: string | null
           guests_show_description?: boolean
           guests_show_schedule?: boolean
           guests_show_speakers?: boolean
           guests_show_tickets?: boolean
           id?: string
           is_active?: boolean | null
+          is_free?: boolean
           is_online?: boolean | null
           is_published?: boolean | null
           location?: string | null
@@ -7197,12 +7210,14 @@ export type Database = {
           description?: string | null
           event_date?: string
           event_end_date?: string | null
+          free_event_consent_text?: string | null
           guests_show_description?: boolean
           guests_show_schedule?: boolean
           guests_show_speakers?: boolean
           guests_show_tickets?: boolean
           id?: string
           is_active?: boolean | null
+          is_free?: boolean
           is_online?: boolean | null
           is_published?: boolean | null
           location?: string | null

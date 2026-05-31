@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, CreditCard, Banknote, Wallet } from 'lucide-react';
+import { Loader2, Save, CreditCard, Banknote, Wallet, Gift } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EventPaymentMethodsPanelProps {
@@ -15,6 +15,7 @@ interface EventPaymentMethodsPanelProps {
 }
 
 interface PaymentConfig {
+  is_free: boolean;
   payment_method_payu: boolean;
   payment_method_transfer: boolean;
   payment_method_paypal: boolean;
@@ -34,7 +35,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
     queryFn: async () => {
       const { data, error } = await supabase
         .from('paid_events')
-        .select('payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details')
+        .select('is_free, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -48,12 +49,14 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
 
   const updateMutation = useMutation({
     mutationFn: async (payload: PaymentConfig) => {
-      // Validation: at least one method required
-      if (!payload.payment_method_payu && !payload.payment_method_transfer && !payload.payment_method_paypal) {
-        throw new Error('Włącz przynajmniej jedną metodę płatności');
-      }
-      if (payload.payment_method_transfer && !(payload.transfer_payment_details || '').trim()) {
-        throw new Error('Uzupełnij dane do przelewu');
+      // Free event mode — no payment method validation needed
+      if (!payload.is_free) {
+        if (!payload.payment_method_payu && !payload.payment_method_transfer && !payload.payment_method_paypal) {
+          throw new Error('Włącz przynajmniej jedną metodę płatności (lub oznacz wydarzenie jako bezpłatne)');
+        }
+        if (payload.payment_method_transfer && !(payload.transfer_payment_details || '').trim()) {
+          throw new Error('Uzupełnij dane do przelewu');
+        }
       }
       const { error } = await supabase
         .from('paid_events')
@@ -83,6 +86,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
   }
 
   const isDirty =
+    draft.is_free !== data?.is_free ||
     draft.payment_method_payu !== data?.payment_method_payu ||
     draft.payment_method_transfer !== data?.payment_method_transfer ||
     draft.payment_method_paypal !== data?.payment_method_paypal ||
@@ -97,6 +101,31 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Free event toggle — disables all paid methods when on */}
+        <div className="flex items-start justify-between gap-3 p-3 rounded-md border-2 border-emerald-500/40 bg-emerald-500/5">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 font-medium text-sm">
+              <Gift className="w-4 h-4 text-emerald-600" />
+              Wydarzenie bezpłatne (rezerwacja z potwierdzeniem email)
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gość rezerwuje miejsce wypełniając formularz z obowiązkową deklaracją obecności. Następnie dostaje email z linkiem potwierdzającym adres. Po kliknięciu w link automatycznie generuje się bilet QR i jest wysyłany na ten sam adres. Po włączeniu — pozostałe metody płatności są ignorowane, cena biletu nie jest pobierana.
+            </p>
+          </div>
+          <Switch
+            checked={draft.is_free}
+            onCheckedChange={(v) => setDraft({ ...draft, is_free: v })}
+          />
+        </div>
+
+        {draft.is_free && (
+          <div className="rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-900 dark:text-emerald-300">
+            Tryb bezpłatny jest <strong>aktywny</strong>. Goście klikający „Zarezerwuj" zobaczą formularz rejestracji bez płatności, a bilet otrzymają mailem po potwierdzeniu adresu.
+          </div>
+        )}
+
+        {/* Paid methods — disabled when free mode is ON */}
+        <div className={draft.is_free ? 'opacity-40 pointer-events-none space-y-4' : 'space-y-4'}>
         {/* PayU */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-md border bg-muted/30">
           <div className="flex-1">
@@ -148,8 +177,6 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
           />
         </div>
 
-
-
         {draft.payment_method_transfer && (
           <div>
             <Label htmlFor="transfer-details">Dane do przelewu *</Label>
@@ -172,6 +199,8 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
             </p>
           </div>
         )}
+        </div>
+
 
         <Button
           size="sm"
