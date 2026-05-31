@@ -238,7 +238,7 @@ serve(async (req) => {
       .select("id, status, email_confirmed_at")
       .eq("event_id", eventId)
       .eq("email", lowerEmail)
-      .not("status", "in", '("cancelled","refunded","failed","expired")')
+      .in("status", ["awaiting_email_confirmation", "confirmed", "paid"])
       .limit(1)
       .maybeSingle();
 
