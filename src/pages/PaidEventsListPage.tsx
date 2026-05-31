@@ -51,6 +51,7 @@ const PaidEventsListPage: React.FC = () => {
         .select('event_id, price_pln')
         .in('event_id', eventIds)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .order('price_pln', { ascending: true });
 
       const priceMap = new Map<string, number>();

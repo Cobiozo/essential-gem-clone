@@ -43,7 +43,24 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const [editingData, setEditingData] = useState<Record<string, Partial<Ticket>>>({});
   const [newBenefit, setNewBenefit] = useState<Record<string, string>>({});
 
-  // Fetch tickets
+  // Fetch event meta (is_free flag)
+  const { data: eventMeta } = useQuery({
+    queryKey: ['paid-event-meta-tickets-panel', eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_events')
+        .select('is_free')
+        .eq('id', eventId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { is_free: boolean | null } | null;
+    },
+  });
+  const isFree = !!eventMeta?.is_free;
+  const unitLabel = isFree ? 'Rezerwacja' : 'Bilet';
+  const unitLabelLower = isFree ? 'rezerwacja' : 'bilet';
+
+  // Fetch tickets (only non-archived)
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['paid-event-tickets-edit', eventId],
     queryFn: async () => {
@@ -51,6 +68,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         .from('paid_event_tickets')
         .select('*')
         .eq('event_id', eventId)
+        .is('deleted_at', null)
         .order('position', { ascending: true });
       if (error) throw error;
       return data as Ticket[];
@@ -65,8 +83,8 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         .from('paid_event_tickets')
         .insert({
           event_id: eventId,
-          name: 'Nowy bilet',
-          price_pln: 10000, // 100 PLN in grosze
+          name: isFree ? 'Nowa rezerwacja' : 'Nowy bilet',
+          price_pln: isFree ? 0 : 10000, // 100 PLN in grosze
           position: maxPosition + 1,
           is_active: true,
           benefits: [],
@@ -76,7 +94,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet dodany' });
+      toast({ title: `${unitLabel} dodana` });
       onDataChange();
     },
     onError: (error: Error) => {
@@ -87,16 +105,18 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   // Update ticket mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Ticket> }) => {
+      const payload = { ...data };
+      if (isFree) payload.price_pln = 0;
       const { error } = await supabase
         .from('paid_event_tickets')
-        .update(data)
+        .update(payload)
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet zaktualizowany' });
+      toast({ title: `${unitLabel} zaktualizowana` });
       onDataChange();
     },
     onError: (error: Error) => {
@@ -104,19 +124,22 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
     },
   });
 
-  // Delete ticket mutation
+  // Soft-delete ticket mutation (archive — preserves order history via FK)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('paid_event_tickets')
-        .delete()
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet usunięty' });
+      toast({
+        title: `${unitLabel} zarchiwizowana`,
+        description: 'Istniejące zamówienia pozostają nienaruszone.',
+      });
       onDataChange();
     },
     onError: (error: Error) => {
@@ -211,9 +234,14 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">
-                      {formatPrice(ticket.price_pln)} PLN
-                    </Badge>
+                    {!isFree && (
+                      <Badge variant="secondary">
+                        {formatPrice(ticket.price_pln)} PLN
+                      </Badge>
+                    )}
+                    {isFree && (
+                      <Badge variant="secondary">Rezerwacja</Badge>
+                    )}
                     <ChevronDown 
                       className={cn(
                         'w-4 h-4 transition-transform',
@@ -227,42 +255,46 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
                 <div>
-                  <Label htmlFor={`name-${ticket.id}`}>Nazwa pakietu</Label>
+                  <Label htmlFor={`name-${ticket.id}`}>Nazwa {isFree ? 'rezerwacji' : 'pakietu'}</Label>
                   <Input
                     id={`name-${ticket.id}`}
                     value={getEditingValue(ticket.id, 'name', ticket.name)}
                     onChange={(e) => setEditingValue(ticket.id, 'name', e.target.value)}
-                    placeholder="Nazwa pakietu"
+                    placeholder={isFree ? 'Nazwa rezerwacji' : 'Nazwa pakietu'}
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
-                  <Input
-                    id={`price-${ticket.id}`}
-                    type="text"
-                    value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
-                    onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
-                    placeholder="100.00"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cena w PLN (np. 648.00)
-                  </p>
-                </div>
+                {!isFree && (
+                  <div>
+                    <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
+                    <Input
+                      id={`price-${ticket.id}`}
+                      type="text"
+                      value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
+                      onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
+                      placeholder="100.00"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cena w PLN (np. 648.00)
+                    </p>
+                  </div>
+                )}
 
-                <div>
-                  <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
-                  <Input
-                    id={`paypal-${ticket.id}`}
-                    type="url"
-                    value={getEditingValue(ticket.id, 'paypal_payment_link', ticket.paypal_payment_link ?? '') as string}
-                    onChange={(e) => setEditingValue(ticket.id, 'paypal_payment_link', e.target.value.trim() || null)}
-                    placeholder="https://www.paypal.com/ncp/payment/XXXXX"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Jeśli wypełnione, klient zobaczy dodatkową opcję płatności „PayPal" i zostanie przekierowany na to łącze. Status płatności potwierdzasz ręcznie w zamówieniach.
-                  </p>
-                </div>
+                {!isFree && (
+                  <div>
+                    <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
+                    <Input
+                      id={`paypal-${ticket.id}`}
+                      type="url"
+                      value={getEditingValue(ticket.id, 'paypal_payment_link', ticket.paypal_payment_link ?? '') as string}
+                      onChange={(e) => setEditingValue(ticket.id, 'paypal_payment_link', e.target.value.trim() || null)}
+                      placeholder="https://www.paypal.com/ncp/payment/XXXXX"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Jeśli wypełnione, klient zobaczy dodatkową opcję płatności „PayPal" i zostanie przekierowany na to łącze. Status płatności potwierdzasz ręcznie w zamówieniach.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor={`description-${ticket.id}`}>Opis</Label>
@@ -288,7 +320,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`seats-${ticket.id}`}>Osób na 1 bilet</Label>
+                    <Label htmlFor={`seats-${ticket.id}`}>Osób na 1 {unitLabelLower}</Label>
                     <Input
                       id={`seats-${ticket.id}`}
                       type="number"
@@ -299,7 +331,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                       placeholder="1"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Bilet zbiorowy: ile osób wchodzi na 1 sztukę
+                      {isFree ? 'Rezerwacja grupowa: ile osób wchodzi na 1 sztukę' : 'Bilet zbiorowy: ile osób wchodzi na 1 sztukę'}
                     </p>
                   </div>
                 </div>
@@ -383,7 +415,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     variant="destructive"
                     size="sm"
                     onClick={() => {
-                      if (confirm('Czy na pewno usunąć ten bilet?')) {
+                      if (confirm(isFree ? 'Czy na pewno zarchiwizować tę rezerwację?' : 'Czy na pewno zarchiwizować ten bilet?')) {
                         deleteMutation.mutate(ticket.id);
                       }
                     }}
@@ -401,7 +433,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
       {tickets.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center text-muted-foreground">
-            Brak biletów. Dodaj pierwszy bilet poniżej.
+            {isFree ? 'Brak rezerwacji. Dodaj pierwszą rezerwację poniżej.' : 'Brak biletów. Dodaj pierwszy bilet poniżej.'}
           </CardContent>
         </Card>
       )}
@@ -417,7 +449,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         ) : (
           <Plus className="w-4 h-4 mr-2" />
         )}
-        Dodaj bilet
+        {isFree ? 'Dodaj rezerwację' : 'Dodaj bilet'}
       </Button>
     </div>
   );

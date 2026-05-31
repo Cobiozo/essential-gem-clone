@@ -62,6 +62,7 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
         .select('*')
         .eq('event_id', eventId)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .order('position', { ascending: true });
       if (error) throw error;
       return data;

@@ -7063,6 +7063,7 @@ export type Database = {
         Row: {
           benefits: Json | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           event_id: string
           highlight_text: string | null
@@ -7083,6 +7084,7 @@ export type Database = {
         Insert: {
           benefits?: Json | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           event_id: string
           highlight_text?: string | null
@@ -7103,6 +7105,7 @@ export type Database = {
         Update: {
           benefits?: Json | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           event_id?: string
           highlight_text?: string | null
