@@ -320,7 +320,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`seats-${ticket.id}`}>Osób na 1 bilet</Label>
+                    <Label htmlFor={`seats-${ticket.id}`}>Osób na 1 {unitLabelLower}</Label>
                     <Input
                       id={`seats-${ticket.id}`}
                       type="number"
@@ -331,7 +331,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                       placeholder="1"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Bilet zbiorowy: ile osób wchodzi na 1 sztukę
+                      {isFree ? 'Rezerwacja grupowa: ile osób wchodzi na 1 sztukę' : 'Bilet zbiorowy: ile osób wchodzi na 1 sztukę'}
                     </p>
                   </div>
                 </div>
