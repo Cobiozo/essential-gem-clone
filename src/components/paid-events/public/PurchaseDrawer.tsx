@@ -51,6 +51,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   eventTitle,
   ticket,
   currency = 'PLN',
+  isFree = false,
   paymentMethodPayu = true,
   paymentMethodTransfer = false,
   paymentMethodPaypal = false,
