@@ -415,7 +415,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     variant="destructive"
                     size="sm"
                     onClick={() => {
-                      if (confirm('Czy na pewno usunąć ten bilet?')) {
+                      if (confirm(isFree ? 'Czy na pewno zarchiwizować tę rezerwację?' : 'Czy na pewno zarchiwizować ten bilet?')) {
                         deleteMutation.mutate(ticket.id);
                       }
                     }}
