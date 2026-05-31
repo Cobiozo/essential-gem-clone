@@ -35,7 +35,7 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
     queryFn: async () => {
       const { data, error } = await supabase
         .from('paid_events')
-        .select('payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details')
+        .select('is_free, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details')
         .eq('id', eventId)
         .single();
       if (error) throw error;
