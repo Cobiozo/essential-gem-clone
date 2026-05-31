@@ -83,8 +83,8 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         .from('paid_event_tickets')
         .insert({
           event_id: eventId,
-          name: 'Nowy bilet',
-          price_pln: 10000, // 100 PLN in grosze
+          name: isFree ? 'Nowa rezerwacja' : 'Nowy bilet',
+          price_pln: isFree ? 0 : 10000, // 100 PLN in grosze
           position: maxPosition + 1,
           is_active: true,
           benefits: [],
@@ -94,7 +94,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet dodany' });
+      toast({ title: `${unitLabel} dodana` });
       onDataChange();
     },
     onError: (error: Error) => {
@@ -105,16 +105,18 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   // Update ticket mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Ticket> }) => {
+      const payload = { ...data };
+      if (isFree) payload.price_pln = 0;
       const { error } = await supabase
         .from('paid_event_tickets')
-        .update(data)
+        .update(payload)
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-edit', eventId] });
       queryClient.invalidateQueries({ queryKey: ['paid-event-tickets-preview', eventId] });
-      toast({ title: 'Bilet zaktualizowany' });
+      toast({ title: `${unitLabel} zaktualizowana` });
       onDataChange();
     },
     onError: (error: Error) => {
