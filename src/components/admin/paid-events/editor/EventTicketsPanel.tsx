@@ -255,42 +255,46 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
             <CollapsibleContent>
               <CardContent className="space-y-4 pt-0">
                 <div>
-                  <Label htmlFor={`name-${ticket.id}`}>Nazwa pakietu</Label>
+                  <Label htmlFor={`name-${ticket.id}`}>Nazwa {isFree ? 'rezerwacji' : 'pakietu'}</Label>
                   <Input
                     id={`name-${ticket.id}`}
                     value={getEditingValue(ticket.id, 'name', ticket.name)}
                     onChange={(e) => setEditingValue(ticket.id, 'name', e.target.value)}
-                    placeholder="Nazwa pakietu"
+                    placeholder={isFree ? 'Nazwa rezerwacji' : 'Nazwa pakietu'}
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
-                  <Input
-                    id={`price-${ticket.id}`}
-                    type="text"
-                    value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
-                    onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
-                    placeholder="100.00"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Cena w PLN (np. 648.00)
-                  </p>
-                </div>
+                {!isFree && (
+                  <div>
+                    <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
+                    <Input
+                      id={`price-${ticket.id}`}
+                      type="text"
+                      value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
+                      onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
+                      placeholder="100.00"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cena w PLN (np. 648.00)
+                    </p>
+                  </div>
+                )}
 
-                <div>
-                  <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
-                  <Input
-                    id={`paypal-${ticket.id}`}
-                    type="url"
-                    value={getEditingValue(ticket.id, 'paypal_payment_link', ticket.paypal_payment_link ?? '') as string}
-                    onChange={(e) => setEditingValue(ticket.id, 'paypal_payment_link', e.target.value.trim() || null)}
-                    placeholder="https://www.paypal.com/ncp/payment/XXXXX"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Jeśli wypełnione, klient zobaczy dodatkową opcję płatności „PayPal" i zostanie przekierowany na to łącze. Status płatności potwierdzasz ręcznie w zamówieniach.
-                  </p>
-                </div>
+                {!isFree && (
+                  <div>
+                    <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
+                    <Input
+                      id={`paypal-${ticket.id}`}
+                      type="url"
+                      value={getEditingValue(ticket.id, 'paypal_payment_link', ticket.paypal_payment_link ?? '') as string}
+                      onChange={(e) => setEditingValue(ticket.id, 'paypal_payment_link', e.target.value.trim() || null)}
+                      placeholder="https://www.paypal.com/ncp/payment/XXXXX"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Jeśli wypełnione, klient zobaczy dodatkową opcję płatności „PayPal" i zostanie przekierowany na to łącze. Status płatności potwierdzasz ręcznie w zamówieniach.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor={`description-${ticket.id}`}>Opis</Label>
