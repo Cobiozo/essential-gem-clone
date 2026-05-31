@@ -317,14 +317,14 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   if (!ticket) return null;
 
-  const noMethods = !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
+  const noMethods = !isFree && !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[90vh]">
         <div className="overflow-y-auto">
           <DrawerHeader className="text-left">
-            <DrawerTitle>{transferSuccess ? 'Rezerwacja przyjęta' : 'Kup bilet'}</DrawerTitle>
+            <DrawerTitle>{transferSuccess ? 'Rezerwacja przyjęta' : (isFree ? 'Zarezerwuj miejsce' : 'Kup bilet')}</DrawerTitle>
             <DrawerDescription>
               {eventTitle} - {ticket.name}
             </DrawerDescription>
