@@ -257,10 +257,36 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     setLoadingMode('checkout');
     try {
       const payload = buildPayload();
-      console.log('[purchase] create order payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats });
+      console.log('[purchase] create order payload', { quantity: payload.quantity, attendees: payload.attendees.length, totalSeats, isFree });
+
+      if (isFree) {
+        const { data, error } = await supabase.functions.invoke('register-free-event-order', { body: payload });
+        if (error) {
+          let detail = error.message || 'Nie udało się utworzyć rezerwacji';
+          try {
+            const ctxRes = (error as any).context?.response;
+            if (ctxRes && typeof ctxRes.json === 'function') {
+              const j = await ctxRes.json();
+              if (j?.error) detail = j.error;
+            }
+          } catch { /* ignore */ }
+          throw new Error(detail);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
+        qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+
+        toast({
+          title: 'Rezerwacja przyjęta',
+          description: `Wysłaliśmy link potwierdzający na ${formData.email}. Kliknij w niego, aby otrzymać bilet QR.`,
+        });
+        onOpenChange(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-event-order', { body: payload });
       if (error) {
-        // Try to extract server-side error message from the FunctionsHttpError response
         let detail = error.message || 'Nie udało się utworzyć zamówienia';
         try {
           const ctxRes = (error as any).context?.response;
@@ -279,12 +305,11 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
       qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
 
-      // Always go to the internal checkout page; user picks payment method there.
       onOpenChange(false);
       navigate(`/checkout/${data.orderId}`);
     } catch (err: any) {
       console.error('Purchase error:', err);
-      toast({ title: 'Błąd', description: err.message || 'Wystąpił błąd podczas tworzenia zamówienia', variant: 'destructive' });
+      toast({ title: 'Błąd', description: err.message || 'Wystąpił błąd podczas tworzenia rezerwacji', variant: 'destructive' });
     } finally {
       setLoadingMode(null);
     }
