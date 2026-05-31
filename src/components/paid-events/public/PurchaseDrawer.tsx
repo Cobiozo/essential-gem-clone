@@ -369,13 +369,13 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               {/* Order Summary */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span>Bilet:</span>
+                  <span>{isFree ? 'Rezerwacja:' : 'Bilet:'}</span>
                   <span className="font-medium text-right">{ticket.name}</span>
                 </div>
 
                 {/* Quantity selector */}
                 <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm">Liczba biletów</Label>
+                  <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -404,31 +404,35 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 {seatsPerTicket > 1 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Users className="w-3.5 h-3.5" />
-                    <span>1 bilet = {seatsPerTicket} osób · razem <strong className="text-foreground">{totalSeats} uczestników</strong></span>
+                    <span>1 {isFree ? 'rezerwacja' : 'bilet'} = {seatsPerTicket} osób · razem <strong className="text-foreground">{totalSeats} uczestników</strong></span>
                   </div>
                 )}
 
-                {/* Detailed cost breakdown — always visible */}
-                <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
-                  <div className="flex justify-between">
-                    <span>Cena za bilet:</span>
-                    <span>{formatPrice(ticket?.price ?? 0)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
-                    <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
-                  </div>
-                  {hasOwnTicket && (
-                    <div className="text-[11px] italic pt-1">
-                      Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                {!isFree && (
+                  <>
+                    {/* Detailed cost breakdown — always visible */}
+                    <div className="space-y-1 text-xs text-muted-foreground border-t border-border/40 pt-2">
+                      <div className="flex justify-between">
+                        <span>Cena za bilet:</span>
+                        <span>{formatPrice(ticket?.price ?? 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{hasOwnTicket ? `Bilety dla gości (${quantity}):` : `Bilety (${quantity}):`}</span>
+                        <span className="text-foreground">{quantity} × {formatPrice(ticket?.price ?? 0)} = <strong>{formatPrice(totalPrice)}</strong></span>
+                      </div>
+                      {hasOwnTicket && (
+                        <div className="text-[11px] italic pt-1">
+                          Im więcej gości zaprosisz, tym wyższa kwota — kalkulacja aktualizuje się automatycznie.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="flex justify-between pt-2 border-t border-border/50">
-                  <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
-                  <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
-                </div>
+                    <div className="flex justify-between pt-2 border-t border-border/50">
+                      <span className="font-medium">Do zapłaty {quantity > 1 ? `(${quantity} bilety)` : ''}:</span>
+                      <span className="text-xl font-bold text-primary">{formatPrice(totalPrice)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Buyer Data — locked & empty when user already has a ticket */}
