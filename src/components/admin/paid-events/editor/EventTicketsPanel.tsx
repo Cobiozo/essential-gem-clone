@@ -433,7 +433,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
       {tickets.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center text-muted-foreground">
-            Brak biletów. Dodaj pierwszy bilet poniżej.
+            {isFree ? 'Brak rezerwacji. Dodaj pierwszą rezerwację poniżej.' : 'Brak biletów. Dodaj pierwszy bilet poniżej.'}
           </CardContent>
         </Card>
       )}
@@ -449,7 +449,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
         ) : (
           <Plus className="w-4 h-4 mr-2" />
         )}
-        Dodaj bilet
+        {isFree ? 'Dodaj rezerwację' : 'Dodaj bilet'}
       </Button>
     </div>
   );
