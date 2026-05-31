@@ -177,8 +177,6 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
           />
         </div>
 
-
-
         {draft.payment_method_transfer && (
           <div>
             <Label htmlFor="transfer-details">Dane do przelewu *</Label>
@@ -201,6 +199,8 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
             </p>
           </div>
         )}
+        </div>
+
 
         <Button
           size="sm"
