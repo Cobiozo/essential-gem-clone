@@ -140,6 +140,7 @@ const PaidEventPage: React.FC = () => {
         .select('*')
         .eq('event_id', event!.id)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .order('price_pln', { ascending: true });
 
       if (error) throw error;
