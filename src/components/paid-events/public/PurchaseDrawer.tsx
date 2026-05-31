@@ -26,6 +26,7 @@ interface PurchaseDrawerProps {
   eventTitle: string;
   ticket: TicketInfo | null;
   currency?: string;
+  isFree?: boolean;
   paymentMethodPayu?: boolean;
   paymentMethodTransfer?: boolean;
   paymentMethodPaypal?: boolean;
