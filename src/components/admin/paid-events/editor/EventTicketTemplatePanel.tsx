@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw } from 'lucide-react';
-
-const APP_URL = (import.meta.env.VITE_SUPABASE_URL as string).includes('localhost')
-  ? 'http://localhost:5173' : 'https://purelife.lovable.app';
 
 interface FieldDef {
   key: string;
@@ -65,12 +62,14 @@ interface Props { eventId: string; onDataChange?: () => void }
 export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChange }) => {
   const { toast } = useToast();
   const [tpl, setTpl] = useState<TemplateState>(DEFAULT_TEMPLATE);
+  const tplRef = useRef<TemplateState>(DEFAULT_TEMPLATE);
+  useEffect(() => { tplRef.current = tpl; }, [tpl]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedField, setSelectedField] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ key: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -91,34 +90,62 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     })();
   }, [eventId]);
 
+  const persist = async (state: TemplateState) => {
+    const payload = {
+      event_id: eventId,
+      background_url: state.background_url,
+      page_format: state.page_format,
+      orientation: state.orientation,
+      width_px: state.width_px,
+      height_px: state.height_px,
+      fields: state.fields as any,
+    };
+    const { data: existing } = await supabase
+      .from('event_ticket_templates').select('id').eq('event_id', eventId).maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from('event_ticket_templates').update(payload).eq('event_id', eventId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('event_ticket_templates').insert(payload);
+      if (error) throw error;
+    }
+  };
+
   const onUpload = async (file: File) => {
     if (!file) return;
+    if (!/^image\/(png|jpe?g)$/i.test(file.type)) {
+      toast({ title: 'Nieobsługiwany format', description: 'Tylko PNG lub JPG', variant: 'destructive' }); return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: 'Plik za duży', description: 'Max 5MB', variant: 'destructive' }); return;
     }
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
       const path = `templates/${eventId}/bg.${ext}`;
       const { error: upErr } = await supabase.storage.from('event-tickets')
         .upload(path, file, { contentType: file.type, upsert: true });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from('event-tickets').getPublicUrl(path);
-      // Bust cache so the preview shows the new image
       const url = `${pub.publicUrl}?t=${Date.now()}`;
-      // Get natural dimensions
       const img = new Image();
-      img.onload = () => {
-        setTpl((prev) => ({
-          ...prev,
+      img.onload = async () => {
+        const next: TemplateState = {
+          ...tplRef.current,
           background_url: url,
-          width_px: img.naturalWidth || prev.width_px,
-          height_px: img.naturalHeight || prev.height_px,
+          width_px: img.naturalWidth || tplRef.current.width_px,
+          height_px: img.naturalHeight || tplRef.current.height_px,
           orientation: (img.naturalWidth > img.naturalHeight) ? 'landscape' : 'portrait',
-        }));
+        };
+        setTpl(next);
+        try { await persist(next); } catch (e: any) {
+          toast({ title: 'Zapis tła nie powiódł się', description: e.message, variant: 'destructive' });
+        }
+        toast({ title: 'Tło wgrane i zapisane' });
+        onDataChange?.();
       };
+      img.onerror = () => toast({ title: 'Nie udało się załadować obrazu', variant: 'destructive' });
       img.src = url;
-      toast({ title: 'Tło wgrane' });
     } catch (e: any) {
       toast({ title: 'Błąd uploadu', description: e.message, variant: 'destructive' });
     } finally { setUploading(false); }
@@ -127,24 +154,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   const save = async () => {
     setSaving(true);
     try {
-      const payload = {
-        event_id: eventId,
-        background_url: tpl.background_url,
-        page_format: tpl.page_format,
-        orientation: tpl.orientation,
-        width_px: tpl.width_px,
-        height_px: tpl.height_px,
-        fields: tpl.fields as any,
-      };
-      const { data: existing } = await supabase
-        .from('event_ticket_templates').select('id').eq('event_id', eventId).maybeSingle();
-      if (existing) {
-        const { error } = await supabase.from('event_ticket_templates').update(payload).eq('event_id', eventId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('event_ticket_templates').insert(payload);
-        if (error) throw error;
-      }
+      await persist(tplRef.current);
       toast({ title: 'Szablon zapisany' });
       onDataChange?.();
     } catch (e: any) {
@@ -159,12 +169,10 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         body: { preview: true, eventId },
       });
       if (error) throw error;
-      // Function returns binary PDF; invoke returns Blob in data when content-type pdf
       if (data instanceof Blob) {
         const url = URL.createObjectURL(data);
         window.open(url, '_blank');
       } else {
-        // Fallback: open via direct fetch
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-event-ticket-pdf`, {
           method: 'POST',
           headers: {
@@ -174,6 +182,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
           },
           body: JSON.stringify({ preview: true, eventId }),
         });
+        if (!resp.ok) throw new Error(await resp.text());
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
@@ -183,29 +192,40 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     }
   };
 
-  const onPointerDown = (e: React.PointerEvent, key: string) => {
-    e.preventDefault();
-    const field = tpl.fields.find((f) => f.key === key);
-    if (!field) return;
+  // ---- Drag / resize (window-bound, no pointer capture) ----
+  const beginDrag = (e: React.PointerEvent, key: string, mode: 'move' | 'resize') => {
+    e.preventDefault(); e.stopPropagation();
     setSelectedField(key);
-    dragRef.current = { key, startX: e.clientX, startY: e.clientY, origX: field.x, origY: field.y };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current; if (!d || !canvasRef.current) return;
+    const field = tplRef.current.fields.find((f) => f.key === key);
+    if (!field || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = tpl.width_px / rect.width;
-    const scaleY = tpl.height_px / rect.height;
-    const dx = (e.clientX - d.startX) * scaleX;
-    const dy = (e.clientY - d.startY) * scaleY;
-    setTpl((prev) => ({
-      ...prev,
-      fields: prev.fields.map((f) => f.key === d.key
-        ? { ...f, x: Math.max(0, Math.round(d.origX + dx)), y: Math.max(0, Math.round(d.origY + dy)) }
-        : f),
-    }));
+    const scaleX = tplRef.current.width_px / rect.width;
+    const scaleY = tplRef.current.height_px / rect.height;
+    const startX = e.clientX, startY = e.clientY;
+    const origX = field.x, origY = field.y;
+    const origW = field.width || 200, origH = field.height || 200;
+
+    const move = (ev: PointerEvent) => {
+      const dx = (ev.clientX - startX) * scaleX;
+      const dy = (ev.clientY - startY) * scaleY;
+      setTpl((prev) => ({
+        ...prev,
+        fields: prev.fields.map((f) => {
+          if (f.key !== key) return f;
+          if (mode === 'move') {
+            return { ...f, x: Math.max(0, Math.round(origX + dx)), y: Math.max(0, Math.round(origY + dy)) };
+          }
+          return { ...f, width: Math.max(40, Math.round(origW + dx)), height: Math.max(40, Math.round(origH + dy)) };
+        }),
+      }));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
   };
-  const onPointerUp = () => { dragRef.current = null; };
 
   const updateField = (key: string, patch: Partial<FieldDef>) => {
     setTpl((prev) => ({ ...prev, fields: prev.fields.map((f) => f.key === key ? { ...f, ...patch } : f) }));
@@ -230,8 +250,6 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
 
   const selected = tpl.fields.find((f) => f.key === selectedField);
   const missingFields = Object.keys(FIELD_LABELS).filter((k) => !tpl.fields.some((f) => f.key === k));
-
-  // Canvas display sized to container; preserve aspect ratio
   const aspect = `${tpl.width_px} / ${tpl.height_px}`;
 
   return (
@@ -239,13 +257,25 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><FileImage className="w-4 h-4" />Tło biletu</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Label className="flex items-center gap-2 cursor-pointer w-fit">
-            <input type="file" accept="image/png,image/jpeg" className="hidden"
-              onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
-            <Button asChild size="sm" variant="outline" disabled={uploading}>
-              <span>{uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}Wgraj PNG/JPG (max 5MB)</span>
-            </Button>
-          </Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUpload(f);
+              e.target.value = '';
+            }}
+          />
+          <Button size="sm" variant="outline" disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}>
+            {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+            Wgraj PNG/JPG (max 5MB)
+          </Button>
+          {tpl.background_url && (
+            <p className="text-xs text-muted-foreground break-all">Aktualne tło: {tpl.background_url.split('/').pop()?.split('?')[0]}</p>
+          )}
           <div className="grid grid-cols-3 gap-2">
             <div>
               <Label className="text-xs">Format</Label>
@@ -288,9 +318,8 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         <CardContent>
           <div
             ref={canvasRef}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            className="relative w-full border-2 border-dashed border-border bg-muted/30 select-none overflow-hidden"
+            onPointerDown={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
+            className="relative w-full border-2 border-dashed border-border bg-muted/30 select-none overflow-hidden touch-none"
             style={{ aspectRatio: aspect, backgroundImage: tpl.background_url ? `url(${tpl.background_url})` : undefined, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat' }}
           >
             {tpl.fields.map((f) => {
@@ -302,17 +331,22 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
                 const h = `${((f.height || 200) / tpl.height_px) * 100}%`;
                 return (
                   <div key={f.key}
-                    onPointerDown={(e) => onPointerDown(e, f.key)}
-                    className={`absolute border-2 ${isSelected ? 'border-primary' : 'border-foreground/50'} bg-foreground/10 flex items-center justify-center cursor-move`}
+                    onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                    className={`absolute border-2 ${isSelected ? 'border-primary' : 'border-foreground/50'} bg-foreground/10 flex items-center justify-center cursor-move touch-none`}
                     style={{ left, top, width: w, height: h }}>
                     <span className="text-[10px] font-semibold uppercase tracking-wider">QR</span>
+                    <div
+                      onPointerDown={(e) => beginDrag(e, f.key, 'resize')}
+                      className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary cursor-nwse-resize touch-none"
+                      title="Zmień rozmiar"
+                    />
                   </div>
                 );
               }
               return (
                 <div key={f.key}
-                  onPointerDown={(e) => onPointerDown(e, f.key)}
-                  className={`absolute cursor-move px-1 ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/30'} bg-background/40 whitespace-nowrap`}
+                  onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                  className={`absolute cursor-move px-1 ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/30'} bg-background/40 whitespace-nowrap touch-none`}
                   style={{ left, top, fontSize: `${((f.fontSize || 14) / tpl.height_px) * 100}cqh`, color: f.color, fontWeight: f.fontWeight === 'bold' ? 700 : 400 }}>
                   {FIELD_LABELS[f.key] || f.key}
                 </div>
@@ -320,7 +354,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
             })}
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Przeciągnij pole na podgląd. Pozycje są w pikselach względem rozmiaru płótna ({tpl.width_px}×{tpl.height_px}).
+            Kliknij pole, aby je zaznaczyć; przeciągnij, aby zmienić pozycję. QR ma uchwyt w prawym dolnym rogu do zmiany rozmiaru. Rozmiar płótna: {tpl.width_px}×{tpl.height_px} px.
           </p>
         </CardContent>
       </Card>
@@ -381,5 +415,3 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     </div>
   );
 };
-
-export default EventTicketTemplatePanel;
