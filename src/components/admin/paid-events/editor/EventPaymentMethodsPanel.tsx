@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, CreditCard, Banknote, Wallet } from 'lucide-react';
+import { Loader2, Save, CreditCard, Banknote, Wallet, Gift } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EventPaymentMethodsPanelProps {
@@ -15,6 +15,7 @@ interface EventPaymentMethodsPanelProps {
 }
 
 interface PaymentConfig {
+  is_free: boolean;
   payment_method_payu: boolean;
   payment_method_transfer: boolean;
   payment_method_paypal: boolean;
