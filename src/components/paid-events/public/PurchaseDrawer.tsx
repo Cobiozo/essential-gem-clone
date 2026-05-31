@@ -44,6 +44,17 @@ interface Attendee {
 
 const MAX_TICKETS = 10;
 
+function mapFreeError(code: string): string {
+  switch (code) {
+    case 'consent_required': return 'Zaakceptuj regulamin i politykę prywatności, aby kontynuować.';
+    case 'missing_fields': return 'Uzupełnij wymagane pola (imię, nazwisko, email).';
+    case 'ticket_not_found': return 'Ten bilet nie jest już dostępny.';
+    case 'event_not_free': return 'To wydarzenie nie jest bezpłatne.';
+    case 'already_registered': return 'Ten adres email ma już rezerwację na to wydarzenie. Sprawdź skrzynkę (także folder Spam).';
+    default: return code || 'Nie udało się utworzyć rezerwacji.';
+  }
+}
+
 export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   open,
   onOpenChange,
