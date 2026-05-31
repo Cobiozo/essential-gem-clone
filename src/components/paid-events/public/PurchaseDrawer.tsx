@@ -294,9 +294,9 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
         toast({
           title: 'Rezerwacja przyjęta',
-          description: `Wysłaliśmy link potwierdzający na ${formData.email}. Kliknij w niego, aby otrzymać bilet QR.`,
+          description: `Wysłaliśmy email potwierdzający na ${formData.email}.`,
         });
-        onOpenChange(false);
+        setFreeSuccess(true);
         return;
       }
 
