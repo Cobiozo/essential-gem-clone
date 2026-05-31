@@ -101,6 +101,31 @@ export const EventPaymentMethodsPanel: React.FC<EventPaymentMethodsPanelProps> =
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Free event toggle — disables all paid methods when on */}
+        <div className="flex items-start justify-between gap-3 p-3 rounded-md border-2 border-emerald-500/40 bg-emerald-500/5">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 font-medium text-sm">
+              <Gift className="w-4 h-4 text-emerald-600" />
+              Wydarzenie bezpłatne (rezerwacja z potwierdzeniem email)
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Gość rezerwuje miejsce wypełniając formularz z obowiązkową deklaracją obecności. Następnie dostaje email z linkiem potwierdzającym adres. Po kliknięciu w link automatycznie generuje się bilet QR i jest wysyłany na ten sam adres. Po włączeniu — pozostałe metody płatności są ignorowane, cena biletu nie jest pobierana.
+            </p>
+          </div>
+          <Switch
+            checked={draft.is_free}
+            onCheckedChange={(v) => setDraft({ ...draft, is_free: v })}
+          />
+        </div>
+
+        {draft.is_free && (
+          <div className="rounded-md border border-dashed border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-900 dark:text-emerald-300">
+            Tryb bezpłatny jest <strong>aktywny</strong>. Goście klikający „Zarezerwuj" zobaczą formularz rejestracji bez płatności, a bilet otrzymają mailem po potwierdzeniu adresu.
+          </div>
+        )}
+
+        {/* Paid methods — disabled when free mode is ON */}
+        <div className={draft.is_free ? 'opacity-40 pointer-events-none space-y-4' : 'space-y-4'}>
         {/* PayU */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-md border bg-muted/30">
           <div className="flex-1">
