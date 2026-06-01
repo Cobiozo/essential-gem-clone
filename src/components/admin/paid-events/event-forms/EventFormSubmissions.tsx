@@ -735,38 +735,57 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       )}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      {s.payment_status !== 'paid' && (
-                        <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        </Button>
+                      {s.__source === 'order' ? (
+                        <>
+                          {s.__ticketCode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Otwórz bilet"
+                              asChild
+                            >
+                              <a href={`/ticket/${s.__ticketCode}`} target="_blank" rel="noreferrer">
+                                <Ticket className="w-4 h-4 text-primary" />
+                              </a>
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {s.payment_status !== 'paid' && (
+                            <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            </Button>
+                          )}
+                          {s.payment_status === 'paid' && (
+                            <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Anuluj zgłoszenie" onClick={() => {
+                              if (confirm('Anulować to zgłoszenie?')) updatePayment.mutate({ submissionId: s.id, paymentStatus: 'cancelled' });
+                            }}>
+                              <XCircle className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Usuń zgłoszenie całkowicie"
+                            onClick={() => {
+                              const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                              if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
+                              deleteSubmission.mutate(s.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </>
                       )}
-                      {s.payment_status === 'paid' && (
-                        <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
-                          <RotateCcw className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {s.payment_status !== 'cancelled' && (
-                        <Button size="sm" variant="ghost" title="Anuluj zgłoszenie" onClick={() => {
-                          if (confirm('Anulować to zgłoszenie?')) updatePayment.mutate({ submissionId: s.id, paymentStatus: 'cancelled' });
-                        }}>
-                          <XCircle className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
-                        <Mail className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Usuń zgłoszenie całkowicie"
-                        onClick={() => {
-                          const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
-                          if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
-                          deleteSubmission.mutate(s.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 );
