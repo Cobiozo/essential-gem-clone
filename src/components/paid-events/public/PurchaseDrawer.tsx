@@ -407,9 +407,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-4 text-sm flex gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-semibold text-primary mb-1">Jesteś już zarejestrowany na to wydarzenie</div>
+                    <div className="font-semibold text-primary mb-1">
+                      {isFree
+                        ? 'Masz już zarezerwowane miejsce na to wydarzenie'
+                        : 'Jesteś już zarejestrowany na to wydarzenie'}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety".
+                      {isFree
+                        ? 'Twoje miejsce jest już zarezerwowane. Sprawdź skrzynkę e-mail, aby potwierdzić rejestrację lub odebrać bilet z kodem QR. Nie musisz rezerwować ponownie.'
+                        : 'Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety".'}
                     </div>
                   </div>
                 </div>
