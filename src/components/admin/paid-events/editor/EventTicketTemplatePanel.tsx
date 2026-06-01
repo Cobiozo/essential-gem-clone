@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw, Download, ExternalLink } from 'lucide-react';
 
 interface FieldDef {
+  /** Unique instance id (allows the same `key` to appear multiple times). */
+  id: string;
+  /** Data type key — looked up in FIELD_LABELS / SAMPLE_VALUES and used by the PDF renderer. */
   key: string;
   x: number; y: number;
   width?: number; height?: number;
@@ -18,6 +21,11 @@ interface FieldDef {
   color?: string;
   textAlign?: 'left' | 'center' | 'right';
 }
+
+const newId = (key: string) =>
+  (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+    ? (crypto as any).randomUUID()
+    : `${key}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 interface TemplateState {
   background_url: string | null;
