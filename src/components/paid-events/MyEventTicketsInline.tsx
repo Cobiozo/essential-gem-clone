@@ -309,7 +309,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                   size="sm"
                   variant="default"
                   className="h-6 px-2 text-[10px] ml-auto"
-                  onClick={() => window.open(`/ticket/${qrCode}`, '_blank', 'noopener,noreferrer')}
+                  onClick={() => setQrDialogCode(qrCode)}
                 >
                   <QrCode className="h-3 w-3 mr-1" /> Otwórz bilet (QR)
                 </Button>
