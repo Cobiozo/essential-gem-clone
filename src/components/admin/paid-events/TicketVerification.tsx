@@ -202,7 +202,7 @@ export const TicketVerification: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Camera className="w-5 h-5" />Skanuj kod QR</DialogTitle>
             <DialogDescription>
-              Skieruj aparat na kod QR z biletu. Check-in zostanie wykonany automatycznie.
+              Skieruj aparat na kod QR z biletu. Po zeskanowaniu zobaczysz dane uczestnika — check-in wykonasz osobnym przyciskiem.
             </DialogDescription>
           </DialogHeader>
           {scannerOpen && (
@@ -215,7 +215,7 @@ export const TicketVerification: React.FC = () => {
                   const code = extractCode(raw);
                   setScannerOpen(false);
                   setTicketCode(code);
-                  verifyTicket(code, true);
+                  verifyTicket(code, false);
                 }}
                 onError={(err) => {
                   console.error('[QR Scanner]', err);
