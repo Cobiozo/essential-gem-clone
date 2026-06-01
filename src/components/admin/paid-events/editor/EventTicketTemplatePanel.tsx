@@ -62,6 +62,26 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   qr: 'Kod QR z linkiem do weryfikacji biletu',
 };
 
+// Sample values rendered on the editor canvas. Must match the values that
+// generate-event-ticket-pdf uses in `preview` mode so WYSIWYG and PDF align.
+const SAMPLE_VALUES: Record<string, string> = {
+  eventTitle: 'Tytuł wydarzenia',
+  eventDate: '4 lipca 2026, 16:00',
+  eventEndDate: '4 lipca 2026, 18:00',
+  eventLocation: 'Hotel "Ines", Łódź',
+  firstName: 'Jan',
+  lastName: 'Kowalski',
+  fullName: 'Jan Kowalski',
+  email: 'jan.kowalski@example.com',
+  phone: '+48 123 456 789',
+  ticketName: 'Bilet testowy',
+  ticketCode: 'PODGLĄD-XXXX',
+  orderNumber: 'PODGLĄD',
+  seatNumber: 'Miejsce 1',
+  qr: 'QR',
+};
+
+
 const DEFAULT_TEMPLATE: TemplateState = {
   background_url: null,
   page_format: 'A5',
