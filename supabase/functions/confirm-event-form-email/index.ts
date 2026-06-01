@@ -245,6 +245,21 @@ serve(async (req) => {
         banner_url = ev?.banner_url ?? null;
         event_title = ev?.title ?? null;
         is_free = ev?.is_free ?? null;
+
+        // Fallback: jeśli flaga is_free nie jest ustawiona na true,
+        // sprawdź ceny aktywnych biletów. Brak biletów płatnych = wydarzenie bezpłatne.
+        if (is_free !== true) {
+          const { data: tks } = await supabase
+            .from("paid_event_tickets")
+            .select("price_pln, is_active, deleted_at")
+            .eq("event_id", sub.event_id)
+            .is("deleted_at", null);
+          const activeTickets = (tks || []).filter((t: any) => t.is_active);
+          const pool = activeTickets.length > 0 ? activeTickets : (tks || []);
+          if (pool.length > 0 && pool.every((t: any) => Number(t.price_pln) === 0)) {
+            is_free = true;
+          }
+        }
       }
     }
 

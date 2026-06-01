@@ -1,26 +1,46 @@
 ## Problem
 
-W `EventFormsList` (zakładka Eventy → Formularze) licznik "X zapisanych" liczy tylko rekordy z tabeli `event_form_submissions`. Tymczasem widok szczegółowy "Zgłoszenia: Rejestracja" scala dwa źródła:
-- `event_form_submissions` (rejestracje gości przez publiczny formularz),
-- `paid_event_orders` dla `event_id` przypisanego do formularza (rejestracje zalogowanych partnerów).
+Po kliknięciu w link potwierdzający rejestrację (CTA z e-maila) użytkownik widzi stronę z komunikatem:
 
-Stąd rozbieżność: Sebastian Snopek (Partner) jest w `paid_event_orders`, więc widnieje w liście (1), ale nagłówek pokazuje 0.
+> „Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu. Po zaksięgowaniu wpłaty otrzymasz bilet…"
 
-## Rozwiązanie
+Ten tekst pojawia się również dla wydarzeń **bezpłatnych** (np. „Kompleksowe szkolenie test"), choć powinien być pokazywany tylko przy wydarzeniach **płatnych**.
 
-W `src/components/admin/paid-events/event-forms/EventFormsList.tsx` rozszerzyć licznik tak, żeby logika była identyczna jak w `EventFormSubmissions`:
+## Analiza
 
-1. W zapytaniu `forms` już mamy `event_id` — zebrać listę `eventIds` z formularzy mających `event_id`.
-2. Dodać równolegle drugi query (lub rozszerzyć istniejący `countMap`) który pobiera `paid_event_orders` ograniczone do `event_id IN (eventIds)`, kolumny: `event_id, status`, filtr `status != 'cancelled'`.
-3. Zbudować mapę `eventId -> { total, paid }` po stronie zamówień, gdzie `paid` = `status in ('paid','confirmed','completed')`.
-4. Przy renderowaniu wiersza formularza sumować dla danego formularza:
-   - `submissions[form.id]` (jak dziś) + `orders[form.event_id]` dla obu pól `total` i `paid`.
-5. Badge "X zapisanych" / "Y opłaconych" używa zsumowanych wartości.
+W pliku `src/pages/EventFormConfirmPage.tsx` (linie 66–75) logika rozgałęzienia już istnieje – używa flagi `isFree` zwracanej przez edge function `confirm-event-form-email`. Funkcja czyta `paid_events.is_free` z bazy.
 
-Fallback: jeżeli bezpośredni `select` na `paid_event_orders` zwróci błąd RLS lub pustą tablicę (jak w `EventFormSubmissions`), użyć edge funkcji `admin-list-event-orders` per event_id — ale tylko gdy direct select faktycznie zawiedzie. Dla wydajności: jeden zbiorczy direct select po `in('event_id', eventIds)` na początek; jeżeli błąd — pętla po eventach z edge fn (równolegle przez `Promise.all`).
+Najprawdopodobniej dla tego wydarzenia rekord `paid_events` ma `is_free = false`, mimo że bilety mają cenę 0 PLN. Trzeba ustalić warunek „darmowe" bardziej odpornie, żeby ekran zawsze pasował do realnej natury wydarzenia.
 
-## Zakres zmian
+## Plan zmian
 
-- `src/components/admin/paid-events/event-forms/EventFormsList.tsx` — rozszerzenie liczenia w `countMap` (jeden plik, brak zmian backendowych / RLS / edge functions).
+### 1. `supabase/functions/confirm-event-form-email/index.ts`
+Wzmocnić wyliczanie `is_free`:
+- nadal czytać `paid_events.is_free`,
+- dodatkowo, jeśli `is_free` jest `false`/`null`, sprawdzić `paid_event_tickets` dla tego `event_id` (aktywne, `deleted_at IS NULL`) – jeśli wszystkie mają `price_pln = 0` (lub nie ma w ogóle płatnych biletów), traktować wydarzenie jako bezpłatne i zwrócić `is_free: true`.
+- Zwracać też pomocnicze `is_free_effective` (alias, ten sam boolean) w odpowiedzi – nazwę zostawiamy `is_free` dla kompatybilności z frontem.
 
-Brak zmian w bazie danych, edge functions, ani w komponencie `EventFormSubmissions` (tam logika jest już poprawna).
+### 2. `src/pages/EventFormConfirmPage.tsx`
+Tylko kosmetycznie doprecyzować teksty (logika warunkowa już jest poprawna):
+
+- **Wariant BEZPŁATNY** (`is_free === true`):
+  - Nagłówek: „Twoje dane i rejestracja zostały poprawnie potwierdzone"
+  - Bez akapitu o płatności.
+  - Stopka: „Dziękujemy i do zobaczenia na wydarzeniu!"
+  - (usuwamy obecny tekst „Sprawdź skrzynkę e-mail, ponieważ na nią dostałeś bilet…" – użytkownik prosi o sam komunikat „dziękujemy"; bilet i tak przychodzi mailem, ale ekran ma być zwięzły).
+
+- **Wariant PŁATNY** (`is_free === false`):
+  - Nagłówek bez zmian.
+  - Akapit: „Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu. Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu."
+  - Stopka: „Dziękujemy i do zobaczenia na wydarzeniu!"
+
+Komunikat „(Twoja rejestracja była już potwierdzona wcześniej.)" zostaje dla obu wariantów, gdy `state === 'already'`.
+
+### 3. Deploy
+Po zmianach: `deploy_edge_functions` dla `confirm-event-form-email`.
+
+## Pliki do zmiany
+- `supabase/functions/confirm-event-form-email/index.ts`
+- `src/pages/EventFormConfirmPage.tsx`
+
+Bez zmian w bazie danych ani innych komponentach.
