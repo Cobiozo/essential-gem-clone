@@ -178,10 +178,13 @@ Deno.serve(async (req) => {
     }
 
     // Return valid ticket info
+    const ticketRel = (order as any).paid_event_tickets;
     return new Response(
       JSON.stringify({
         valid: true,
         checkedIn: markAsCheckedIn && isAdmin,
+        checkInStartsAt: checkInStart.toISOString(),
+        eventEndedAt: eventEndDate.toISOString(),
         order: {
           id: order.id,
           quantity: order.quantity,
@@ -206,11 +209,11 @@ Deno.serve(async (req) => {
           location: order.paid_events.location,
           isOnline: order.paid_events.is_online,
         },
-        ticket: {
-          id: order.paid_event_tickets.id,
-          name: order.paid_event_tickets.name,
-          description: order.paid_event_tickets.description,
-        },
+        ticket: ticketRel ? {
+          id: ticketRel.id,
+          name: ticketRel.name,
+          description: ticketRel.description,
+        } : null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
