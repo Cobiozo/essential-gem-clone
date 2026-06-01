@@ -114,9 +114,26 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
 
     await supabase
       .from("event_form_submissions")
-      .update({ submitted_data: { ...submitted, order_id: orderId } })
+      .update({
+        submitted_data: { ...submitted, order_id: orderId, order_ids: [orderId] },
+        payment_status: "paid",
+        email_status: "confirmed",
+      })
+      .eq("id", sub.id);
+  } else {
+    // Order already existed — still ensure the submission reflects the
+    // confirmed/paid state so it doesn't visually duplicate as "Oczekuje".
+    await supabase
+      .from("event_form_submissions")
+      .update({
+        submitted_data: { ...submitted, order_id: orderId, order_ids: [orderId] },
+        payment_status: "paid",
+        email_status: "confirmed",
+      })
       .eq("id", sub.id);
   }
+
+
 
   try {
     const res = await issueFreeTicketForOrder(supabase, orderId!);

@@ -83,33 +83,83 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     return 'pending';
   };
 
-  // Normalize orders to the submission shape used by the table.
-  const orderRows = (rawOrders as any[]).map((o) => ({
-    id: `order:${o.id}`,
-    __source: 'order' as const,
-    __orderId: o.id,
-    __orderUserId: o.user_id as string | null,
-    __ticketCode: o.ticket_code as string | null,
-    created_at: o.created_at,
-    first_name: o.first_name,
-    last_name: o.last_name,
-    email: o.email,
-    phone: o.phone,
-    payment_status: mapOrderStatus(o.status),
-    email_status: o.email_confirmed_at ? 'confirmed' : 'sent',
-    email_confirmed_at: o.email_confirmed_at,
-    cancelled_at: o.status === 'cancelled' ? o.created_at : null,
-    cancelled_by: null,
-    submitted_data: {},
-    partner_user_id: null,
-  }));
+  // Build a set of order IDs already linked to an existing submission via
+  // submitted_data.{order_id|order_ids|last_order_id}. Those orders are the
+  // "ticket" half of the same person and must NOT show up as a second guest.
+  const linkedOrderIds = React.useMemo(() => {
+    const set = new Set<string>();
+    (rawSubmissions as any[]).forEach((s) => {
+      const d = (s.submitted_data || {}) as any;
+      if (typeof d.order_id === 'string') set.add(d.order_id);
+      if (typeof d.last_order_id === 'string') set.add(d.last_order_id);
+      if (Array.isArray(d.order_ids)) {
+        d.order_ids.forEach((v: any) => { if (typeof v === 'string') set.add(v); });
+      }
+    });
+    return set;
+  }, [rawSubmissions]);
+
+  const ordersById = React.useMemo(() => {
+    const map: Record<string, any> = {};
+    (rawOrders as any[]).forEach((o) => { map[o.id] = o; });
+    return map;
+  }, [rawOrders]);
+
+  const pickLinkedOrder = (sub: any): any | null => {
+    const d = (sub.submitted_data || {}) as any;
+    const ids: string[] = [];
+    if (typeof d.order_id === 'string') ids.push(d.order_id);
+    if (typeof d.last_order_id === 'string') ids.push(d.last_order_id);
+    if (Array.isArray(d.order_ids)) ids.push(...d.order_ids.filter((v: any) => typeof v === 'string'));
+    for (const id of ids) if (ordersById[id]) return ordersById[id];
+    return null;
+  };
+
+  // Submissions enriched with linked-order status (paid + confirmed) so the
+  // single row reflects the real state of the ticket.
+  const submissionRows = (rawSubmissions as any[]).map((s) => {
+    const linkedOrder = pickLinkedOrder(s);
+    if (!linkedOrder) return s;
+    const mappedStatus = mapOrderStatus(linkedOrder.status);
+    return {
+      ...s,
+      payment_status: mappedStatus !== 'pending' ? mappedStatus : s.payment_status,
+      email_confirmed_at: linkedOrder.email_confirmed_at || s.email_confirmed_at,
+      email_status: (linkedOrder.email_confirmed_at || s.email_confirmed_at) ? 'confirmed' : s.email_status,
+      __linkedOrderId: linkedOrder.id,
+      __linkedTicketCode: linkedOrder.ticket_code,
+    };
+  });
+
+  // Normalize remaining (orphan) orders to the submission shape used by the table.
+  const orderRows = (rawOrders as any[])
+    .filter((o) => !linkedOrderIds.has(o.id))
+    .map((o) => ({
+      id: `order:${o.id}`,
+      __source: 'order' as const,
+      __orderId: o.id,
+      __orderUserId: o.user_id as string | null,
+      __ticketCode: o.ticket_code as string | null,
+      created_at: o.created_at,
+      first_name: o.first_name,
+      last_name: o.last_name,
+      email: o.email,
+      phone: o.phone,
+      payment_status: mapOrderStatus(o.status),
+      email_status: o.email_confirmed_at ? 'confirmed' : 'sent',
+      email_confirmed_at: o.email_confirmed_at,
+      cancelled_at: o.status === 'cancelled' ? o.created_at : null,
+      cancelled_by: null,
+      submitted_data: {},
+      partner_user_id: null,
+    }));
 
   const submissions = React.useMemo(
     () =>
-      [...(rawSubmissions as any[]), ...orderRows].sort(
+      [...submissionRows, ...orderRows].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
-    [rawSubmissions, orderRows],
+    [submissionRows, orderRows],
   );
 
 
