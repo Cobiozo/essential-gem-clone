@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2, Ticket } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2, Ticket, Pencil, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
+import EditOrderDialog from './EditOrderDialog';
 import * as XLSX from 'xlsx-js-style';
 
 interface Props {
@@ -32,6 +33,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const [filter, setFilter] = useState<string>('all');
   const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
+  const [editOrder, setEditOrder] = useState<any | null>(null);
 
   const { data: rawSubmissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
@@ -264,6 +266,60 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
     onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
   });
+
+  const invalidateOrders = () => {
+    qc.invalidateQueries({ queryKey: ['event-form-submissions-orders'] });
+    qc.invalidateQueries({ queryKey: ['event-form-submission-counts'] });
+  };
+
+  const resendOrderConfirmation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-resend-event-order-confirmation', {
+        body: { orderId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Email z potwierdzeniem wysłany ponownie' }); },
+    onError: (e: Error) => toast({ title: 'Błąd wysyłki', description: e.message, variant: 'destructive' }),
+  });
+
+  const resendOrderTicket = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-resend-free-ticket', {
+        body: { orderId, force: true },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Bilet PDF wysłany ponownie' }); },
+    onError: (e: Error) => toast({ title: 'Błąd wysyłki biletu', description: e.message, variant: 'destructive' }),
+  });
+
+  const cancelOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-cancel-event-order', { body: { orderId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Rezerwacja anulowana' }); },
+    onError: (e: Error) => toast({ title: 'Błąd anulowania', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-event-order', { body: { orderId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Rezerwacja usunięta' }); },
+    onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
+  });
+
 
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
@@ -750,17 +806,40 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.__source === 'order' ? (
                         <>
                           {s.__ticketCode && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Otwórz bilet"
-                              asChild
-                            >
+                            <Button size="sm" variant="ghost" title="Otwórz bilet" asChild>
                               <a href={`/ticket/${s.__ticketCode}`} target="_blank" rel="noreferrer">
                                 <Ticket className="w-4 h-4 text-primary" />
                               </a>
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" title="Edytuj dane rezerwacji" onClick={() => setEditOrder(s)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          {!s.email_confirmed_at && s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Wyślij ponownie mail z potwierdzeniem adresu" onClick={() => resendOrderConfirmation.mutate(s.__orderId)}>
+                              <Send className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.email_confirmed_at && s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Wyślij ponownie bilet PDF" onClick={() => resendOrderTicket.mutate(s.__orderId)}>
+                              <Mail className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Anuluj rezerwację" onClick={() => {
+                              if (confirm('Anulować tę rezerwację? Bilet przestanie być ważny.')) cancelOrder.mutate(s.__orderId);
+                            }}>
+                              <XCircle className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" title="Usuń rezerwację całkowicie" onClick={() => {
+                            const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                            if (window.confirm(`Usunąć całkowicie rezerwację ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) {
+                              deleteOrder.mutate(s.__orderId);
+                            }
+                          }}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
                         </>
                       ) : (
                         <>
@@ -816,6 +895,14 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
           onAssigned={() => qc.invalidateQueries({ queryKey: ['event-form-submissions', form.id] })}
         />
       )}
+
+      <EditOrderDialog
+        open={!!editOrder}
+        order={editOrder}
+        onOpenChange={(o) => { if (!o) setEditOrder(null); }}
+        onSaved={() => { /* invalidation in dialog */ }}
+      />
+
     </div>
   );
 };
