@@ -75,22 +75,20 @@ const CheckoutPage: React.FC = () => {
         .from('paid_event_orders')
         .select(`id, event_id, ticket_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details ),
-                 paid_event_tickets ( name, price_pln, paypal_payment_link )`)
+                 paid_event_tickets ( name, price_pln, paypal_payment_link, payment_method )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
         navigate('/paid-events'); return;
       }
       let orderData = data as any;
-      // Defensive fallback: if embed didn't return the ticket row (RLS / cardinality
-      // edge cases), fetch it directly so PayPal link is still picked up.
       const embedded = Array.isArray(orderData.paid_event_tickets)
         ? orderData.paid_event_tickets[0]
         : orderData.paid_event_tickets;
       if (!embedded && orderData.ticket_id) {
         const { data: t } = await supabase
           .from('paid_event_tickets')
-          .select('name, price_pln, paypal_payment_link')
+          .select('name, price_pln, paypal_payment_link, payment_method')
           .eq('id', orderData.ticket_id).maybeSingle();
         if (t) orderData = { ...orderData, paid_event_tickets: t };
       }
