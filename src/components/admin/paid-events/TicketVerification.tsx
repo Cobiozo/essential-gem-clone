@@ -473,10 +473,21 @@ export const TicketVerification: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        {!o.checked_in && o.ticket_code && (
-                          <Button size="sm" variant="outline" onClick={() => handleRowCheckIn(o.ticket_code!)} disabled={isVerifying}>
-                            <CheckCircle className="w-4 h-4 mr-1" />Check-in
-                          </Button>
+                        {o.ticket_code && (
+                          o.checked_in ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />Check-in
+                              </Badge>
+                              <Button size="sm" variant="outline" onClick={() => handleRowCheckOut(o.ticket_code!)} disabled={isVerifying}>
+                                <RotateCcw className="w-4 h-4 mr-1" />Check-out
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => handleRowCheckIn(o.ticket_code!)} disabled={isVerifying}>
+                              <CheckCircle className="w-4 h-4 mr-1" />Check-in
+                            </Button>
+                          )
                         )}
                       </div>
                     );
