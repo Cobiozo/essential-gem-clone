@@ -143,13 +143,24 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     }
     setUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-      const path = `templates/${eventId}/bg.${ext}`;
-      const { error: upErr } = await supabase.storage.from('event-tickets')
-        .upload(path, file, { contentType: file.type, upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from('event-tickets').getPublicUrl(path);
-      const url = `${pub.publicUrl}?t=${Date.now()}`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('eventId', eventId);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-ticket-template-bg`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: fd,
+        }
+      );
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || `HTTP ${resp.status}`);
+      const url: string = json.url;
       const img = new Image();
       img.onload = async () => {
         const next: TemplateState = {
