@@ -1,13 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, Users, RefreshCw, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -26,6 +27,27 @@ interface VerificationResult {
   };
   checked_in?: boolean;
   checkInStartsAt?: string | null;
+  eventId?: string | null;
+}
+
+interface EventOption {
+  id: string;
+  title: string;
+  event_date: string;
+}
+
+interface OrderRow {
+  id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  status: string | null;
+  email_confirmed_at: string | null;
+  ticket_code: string | null;
+  ticket_sent_at: string | null;
+  checked_in: boolean | null;
+  checked_in_at: string | null;
+  created_at: string;
 }
 
 export const TicketVerification: React.FC = () => {
@@ -36,29 +58,86 @@ export const TicketVerification: React.FC = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [search, setSearch] = useState('');
+
   const extractCode = (raw: string): string => {
     const trimmed = raw.trim();
     const m = trimmed.match(/\/ticket\/([A-Z0-9-]+)/i);
     return (m ? m[1] : trimmed).toUpperCase();
   };
 
-  // Auto-focus input for scanner mode
+  // Load events
   useEffect(() => {
-    inputRef.current?.focus();
+    (async () => {
+      const { data, error } = await supabase
+        .from('paid_events')
+        .select('id, title, event_date')
+        .order('event_date', { ascending: false });
+      if (error) {
+        toast({ title: 'Błąd ładowania wydarzeń', description: error.message, variant: 'destructive' });
+        return;
+      }
+      setEvents((data as EventOption[]) || []);
+    })();
   }, []);
+
+  const loadOrders = async (eventId: string) => {
+    if (!eventId) { setOrders([]); return; }
+    setOrdersLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-list-event-orders', {
+        body: { event_id: eventId },
+      });
+      if (error) throw error;
+      setOrders((data?.orders || []) as OrderRow[]);
+    } catch (e: any) {
+      toast({ title: 'Błąd listy uczestników', description: e.message, variant: 'destructive' });
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders(selectedEventId);
+  }, [selectedEventId]);
+
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
+    if (!q) return eligible;
+    return eligible.filter(o => {
+      const name = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
+      const email = (o.email || '').toLowerCase();
+      const code = (o.ticket_code || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || code.includes(q);
+    });
+  }, [orders, search]);
+
+  const counts = useMemo(() => {
+    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
+    return {
+      total: eligible.length,
+      checkedIn: eligible.filter(o => o.checked_in).length,
+    };
+  }, [orders]);
+
+  const selectedEvent = events.find(e => e.id === selectedEventId);
 
   const verifyTicket = async (code: string, performCheckIn = false) => {
     if (!code.trim()) return;
-    
+
     setIsVerifying(true);
     setResult(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      // Get Supabase URL from the client
       const supabaseUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co';
-      
+
       const response = await fetch(
         `${supabaseUrl}/functions/v1/verify-event-ticket`,
         {
@@ -77,19 +156,13 @@ export const TicketVerification: React.FC = () => {
       const data = await response.json();
 
       if (!response.ok || data.valid === false) {
-        setResult({
-          valid: false,
-          message: data.error || 'Błąd weryfikacji biletu',
-        });
-        toast({
-          title: 'Bilet nieprawidłowy',
-          description: data.error,
-          variant: 'destructive',
-        });
+        setResult({ valid: false, message: data.error || 'Błąd weryfikacji biletu' });
+        toast({ title: 'Bilet nieprawidłowy', description: data.error, variant: 'destructive' });
       } else {
         const buyerName = [data.attendee?.firstName, data.attendee?.lastName].filter(Boolean).join(' ').trim()
           || [data.buyer?.firstName, data.buyer?.lastName].filter(Boolean).join(' ').trim()
           || '—';
+        const verifiedEventId: string | null = data.event?.id || null;
         const mapped = {
           ticket_code: data.order?.ticketCode || code.trim(),
           buyer_name: buyerName,
@@ -105,26 +178,36 @@ export const TicketVerification: React.FC = () => {
           ticket: mapped,
           checked_in: !!data.checkedIn,
           checkInStartsAt: data.checkInStartsAt || null,
+          eventId: verifiedEventId,
         });
 
-        if (data.checkedIn) {
+        // Warn if ticket belongs to different event than selected
+        if (selectedEventId && verifiedEventId && verifiedEventId !== selectedEventId) {
           toast({
-            title: 'Check-in wykonany!',
-            description: `Zarejestrowano wejście dla: ${buyerName}`,
+            title: 'Uwaga: inny event',
+            description: `Bilet dotyczy: „${data.event?.title || '—'}", a wybrane jest inne wydarzenie.`,
+            variant: 'destructive',
           });
+        }
+
+        if (data.checkedIn) {
+          toast({ title: 'Check-in wykonany!', description: `Zarejestrowano wejście dla: ${buyerName}` });
+          // Optimistic list patch
+          setOrders(prev => prev.map(o =>
+            (o.ticket_code || '').toUpperCase() === mapped.ticket_code.toUpperCase()
+              ? { ...o, checked_in: true, checked_in_at: new Date().toISOString() }
+              : o
+          ));
+          // Refetch if same event
+          if (selectedEventId && verifiedEventId === selectedEventId) {
+            loadOrders(selectedEventId);
+          }
         }
       }
     } catch (error) {
       console.error('Verification error:', error);
-      setResult({
-        valid: false,
-        message: 'Błąd połączenia z serwerem',
-      });
-      toast({ 
-        title: 'Błąd', 
-        description: 'Nie udało się zweryfikować biletu',
-        variant: 'destructive' 
-      });
+      setResult({ valid: false, message: 'Błąd połączenia z serwerem' });
+      toast({ title: 'Błąd', description: 'Nie udało się zweryfikować biletu', variant: 'destructive' });
     } finally {
       setIsVerifying(false);
     }
@@ -141,6 +224,11 @@ export const TicketVerification: React.FC = () => {
     }
   };
 
+  const handleRowCheckIn = (code: string) => {
+    setTicketCode(code);
+    verifyTicket(code, true);
+  };
+
   const resetVerification = () => {
     setTicketCode('');
     setResult(null);
@@ -149,6 +237,7 @@ export const TicketVerification: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Event selector */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -156,46 +245,225 @@ export const TicketVerification: React.FC = () => {
             Weryfikacja biletów
           </CardTitle>
           <CardDescription>
-            Wprowadź kod biletu lub zeskanuj kod QR przy użyciu czytnika
+            Wybierz wydarzenie, aby zobaczyć listę zarejestrowanych uczestników i wykonywać check-in
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="ticket-code">Kod biletu</Label>
-              <div className="flex gap-2 mt-1">
-                <div className="relative flex-1">
-                  <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    ref={inputRef}
-                    id="ticket-code"
-                    value={ticketCode}
-                    onChange={(e) => setTicketCode(e.target.value.toUpperCase())}
-                    placeholder="Wprowadź lub zeskanuj kod..."
-                    className="pl-10 font-mono text-lg"
-                    autoComplete="off"
-                    autoFocus
-                  />
-                </div>
-                <Button type="submit" disabled={isVerifying || !ticketCode.trim()}>
-                  {isVerifying ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4 mr-2" />
-                      Sprawdź
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-            <Button type="button" variant="secondary" className="w-full" onClick={() => setScannerOpen(true)}>
-              <Camera className="w-4 h-4 mr-2" />
-              Skanuj aparatem telefonu
-            </Button>
-          </form>
+          <Label>Wydarzenie</Label>
+          <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Wybierz wydarzenie..." />
+            </SelectTrigger>
+            <SelectContent>
+              {events.map(ev => (
+                <SelectItem key={ev.id} value={ev.id}>
+                  {ev.title} — {format(new Date(ev.event_date), 'dd MMM yyyy, HH:mm', { locale: pl })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
+
+      {selectedEventId && (
+        <>
+          {/* Scanner / manual input */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Kod biletu</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      ref={inputRef}
+                      value={ticketCode}
+                      onChange={(e) => setTicketCode(e.target.value.toUpperCase())}
+                      placeholder="Wprowadź lub zeskanuj kod..."
+                      className="pl-10 font-mono text-lg"
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </div>
+                  <Button type="submit" disabled={isVerifying || !ticketCode.trim()}>
+                    {isVerifying ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4 mr-2" />
+                        Sprawdź
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <Button type="button" variant="secondary" className="w-full" onClick={() => setScannerOpen(true)}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Skanuj aparatem telefonu
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Result */}
+          {result && (
+            <Card className={result.valid ? 'border-green-500' : 'border-destructive'}>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  {result.valid ? (
+                    <>
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      <span className="text-green-600">Bilet prawidłowy</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-6 h-6 text-destructive" />
+                      <span className="text-destructive">Bilet nieprawidłowy</span>
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {result.valid && result.ticket ? (
+                  <>
+                    <div className="grid gap-3">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{result.ticket.buyer_name}</span>
+                        <span className="text-muted-foreground">({result.ticket.buyer_email})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Ticket className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{result.ticket.event_title}</span>
+                      </div>
+                      {result.ticket.event_date && (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <span>{format(new Date(result.ticket.event_date), 'dd MMMM yyyy, HH:mm', { locale: pl })}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Kod:</span>
+                        <code className="font-mono bg-muted px-2 py-1 rounded">{result.ticket.ticket_code}</code>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t">
+                      {result.ticket.is_checked_in || result.checked_in ? (
+                        <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Check-in wykonany
+                          {result.ticket.checked_in_at && (
+                            <span className="ml-2 text-muted-foreground">
+                              ({format(new Date(result.ticket.checked_in_at), 'HH:mm', { locale: pl })})
+                            </span>
+                          )}
+                        </Badge>
+                      ) : (
+                        <>
+                          <Button onClick={handleCheckIn} size="lg" className="w-full">
+                            <CheckCircle className="w-5 h-5 mr-2" />
+                            Wykonaj check-in
+                          </Button>
+                          {result.checkInStartsAt && new Date(result.checkInStartsAt) > new Date() && (
+                            <p className="text-xs text-muted-foreground mt-2 text-center">
+                              Bilet ważny. Check-in możliwy od{' '}
+                              {format(new Date(result.checkInStartsAt), 'dd MMMM yyyy, HH:mm', { locale: pl })}.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">{result.message}</p>
+                )}
+
+                <Button variant="outline" onClick={resetVerification} className="w-full">
+                  Skanuj kolejny bilet
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Attendees list */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="w-5 h-5" />
+                  Lista uczestników
+                  {selectedEvent && <span className="text-sm text-muted-foreground font-normal">— {selectedEvent.title}</span>}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{counts.total} zarejestrowanych</Badge>
+                  <Badge variant="outline" className="text-green-600 border-green-600">{counts.checkedIn} po check-in</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => loadOrders(selectedEventId)} disabled={ordersLoading}>
+                    <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Szukaj: imię, e-mail, kod biletu..."
+                  className="pl-10"
+                />
+              </div>
+
+              {ordersLoading ? (
+                <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : filteredOrders.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  {orders.length === 0 ? 'Brak zarejestrowanych uczestników.' : 'Brak wyników dla wyszukiwania.'}
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  {filteredOrders.map(o => {
+                    const name = `${o.first_name || ''} ${o.last_name || ''}`.trim() || '—';
+                    return (
+                      <div
+                        key={o.id}
+                        className={`flex items-center gap-3 p-3 rounded-md border ${o.checked_in ? 'bg-green-500/5 border-green-500/30' : 'bg-card'}`}
+                      >
+                        <div className="shrink-0">
+                          {o.checked_in ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <div className="w-5 h-5 rounded border-2 border-muted-foreground/40" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{o.email || '—'}</div>
+                        </div>
+                        <div className="hidden sm:block text-right">
+                          <code className="font-mono text-xs bg-muted px-2 py-1 rounded">{o.ticket_code || '—'}</code>
+                          {o.checked_in && o.checked_in_at && (
+                            <div className="text-xs text-green-600 mt-1">
+                              {format(new Date(o.checked_in_at), 'dd.MM HH:mm', { locale: pl })}
+                            </div>
+                          )}
+                        </div>
+                        {!o.checked_in && o.ticket_code && (
+                          <Button size="sm" variant="outline" onClick={() => handleRowCheckIn(o.ticket_code!)} disabled={isVerifying}>
+                            <CheckCircle className="w-4 h-4 mr-1" />Check-in
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
         <DialogContent className="max-w-md">
@@ -234,98 +502,16 @@ export const TicketVerification: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Result */}
-      {result && (
-        <Card className={result.valid ? 'border-green-500' : 'border-destructive'}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              {result.valid ? (
-                <>
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <span className="text-green-600">Bilet prawidłowy</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-6 h-6 text-destructive" />
-                  <span className="text-destructive">Bilet nieprawidłowy</span>
-                </>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {result.valid && result.ticket ? (
-              <>
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{result.ticket.buyer_name}</span>
-                    <span className="text-muted-foreground">({result.ticket.buyer_email})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Ticket className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{result.ticket.event_title}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span>
-                      {format(new Date(result.ticket.event_date), 'dd MMMM yyyy, HH:mm', { locale: pl })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Kod:</span>
-                    <code className="font-mono bg-muted px-2 py-1 rounded">
-                      {result.ticket.ticket_code}
-                    </code>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t">
-                  {result.ticket.is_checked_in || result.checked_in ? (
-                    <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Check-in wykonany
-                      {result.ticket.checked_in_at && (
-                        <span className="ml-2 text-muted-foreground">
-                          ({format(new Date(result.ticket.checked_in_at), 'HH:mm', { locale: pl })})
-                        </span>
-                      )}
-                    </Badge>
-                  ) : (
-                    <>
-                      <Button onClick={handleCheckIn} size="lg" className="w-full">
-                        <CheckCircle className="w-5 h-5 mr-2" />
-                        Wykonaj check-in
-                      </Button>
-                      {result.checkInStartsAt && new Date(result.checkInStartsAt) > new Date() && (
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                          Bilet ważny. Check-in możliwy od{' '}
-                          {format(new Date(result.checkInStartsAt), 'dd MMMM yyyy, HH:mm', { locale: pl })}.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="text-muted-foreground">{result.message}</p>
-            )}
-
-            <Button variant="outline" onClick={resetVerification} className="w-full">
-              Skanuj kolejny bilet
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Instructions */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Instrukcja</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — po zeskanowaniu od razu zobaczysz dane biletu; check-in wykonaj przyciskiem „Wykonaj check-in"</p>
-          <p>• <strong>Sprzętowy czytnik:</strong> podłącz czytnik QR/kreskowy — kod pojawi się w polu tekstowym, kliknij „Sprawdź"</p>
-          <p>• <strong>Ręcznie:</strong> wpisz kod biletu i kliknij „Sprawdź", następnie „Wykonaj check-in"</p>
+          <p>• <strong>Wybierz wydarzenie</strong> z listy powyżej, aby zobaczyć zarejestrowanych uczestników.</p>
+          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — po zeskanowaniu od razu zobaczysz dane biletu; check-in wykonaj przyciskiem „Wykonaj check-in".</p>
+          <p>• <strong>Ręcznie:</strong> wpisz kod biletu i kliknij „Sprawdź", następnie „Wykonaj check-in".</p>
+          <p>• <strong>Z listy:</strong> kliknij „Check-in" przy konkretnym uczestniku, aby od razu zaznaczyć go jako obecnego.</p>
         </CardContent>
       </Card>
     </div>

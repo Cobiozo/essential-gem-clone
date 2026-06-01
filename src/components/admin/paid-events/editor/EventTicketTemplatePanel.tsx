@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw } from 'lucide-react';
+import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw, Download, ExternalLink } from 'lucide-react';
 
 interface FieldDef {
   key: string;
@@ -90,6 +91,9 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -196,8 +200,12 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   };
 
   const preview = async () => {
-    // Open window synchronously to preserve user-gesture and avoid pop-up blocker
-    const win = window.open('', '_blank');
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     try {
       try {
         await save();
@@ -223,25 +231,33 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         throw new Error(`HTTP ${resp.status}: ${msg?.slice(0, 200) || 'brak treści'}`);
       }
       const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      if (win && !win.closed) {
-        win.location.href = url;
-      } else {
-        // Fallback if pop-up was blocked
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.download = 'ticket-preview.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
+      setPreviewUrl(URL.createObjectURL(blob));
     } catch (e: any) {
-      if (win && !win.closed) win.close();
+      setPreviewOpen(false);
       toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewLoading(false);
     }
   };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  const downloadPreview = () => {
+    if (!previewUrl) return;
+    const a = document.createElement('a');
+    a.href = previewUrl;
+    a.download = 'ticket-preview.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
 
 
   // ---- Drag / resize (window-bound, no pointer capture) ----
@@ -495,6 +511,39 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
           <Eye className="w-4 h-4 mr-1" />Podgląd PDF
         </Button>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={(o) => { if (!o) closePreview(); }}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Eye className="w-5 h-5" />Podgląd biletu PDF</DialogTitle>
+            <DialogDescription>
+              Tak będzie wyglądał bilet wysyłany e-mailem do uczestników po potwierdzeniu adresu e-mail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 bg-muted rounded-md overflow-hidden">
+            {previewLoading || !previewUrl ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <iframe src={previewUrl} className="w-full h-full" title="Podgląd PDF biletu" />
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {previewUrl && (
+              <>
+                <Button variant="outline" onClick={() => window.open(previewUrl, '_blank', 'noopener')}>
+                  <ExternalLink className="w-4 h-4 mr-1" />Otwórz w nowej karcie
+                </Button>
+                <Button variant="outline" onClick={downloadPreview}>
+                  <Download className="w-4 h-4 mr-1" />Pobierz PDF
+                </Button>
+              </>
+            )}
+            <Button onClick={closePreview}>Zamknij</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
