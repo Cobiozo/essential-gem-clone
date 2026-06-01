@@ -29,14 +29,36 @@ interface TemplateState {
 
 const FIELD_LABELS: Record<string, string> = {
   eventTitle: 'Tytuł wydarzenia',
-  eventDate: 'Data',
+  eventDate: 'Data rozpoczęcia',
+  eventEndDate: 'Data zakończenia',
   eventLocation: 'Lokalizacja',
   firstName: 'Imię',
   lastName: 'Nazwisko',
+  fullName: 'Imię i nazwisko',
+  email: 'E-mail uczestnika',
+  phone: 'Telefon uczestnika',
   ticketName: 'Nazwa biletu',
   ticketCode: 'Numer biletu',
+  orderNumber: 'Numer zamówienia',
   seatNumber: 'Numer miejsca',
   qr: 'Kod QR',
+};
+
+const FIELD_DESCRIPTIONS: Record<string, string> = {
+  eventTitle: 'Pełny tytuł wydarzenia',
+  eventDate: 'Data i godzina rozpoczęcia (PL)',
+  eventEndDate: 'Data i godzina zakończenia (PL)',
+  eventLocation: 'Miasto / adres / online',
+  firstName: 'Imię uczestnika z rezerwacji',
+  lastName: 'Nazwisko uczestnika z rezerwacji',
+  fullName: 'Imię + nazwisko w jednej linii',
+  email: 'Adres e-mail z rezerwacji',
+  phone: 'Numer telefonu z rezerwacji',
+  ticketName: 'Nazwa rodzaju biletu',
+  ticketCode: 'Unikalny kod biletu (np. EVJT5GJXJVYJ)',
+  orderNumber: 'Identyfikator zamówienia',
+  seatNumber: 'Numer miejsca (bilety grupowe)',
+  qr: 'Kod QR z linkiem do weryfikacji biletu',
 };
 
 const DEFAULT_TEMPLATE: TemplateState = {
