@@ -1,27 +1,34 @@
-## Plan naprawy
+## Co naprawię
 
-1. **Naprawię upload PNG/JPG szablonu biletu**
-   - Dodam migrację do Supabase, która uzupełni brakujące uprawnienie `WITH CHECK` dla aktualizacji pliku w `storage.objects`.
-   - To usuwa błąd `new row violates row-level security policy`, który pojawia się przy uploadzie z `upsert: true`.
-   - Upload będzie dalej dostępny tylko dla admina.
+1. **Treść pierwszego e-maila po rezerwacji**
+   - Zmienię nagłówek wiadomości z „Potwierdź swój adres email” na: „Potwierdzenie adresu e-mail i rezerwacji miejsca na wydarzenie”.
+   - Zostawię dalszą treść wiadomości bez zmiany, poza spójną pisownią „e-mail”.
 
-2. **Format biletu będzie dokładnie taki jak wgrany obraz**
-   - Po wgraniu obrazu zapiszę jego naturalne wymiary jako płótno szablonu.
-   - Ustawienia `Format` i `Orientacja` nie będą wymuszać A4/A5 na PDF, gdy szablon ma własny obraz.
-   - PDF dostanie proporcje i rozmiar wynikające z wgranego PNG/JPG, więc podgląd nie będzie rozciągany do A5.
+2. **Kliknięcie CTA z e-maila nie może prowadzić do logowania**
+   - Link `/free-event/confirm/:token` jest już zaplanowany jako publiczny fast-path, ale w publicznych ścieżkach guardów brakuje tej trasy.
+   - Dodam `/free-event/confirm/` do list publicznych ścieżek, żeby użytkownik po kliknięciu z maila zawsze zobaczył ekran potwierdzenia, a nie ekran logowania.
 
-3. **Naprawię podgląd PDF**
-   - Zmieniam generowanie PDF tak, aby tryb podglądu zawsze zwracał prawidłowy plik PDF z aktualnym tłem i polskimi znakami.
-   - Poprawię rozpoznawanie obrazów z URL z parametrem `?t=...`, bo obecnie `.endsWith('.png')` może nie zadziałać po dodaniu cache-bustera.
-   - Dodam w UI lepszy komunikat błędu, jeśli Edge Function zwróci JSON zamiast PDF.
+3. **Baner / ekran informacyjny po potwierdzeniu**
+   - Dopasuję ekran `FreeEventConfirmPage`, żeby jasno komunikował:
+     - adres e-mail został potwierdzony,
+     - rezerwacja miejsca na wydarzenie została potwierdzona,
+     - użytkownik otrzyma wiadomość z biletem,
+     - bilet z kodem QR będzie podstawą wejścia na wydarzenie.
 
-4. **Usprawnię pracę w edytorze szablonu**
-   - Po uploadzie tła automatycznie dopasuję obszar roboczy do proporcji obrazu.
-   - Pola i QR zostaną pozycjonowane względem faktycznych wymiarów wgranego pliku.
-   - Przycisk „Podgląd PDF” będzie zapisywał aktualny układ i otwierał wygenerowany podgląd w nowej karcie.
+4. **Brak wiadomości z biletem po potwierdzeniu**
+   - Sprawdziłem bazę: najnowsza rezerwacja dla wydarzenia „Kompleksowe szkolenie TEST” ma nadal status `awaiting_email_confirmation`, brak `email_confirmed_at`, brak `ticket_code`, brak `ticket_pdf_url` i brak `ticket_sent_at`. To oznacza, że funkcja potwierdzająca nie została skutecznie wywołana albo kliknięcie nie dotarło do właściwej publicznej strony.
+   - Po naprawie ścieżki publicznej kliknięcie CTA wywoła `confirm-free-event-reservation`, która generuje kod biletu, tworzy uczestnika, generuje PDF i wysyła wiadomość z biletem.
+
+5. **Zwiększenie odporności wysyłki biletu**
+   - Uporządkuję obsługę odpowiedzi z generowania PDF: jeśli PDF nie wygeneruje się poprawnie, funkcja ma nadal wysłać e-mail z linkiem do biletu online i zapisać jasne logi, zamiast sprawiać wrażenie, że nic się nie stało.
+   - Jeśli PDF jest dostępny, zostanie dołączony jako załącznik tak jak obecnie.
 
 ## Szczegóły techniczne
 
-- Migracja doda/zmieni politykę Storage dla `event-tickets/templates/*`, żeby `upsert` mógł wykonać zarówno insert, jak i update z poprawnym `WITH CHECK`.
-- `generate-event-ticket-pdf` dostanie tryb strony oparty o `width_px` / `height_px` przy własnym tle, zamiast sztywnego formatu A5/A4.
-- Rozpoznawanie PNG/JPG będzie bazować na ścieżce URL bez query stringa albo `Content-Type`, a nie na pełnym URL z `?t=`.
+- Pliki do zmiany:
+  - `supabase/functions/register-free-event-order/index.ts`
+  - `src/components/profile/ProfileCompletionGuard.tsx`
+  - `src/pages/FreeEventConfirmPage.tsx`
+  - opcjonalnie drobna poprawka w `supabase/functions/confirm-free-event-reservation/index.ts` dla lepszych logów i fallbacku wysyłki.
+
+- Nie będę zmieniał mechaniki rezerwacji ani płatności; naprawa dotyczy tylko bezpłatnej rezerwacji z potwierdzeniem e-mail i biletem.
