@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw } from 'lucide-react';
+import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw, Download, ExternalLink } from 'lucide-react';
 
 interface FieldDef {
   key: string;
