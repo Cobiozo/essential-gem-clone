@@ -1,32 +1,31 @@
-## Diagnoza
+Problem nie wynika z tego, że użytkownik faktycznie zarejestrował się drugi raz przez formularz, tylko z obecnego przepływu dla wydarzeń bezpłatnych:
 
-Błąd nadal pochodzi z wywołania Edge Function `admin-list-event-orders` w zakładce **Weryfikacja biletów**. Dane w bazie są poprawne: wydarzenie „Kompleksowe szkolenie TEST” ma 2 opłacone zamówienia i po 1 uczestniku w każdym. Problem jest więc po stronie sposobu pobierania danych/autoryzacji funkcji, nie po stronie braku rejestracji.
+- istnieje wpis w `event_form_submissions` utworzony przy rejestracji gościa,
+- po kliknięciu „potwierdzam adres email” funkcja `confirm-event-form-email` tworzy dodatkowy rekord w `paid_event_orders`, żeby wygenerować bilet PDF/QR,
+- panel „Formularze → Zgłoszenia” dokleja do jednej tabeli zarówno `event_form_submissions`, jak i `paid_event_orders`, więc ta sama osoba pojawia się dwa razy: raz jako zgłoszenie, raz jako zamówienie/bilet.
 
-W obecnym kodzie frontend pokazuje tylko ogólny komunikat Supabase: `Edge Function returned a non-2xx status code`, więc nie widać, czy realnie jest to 401/403/500. Logi funkcji pokazują bootowanie, ale brak szczegółowego logu przy odrzuceniu autoryzacji.
+Plan naprawy:
 
-## Plan naprawy
+1. Poprawić logikę potwierdzania darmowego wydarzenia
+   - W `supabase/functions/confirm-event-form-email/index.ts` po potwierdzeniu e-maila dla wydarzenia bezpłatnego istniejące zgłoszenie ma zostać zaktualizowane jako właściwy rekord gościa:
+     - `email_status = confirmed`,
+     - `payment_status = paid`,
+     - `submitted_data.order_id` / `submitted_data.order_ids` wskazuje powiązany bilet/zamówienie.
+   - Jeśli zamówienie/bilet już istnieje dla tego zgłoszenia albo tego samego `event_id + email`, funkcja ma go użyć, a nie tworzyć kolejnego.
 
-1. **Dodać czytelne logowanie i komunikaty błędów w `admin-list-event-orders`**
-   - Zalogować etap: start requestu, brak tokenu, niepoprawny token, brak roli admin, błąd zapytań.
-   - Zwracać JSON z kodem błędu (`unauthorized`, `forbidden`, `orders_query_failed`) zamiast samego ogólnego statusu.
+2. Ukryć techniczny rekord biletu jako osobny „kontakt” w tabeli zgłoszeń
+   - W `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx` odfiltruję z listy `paid_event_orders` te zamówienia, które są już powiązane z istniejącym zgłoszeniem przez `submitted_data.order_id` albo `submitted_data.order_ids`.
+   - Dzięki temu gość będzie widoczny tylko raz, jako jedna osoba/rejestracja.
 
-2. **Wzmocnić frontend `TicketVerification.tsx`**
-   - Przy błędzie Edge Function odczytać treść odpowiedzi HTTP z `FunctionsHttpError.context`.
-   - Pokazywać prawdziwy komunikat administracyjny zamiast ogólnego `Edge Function returned a non-2xx status code`.
-   - Dzięki temu, jeśli problemem jest sesja/rola, będzie to widoczne wprost.
+3. Pokazać poprawny status na jednym wierszu
+   - Dla zgłoszenia powiązanego z darmowym biletem panel ma pokazywać status „Opłacone” i „Potwierdził”, a nie drugi wiersz z „Oczekuje”.
+   - Akcje biletu pozostaną dostępne przez powiązane `order_id`, bez tworzenia osobnego wiersza dla tej samej osoby.
 
-3. **Dodać bezpieczny fallback bez Edge Function dla listy uczestników**
-   - Jeśli funkcja nadal zwróci błąd, frontend spróbuje pobrać `paid_event_orders` i `paid_event_order_attendees` bezpośrednio przez istniejące RLS dla zalogowanego admina.
-   - Dane zostaną scalone do tej samej struktury co obecnie, żeby lista uczestników działała bez zmiany UI.
-   - Jeśli fallback zadziała, użytkownik od razu zobaczy 2 uczestników zamiast pustej listy.
+4. Posprzątać istniejący przypadek zduplikowany w bazie
+   - Zaktualizuję istniejące zgłoszenia, które mają `submitted_data.order_id`, aby status zgłoszenia był zgodny z powiązanym zamówieniem.
+   - Nie będę usuwać biletu/zamówienia, bo jest potrzebne technicznie do PDF/QR; usunięte zostanie jedynie jego osobne wyświetlanie jako drugi gość.
 
-4. **Wdrożyć ponownie Edge Function i zweryfikować**
-   - Wdrożyć `admin-list-event-orders`.
-   - Sprawdzić funkcję dla wydarzenia `Kompleksowe szkolenie TEST`.
-   - Oczekiwany efekt: w **Lista uczestników** ma być `2 zarejestrowanych`, a toast błędu ma zniknąć albo zawierać konkretną przyczynę, jeśli sesja admina jest niepoprawna.
-
-## Pliki do zmiany
-
-- `supabase/functions/admin-list-event-orders/index.ts`
-- `supabase/functions/_shared/admin-auth.ts` — tylko jeżeli będzie potrzebne doprecyzowanie logów autoryzacji
-- `src/components/admin/paid-events/TicketVerification.tsx`
+Efekt końcowy:
+- kliknięcie linku potwierdzającego nie będzie tworzyć drugiej widocznej osoby w zgłoszeniach,
+- ta sama osoba pozostanie jednym gościem,
+- zmieni się tylko status tej rejestracji na potwierdzony e-mail i opłacone dla darmowego wydarzenia.
