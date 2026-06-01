@@ -10481,6 +10481,26 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_event_orders: {
+        Args: { p_event_id: string }
+        Returns: {
+          attendees: Json
+          created_at: string
+          email: string
+          email_confirmed_at: string
+          event_id: string
+          id: string
+          payment_provider: string
+          quantity: number
+          seats_per_ticket: number
+          status: string
+          ticket_code: string
+          ticket_id: string
+          ticket_name: string
+          total_amount: number
+          user_id: string
+        }[]
+      }
       get_my_mfa_config: { Args: never; Returns: Json }
       get_organization_tree: {
         Args: { p_max_depth?: number; p_root_eq_id: string }
