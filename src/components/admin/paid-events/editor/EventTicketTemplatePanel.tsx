@@ -62,6 +62,26 @@ const FIELD_DESCRIPTIONS: Record<string, string> = {
   qr: 'Kod QR z linkiem do weryfikacji biletu',
 };
 
+// Sample values rendered on the editor canvas. Must match the values that
+// generate-event-ticket-pdf uses in `preview` mode so WYSIWYG and PDF align.
+const SAMPLE_VALUES: Record<string, string> = {
+  eventTitle: 'Tytuł wydarzenia',
+  eventDate: '4 lipca 2026, 16:00',
+  eventEndDate: '4 lipca 2026, 18:00',
+  eventLocation: 'Hotel "Ines", Łódź',
+  firstName: 'Jan',
+  lastName: 'Kowalski',
+  fullName: 'Jan Kowalski',
+  email: 'jan.kowalski@example.com',
+  phone: '+48 123 456 789',
+  ticketName: 'Bilet testowy',
+  ticketCode: 'PODGLĄD-XXXX',
+  orderNumber: 'PODGLĄD',
+  seatNumber: 'Miejsce 1',
+  qr: 'QR',
+};
+
+
 const DEFAULT_TEMPLATE: TemplateState = {
   background_url: null,
   page_format: 'A5',
@@ -388,7 +408,14 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
             ref={canvasRef}
             onPointerDown={(e) => { if (e.target === e.currentTarget) setSelectedField(null); }}
             className="relative w-full border-2 border-dashed border-border bg-muted/30 select-none overflow-hidden touch-none"
-            style={{ aspectRatio: aspect, backgroundImage: tpl.background_url ? `url(${tpl.background_url})` : undefined, backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat' }}
+            style={{
+              aspectRatio: aspect,
+              backgroundImage: tpl.background_url ? `url(${tpl.background_url})` : undefined,
+              backgroundSize: '100% 100%',
+              backgroundRepeat: 'no-repeat',
+              // Make cqw/cqh resolve against this canvas, not the viewport.
+              containerType: 'size',
+            }}
           >
             {tpl.fields.map((f) => {
               const left = `${(f.x / tpl.width_px) * 100}%`;
@@ -411,12 +438,27 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
                   </div>
                 );
               }
+              // Font size as % of canvas WIDTH (cqw) — matches PDF which scales
+              // fonts by sx = pageW / tplW. Width container, in fixed canvas.
+              const fontSizeCqw = ((f.fontSize || 14) / tpl.width_px) * 100;
+              const hasBox = !!(f.width && f.textAlign && f.textAlign !== 'left');
+              const boxWidth = hasBox ? `${((f.width || 0) / tpl.width_px) * 100}%` : undefined;
+              const sample = SAMPLE_VALUES[f.key] ?? FIELD_LABELS[f.key] ?? f.key;
               return (
                 <div key={f.key}
                   onPointerDown={(e) => beginDrag(e, f.key, 'move')}
-                  className={`absolute cursor-move px-1 ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/30'} bg-background/40 whitespace-nowrap touch-none`}
-                  style={{ left, top, fontSize: `${((f.fontSize || 14) / tpl.height_px) * 100}cqh`, color: f.color, fontWeight: f.fontWeight === 'bold' ? 700 : 400 }}>
-                  {FIELD_LABELS[f.key] || f.key}
+                  className={`absolute cursor-move ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/20'} whitespace-nowrap touch-none leading-none`}
+                  style={{
+                    left,
+                    top,
+                    width: boxWidth,
+                    fontSize: `${fontSizeCqw}cqw`,
+                    color: f.color,
+                    fontWeight: f.fontWeight === 'bold' ? 700 : 400,
+                    textAlign: (f.textAlign as any) || 'left',
+                    fontFamily: '"DejaVu Sans", "Liberation Sans", Arial, sans-serif',
+                  }}>
+                  {sample}
                 </div>
               );
             })}
