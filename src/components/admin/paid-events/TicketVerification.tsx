@@ -128,7 +128,7 @@ export const TicketVerification: React.FC = () => {
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
-  const verifyTicket = async (code: string, performCheckIn = false) => {
+  const verifyTicket = async (code: string, mode: 'verify' | 'check_in' | 'check_out' = 'verify') => {
     if (!code.trim()) return;
 
     setIsVerifying(true);
@@ -148,7 +148,8 @@ export const TicketVerification: React.FC = () => {
           },
           body: JSON.stringify({
             ticketCode: code.trim(),
-            markAsCheckedIn: performCheckIn,
+            markAsCheckedIn: mode === 'check_in',
+            action: mode === 'check_out' ? 'check_out' : undefined,
           }),
         }
       );
@@ -170,7 +171,7 @@ export const TicketVerification: React.FC = () => {
           event_title: data.event?.title || '',
           event_date: data.event?.date || '',
           is_checked_in: !!data.checkedIn,
-          checked_in_at: data.checkedIn ? new Date().toISOString() : null,
+          checked_in_at: data.checkedInAt || null,
         };
         setResult({
           valid: true,
@@ -190,15 +191,20 @@ export const TicketVerification: React.FC = () => {
           });
         }
 
-        if (data.checkedIn) {
+        if (data.action === 'check_in') {
           toast({ title: 'Check-in wykonany!', description: `Zarejestrowano wejście dla: ${buyerName}` });
-          // Optimistic list patch
+        } else if (data.action === 'check_out') {
+          toast({ title: 'Cofnięto check-in', description: buyerName });
+        }
+
+        // Sync list on any state-changing action
+        if (data.action === 'check_in' || data.action === 'check_out') {
+          const newCheckedIn = data.action === 'check_in';
           setOrders(prev => prev.map(o =>
             (o.ticket_code || '').toUpperCase() === mapped.ticket_code.toUpperCase()
-              ? { ...o, checked_in: true, checked_in_at: new Date().toISOString() }
+              ? { ...o, checked_in: newCheckedIn, checked_in_at: newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null }
               : o
           ));
-          // Refetch if same event
           if (selectedEventId && verifiedEventId === selectedEventId) {
             loadOrders(selectedEventId);
           }
@@ -215,18 +221,29 @@ export const TicketVerification: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    verifyTicket(ticketCode, false);
+    verifyTicket(ticketCode, 'verify');
   };
 
   const handleCheckIn = () => {
     if (result?.ticket?.ticket_code) {
-      verifyTicket(result.ticket.ticket_code, true);
+      verifyTicket(result.ticket.ticket_code, 'check_in');
+    }
+  };
+
+  const handleCheckOut = () => {
+    if (result?.ticket?.ticket_code) {
+      verifyTicket(result.ticket.ticket_code, 'check_out');
     }
   };
 
   const handleRowCheckIn = (code: string) => {
     setTicketCode(code);
-    verifyTicket(code, true);
+    verifyTicket(code, 'check_in');
+  };
+
+  const handleRowCheckOut = (code: string) => {
+    setTicketCode(code);
+    verifyTicket(code, 'check_out');
   };
 
   const resetVerification = () => {
