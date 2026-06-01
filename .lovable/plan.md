@@ -1,22 +1,37 @@
 ## Cel
-Zamiast otwierać `/ticket/{kod}` w nowej karcie, przycisk „Otwórz bilet (QR)" ma otwierać prosty modal pokazujący wyłącznie:
-- kod QR przypisany do tego biletu (`qrCode` = `attendee.ticket_code` lub `order.ticket_code`)
-- numer biletu (ten sam kod jako tekst pod QR)
+W panelu „Lista uczestników" (`src/components/admin/paid-events/TicketVerification.tsx`) dodać możliwość eksportu aktualnie wyświetlanej listy uczestników do **Excel (.xlsx)**, **Word (.doc)** i **HTML (.html)**.
 
-Bez żadnych dodatkowych informacji (bez tytułu wydarzenia, daty, danych uczestnika, przycisków pobierania itp.).
+## Lokalizacja UI
+Obok przycisku odświeżania (linia ~494) dodać `DropdownMenu` „Eksport" (ikona `Download`) z trzema pozycjami:
+- Excel (.xlsx)
+- Word (.doc)
+- HTML (.html)
 
-## Zmiana
-Plik: `src/components/paid-events/MyEventTicketsInline.tsx`
+Przycisk wyłączony gdy `ordersLoading` lub `filteredOrders.length === 0`.
 
-1. Dodać lokalny stan `qrDialogCode: string | null`.
-2. Przycisk „Otwórz bilet (QR)" (linie 305–314) — zamiast `window.open(...)` ustawia `setQrDialogCode(qrCode)`.
-3. Na końcu komponentu wyrenderować jeden `<Dialog>` (shadcn) sterowany przez `qrDialogCode`:
-   - `DialogContent` w stylu spójnym z resztą aplikacji (tło `bg-background`, ramka `border-border`),
-   - środek: białe tło + `QRCodeSVG` (z `qrcode.react`, używane już w `ReflinkQRCode`) o rozmiarze ~256, `level="H"`, `includeMargin`,
-   - pod QR: monospaced numer biletu (`qrDialogCode`) — `font-mono`, `tracking-wider`, do skopiowania,
-   - brak innych elementów (tytuł dialogu ukryty wizualnie dla a11y: `<DialogTitle className="sr-only">Bilet</DialogTitle>`).
+## Dane do eksportu
+Eksportowane są aktualnie widoczne wiersze (`filteredOrders` – uwzględnia wyszukiwanie). Kolumny:
+1. Lp.
+2. Imię
+3. Nazwisko
+4. Email
+5. Kod biletu
+6. Check-in (Tak/Nie)
+7. Data check-in (`pl-PL`, Europe/Warsaw, puste gdy brak)
 
-## Co pozostaje bez zmian
-- Strona `/ticket/:code` (`TicketPage.tsx`) nie jest usuwana — nadal działa jako pełny widok bilet/skan dla weryfikatorów.
-- Logika QR/`qrCode` i warunek `canShowQR` bez zmian.
-- Żadne edge functions, RLS ani schemat DB nie są ruszane.
+Nazwa pliku: `uczestnicy-{slug(selectedEvent.title)}-{YYYY-MM-DD}.{ext}`.
+
+## Implementacja (frontend only)
+Nowy helper inline w komponencie – `exportAttendees(format: 'xlsx' | 'doc' | 'html')`:
+
+- **xlsx**: użyć już zainstalowanej biblioteki `xlsx` (`import * as XLSX from 'xlsx'`). `XLSX.utils.aoa_to_sheet`, `XLSX.utils.book_new`, `XLSX.writeFile`. Pierwszy wiersz = nagłówki, kolumny auto-szerokość (`!cols`).
+- **doc**: zbudować string HTML z tabelą (proste style inline) z prefiksem `<html xmlns:o=... xmlns:w=... xmlns="http://www.w3.org/TR/REC-html40">` i nagłówkiem zawierającym `<meta charset="utf-8">`. Pobierz jako Blob `application/msword` z rozszerzeniem `.doc` (otwiera się w Wordzie).
+- **html**: ten sam HTML co dla Word, ale z dodatkowym tytułem `<h1>Lista uczestników – {title}</h1>` i metą daty eksportu; Blob `text/html;charset=utf-8`.
+
+Pobieranie przez `URL.createObjectURL` + tymczasowy `<a download>` (dla xlsx używamy `XLSX.writeFile`, który sam pobiera).
+
+Toast po sukcesie / błędzie (`useToast` jest już importowany).
+
+## Co nie zmieniam
+- Nic w backendzie/edge functions/DB.
+- Lista, filtry, check-in – bez zmian; eksport tylko czyta `filteredOrders` i `selectedEvent`.
