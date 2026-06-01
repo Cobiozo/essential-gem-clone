@@ -89,11 +89,12 @@ Deno.serve(async (req) => {
       order = ord;
     }
 
-    // Check payment status
-    if (order.status !== 'paid') {
+    // Accept paid OR confirmed (free events) as valid statuses
+    const VALID_STATUSES = new Set(['paid', 'confirmed']);
+    if (!VALID_STATUSES.has(order.status)) {
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
+        JSON.stringify({
+          valid: false,
           error: 'Ticket not paid',
           code: 'NOT_PAID',
           status: order.status
@@ -123,27 +124,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check event date (allow check-in from 2 hours before to end of event)
+    // Event time bounds — only enforced when actually performing check-in
     const now = new Date();
     const eventDate = new Date(order.paid_events.event_date);
     const eventEndDate = order.paid_events.event_end_date
       ? new Date(order.paid_events.event_end_date)
       : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
-
     const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000);
 
-    if (now < checkInStart) {
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (now > eventEndDate) {
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (markAsCheckedIn) {
+      if (now < checkInStart) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (now > eventEndDate) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Mark as checked in if requested and user is admin
