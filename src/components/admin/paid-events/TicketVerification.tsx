@@ -25,6 +25,7 @@ interface VerificationResult {
     checked_in_at: string | null;
   };
   checked_in?: boolean;
+  checkInStartsAt?: string | null;
 }
 
 export const TicketVerification: React.FC = () => {
