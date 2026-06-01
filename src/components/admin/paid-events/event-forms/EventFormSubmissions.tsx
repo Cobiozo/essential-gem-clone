@@ -54,13 +54,23 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     queryKey: ['event-form-submissions-orders', eventId],
     enabled: !!eventId,
     queryFn: async () => {
+      // Primary: direct select (works when admin RLS resolves correctly).
       const { data, error } = await supabase
         .from('paid_event_orders')
         .select('id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, created_at')
         .eq('event_id', eventId!)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data as any[];
+      if (!error && data && data.length > 0) return data as any[];
+      if (error) console.error('[event-form-submissions-orders] direct select error, falling back to edge fn', error);
+      // Fallback: edge function with service-role privileges (admin-gated).
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('admin-list-event-orders', {
+        body: { event_id: eventId },
+      });
+      if (fnErr) {
+        console.error('[event-form-submissions-orders] edge fn failed', fnErr);
+        return [];
+      }
+      return ((fnData as any)?.orders as any[]) || [];
     },
   });
 
