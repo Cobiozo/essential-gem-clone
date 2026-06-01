@@ -291,10 +291,18 @@ export const TicketVerification: React.FC = () => {
                       )}
                     </Badge>
                   ) : (
-                    <Button onClick={handleCheckIn} size="lg" className="w-full">
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Wykonaj check-in
-                    </Button>
+                    <>
+                      <Button onClick={handleCheckIn} size="lg" className="w-full">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Wykonaj check-in
+                      </Button>
+                      {result.checkInStartsAt && new Date(result.checkInStartsAt) > new Date() && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Bilet ważny. Check-in możliwy od{' '}
+                          {format(new Date(result.checkInStartsAt), 'dd MMMM yyyy, HH:mm', { locale: pl })}.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </>
