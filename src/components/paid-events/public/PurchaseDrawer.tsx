@@ -171,7 +171,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   // When the buyer already has their own ticket for this event, EVERY seat is for a guest.
   // Otherwise, seat #1 is the buyer themselves and only the remaining seats are extras.
-  const buyerIsAttendee = !hasOwnTicket;
+  // For FREE events we never want the "guest-only" mode — re-registration is fully blocked.
+  const buyerIsAttendee = isFree ? true : !hasOwnTicket;
   const guestSeatsCount = buyerIsAttendee ? Math.max(0, totalSeats - 1) : totalSeats;
 
   // Resize attendees array when guest count changes (preserve existing entries)
