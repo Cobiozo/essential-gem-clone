@@ -270,7 +270,7 @@ serve(async (req) => {
       bodyHtml: form?.email_body,
       eventTitle: event?.title || "",
       eventDate: eventDateFmt,
-      paymentDetails: form?.payment_details || {},
+      paymentDetails: isFreeEvent ? {} : (form?.payment_details || {}),
       submittedFields,
       confirmUrl,
       cancelUrl,
