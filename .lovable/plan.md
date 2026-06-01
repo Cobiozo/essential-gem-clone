@@ -1,37 +1,42 @@
-## Cel
+## Problem
 
-1. Po wykonaniu check-in na liście uczestników pozycja danej osoby ma świecić się na zielono z etykietą „Check-in wykonano" oraz przyciskiem **Check-out**, który cofa check-in.
-2. Skanowanie/wpisywanie kodu biletu zawsze (niezależnie od statusu) ma pokazywać „Bilet prawidłowy" z danymi uczestnika oraz – jeśli check-in już był wykonany – informacją „Check-in wykonano: DD.MM.YYYY HH:mm".
+Check-in jest zapisywany w tabeli `paid_event_order_attendees` (per miejsce/bilet — wynik z `verify-event-ticket` gdy znajdzie attendee), ale lista uczestników w `TicketVerification.tsx` używa kolumn `checked_in`/`checked_in_at` z `paid_event_orders`. Te kolumny nie są aktualizowane, więc:
 
-## Zmiany w backendzie
+- wiersz na liście nie podświetla się na zielono,
+- nie pojawia się przycisk „Check-out",
+- licznik „po check-in" pokazuje 0.
 
-**`supabase/functions/verify-event-ticket/index.ts`**
+## Fix
 
-- Już zameldowany bilet nie jest dłużej traktowany jako błąd. Zamiast zwracać `valid:false / ALREADY_CHECKED_IN`, funkcja zwraca `valid:true` z polami `checkedIn:true` i `checkedInAt` (ISO). Klient pokazuje zielony status z datą i godziną.
-- Dodanie nowej akcji `action: 'check_out'` (obok obecnego `markAsCheckedIn`). Tylko admin. Ustawia `checked_in=false`, `checked_in_at=null` na poziomie `paid_event_order_attendees` (jeśli istnieje) lub `paid_event_orders`.
-- Zachowanie pozostałych ścieżek (NOT_FOUND, NOT_PAID, TOO_EARLY dla nie-adminów przy markAsCheckedIn) bez zmian.
+### 1. `supabase/functions/admin-list-event-orders/index.ts`
 
-## Zmiany w UI
+Dodać embed attendees do zapytania:
 
-**`src/components/admin/paid-events/TicketVerification.tsx`**
+```ts
+.select(`id, event_id, user_id, email, first_name, last_name, phone, status,
+  email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at,
+  created_at, ticket_id,
+  paid_event_tickets(name),
+  paid_event_order_attendees(id, seat_index, first_name, last_name, email,
+    ticket_code, checked_in, checked_in_at)`)
+```
 
-1. **Panel wyniku skanowania:**
-   - Gdy `checked_in === true`: zielony nagłówek „Bilet prawidłowy" + badge „Check-in wykonano: dd.MM.yyyy HH:mm" (pełna data, nie tylko godzina). Pod spodem przycisk „Cofnij check-in" wywołujący nową akcję `check_out`.
-   - Gdy `checked_in === false`: bez zmian – pokazuje „Wykonaj check-in".
-   - Dane uczestnika (imię, email, kod, event) pokazywane zawsze.
+Pole `paid_event_order_attendees` zostanie dołączone do każdego order.
 
-2. **Lista uczestników:**
-   - Wiersz osoby z `checked_in=true`: zielone tło (już jest), zielony badge „Check-in: dd.MM HH:mm" zamiast pustego przycisku, oraz przycisk **Check-out** (variant outline, ikona `RotateCcw`/`XCircle`) wywołujący akcję cofnięcia.
-   - Wiersz osoby bez check-in: bez zmian – przycisk „Check-in".
+### 2. `src/components/admin/paid-events/TicketVerification.tsx`
 
-3. Nowa funkcja `handleRowCheckOut(code)` oraz `handleCheckOut()` w panelu wyniku – wysyłają request z `action:'check_out'` do edge function, po sukcesie odświeżają listę i ustawiają wynik z `checked_in:false`.
+a) Rozszerzyć `OrderRow` o `attendees?: Attendee[]`.
 
-4. Aktualizacja `VerificationResult` o pole `checked_in_at` z odpowiedzi serwera (zamiast generowania `new Date().toISOString()` lokalnie) tak aby pokazywany czas check-in odpowiadał rzeczywistemu zapisowi w bazie.
+b) Po pobraniu orders zbudować płaską listę „seatów" (`displayRows`):
+   - jeśli `order.attendees?.length > 0` → po jednym wierszu na attendee (z `ticket_code`, `first_name`, `last_name`, `email`, `checked_in`, `checked_in_at` z attendee, fallback na order),
+   - w przeciwnym razie → jeden wiersz z danymi order (legacy single-ticket).
 
-## Szczegóły techniczne
+c) `filteredOrders`, `counts` i renderowana lista operują na `displayRows` (klucz = attendee.id lub order.id). `counts.checkedIn` liczy seaty z `checked_in === true`.
 
-- Format daty w UI: `dd.MM.yyyy HH:mm` (date-fns + locale `pl`) w wyniku skanowania; `dd.MM HH:mm` w wierszu listy (oszczędność miejsca).
-- `check_out` zwraca taką samą strukturę co `verify` (valid:true, checkedIn:false), żeby UI mógł od razu zaktualizować widok.
-- Optimistic update listy w `setOrders` przy check-out (analogicznie jak przy check-in).
-- Toast: „Cofnięto check-in" przy sukcesie check-out, „Błąd" przy niepowodzeniu.
-- Brak zmian w bazie danych ani innych edge functions.
+d) Po check-in/check-out optymistycznie aktualizować `orders` po `ticket_code` w obrębie `attendees` (jeśli attendee ma ten kod) lub na poziomie order (fallback), tak jak teraz. Następnie i tak wywołujemy `loadOrders(...)` więc świeże dane przyjdą z serwera.
+
+Brak zmian w `verify-event-ticket` ani w schemacie bazy.
+
+## Wynik
+
+Po zeskanowaniu/kliknięciu „Check-in" wiersz danego uczestnika podświetla się na zielono, pokazuje godzinę i przycisk „Check-out", a badge „X po check-in" rośnie zgodnie z rzeczywistością.
