@@ -132,7 +132,8 @@ Deno.serve(async (req) => {
       : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
     const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000);
 
-    if (markAsCheckedIn) {
+    // Admins can check-in at any time (e.g. testing, early entry). Non-admins must respect window.
+    if (markAsCheckedIn && !isAdmin) {
       if (now < checkInStart) {
         return new Response(
           JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
