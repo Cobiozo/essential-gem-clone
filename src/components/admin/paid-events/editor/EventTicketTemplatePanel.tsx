@@ -353,8 +353,9 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   }
 
-  const selected = tpl.fields.find((f) => f.key === selectedField);
-  const missingFields = Object.keys(FIELD_LABELS).filter((k) => !tpl.fields.some((f) => f.key === k));
+  const selected = tpl.fields.find((f) => f.id === selectedField);
+  const selectedTypeCount = selected ? tpl.fields.filter((f) => f.key === selected.key).length : 0;
+  const selectedTypeIndex = selected ? tpl.fields.filter((f) => f.key === selected.key).findIndex((f) => f.id === selected.id) + 1 : 0;
   const aspect = `${tpl.width_px} / ${tpl.height_px}`;
 
   return (
