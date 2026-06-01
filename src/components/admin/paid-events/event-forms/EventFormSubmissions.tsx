@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2, Ticket } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2, Ticket, Pencil, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
+import EditOrderDialog from './EditOrderDialog';
 import * as XLSX from 'xlsx-js-style';
 
 interface Props {
