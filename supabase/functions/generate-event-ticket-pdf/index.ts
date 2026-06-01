@@ -310,11 +310,16 @@ async function renderTicket(args: {
     switch (key) {
       case "firstName":     return args.firstName;
       case "lastName":      return args.lastName;
+      case "fullName":      return `${args.firstName || ""} ${args.lastName || ""}`.trim();
+      case "email":         return args.email || "";
+      case "phone":         return args.phone || "";
       case "ticketCode":    return args.ticketCode;
       case "ticketName":    return args.ticketName;
       case "seatNumber":    return `Miejsce ${args.seatNumber}`;
+      case "orderNumber":   return args.orderNumber || "";
       case "eventTitle":    return args.eventTitle;
       case "eventDate":     return args.eventDate;
+      case "eventEndDate":  return args.eventEndDate || "";
       case "eventLocation": return args.eventLocation;
       default:              return "";
     }
