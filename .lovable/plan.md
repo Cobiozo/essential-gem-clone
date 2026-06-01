@@ -1,52 +1,67 @@
 ## Problem
 
-PDF biletu wysyłany mailem nie odpowiada temu, co pokazuje edytor szablonu (zakładka „Szablon"). Imię/Nazwisko/Numer biletu lądują w innych miejscach i mają inne rozmiary niż na podglądzie w edytorze.
+Trzy oddzielne usterki:
 
-## Diagnoza
+1. **Nie można dodać tego samego pola dwa razy** (np. dwa razy „Imię" lub dwa razy QR). W kodzie `EventTicketTemplatePanel.tsx` pole identyfikowane jest przez `key` (typ pola). `addField` ma guard `if (tpl.fields.some(f => f.key === key)) return;`, a legenda pokazuje „na płótnie" zamiast „+ Dodaj" gdy klucz już występuje. Także drag/select/update operują po `f.key`, więc dwa pola o tym samym kluczu i tak by się ze sobą myliły.
 
-Rozbieżności pochodzą z trzech miejsc:
+2. **Podgląd PDF pokazuje pustkę** w iframe (widoczne na screenie – znak zakazu w iframe). Przyciski „Otwórz w nowej karcie" i „Pobierz PDF" są aktywne (więc `previewUrl` istnieje), ale `<iframe src={blob:...}>` blokowany przez Edge/Chromium dla wielu konfiguracji (CSP/sandbox sandbox dialog vs blob:). Treść PDF jest poprawna – problem to wyłącznie renderer iframe.
 
-1. **Skalowanie czcionek w edytorze** (`EventTicketTemplatePanel.tsx`):
-   Edytor renderuje rozmiar fontu jako `cqh` (`(fontSize/height_px)*100cqh`), ale na płótnie nie ma ustawionego `container-type: size`. W efekcie przeglądarka traktuje `cqh` jak procent wysokości viewportu, a nie wysokości płótna — tekst w edytorze wygląda dużo większy (i w innej proporcji) niż w PDF.
-
-2. **Etykieta vs realne dane**:
-   W edytorze widać krótki napis „Imię"/„Nazwisko"/„Numer", a w PDF pojawia się rzeczywista wartość („Sebastian", „Snopek", kod 12 znaków). Inna długość = inne wrażenie pozycji, zwłaszcza przy `textAlign` innym niż `left`.
-
-3. **Punkt zaczepienia tekstu**:
-   - Edytor: div ma `px-1` (4 px paddingu poziomego) + `bg-background/40` — tekst startuje ~4 px na prawo od `x`.
-   - PDF (`generate-event-ticket-pdf/index.ts`): tekst startuje dokładnie w `f.x * sx`, baseline obliczany jako `pageH - f.y*sy - fontSize` (góra glifu ≈ `f.y*sy`).
+3. **Po anulowaniu i usunięciu rejestracji nie da się zarejestrować ponownie**. Wymaga doprecyzowania który scenariusz (patrz „Pytania kontrolne") – w kodzie back-endu są dwa miejsca, w których sprawdzany jest duplikat:
+   - `register-free-event-order` – sprawdza po `email` LUB `user_id` ze statusem `IN (awaiting_email_confirmation, confirmed, paid, completed)`. Pomija `cancelled`, więc po samym anulowaniu powinno działać. Po usunięciu (`admin-delete-event-order` robi `DELETE`) – też.
+   - `register_event_guest` (RPC, dla webinarów/wydarzeń z formularzem gościa) – używa unikalnego indeksu `unique_guest_per_event` z `WHERE status <> 'cancelled'`.
    
-   Dodatkowo PDF skaluje font przez `Math.min(sx, sy)` zamiast `sy`, co przy nieidealnych proporcjach (np. gdy szerokość/wysokość płótna z bazy nieco różni się od tła) daje inny rozmiar niż edytor.
+   Najbardziej prawdopodobne źródło problemu: po stronie **paid_event_orders** anulowanie ustawia `status='cancelled'`, ale w **innej tabeli powiązanej** (`event_registrations` / `event_form_submissions` / `guest_event_registrations`) wpis nie jest cofnięty, więc kolejna próba uderza w stary wpis. Wymaga potwierdzenia od użytkownika.
 
-4. **Czcionka**: edytor używa systemowego sans-serif UI, PDF używa DejaVuSans — metryki znaków są inne, więc szerokość tekstu (a tym samym jego prawa krawędź przy `textAlign:right`/`center`) się rozjeżdża. Pełne 1:1 wymagałoby tej samej rodziny w przeglądarce.
+## Plan zmian
 
-## Plan zmian (1:1 WYSIWYG)
+### A. Duplikowanie pól na szablonie biletu — `EventTicketTemplatePanel.tsx`
 
-### A. Edytor — `src/components/admin/paid-events/editor/EventTicketTemplatePanel.tsx`
+1. Rozszerzyć `FieldDef` o `id: string` (unikalny instance ID) obok dotychczasowego `key` (typ pola wskazujący do `FIELD_LABELS`/`SAMPLE_VALUES`).
+2. **Migracja zgodna wstecznie** w `useEffect` ładującym szablon: dla pól bez `id` ustawić `id = `${key}-${index}`` przy wczytaniu — istniejące szablony działają jak dotąd, a po pierwszym zapisie zyskują stabilne `id`.
+3. Wszystkie operacje (`selectedField`, `beginDrag`, `updateField`, `removeField`, `tpl.fields.find/map/filter`, klucz w JSX, drag/resize) zmienić z `f.key` na `f.id`.
+4. `addField(typeKey)`:
+   - Usunąć guard „już istnieje".
+   - Generować `id = crypto.randomUUID()` (lub `${typeKey}-${Date.now()}`).
+   - Jeśli istnieje już pole tego typu, przesunąć nową instancję o `+20px` w X i Y, żeby nie nakładała się idealnie.
+5. **Legenda** (tabela w `Card` na dole):
+   - Zawsze pokazywać przycisk „+ Dodaj" (a nie „na płótnie"), z licznikiem instancji w nawiasie, np. „+ Dodaj (×2)" gdy już są dwie.
+6. **Nagłówek karty edycji wybranego pola** (`<CardTitle>` z `FIELD_LABELS[selected.key]`): gdy istnieje >1 instancja danego typu, dopisać numer „(#n)" według kolejności w `tpl.fields`.
+7. **Backend (`generate-event-ticket-pdf/index.ts`)**: bez zmian. Funkcja iteruje `template.fields` i renderuje każde pole osobno, używając `f.key` tylko do pobrania wartości — dwa pola z tym samym `key` w różnych miejscach wyrenderują tę samą wartość w dwóch miejscach. To jest dokładnie pożądane zachowanie. JSONB `fields` jest elastyczny i dodatkowe `id` przejdzie bez migracji DB.
 
-1. Na płótnie podglądowym (`canvasRef` div) ustawić CSS `containerType: 'size'`, żeby jednostki `cqh`/`cqw` rzeczywiście odnosiły się do wysokości płótna, nie viewportu.
-2. Zmienić skalowanie fontu na `cqw` z bazą szerokości szablonu: `fontSize: ((f.fontSize || 14) / width_px) * 100 + 'cqw'` (px szablonu → % szerokości płótna), bo PDF używa `sx = pageW/tplW`. Dzięki temu wymiary i font skalują się względem tej samej osi.
-3. Usunąć `px-1` i `bg-background/40` (pozostawić tylko zaznaczenie outlinem przy `selected`), żeby tekst zaczynał się dokładnie w `(x, y)`.
-4. Zamiast etykiet (`FIELD_LABELS[f.key]`) wyświetlać tę samą wartość przykładową, której używa PDF w trybie `preview` (Jan, Kowalski, "PODGLĄD-XXXX", tytuł/data wydarzenia itd.). Dodać pomocniczy `SAMPLE_VALUES`.
-5. Honorować `textAlign` i `width` pola: gdy pole ma `width` + `textAlign`, owinąć tekst w wewnętrzny div o tej szerokości i `text-align`.
-6. (Opcjonalnie) dla pełnego WYSIWYG-u załadować w edytorze webfont DejaVu Sans (ten sam, którego używa PDF) i ustawić `font-family: 'DejaVu Sans'` na płótnie.
+### B. Podgląd PDF — `EventTicketTemplatePanel.tsx`
 
-### B. Generator PDF — `supabase/functions/generate-event-ticket-pdf/index.ts`
+W bloku Dialog → preview:
 
-1. W `renderTicket` zmienić obliczanie `fontSize` z `Math.min(sx, sy)` na `sx` (spójne z osią szerokości używaną w edytorze po zmianie z punktu A.2). Ponieważ przy tle PDF zachowuje proporcje płótna (`pageW=tplW*0.75`, `pageH=tplH*0.75`), `sx==sy==0.75` — bez tła obie wartości się rozjeżdżają, ale stosujemy konsekwentnie `sx` (tak samo skalowane jest `width` pola QR i `width` kontenera tekstu).
-2. Wymusić, że gdy `template.background_url` jest ustawione, ignorujemy `page_format`/`orientation` i bierzemy proporcje płótna 1:1 (już tak działa — zostawić, ale dodać komentarz).
-3. Tekst rysować z `xpt = f.x * sx` (bez paddingu) — spójne z edytorem po usunięciu `px-1`.
-4. Pozycja Y: zmienić baseline tak, by „góra glifu" była dokładnie w `f.y * sy`. Aktualne `ypt = pageH - f.y*sy - fontSize` przybliża to OK, ale lepiej użyć `font.heightAtSize(fontSize, { descender: false })` jako wysokości cap-height i odjąć ją zamiast `fontSize`. To wyrówna pozycję pionową z górną krawędzią divu w edytorze.
-5. Przy `textAlign: center|right` obliczać przesunięcie na podstawie `f.width * sx` i realnej szerokości tekstu w DejaVu (tak jest teraz — zostawić).
+1. Zamiast surowego `<iframe src={previewUrl}>` użyć **`<object data={previewUrl} type="application/pdf">`** z fallbackiem `<embed>` i komunikatem „Twoja przeglądarka nie obsługuje podglądu PDF — kliknij «Otwórz w nowej karcie»".
+2. Dodatkowo, w `preview()`, oprócz `URL.createObjectURL(blob)` zachować również **base64 data URL** (`data:application/pdf;base64,...`) i użyć go w `<object>`/`<embed>` — Edge w wielu przypadkach blokuje `blob:` w iframe, ale akceptuje `data:` w `<object>`. Blob URL pozostaje dla przycisków „Otwórz w nowej karcie" / „Pobierz".
+3. Dodać prosty timer (`setTimeout 1500`): jeśli `<object>` nie wyrenderował się (brak natywnego viewer'a), pokazać przyjazny komunikat z przyciskiem CTA do „Otwórz w nowej karcie". Można to wykryć heurystycznie po `onError` na `<object>`.
 
-### C. Weryfikacja
+### C. Ponowna rejestracja po anulowaniu + usunięciu
 
-1. Zapisać szablon w panelu admina, kliknąć „Podgląd PDF" — porównać z układem pól na płótnie.
-2. Wymusić ponowne wysłanie biletu istniejącemu uczestnikowi (przycisk „Wyślij ponownie bilet" w panelu uczestników) i sprawdzić, że PDF z maila wygląda identycznie jak podgląd.
-3. QA: wygenerować PDF dla pól z `textAlign: center` i `textAlign: right`, sprawdzić wyrównanie do krawędzi `width`.
+Po doprecyzowaniu scenariusza (poniżej) — zakładam, że problemem są wpisy „pomocnicze" pozostające po anulowaniu:
+
+1. **`admin-cancel-event-order`** — gdy `paid_event_orders.status` przechodzi w `cancelled`, dodatkowo:
+   - Zaktualizować odpowiadające wpisy w `event_registrations` (gdy `user_id` istnieje) i/lub `guest_event_registrations` (gdy gość) ustawiając `status='cancelled', cancelled_at=now()`. Powiązanie po `event_id` + `email`/`user_id` + ewentualnie `slot_time`.
+2. **`admin-delete-event-order`** — przed `DELETE` z `paid_event_orders` także skasować/anulować analogiczne wpisy w `event_registrations`/`guest_event_registrations`.
+3. **Dup-check w `register-free-event-order`** — pozostawić bez zmian (już jest poprawny).
+4. **`register_event_guest` (RPC)** — pozostawić; unikalny indeks już wyklucza `cancelled`. Jeśli okaże się, że błąd dotyczy webinarów (innej ścieżki niż paid_event_orders), zmienić RPC tak, by w bloku `EXCEPTION WHEN unique_violation` najpierw sprawdzała czy istniejący wpis ma `status='cancelled'` i wówczas robiła `UPDATE` (reaktywacja) zamiast zwracać `already_registered`.
+
+### D. Weryfikacja
+
+1. Szablon: dodać dwa razy „Imię" i dwa razy „Kod QR", przeciągnąć w różne miejsca, zapisać. Podgląd PDF powinien pokazać duplikaty.
+2. Podgląd PDF: otworzyć w Edge — w `<object>` powinno wyświetlić się PDF; w razie braku natywnego viewer'a pokazać CTA „Otwórz w nowej karcie".
+3. Re-rejestracja: anulować + usunąć zamówienie, zarejestrować ponownie tym samym e-mailem — powinna powstać nowa rezerwacja.
+
+## Pytania kontrolne (przed punktem C)
+
+Aby nie zmieniać niewłaściwej ścieżki, potrzebuję 1 szybkiego potwierdzenia:
+
+- W którym dokładnie miejscu kliknąłeś „Anuluj" i „Usuń"? Lista zamówień w `/admin?tab=paid-events` (`paid_event_orders` – panel właściciela wydarzenia), czy lista uczestników po stronie organizatora (`EventRegistrationsManagement`)? I czy rejestracja, której nie można powtórzyć, idzie przez formularz publiczny biletu (free/paid), czy formularz gościa webinarowego?
+
+Jeśli odpowiedź to „panel zamówień + ponowna rejestracja przez publiczny formularz biletu", wystarczy część C.1 + C.2. Jeśli „webinar/formularz gościa", konieczna jest też zmiana RPC C.4.
 
 ## Czego nie zmieniam
 
-- Treści maila, logiki SMTP, kodów QR, struktury bazy `event_ticket_templates`.
-- Zachowania w trybie bez tła (A4/A5) — pozostaje letterboxing.
-- Sample danych w trybie `preview` PDF — używamy ich również w edytorze, dzięki czemu podgląd po obu stronach pokazuje to samo.
+- Generowania PDF (układ, fonty, skalowanie) — to było rozwiązane wcześniej i działa zgodnie z edytorem.
+- Treści maili, SMTP, kodów QR.
+- Schematu tabel — tylko dodatki w SQL gdy potrzeba (cancel triggers).
