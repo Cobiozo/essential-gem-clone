@@ -366,20 +366,26 @@ export const TicketVerification: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t">
+                    <div className="pt-3 border-t space-y-3">
                       {result.ticket.is_checked_in || result.checked_in ? (
-                        <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Check-in wykonany
-                          {result.ticket.checked_in_at && (
-                            <span className="ml-2 text-muted-foreground">
-                              ({format(new Date(result.ticket.checked_in_at), 'HH:mm', { locale: pl })})
-                            </span>
-                          )}
-                        </Badge>
+                        <>
+                          <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Check-in wykonano
+                            {result.ticket.checked_in_at && (
+                              <span className="ml-2 text-muted-foreground">
+                                ({format(new Date(result.ticket.checked_in_at), 'dd.MM.yyyy HH:mm', { locale: pl })})
+                              </span>
+                            )}
+                          </Badge>
+                          <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full" disabled={isVerifying}>
+                            <RotateCcw className="w-5 h-5 mr-2" />
+                            Cofnij check-in
+                          </Button>
+                        </>
                       ) : (
                         <>
-                          <Button onClick={handleCheckIn} size="lg" className="w-full">
+                          <Button onClick={handleCheckIn} size="lg" className="w-full" disabled={isVerifying}>
                             <CheckCircle className="w-5 h-5 mr-2" />
                             Wykonaj check-in
                           </Button>
