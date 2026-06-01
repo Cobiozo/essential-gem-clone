@@ -78,6 +78,8 @@ interface PaidEvent {
 const PaidEventPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const refCodeFromUrl = (searchParams.get('ref') || '').trim() || null;
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   
   const [activeSection, setActiveSection] = useState<string>('');
