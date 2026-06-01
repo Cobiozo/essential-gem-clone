@@ -622,6 +622,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               <div className="text-sm text-center text-muted-foreground py-2">
                 Sprzedaż biletów jest aktualnie wyłączona dla tego wydarzenia.
               </div>
+            ) : isFree && hasOwnTicket ? (
+              <>
+                <Button size="lg" className="w-full" onClick={() => onOpenChange(false)}>
+                  Rozumiem, zamknij
+                </Button>
+                <p className="text-xs text-center text-muted-foreground px-2">
+                  Masz już zarezerwowane miejsce na to wydarzenie – nie możesz zarezerwować go ponownie.
+                </p>
+              </>
             ) : (
               <>
                 <Button
