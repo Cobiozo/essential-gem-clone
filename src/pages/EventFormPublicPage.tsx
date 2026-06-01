@@ -47,7 +47,7 @@ const EventFormPublicPage: React.FC = () => {
       try {
         const { data: f, error: fe } = await supabase
           .from('event_registration_forms')
-          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online, slug)')
+          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online, slug, is_free)')
           .eq('slug', slug)
           .eq('is_active', true)
           .maybeSingle();
@@ -56,7 +56,20 @@ const EventFormPublicPage: React.FC = () => {
           setError('Formularz nie istnieje lub został wyłączony.');
         } else {
           setForm(f);
-          setEvent((f as any).paid_events);
+          const ev: any = (f as any).paid_events;
+          if (ev?.id && ev.is_free !== true) {
+            const { data: tks } = await supabase
+              .from('paid_event_tickets')
+              .select('price_pln, is_active, deleted_at')
+              .eq('event_id', ev.id)
+              .is('deleted_at', null);
+            const active = (tks || []).filter((t: any) => t.is_active);
+            const pool = active.length > 0 ? active : (tks || []);
+            if (pool.length > 0 && pool.every((t: any) => Number(t.price_pln) === 0)) {
+              ev.is_free = true;
+            }
+          }
+          setEvent(ev);
           if (refCode) {
             // Track click
             await supabase.rpc('increment_partner_link_click', { _ref_code: refCode });
@@ -150,6 +163,7 @@ const EventFormPublicPage: React.FC = () => {
   }
 
   if (done) {
+    const isFreeEvent = Boolean(event?.is_free);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-lg w-full">
@@ -157,7 +171,7 @@ const EventFormPublicPage: React.FC = () => {
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
             <h1 className="text-2xl font-bold">Dziękujemy za zgłoszenie!</h1>
             <p className="text-muted-foreground">
-              Na adres <strong>{email}</strong> wysłaliśmy email z potwierdzeniem oraz danymi do płatności.
+              Na adres <strong>{email}</strong> wysłaliśmy email z potwierdzeniem{isFreeEvent ? '' : ' oraz danymi do płatności'}.
             </p>
             <p className="text-sm text-muted-foreground">
               Sprawdź skrzynkę (także folder „Spam") i kliknij <strong>„Potwierdzam otrzymanie wiadomości"</strong>.
