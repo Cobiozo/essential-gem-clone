@@ -56,7 +56,20 @@ const EventFormPublicPage: React.FC = () => {
           setError('Formularz nie istnieje lub został wyłączony.');
         } else {
           setForm(f);
-          setEvent((f as any).paid_events);
+          const ev: any = (f as any).paid_events;
+          if (ev?.id && ev.is_free !== true) {
+            const { data: tks } = await supabase
+              .from('paid_event_tickets')
+              .select('price_pln, is_active, deleted_at')
+              .eq('event_id', ev.id)
+              .is('deleted_at', null);
+            const active = (tks || []).filter((t: any) => t.is_active);
+            const pool = active.length > 0 ? active : (tks || []);
+            if (pool.length > 0 && pool.every((t: any) => Number(t.price_pln) === 0)) {
+              ev.is_free = true;
+            }
+          }
+          setEvent(ev);
           if (refCode) {
             // Track click
             await supabase.rpc('increment_partner_link_click', { _ref_code: refCode });
