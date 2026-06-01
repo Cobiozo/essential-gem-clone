@@ -110,14 +110,21 @@ const CheckoutPage: React.FC = () => {
   const paypalLink = ticketRow?.paypal_payment_link?.trim() || null;
   const hasPaypal = !!paypalLink && /^https?:\/\//i.test(paypalLink);
 
+  const ticketPaymentMethod = (ticketRow as any)?.payment_method ?? 'inherit';
+
   const availableMethods = useMemo<Method[]>(() => {
     if (!order) return [];
+    // Per-ticket override: when a ticket pins a method, only that one is offered.
+    if (ticketPaymentMethod === 'transfer') return ['transfer'];
+    if (ticketPaymentMethod === 'payu') return ['payu', 'blik'];
+    if (ticketPaymentMethod === 'paypal') return hasPaypal ? ['paypal'] : [];
+    // 'inherit' (or legacy null) — use event-level flags
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
     if (order.paid_events.payment_method_paypal && hasPaypal) list.push('paypal');
     return list;
-  }, [order, hasPaypal]);
+  }, [order, hasPaypal, ticketPaymentMethod]);
 
   // PayPal is independent of PayU readiness — treat the page as "actionable"
   // whenever PayU is ready OR PayPal link is available.
