@@ -91,6 +91,9 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
