@@ -218,7 +218,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         valid: true,
-        checkedIn: markAsCheckedIn && isAdmin,
+        checkedIn: finalCheckedIn,
+        checkedInAt: finalCheckedInAt,
+        action: isCheckOut ? 'check_out' : (markAsCheckedIn ? 'check_in' : 'verify'),
         checkInStartsAt: checkInStart.toISOString(),
         eventEndedAt: eventEndDate.toISOString(),
         order: {
