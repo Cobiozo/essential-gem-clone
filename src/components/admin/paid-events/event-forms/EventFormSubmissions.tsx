@@ -806,17 +806,40 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.__source === 'order' ? (
                         <>
                           {s.__ticketCode && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              title="Otwórz bilet"
-                              asChild
-                            >
+                            <Button size="sm" variant="ghost" title="Otwórz bilet" asChild>
                               <a href={`/ticket/${s.__ticketCode}`} target="_blank" rel="noreferrer">
                                 <Ticket className="w-4 h-4 text-primary" />
                               </a>
                             </Button>
                           )}
+                          <Button size="sm" variant="ghost" title="Edytuj dane rezerwacji" onClick={() => setEditOrder(s)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          {!s.email_confirmed_at && s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Wyślij ponownie mail z potwierdzeniem adresu" onClick={() => resendOrderConfirmation.mutate(s.__orderId)}>
+                              <Send className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.email_confirmed_at && s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Wyślij ponownie bilet PDF" onClick={() => resendOrderTicket.mutate(s.__orderId)}>
+                              <Mail className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Anuluj rezerwację" onClick={() => {
+                              if (confirm('Anulować tę rezerwację? Bilet przestanie być ważny.')) cancelOrder.mutate(s.__orderId);
+                            }}>
+                              <XCircle className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" title="Usuń rezerwację całkowicie" onClick={() => {
+                            const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                            if (window.confirm(`Usunąć całkowicie rezerwację ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) {
+                              deleteOrder.mutate(s.__orderId);
+                            }
+                          }}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
                         </>
                       ) : (
                         <>
