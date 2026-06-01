@@ -1,63 +1,53 @@
-## Problemy do rozwiązania
+## Cel
+Naprawić dwa problemy w panelu admina (Płatne wydarzenia → Weryfikacja biletów / Edytor szablonu):
 
-### 1. Błąd uploadu tła biletu („new row violates row-level security policy")
+1. Skanowanie aparatem od razu pokazuje „Bilet nieprawidłowy / Check-in not yet available", choć bilet jest poprawny — dopiero ręczne „Sprawdź" pokazuje prawidłowy.
+2. Nie działa „Podgląd PDF" w edytorze szablonu biletu.
 
-Bucket `event-tickets` istnieje, polityki RLS odwołują się do `has_role(auth.uid(),'admin')` i `is_admin()`. Mimo to upload bezpośrednio z przeglądarki czasami trafia w błąd RLS (m.in. przez kolejność polityk SELECT, nakładające się reguły na `storage.objects` i fakt, że bucket jest publiczny). Najpewniejsze rozwiązanie: przenieść upload tła do funkcji brzegowej z `service_role`, która jednoznacznie weryfikuje rolę admina przez JWT i wgrywa plik z pominięciem RLS.
+---
 
-**Zmiany:**
-- Nowa funkcja `upload-ticket-template-bg` (POST, multipart/form-data, weryfikacja admina przez `verifyAdmin`, upload do `event-tickets/templates/{eventId}/bg.{ext}` z `service_role`, zwraca `{ url, width, height }`).
-- `EventTicketTemplatePanel.tsx`: zamiast `supabase.storage.upload` wywołuje fetch do nowej funkcji z FormData (plik + eventId). Po sukcesie zapisuje `background_url` w `event_ticket_templates`.
-- Komunikat błędu wyświetla treść z odpowiedzi (np. „Brak uprawnień admina").
+### 1) Skaner aparatem — natychmiastowa walidacja
 
-### 2. Legenda skrótów w edytorze pól biletu
+**Przyczyna**
+W `TicketVerification.tsx` po zeskanowaniu wywoływane jest `verifyTicket(code, true)` z `markAsCheckedIn=true`. Backend (`verify-event-ticket`) tylko wtedy egzekwuje okno czasowe i zwraca `valid:false, code:TOO_EARLY`, gdy do startu wydarzenia pozostało więcej niż 2 godz. Stąd „nieprawidłowy" po skanie, a „prawidłowy" po ręcznym kliknięciu (które idzie z `false`).
 
-W panelu `Szablon → Edytor pól` pod kanwą dodać sekcję „Dostępne pola (skróty)" — pełna lista kluczy, które system automatycznie zaciąga z zamówienia/wydarzenia, plus przycisk „Dodaj na płótno" obok każdego.
+**Zmiana (frontend, `src/components/admin/paid-events/TicketVerification.tsx`)**
+- W callbacku skanera zmienić wywołanie na `verifyTicket(code, false)` — czyli najpierw tylko walidacja kodu (bez check-in).
+- Po pomyślnej walidacji wyświetlana jest karta „Bilet prawidłowy" z danymi uczestnika i przyciskiem „Wykonaj check-in" (już istnieje). Admin klika check-in świadomie, gdy wydarzenie się rozpocznie.
+- Dialog skanera zamykany jak dotąd; treść opisu w dialogu zaktualizować: „Po zeskanowaniu zobaczysz dane uczestnika. Check-in wykonasz osobnym przyciskiem."
+- Zaktualizować dolną instrukcję („Aparat telefonu: …") aby odzwierciedlała nowy przepływ.
 
-Lista skrótów do udokumentowania (zgodna z obecnym generatorem PDF):
+To gwarantuje, że po prawidłowym skanie od razu pojawia się zielona karta „Bilet prawidłowy" z imieniem/nazwiskiem/eventem, niezależnie od tego, ile czasu pozostało do startu.
 
-| Klucz | Co podstawia system |
-|---|---|
-| `eventTitle` | Tytuł wydarzenia |
-| `eventDate` | Data i godzina rozpoczęcia |
-| `eventEndDate` | Data i godzina zakończenia |
-| `eventLocation` | Lokalizacja (miasto/adres/online) |
-| `firstName` | Imię uczestnika |
-| `lastName` | Nazwisko uczestnika |
-| `fullName` | Imię + nazwisko |
-| `email` | E-mail uczestnika |
-| `phone` | Telefon uczestnika |
-| `ticketName` | Nazwa biletu (np. „Bilet wstępu") |
-| `ticketCode` | Kod biletu (np. EVJT5GJXJVYJ) |
-| `seatNumber` | Numer miejsca (dla biletów grupowych) |
-| `orderNumber` | Numer zamówienia |
-| `qr` | Kod QR z linkiem do weryfikacji |
+---
 
-**Zmiany:**
-- W `EventTicketTemplatePanel.tsx` rozszerzyć `FIELD_LABELS` o nowe klucze (`eventEndDate`, `fullName`, `email`, `phone`, `orderNumber`) i dodać pod edytorem kartę „Legenda skrótów" — tabelka z kluczem, opisem oraz akcją „Dodaj" (gdy pole nie jest jeszcze na kanwie).
-- W `generate-event-ticket-pdf` dopisać podstawianie nowych kluczy (mapowanie z `order`, `attendee`, `event`).
+### 2) Podgląd PDF biletu
 
-### 3. Weryfikacja biletu zwraca „Ticket code is required"
+**Diagnostyka**
+- Bezpośrednie wywołanie funkcji `generate-event-ticket-pdf` z `{preview:true, eventId}` zwraca poprawny PDF (200, `application/pdf`, ~24KB). Funkcja serwerowa działa.
+- Problem leży po stronie frontu (`EventTicketTemplatePanel.tsx`, fn `preview()`):
+  - `await save()` jest wywoływane przed otwarciem PDF — jeśli zapis się nie powiedzie, `preview()` rzuca błąd zanim w ogóle dojdzie do żądania PDF (i `window.open` po await także bywa blokowane przez przeglądarki jako pop-up, bo traci kontekst „user gesture").
+  - Nagłówki używają tylko `VITE_SUPABASE_PUBLISHABLE_KEY` zamiast tokena sesji admina — większość edge funkcji w tym projekcie weryfikuje JWT.
 
-Bug po stronie front-endu: `TicketVerification.tsx` wysyła do funkcji `verify-event-ticket` body z polami `ticket_code` / `perform_check_in`, ale funkcja oczekuje `ticketCode` / `markAsCheckedIn`. Stąd 400 „Ticket code is required". Dodatkowo:
-- Funkcja przyjmuje tylko `status === 'paid'` — bezpłatne rezerwacje mają `status = 'confirmed'`, więc nawet po naprawie front-endu zwracałaby NOT_PAID.
-- Sprawdza rolę admina po nieistniejącej kolumnie `profiles.role` zamiast tabeli `user_roles`.
-- Odpowiedź funkcji ma kształt `{ valid, attendee, event, order, ticket }`, a front oczekuje `data.ticket.buyer_name`, `event_title`, `event_date`, `is_checked_in` itp. — wynik pokazałby się jako „prawidłowy", ale puste pola.
-- Bilet jest na wydarzenie 4 lipca 2026, a sprawdzenie `TOO_EARLY` blokuje check-in więcej niż 2h przed startem. Dla potrzeb panelu admina (weryfikacja przed dniem wydarzenia) wprowadzić tryb „tylko sprawdź" (`markAsCheckedIn=false`) który nie zwraca TOO_EARLY — informuje tylko „bilet ważny, check-in możliwy od X" zamiast `valid:false`.
+**Zmiana (frontend, `EventTicketTemplatePanel.tsx`, funkcja `preview`)**
+- Otworzyć nowe okno SYNCHRONICZNIE na początku funkcji: `const win = window.open('', '_blank')` (gest użytkownika), później do niego załadować Blob URL — eliminuje blokowanie pop-up.
+- Wywołać `save()` PRZED otwarciem okna lub niezależnie; jeśli save padnie, nie blokować podglądu (tylko ostrzec toastem) — szablon i tak istnieje w bazie z poprzedniego zapisu, więc podgląd nadal powinien działać.
+- Użyć tokena sesji admina w nagłówku `Authorization`:
+  ```ts
+  const { data: { session } } = await supabase.auth.getSession();
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session?.access_token ?? VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    'apikey': VITE_SUPABASE_PUBLISHABLE_KEY,
+  }
+  ```
+- Po otrzymaniu blob: `win.location.href = URL.createObjectURL(blob)` (zamiast `window.open` po awaitcie). Jeśli `win` był `null` (blokada), fallback: utworzyć link `<a download>` i kliknąć programowo.
+- Lepsze komunikaty błędów: pokazać status HTTP i fragment treści odpowiedzi w toaście.
 
-**Zmiany:**
-- `TicketVerification.tsx`: wysyłać `ticketCode` i `markAsCheckedIn`; mapować odpowiedź z nowego kształtu (`attendee.firstName + lastName`, `event.title`, `event.date`, `checkedIn`, `ticketCode` z `order.ticketCode`).
-- `supabase/functions/verify-event-ticket/index.ts`:
-  - akceptować zarówno `ticketCode` jak i `ticket_code` (oraz `markAsCheckedIn`/`perform_check_in`) – wsteczna kompatybilność,
-  - rola admina przez `user_roles` (`has_role`),
-  - akceptować statusy `paid` **oraz** `confirmed` (wydarzenia bezpłatne) jako ważne,
-  - dla `markAsCheckedIn=false` zwracać `valid:true` nawet gdy `now < checkInStart`, dorzucając pole `checkInStartsAt` jako informację (front pokaże „bilet ważny, check-in dostępny od …"),
-  - zachować `TOO_EARLY`/`EVENT_ENDED` tylko gdy faktycznie próbuje wykonać check-in.
+---
 
-## Pliki do zmiany
-- `supabase/functions/upload-ticket-template-bg/index.ts` (nowy)
-- `supabase/functions/verify-event-ticket/index.ts`
-- `supabase/functions/generate-event-ticket-pdf/index.ts`
-- `src/components/admin/paid-events/editor/EventTicketTemplatePanel.tsx`
-- `src/components/admin/paid-events/TicketVerification.tsx`
+### Pliki do edycji
+- `src/components/admin/paid-events/TicketVerification.tsx` — skaner woła `verifyTicket(code, false)`; aktualizacja opisów.
+- `src/components/admin/paid-events/editor/EventTicketTemplatePanel.tsx` — przebudowa `preview()`: synchroniczne `window.open`, token sesji w Authorization, odporność na błąd `save()`.
 
-Brak zmian w bazie – polityki RLS pozostają, ale upload tła idzie bocznym kanałem przez funkcję brzegową.
+Brak zmian w edge funkcjach i bazie danych.

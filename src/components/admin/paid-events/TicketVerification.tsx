@@ -202,7 +202,7 @@ export const TicketVerification: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Camera className="w-5 h-5" />Skanuj kod QR</DialogTitle>
             <DialogDescription>
-              Skieruj aparat na kod QR z biletu. Check-in zostanie wykonany automatycznie.
+              Skieruj aparat na kod QR z biletu. Po zeskanowaniu zobaczysz dane uczestnika — check-in wykonasz osobnym przyciskiem.
             </DialogDescription>
           </DialogHeader>
           {scannerOpen && (
@@ -215,7 +215,7 @@ export const TicketVerification: React.FC = () => {
                   const code = extractCode(raw);
                   setScannerOpen(false);
                   setTicketCode(code);
-                  verifyTicket(code, true);
+                  verifyTicket(code, false);
                 }}
                 onError={(err) => {
                   console.error('[QR Scanner]', err);
@@ -323,7 +323,7 @@ export const TicketVerification: React.FC = () => {
           <CardTitle className="text-base">Instrukcja</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — check-in zostanie wykonany od razu po zeskanowaniu</p>
+          <p>• <strong>Aparat telefonu:</strong> kliknij „Skanuj aparatem telefonu" — po zeskanowaniu od razu zobaczysz dane biletu; check-in wykonaj przyciskiem „Wykonaj check-in"</p>
           <p>• <strong>Sprzętowy czytnik:</strong> podłącz czytnik QR/kreskowy — kod pojawi się w polu tekstowym, kliknij „Sprawdź"</p>
           <p>• <strong>Ręcznie:</strong> wpisz kod biletu i kliknij „Sprawdź", następnie „Wykonaj check-in"</p>
         </CardContent>
