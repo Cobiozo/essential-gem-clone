@@ -44,6 +44,8 @@ interface Ticket {
   max_per_order: number | null;
   is_active: boolean | null;
   seats_per_ticket: number;
+  payment_method: 'inherit' | 'payu' | 'transfer' | 'paypal' | 'free';
+  audience: 'all' | 'logged_in' | 'guest_only';
 }
 
 interface PaidEvent {
