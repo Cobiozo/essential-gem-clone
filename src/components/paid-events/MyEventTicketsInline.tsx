@@ -32,7 +32,7 @@ interface Props {
  * with inline editing for guest seats.
  */
 export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
-  const { user, profile, rolesReady } = useAuth();
+  const { user, profile, rolesReady, isAdmin } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editAttendee, setEditAttendee] = useState<Attendee | null>(null);
