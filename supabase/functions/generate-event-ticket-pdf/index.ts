@@ -237,11 +237,15 @@ Deno.serve(async (req) => {
 async function renderTicket(args: {
   firstName: string;
   lastName: string;
+  email?: string;
+  phone?: string;
   ticketCode: string;
   ticketName: string;
   seatNumber: string;
+  orderNumber?: string;
   eventTitle: string;
   eventDate: string;
+  eventEndDate?: string;
   eventLocation: string;
   qrUrl: string;
   template: TemplateRow | null;
