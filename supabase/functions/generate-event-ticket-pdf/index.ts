@@ -302,7 +302,10 @@ async function renderTicket(args: {
     }
   }
 
-  // Scale factor px -> pt
+  // Scale factor px -> pt. Use sx (width axis) as the single source for font
+  // and width scaling so the in-app editor (which sizes fonts as % of canvas
+  // width via cqw) and the PDF stay 1:1. When a background image is set,
+  // pageW/H mirror the canvas aspect ratio exactly so sx===sy.
   const sx = pageW / tplW;
   const sy = pageH / tplH;
 
@@ -345,15 +348,20 @@ async function renderTicket(args: {
 
     const text = valueFor(f.key);
     if (!text) continue;
-    const fontSize = (f.fontSize || 14) * Math.min(sx, sy);
+    // Match editor: font is sized as % of canvas width (cqw).
+    const fontSize = (f.fontSize || 14) * sx;
     const font = f.fontWeight === "bold" ? fontBold : fontRegular;
     const color = hexToRgb(f.color);
     const textWidth = font.widthOfTextAtSize(text, fontSize);
+    // Cap height ≈ distance from baseline to top of glyph. Aligning to cap
+    // height puts the top of the visible glyph exactly at f.y * sy, which
+    // matches the editor (where the field's top edge is at y).
+    const capHeight = font.heightAtSize(fontSize, { descender: false });
 
     let xpt = f.x * sx;
     if (f.textAlign === "center" && f.width) xpt += ((f.width * sx) - textWidth) / 2;
     else if (f.textAlign === "right" && f.width) xpt += (f.width * sx) - textWidth;
-    const ypt = pageH - (f.y * sy) - fontSize;
+    const ypt = pageH - (f.y * sy) - capHeight;
 
     page.drawText(text, { x: xpt, y: ypt, size: fontSize, font, color: rgb(color.r, color.g, color.b) });
   }
