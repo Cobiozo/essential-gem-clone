@@ -32,7 +32,7 @@ interface Props {
  * with inline editing for guest seats.
  */
 export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
-  const { user, profile } = useAuth();
+  const { user, profile, rolesReady } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [editAttendee, setEditAttendee] = useState<Attendee | null>(null);
@@ -43,32 +43,51 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
   const emails = Array.from(new Set([authEmail, profileEmail].filter(Boolean) as string[]));
 
+  // Primary: server-side RPC that bypasses RLS quirks and matches by user_id OR lower(email).
+  // Guarantees a logged-in partner sees their own ticket for this event, even when the order
+  // was originally created before login (email-only) or with a different email casing.
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ['my-event-tickets-inline', user?.id, emails.join('|'), eventId],
-    enabled: !!user?.id && !!eventId,
+    queryKey: ['my-event-tickets-inline', user?.id, eventId],
+    enabled: !!user?.id && !!eventId && rolesReady,
     queryFn: async () => {
-      const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
-      const { data, error } = await supabase
-        .from('paid_event_orders')
-        .select(`
-          id, quantity, total_amount, status, created_at, email,
-          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
-          attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
-        `)
-        .eq('event_id', eventId)
-        .or(orParts.join(','))
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const { data, error } = await (supabase as any).rpc('get_my_event_orders', {
+        p_event_id: eventId,
+      });
+      if (error) {
+        console.error('[my-event-tickets-inline] rpc failed, fallback to direct query', error);
+        const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
+        const { data: fb, error: fbErr } = await supabase
+          .from('paid_event_orders')
+          .select(`
+            id, quantity, total_amount, status, created_at, email, ticket_code,
+            ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
+            attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
+          `)
+          .eq('event_id', eventId)
+          .or(orParts.join(','))
+          .order('created_at', { ascending: false });
+        if (fbErr) throw fbErr;
+        return Array.from(new Map(((fb as any[]) || []).map((o) => [o.id, o])).values());
+      }
       const rows = (data as any[]) || [];
-      return Array.from(new Map(rows.map((o) => [o.id, o])).values());
+      return rows.map((r) => ({
+        id: r.id,
+        quantity: r.quantity,
+        total_amount: r.total_amount,
+        status: r.status,
+        created_at: r.created_at,
+        email: r.email,
+        ticket_code: r.ticket_code,
+        ticket: { name: r.ticket_name, seats_per_ticket: r.seats_per_ticket },
+        attendees: Array.isArray(r.attendees) ? r.attendees : [],
+      }));
     },
   });
 
   // Fallback: confirmed registration via event_form_submissions (in case orders are not yet visible)
   const { data: formSubmission } = useQuery({
     queryKey: ['my-event-registration-fallback', eventId, emails.join('|')],
-    enabled: !!user?.id && !!eventId && emails.length > 0,
+    enabled: !!user?.id && !!eventId && rolesReady && emails.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('event_form_submissions')
@@ -86,6 +105,16 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
 
   if (!user) return null;
+
+  // Don't render the "Nie jesteś jeszcze zarejestrowany" panel until auth is fully ready —
+  // otherwise the negative state flashes for users who DO have a reservation.
+  if (!rolesReady) {
+    return (
+      <div className="rounded-md border bg-primary/5 p-3 text-xs text-muted-foreground italic flex items-center gap-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> Ładowanie biletów…
+      </div>
+    );
+  }
 
   const INACTIVE = new Set(['cancelled', 'refunded', 'failed', 'expired']);
   const activeOrders = orders.filter((o: any) => !INACTIVE.has(o.status));
