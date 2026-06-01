@@ -131,6 +131,9 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
         email_status: "confirmed",
       })
       .eq("id", sub.id);
+  }
+
+
 
   try {
     const res = await issueFreeTicketForOrder(supabase, orderId!);
