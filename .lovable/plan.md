@@ -1,49 +1,37 @@
-
 ## Cel
 
-W tabeli „Zgłoszenia" (komponent `EventFormSubmissions`) wiersze pochodzące z `paid_event_orders` (rezerwacje partnerów/gości na free event) obecnie pokazują w kolumnie „Akcje" tylko ikonę biletu. Trzeba dla nich udostępnić te same możliwości administracyjne, jakie mają wiersze ze `event_form_submissions`:
+1. Po wykonaniu check-in na liście uczestników pozycja danej osoby ma świecić się na zielono z etykietą „Check-in wykonano" oraz przyciskiem **Check-out**, który cofa check-in.
+2. Skanowanie/wpisywanie kodu biletu zawsze (niezależnie od statusu) ma pokazywać „Bilet prawidłowy" z danymi uczestnika oraz – jeśli check-in już był wykonany – informacją „Check-in wykonano: DD.MM.YYYY HH:mm".
 
-1. Ponowne wysłanie maila potwierdzającego adres (gdy email jeszcze niepotwierdzony / status `pending`).
-2. Ponowne wysłanie biletu PDF (gdy email potwierdzony / status `paid|confirmed`).
-3. Anulowanie rezerwacji.
-4. Usunięcie rezerwacji całkowicie.
-5. Edycja parametrów (imię, nazwisko, email, telefon).
+## Zmiany w backendzie
 
-## Co powstanie
+**`supabase/functions/verify-event-ticket/index.ts`**
 
-### Nowe edge functions (admin-gated, service-role)
+- Już zameldowany bilet nie jest dłużej traktowany jako błąd. Zamiast zwracać `valid:false / ALREADY_CHECKED_IN`, funkcja zwraca `valid:true` z polami `checkedIn:true` i `checkedInAt` (ISO). Klient pokazuje zielony status z datą i godziną.
+- Dodanie nowej akcji `action: 'check_out'` (obok obecnego `markAsCheckedIn`). Tylko admin. Ustawia `checked_in=false`, `checked_in_at=null` na poziomie `paid_event_order_attendees` (jeśli istnieje) lub `paid_event_orders`.
+- Zachowanie pozostałych ścieżek (NOT_FOUND, NOT_PAID, TOO_EARLY dla nie-adminów przy markAsCheckedIn) bez zmian.
 
-- `admin-cancel-event-order` — ustawia `status='cancelled'` w `paid_event_orders`. Weryfikuje rolę admin z JWT.
-- `admin-delete-event-order` — twardo usuwa wiersz z `paid_event_orders` (kaskadowo `paid_event_order_attendees`).
-- `admin-resend-event-order-confirmation` — wysyła ponownie mail potwierdzający email dla orderu w statusie `pending` (re-trigger linka potwierdzającego, identycznie jak pierwszy wysłany przy rejestracji free event — wykorzysta logikę z `register-free-event-order` / `confirm-event-form-email`).
-- `admin-update-event-order` — aktualizuje `first_name`, `last_name`, `email`, `phone` w `paid_event_orders` (i ewentualnie zsynchronizuje pierwszy wiersz `paid_event_order_attendees`).
+## Zmiany w UI
 
-`admin-resend-free-ticket` już istnieje — użyjemy go do (2).
+**`src/components/admin/paid-events/TicketVerification.tsx`**
 
-### UI w `EventFormSubmissions.tsx`
+1. **Panel wyniku skanowania:**
+   - Gdy `checked_in === true`: zielony nagłówek „Bilet prawidłowy" + badge „Check-in wykonano: dd.MM.yyyy HH:mm" (pełna data, nie tylko godzina). Pod spodem przycisk „Cofnij check-in" wywołujący nową akcję `check_out`.
+   - Gdy `checked_in === false`: bez zmian – pokazuje „Wykonaj check-in".
+   - Dane uczestnika (imię, email, kod, event) pokazywane zawsze.
 
-W gałęzi `s.__source === 'order'` w kolumnie Akcje dodać przyciski analogiczne do tych dla zgłoszeń formularzowych:
+2. **Lista uczestników:**
+   - Wiersz osoby z `checked_in=true`: zielone tło (już jest), zielony badge „Check-in: dd.MM HH:mm" zamiast pustego przycisku, oraz przycisk **Check-out** (variant outline, ikona `RotateCcw`/`XCircle`) wywołujący akcję cofnięcia.
+   - Wiersz osoby bez check-in: bez zmian – przycisk „Check-in".
 
-```text
-[edytuj] [bilet/podgląd] 
- status=pending     → [wyślij ponownie mail potwierdzający] [anuluj] [usuń]
- status=paid|confirmed → [wyślij ponownie bilet PDF] [anuluj] [usuń]
- status=cancelled   → [usuń]
-```
+3. Nowa funkcja `handleRowCheckOut(code)` oraz `handleCheckOut()` w panelu wyniku – wysyłają request z `action:'check_out'` do edge function, po sukcesie odświeżają listę i ustawiają wynik z `checked_in:false`.
 
-Plus dialog edycji parametrów (`OrderEditDialog`) z polami: imię, nazwisko, email, telefon, zapisujący przez `admin-update-event-order` i invalidate query `event-form-submissions-orders`.
+4. Aktualizacja `VerificationResult` o pole `checked_in_at` z odpowiedzi serwera (zamiast generowania `new Date().toISOString()` lokalnie) tak aby pokazywany czas check-in odpowiadał rzeczywistemu zapisowi w bazie.
 
-Wszystkie destrukcyjne akcje (anuluj, usuń) z `window.confirm` w polskiej wersji jak w istniejącym kodzie. Sukces → toast + invalidate `event-form-submissions-orders` oraz `event-form-submission-counts`.
+## Szczegóły techniczne
 
-### Bez zmian
-
-- Logika zakładek (Wszystkie/Goście/Partnerzy), filtrów, eksportu Excel, kolumn Data/Osoba/Kontakt/Płatność/Email/Partner zapraszający.
-- Wiersze ze `event_form_submissions` — pełen zestaw akcji już istnieje.
-- Komponenty weryfikacji biletów i podglądu szablonu PDF.
-
-## Uwagi techniczne
-
-- Wszystkie nowe funkcje wymagają JWT z rolą `admin` (sprawdzane przez `user_roles` jak w `verify-event-ticket` po ostatnim fixie).
-- Re-send confirmation: regeneruje token jeśli stary wygasł, używa szablonu maila identycznego jak przy pierwszej rejestracji free event (single source of truth w `_shared/free-event-ticket.ts` / `confirm-event-form-email`).
-- Edycja emaila resetuje `email_confirmed_at = null` tylko jeśli admin tego sobie zażyczy (checkbox „Wymagaj ponownego potwierdzenia"); domyślnie zostawiamy bez zmian, żeby nie wyrzucić aktywnego biletu.
-- Usunięcie zamówienia anuluje też wszystkie powiązane `paid_event_order_attendees` (ON DELETE CASCADE — sprawdzimy schemat; jeśli brak, dodamy migrację).
+- Format daty w UI: `dd.MM.yyyy HH:mm` (date-fns + locale `pl`) w wyniku skanowania; `dd.MM HH:mm` w wierszu listy (oszczędność miejsca).
+- `check_out` zwraca taką samą strukturę co `verify` (valid:true, checkedIn:false), żeby UI mógł od razu zaktualizować widok.
+- Optimistic update listy w `setOrders` przy check-out (analogicznie jak przy check-in).
+- Toast: „Cofnięto check-in" przy sukcesie check-out, „Błąd" przy niepowodzeniu.
+- Brak zmian w bazie danych ani innych edge functions.

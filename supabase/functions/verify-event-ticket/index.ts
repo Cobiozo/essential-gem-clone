@@ -44,6 +44,8 @@ Deno.serve(async (req) => {
     // Accept both camelCase and snake_case for backwards compatibility
     const ticketCode: string | undefined = body.ticketCode ?? body.ticket_code;
     const markAsCheckedIn: boolean = !!(body.markAsCheckedIn ?? body.perform_check_in);
+    const action: string | undefined = body.action;
+    const isCheckOut: boolean = action === 'check_out';
 
     if (!ticketCode) {
       return new Response(
