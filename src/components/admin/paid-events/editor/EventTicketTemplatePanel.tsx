@@ -490,26 +490,32 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       {selected && (
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2"><GripVertical className="w-4 h-4" />{FIELD_LABELS[selected.key] || selected.key}</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => { removeField(selected.key); setSelectedField(null); }}>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <GripVertical className="w-4 h-4" />
+              {FIELD_LABELS[selected.key] || selected.key}
+              {selectedTypeCount > 1 && (
+                <span className="text-xs text-muted-foreground font-normal">(#{selectedTypeIndex} z {selectedTypeCount})</span>
+              )}
+            </CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => { removeField(selected.id); setSelectedField(null); }}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">X</Label><Input type="number" value={selected.x} onChange={(e) => updateField(selected.key, { x: Number(e.target.value) })} className="h-8" /></div>
-              <div><Label className="text-xs">Y</Label><Input type="number" value={selected.y} onChange={(e) => updateField(selected.key, { y: Number(e.target.value) })} className="h-8" /></div>
+              <div><Label className="text-xs">X</Label><Input type="number" value={selected.x} onChange={(e) => updateField(selected.id, { x: Number(e.target.value) })} className="h-8" /></div>
+              <div><Label className="text-xs">Y</Label><Input type="number" value={selected.y} onChange={(e) => updateField(selected.id, { y: Number(e.target.value) })} className="h-8" /></div>
               {selected.key === 'qr' ? (
                 <>
-                  <div><Label className="text-xs">Szerokość</Label><Input type="number" value={selected.width || 200} onChange={(e) => updateField(selected.key, { width: Number(e.target.value) })} className="h-8" /></div>
-                  <div><Label className="text-xs">Wysokość</Label><Input type="number" value={selected.height || 200} onChange={(e) => updateField(selected.key, { height: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Szerokość</Label><Input type="number" value={selected.width || 200} onChange={(e) => updateField(selected.id, { width: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Wysokość</Label><Input type="number" value={selected.height || 200} onChange={(e) => updateField(selected.id, { height: Number(e.target.value) })} className="h-8" /></div>
                 </>
               ) : (
                 <>
-                  <div><Label className="text-xs">Rozmiar</Label><Input type="number" value={selected.fontSize || 14} onChange={(e) => updateField(selected.key, { fontSize: Number(e.target.value) })} className="h-8" /></div>
-                  <div><Label className="text-xs">Kolor</Label><Input type="color" value={selected.color || '#000000'} onChange={(e) => updateField(selected.key, { color: e.target.value })} className="h-8 p-1" /></div>
+                  <div><Label className="text-xs">Rozmiar</Label><Input type="number" value={selected.fontSize || 14} onChange={(e) => updateField(selected.id, { fontSize: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Kolor</Label><Input type="color" value={selected.color || '#000000'} onChange={(e) => updateField(selected.id, { color: e.target.value })} className="h-8 p-1" /></div>
                   <div className="col-span-2"><Label className="text-xs">Waga</Label>
-                    <Select value={selected.fontWeight || 'normal'} onValueChange={(v: any) => updateField(selected.key, { fontWeight: v })}>
+                    <Select value={selected.fontWeight || 'normal'} onValueChange={(v: any) => updateField(selected.id, { fontWeight: v })}>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="normal">Normalna</SelectItem><SelectItem value="bold">Pogrubiona</SelectItem></SelectContent>
                     </Select>
