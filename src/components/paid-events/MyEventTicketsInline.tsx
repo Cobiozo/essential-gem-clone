@@ -118,10 +118,12 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
   const INACTIVE = new Set(['cancelled', 'refunded', 'failed', 'expired']);
   const activeOrders = orders.filter((o: any) => !INACTIVE.has(o.status));
+  const inactiveOrders = orders.filter((o: any) => INACTIVE.has(o.status));
+  // Non-admins only ever see active orders; admins also see inactive history.
+  const visibleOrders = isAdmin ? orders : activeOrders;
   const activeTickets = activeOrders
     .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
-  const inactiveTickets = orders
-    .filter((o: any) => INACTIVE.has(o.status))
+  const inactiveTickets = inactiveOrders
     .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
   const activeSeats = activeOrders.reduce(
     (sum: number, o: any) =>
