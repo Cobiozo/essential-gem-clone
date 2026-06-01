@@ -218,7 +218,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                     <>
                       Zarezerwowałeś {activeSeats} {pluralPL(activeSeats, ['miejsce', 'miejsca', 'miejsc'])}
                       {' '}w {activeOrdersCount} {pluralPL(activeOrdersCount, ['rezerwacji', 'rezerwacjach', 'rezerwacjach'])}
-                      {inactiveTickets > 0 && (
+                      {isAdmin && inactiveTickets > 0 && (
                         <span className="text-muted-foreground/80"> (+{inactiveTickets} anulowanych)</span>
                       )}
                     </>
