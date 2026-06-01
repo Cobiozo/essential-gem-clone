@@ -116,6 +116,8 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         return <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>;
       case 'completed':
         return <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Potwierdzone</Badge>;
+      case 'awaiting_email_confirmation':
+        return <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] text-white">Potwierdź e-mail</Badge>;
       case 'awaiting_transfer':
         return <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] text-white">Oczekuje przelewu</Badge>;
       case 'pending':
