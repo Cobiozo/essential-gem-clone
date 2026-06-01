@@ -105,6 +105,23 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     return map;
   }, [rawOrders]);
 
+  // Fallback index: orders grouped by lower(email) so we can merge a free-event
+  // ticket back onto its submission even when submitted_data.order_id was never
+  // written (older flows / edge function bug). Sorted newest first.
+  const ordersByEmail = React.useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (rawOrders as any[])
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .forEach((o) => {
+        const k = (o.email || '').toLowerCase();
+        if (!k) return;
+        (map[k] ||= []).push(o);
+      });
+    return map;
+  }, [rawOrders]);
+
+  const usedFallbackOrderIds = new Set<string>();
   const pickLinkedOrder = (sub: any): any | null => {
     const d = (sub.submitted_data || {}) as any;
     const ids: string[] = [];
@@ -112,6 +129,14 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     if (typeof d.last_order_id === 'string') ids.push(d.last_order_id);
     if (Array.isArray(d.order_ids)) ids.push(...d.order_ids.filter((v: any) => typeof v === 'string'));
     for (const id of ids) if (ordersById[id]) return ordersById[id];
+    // Fallback: any unclaimed order with the same email (for this event).
+    const candidates = ordersByEmail[(sub.email || '').toLowerCase()] || [];
+    for (const o of candidates) {
+      if (linkedOrderIds.has(o.id)) continue;
+      if (usedFallbackOrderIds.has(o.id)) continue;
+      usedFallbackOrderIds.add(o.id);
+      return o;
+    }
     return null;
   };
 
@@ -133,7 +158,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
 
   // Normalize remaining (orphan) orders to the submission shape used by the table.
   const orderRows = (rawOrders as any[])
-    .filter((o) => !linkedOrderIds.has(o.id))
+    .filter((o) => !linkedOrderIds.has(o.id) && !usedFallbackOrderIds.has(o.id))
     .map((o) => ({
       id: `order:${o.id}`,
       __source: 'order' as const,

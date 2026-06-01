@@ -63,7 +63,12 @@ const EventFormConfirmPage: React.FC = () => {
               <h1 className="text-2xl font-semibold leading-snug">
                 Twoje dane i rejestracja zostały poprawnie potwierdzone
               </h1>
-              {!isFree && (
+              {isFree ? (
+                <p className="text-muted-foreground leading-relaxed">
+                  Na wskazany adres e-mail otrzymasz bilet uprawniający cię do uczestnictwa w wydarzeniu.
+                  Dziękujemy i do zobaczenia na wydarzeniu.
+                </p>
+              ) : (
                 <p className="text-muted-foreground leading-relaxed">
                   Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu.
                   Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
@@ -74,9 +79,11 @@ const EventFormConfirmPage: React.FC = () => {
                   (Twoja rejestracja była już potwierdzona wcześniej.)
                 </p>
               )}
-              <p className="text-sm text-muted-foreground pt-2">
-                Dziękujemy i do zobaczenia na wydarzeniu!
-              </p>
+              {!isFree && (
+                <p className="text-sm text-muted-foreground pt-2">
+                  Dziękujemy i do zobaczenia na wydarzeniu!
+                </p>
+              )}
             </>
           )}
 
