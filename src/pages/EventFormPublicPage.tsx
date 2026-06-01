@@ -47,7 +47,7 @@ const EventFormPublicPage: React.FC = () => {
       try {
         const { data: f, error: fe } = await supabase
           .from('event_registration_forms')
-          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online, slug)')
+          .select('*, paid_events!event_registration_forms_event_id_fkey(id, title, event_date, location, banner_url, is_online, slug, is_free)')
           .eq('slug', slug)
           .eq('is_active', true)
           .maybeSingle();
