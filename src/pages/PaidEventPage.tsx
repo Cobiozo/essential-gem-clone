@@ -162,6 +162,8 @@ const PaidEventPage: React.FC = () => {
         max_per_order: null,
         is_active: ticket.is_active ?? true,
         seats_per_ticket: Math.max(1, Number((ticket as any).seats_per_ticket) || 1),
+        payment_method: (ticket.payment_method ?? 'inherit') as Ticket['payment_method'],
+        audience: (ticket.audience ?? 'all') as Ticket['audience'],
       })) as Ticket[];
     },
     enabled: !!event?.id,
