@@ -123,7 +123,17 @@ async function sendSmtp(s: SmtpSettings, to: string, subject: string, html: stri
     }
 
     parts.push(`--${boundary}--`, `.`);
-    const r = await send(parts.join("\r\n"));
+    // Stream the DATA payload in chunks (large PDF attachments cause SMTP
+    // "incoming data timeout" on some hosts when sent as a single write).
+    const payload = enc.encode(parts.join("\r\n") + "\r\n");
+    let written = 0;
+    const CHUNK_W = 16384;
+    while (written < payload.length) {
+      const slice = payload.subarray(written, Math.min(written + CHUNK_W, payload.length));
+      const n = await conn.write(slice);
+      written += n;
+    }
+    const r = await withTimeout(read(), 120000, "DATA read timeout");
     if (!r.includes("250")) throw new Error(`Send failed: ${r}`);
     await send("QUIT");
   } finally {
