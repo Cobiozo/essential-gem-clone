@@ -141,7 +141,7 @@ function buildConfirmEmail(opts: {
   <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
     ${bannerHtml}
     <div style="padding:30px;">
-      <h1 style="margin:0 0 10px;font-size:22px;color:#222;">Potwierdź swój adres email</h1>
+      <h1 style="margin:0 0 10px;font-size:22px;color:#222;">Potwierdzenie adresu e-mail i rezerwacji miejsca na wydarzenie</h1>
       <p style="font-size:15px;">Cześć <strong>${escapeHtml(opts.firstName)}</strong>!</p>
       <p style="font-size:15px;line-height:1.6;">
         Dziękujemy za rezerwację bezpłatnego miejsca na wydarzenie <strong>${escapeHtml(opts.eventTitle)}</strong>${opts.eventDate ? ` (${escapeHtml(opts.eventDate)})` : ""}${opts.eventLocation ? `, ${escapeHtml(opts.eventLocation)}` : ""}.
@@ -333,7 +333,7 @@ serve(async (req) => {
             confirmUrl,
             bannerUrl: event.banner_url,
           });
-          await sendSmtp(smtpSettings, lowerEmail, `Potwierdź swój adres email – ${event.title}`, html);
+          await sendSmtp(smtpSettings, lowerEmail, `Potwierdzenie adresu e-mail i rezerwacji – ${event.title}`, html);
           console.log(`[register-free-event-order] confirm email sent to ${lowerEmail}`);
         } else {
           console.warn("[register-free-event-order] no active SMTP settings");

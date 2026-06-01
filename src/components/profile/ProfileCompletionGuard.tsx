@@ -32,6 +32,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/event-form/',       // Public paid-event registration forms (+ confirm/cancel tokens)
     '/checkout/',         // Public checkout page (payment method selection)
     '/ticket/',           // Public ticket status/download page
+    '/free-event/confirm/', // Free event email confirmation landing
   ];
   
   const isPublicPath = PUBLIC_PATHS.some(path => {

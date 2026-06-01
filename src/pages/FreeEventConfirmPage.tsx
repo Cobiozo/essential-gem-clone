@@ -69,9 +69,9 @@ const FreeEventConfirmPage: React.FC = () => {
           {state === 'success' && (
             <>
               <CheckCircle2 className="w-16 h-16 text-emerald-600 mx-auto" />
-              <h1 className="text-2xl font-bold">Email potwierdzony!</h1>
+              <h1 className="text-2xl font-bold">Adres e-mail i rezerwacja potwierdzone!</h1>
               <p className="text-muted-foreground">
-                Dziękujemy za potwierdzenie adresu <strong>{data?.email}</strong>.
+                Dziękujemy <strong>{data?.email}</strong> – Twoja rezerwacja miejsca na wydarzenie została potwierdzona.
               </p>
               <div className="bg-muted/40 rounded-lg p-4 space-y-2 text-sm">
                 <div className="flex items-center justify-center gap-2 text-foreground">
@@ -84,12 +84,16 @@ const FreeEventConfirmPage: React.FC = () => {
                   </div>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                Bilet (PDF + kod QR) został wysłany na Twój adres email. Sprawdź skrzynkę (także folder Spam).
-              </p>
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-lg p-4 text-sm text-left space-y-2">
+                <p className="font-semibold text-emerald-800 dark:text-emerald-200">Co dalej?</p>
+                <p className="text-emerald-900/80 dark:text-emerald-100/80">
+                  Za chwilę otrzymasz osobną wiadomość e-mail z <strong>biletem (PDF + kod QR)</strong>.
+                  Ten kod QR będzie podstawą wejścia na wydarzenie – okaż go organizatorowi na telefonie lub w wersji wydrukowanej.
+                </p>
+              </div>
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <Mail className="w-4 h-4" />
-                <span>Wiadomość może dotrzeć z opóźnieniem do 2-3 minut.</span>
+                <span>Wiadomość z biletem może dotrzeć z opóźnieniem do 2-3 minut. Sprawdź też folder Spam.</span>
               </div>
             </>
           )}
