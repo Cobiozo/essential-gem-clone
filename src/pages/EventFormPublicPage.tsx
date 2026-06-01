@@ -163,6 +163,7 @@ const EventFormPublicPage: React.FC = () => {
   }
 
   if (done) {
+    const isFreeEvent = Boolean(event?.is_free);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-lg w-full">
@@ -170,7 +171,7 @@ const EventFormPublicPage: React.FC = () => {
             <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto" />
             <h1 className="text-2xl font-bold">Dziękujemy za zgłoszenie!</h1>
             <p className="text-muted-foreground">
-              Na adres <strong>{email}</strong> wysłaliśmy email z potwierdzeniem oraz danymi do płatności.
+              Na adres <strong>{email}</strong> wysłaliśmy email z potwierdzeniem{isFreeEvent ? '' : ' oraz danymi do płatności'}.
             </p>
             <p className="text-sm text-muted-foreground">
               Sprawdź skrzynkę (także folder „Spam") i kliknij <strong>„Potwierdzam otrzymanie wiadomości"</strong>.
