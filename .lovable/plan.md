@@ -1,29 +1,109 @@
-## Problem
 
-W liście formularzy widać "3 zapisanych / 3 opłaconych", ale po wejściu w zgłoszenia są tylko 2 osoby (Jan Kowalski – gość, Sebastian Snopek – partner).
+## Cel
 
-Przyczyna: w `EventFormsList.tsx` licznik sumuje **niezależnie** wszystkie wpisy z `event_form_submissions` + wszystkie wpisy z `paid_event_orders` dla danego wydarzenia. Dla wydarzenia bezpłatnego każdy gość ma teraz JEDNO submission ORAZ powiązany order (utworzony przez `confirm-event-form-email`). Więc Jan jest liczony 2× (1 submission + 1 order), a Sebastian 1× (tylko submission, bo partner zwykle nie generuje osobnego order) — łącznie 3 zamiast 2.
+Jedno wydarzenie, dwa równolegle widoczne bilety:
+- **Bilet płatny przelewem** — widoczny dla **zalogowanych** (logują się, klikają „Kup", dostają email z danymi do przelewu, admin oznacza opłacone → bilet QR).
+- **Bilet bezpłatny** — widoczny dla **gościa wchodzącego przez link od zapraszającego** (`/e/:slug?ref=...`), wypełnia formularz, dostaje email potwierdzający, klika CTA → email z biletem QR.
 
-To samo dotyczy badge'a "opłaconych" oraz innych wydarzeń na liście (np. Kraków pokazuje 81/16, choć realna liczba unikalnych osób jest mniejsza).
+Każdy z nich może mieć dowolną metodę: `payu | transfer | paypal | free`. Decyzja jest **na bilecie**, nie na wydarzeniu.
 
-## Plan naprawy (tylko frontend / logika prezentacji)
+Żadna zmiana nie może popsuć:
+- czysto darmowych wydarzeń (event-level `is_free = true`),
+- czysto płatnych (transfer/PayU/PayPal jak dziś),
+- istniejących formularzy rejestracyjnych, biletów QR, emaili, statystyk.
 
-Plik: `src/components/admin/paid-events/event-forms/EventFormsList.tsx`
+## Analiza obecnego stanu
 
-1. Zmienić query `event-form-order-counts` tak, aby zamiast samych zliczeń zwracało listę zamówień z polami: `event_id, status, email, submitted_data` — albo równolegle dociągnąć `event_form_submissions` z polami `event_id, form_id, email, submitted_data, payment_status` (już mamy formy z `event_id`).
+Dziś podział free vs paid jest **na wydarzeniu** (`paid_events.is_free`), a metoda płatności wspólna dla całego wydarzenia (`payment_method_payu/_transfer/_paypal`). Nie ma żadnego mechanizmu „ten bilet dla zalogowanych, tamten dla gości".
 
-2. Zbudować nowy `countMap` z deduplikacją per formularz po kluczu unikalności osoby:
-   - Klucz: `order_id` zapisany w `submitted_data.order_id` submission → traktujemy submission + powiązany order jako JEDEN rekord.
-   - Pozostałe orders (orphan — bez submission po `order_id`) dodatkowo dedup po `lower(email) + event_id`, aby orphan order o tym samym mailu co submission nie podwajał liczby.
-   - Wynik dla formularza:
-     - `total` = liczba unikalnych osób (submissions formularza + orphan orders danego event_id niezmapowane na żadne submission tego formularza).
-     - `paid` = liczba tych unikalnych osób, dla których albo `submission.payment_status = 'paid'`, albo powiązany/orphan order ma `status ∈ {paid, confirmed, completed}`.
+Bilet (`paid_event_tickets`) ma cenę i limity, ale brak: (a) własnej metody płatności, (b) widoczności wg audytorium.
 
-3. Zostawić obecny fallback przez `admin-list-event-orders` (gdy bezpośrednie SELECT z `paid_event_orders` jest zablokowane RLS), tylko stosując tę samą dedup logikę.
+## Rozwiązanie — dwie kolumny na bilecie
 
-4. Nie zmieniamy backendu, edge functions ani schematu DB — wystarczy poprawić agregację w jednym pliku.
+### 1. Migracja DB (jedna)
 
-## Efekt
+`paid_event_tickets` dodajemy:
 
-- "Rejestracja / Kompleksowe szkolenie TEST" pokaże `2 zapisanych / 2 opłaconych` zgodne z widokiem zgłoszeń.
-- Pozostałe wydarzenia również przestaną podwajać gości bezpłatnych potwierdzonych mailowo.
+- `payment_method text not null default 'inherit'` — wartości `'inherit' | 'payu' | 'transfer' | 'paypal' | 'free'`.
+  - `'inherit'` = używaj metod z eventu (zachowanie wsteczne).
+- `audience text not null default 'all'` — wartości `'all' | 'logged_in' | 'guest_only'`.
+
+Backfill: wszystkie istniejące bilety dostają `payment_method = 'inherit'`, `audience = 'all'` → zero zmian w działającym systemie.
+
+(Bez CHECK constraints — walidacja w UI + edge functions, zgodnie z polityką projektu.)
+
+### 2. Admin — `EventTicketsPanel`
+
+Przy każdym bilecie dwa nowe pola:
+
+- **Metoda płatności biletu**: select `Dziedzicz z wydarzenia (domyślnie) | Płatność online (PayU) | Przelew | PayPal | Bezpłatny`.
+  - Gdy wybrane `Bezpłatny` → pole ceny ukryte / zapisywane jako 0; info „ten bilet pomija metody wydarzenia, gość dostaje formularz rezerwacji + email potwierdzający".
+- **Widoczność biletu**: select `Wszyscy | Tylko zalogowani | Tylko goście z linkiem zapraszającego`.
+  - Info: „Tylko zalogowani" — bilet ukryty dla niezalogowanych odwiedzających. „Tylko goście z linkiem" — bilet pokazywany wyłącznie, gdy URL zawiera `?ref=...` (link zapraszającego).
+
+`EventPaymentMethodsPanel` zostaje, ale dostaje notkę: „Te ustawienia działają dla biletów z metodą **Dziedzicz**. Bilety z własną metodą ignorują te przełączniki."
+
+### 3. Publiczna strona — `PaidEventPage` + `PurchaseDrawer`
+
+`PaidEventPage`:
+- Filtruje listę biletów per audytorium:
+  - `audience = 'all'` → zawsze pokazywany,
+  - `audience = 'logged_in'` → tylko gdy `user` zalogowany,
+  - `audience = 'guest_only'` → tylko gdy w URL jest `ref` (i opcjonalnie tylko dla niezalogowanych — do potwierdzenia w UI, ale logicznie zapraszający ściąga gościa).
+- Wylicza efektywną metodę biletu: `ticket.payment_method === 'inherit' ? eventMethods : ticket.payment_method`.
+- Przekazuje do `PurchaseDrawer` propsy per bilet: `isFree`, `paymentMethodPayu`, `paymentMethodTransfer`, `paymentMethodPaypal` — wyliczone z efektywnej metody danego biletu (nie z eventu).
+
+`PurchaseDrawer`:
+- Praktycznie bez zmian wewnętrznych — już operuje na propsach `isFree` i `paymentMethod*`. Wystarczy że dostanie wartości pochodzące z biletu, nie z eventu.
+- Gałąź `isFree=true` woła `register-free-event-order` → flow z potwierdzeniem email + bilet QR (już zaimplementowany).
+- Gałąź `isFree=false` woła `create-event-order` → przekierowanie na `/checkout/{orderId}` → wybór metody (jednej narzuconej przez bilet) → email z danymi do przelewu (już zaimplementowany).
+
+### 4. Strona checkoutu `/checkout/{orderId}`
+
+Już dziś prezentuje metody włączone na wydarzeniu. Zmiana: jeśli `order.ticket` ma `payment_method ≠ 'inherit'`, wymuszamy dokładnie tę metodę (ukrywamy alternatywy). Dla `'inherit'` — zachowanie jak dziś.
+
+### 5. Edge Functions — minimalne i tylko zabezpieczające
+
+- `register-free-event-order`: dodać walidację, że `ticket.payment_method = 'free'` **lub** event ma `is_free = true`. Inaczej zwróć `ticket_not_free`.
+- `create-event-order`: dodać walidację, że `ticket.payment_method ≠ 'free'`. Inaczej zwróć błąd „Ten bilet jest bezpłatny — użyj rezerwacji".
+- `payu-create-order`, `admin-mark-event-payment`, `confirm-event-form-email`, `free-event-ticket.ts` — **bez zmian**. Wszystkie istniejące flow działają identycznie.
+
+### 6. Linki gościa (`/e/:slug?ref=...`)
+
+Bez zmian funkcjonalnych — slug page już dziś przekazuje `ref` do `/events/register/...` i `PaidEventPage`. Wystarczy, że bilet `audience = 'guest_only'` zostanie wyświetlony, gdy `ref` jest w URL. Logowany użytkownik wchodząc bez `ref` go nie zobaczy → kupi bilet płatny dla zalogowanych. Gość wchodzący przez link od partnera widzi bilet bezpłatny i rejestruje się formularzem.
+
+### 7. Statystyki / liczniki
+
+`tickets_sold` + `activeSubmissionsCount` w `PaidEventPage` już agregują oba źródła (orders + submissions) — bez zmian. Dedup w `EventFormsList` (wcześniejszy fix) działa dalej, bo nie zależy od metody/audytorium.
+
+## Co dokładnie się nie zmieni
+
+- Istniejące wydarzenia: wszystkie bilety dostają `payment_method='inherit'`, `audience='all'` → zachowanie 1:1 jak teraz.
+- Maile, szablony biletów, QR, CRM, partner linki, statystyki — bez zmian.
+- Event-level `is_free` zostaje (legacy, dalej działa dla czysto-darmowych wydarzeń).
+
+## Pliki do edycji
+
+```text
+supabase/migrations/<new>.sql                                          (+ payment_method, audience na paid_event_tickets + backfill)
+src/components/admin/paid-events/editor/EventTicketsPanel.tsx          (2 nowe selecty per bilet + walidacje UI)
+src/components/admin/paid-events/editor/EventPaymentMethodsPanel.tsx   (notka informacyjna)
+src/pages/PaidEventPage.tsx                                            (filtr per audytorium + wyliczanie metody per bilet → propsy do drawera)
+src/components/paid-events/public/PurchaseDrawer.tsx                   (drobny refactor: brać metody/isFree z biletu zamiast z eventu)
+src/pages/CheckoutPage.tsx (jeśli istnieje pod tą nazwą)               (wymuszenie metody, gdy bilet ją narzuca)
+supabase/functions/register-free-event-order/index.ts                  (walidacja ticket.payment_method === 'free')
+supabase/functions/create-event-order/index.ts                         (walidacja ticket.payment_method !== 'free')
+```
+
+## Scenariusz końcowy admina
+
+W wydarzeniu „Konferencja X" admin tworzy 2 bilety:
+
+1. **„Bilet VIP — 250 zł"** — metoda: `Przelew`, widoczność: `Tylko zalogowani`.
+2. **„Wejście dla gościa — bezpłatne"** — metoda: `Bezpłatny`, widoczność: `Tylko goście z linkiem zapraszającego`.
+
+Efekt:
+- Zalogowany użytkownik na stronie wydarzenia widzi tylko VIP-a → checkout → przelew → email z numerem konta → admin oznacza opłacone → bilet QR.
+- Gość klikający w link `/e/konferencja-x?ref=ABC123` od partnera widzi tylko bilet bezpłatny → formularz → email potwierdzający → klik CTA → email z biletem QR.
+
+Dwie różne grupy, dwa różne flow, jedno wydarzenie, bez naruszania istniejącego systemu.
