@@ -1,67 +1,66 @@
-## Problem
+## Co znalazłem (dwa niezależne problemy)
 
-Trzy oddzielne usterki:
+### 1. Mail z biletem NIE doszedł — wina SMTP, nie rejestracji
+Logi `confirm-free-event-reservation` pokazują:
+```
+ERROR [confirm-free-event-reservation] email send failed
+Error: Send failed: 421 s108.cyber-folks.pl SMTP incoming data timeout - closing connection.
+```
+- Zamówienie `4dc5e8fc…` ma `status: 'paid'`, `email_confirmed_at` ustawione, ale `ticket_sent_at = NULL`.
+- Przyczyna: w `sendSmtp` całe ciało wiadomości (mail + base64 PDF biletu, kilkaset kB) wysyłane jest w jednym `conn.write` do `s108.cyber-folks.pl`. Serwer SMTP cyberfolks zamyka połączenie z błędem `421 incoming data timeout`, zanim zdąży odebrać całość.
+- Drugi free-event mail (potwierdzenie e-mail bez załącznika) najprawdopodobniej przeszedł — ale ten z PDF konsekwentnie pada.
 
-1. **Nie można dodać tego samego pola dwa razy** (np. dwa razy „Imię" lub dwa razy QR). W kodzie `EventTicketTemplatePanel.tsx` pole identyfikowane jest przez `key` (typ pola). `addField` ma guard `if (tpl.fields.some(f => f.key === key)) return;`, a legenda pokazuje „na płótnie" zamiast „+ Dodaj" gdy klucz już występuje. Także drag/select/update operują po `f.key`, więc dwa pola o tym samym kluczu i tak by się ze sobą myliły.
+### 2. „Ślady" po usuniętej rejestracji
+`admin-delete-event-order` po ostatniej iteracji już sprząta `paid_event_orders` (kaskada do attendees), `event_registrations`, `guest_event_registrations`. Ale ślad zostaje w innych miejscach, które blokują/myli ponowną rejestrację oraz UI:
+- `event_form_submissions` — formularz rejestracyjny eventu (1:1 z mailem/eventem). Po usunięciu zostaje i powoduje, że UI nadal pokazuje „Masz zarezerwowane miejsce".
+- `paid_event_order_history` / `paid_event_order_attendees` — kaskady, OK, ale warto potwierdzić.
+- `user_notifications` (typ `event_form_*`, `paid_event_*`) — luźne notyfikacje partnera/admina dla tej rejestracji.
+- `team_contacts` notes — zostawiamy (to CRM, użytkownik chce historię), ale można dopisać linijkę „❌ Rejestracja usunięta przez administratora".
 
-2. **Podgląd PDF pokazuje pustkę** w iframe (widoczne na screenie – znak zakazu w iframe). Przyciski „Otwórz w nowej karcie" i „Pobierz PDF" są aktywne (więc `previewUrl` istnieje), ale `<iframe src={blob:...}>` blokowany przez Edge/Chromium dla wielu konfiguracji (CSP/sandbox sandbox dialog vs blob:). Treść PDF jest poprawna – problem to wyłącznie renderer iframe.
+To samo trzeba zrobić w `admin-cancel-event-order` w trybie „twardego" anulowania (obecnie tylko zmienia status na `cancelled` — co nadal blokuje ponowną rejestrację, bo `register-free-event-order` szuka `status in (awaiting_email_confirmation, confirmed, paid, completed)`; `cancelled` nie blokuje, więc tu jest OK — zostawiamy bez zmian).
 
-3. **Po anulowaniu i usunięciu rejestracji nie da się zarejestrować ponownie**. Wymaga doprecyzowania który scenariusz (patrz „Pytania kontrolne") – w kodzie back-endu są dwa miejsca, w których sprawdzany jest duplikat:
-   - `register-free-event-order` – sprawdza po `email` LUB `user_id` ze statusem `IN (awaiting_email_confirmation, confirmed, paid, completed)`. Pomija `cancelled`, więc po samym anulowaniu powinno działać. Po usunięciu (`admin-delete-event-order` robi `DELETE`) – też.
-   - `register_event_guest` (RPC, dla webinarów/wydarzeń z formularzem gościa) – używa unikalnego indeksu `unique_guest_per_event` z `WHERE status <> 'cancelled'`.
-   
-   Najbardziej prawdopodobne źródło problemu: po stronie **paid_event_orders** anulowanie ustawia `status='cancelled'`, ale w **innej tabeli powiązanej** (`event_registrations` / `event_form_submissions` / `guest_event_registrations`) wpis nie jest cofnięty, więc kolejna próba uderza w stary wpis. Wymaga potwierdzenia od użytkownika.
+---
 
-## Plan zmian
+## Plan napraw
 
-### A. Duplikowanie pól na szablonie biletu — `EventTicketTemplatePanel.tsx`
+### A. Naprawa wysyłki maila z biletem (priorytet)
+Plik: `supabase/functions/confirm-free-event-reservation/index.ts` (oraz analogicznie wszędzie gdzie ten sam `sendSmtp` z załącznikiem jest używany — `generate-event-ticket-pdf` wywołuje to pośrednio; sprawdzę też `register-event-transfer-order` i `_shared/free-event-ticket.ts`).
 
-1. Rozszerzyć `FieldDef` o `id: string` (unikalny instance ID) obok dotychczasowego `key` (typ pola wskazujący do `FIELD_LABELS`/`SAMPLE_VALUES`).
-2. **Migracja zgodna wstecznie** w `useEffect` ładującym szablon: dla pól bez `id` ustawić `id = `${key}-${index}`` przy wczytaniu — istniejące szablony działają jak dotąd, a po pierwszym zapisie zyskują stabilne `id`.
-3. Wszystkie operacje (`selectedField`, `beginDrag`, `updateField`, `removeField`, `tpl.fields.find/map/filter`, klucz w JSX, drag/resize) zmienić z `f.key` na `f.id`.
-4. `addField(typeKey)`:
-   - Usunąć guard „już istnieje".
-   - Generować `id = crypto.randomUUID()` (lub `${typeKey}-${Date.now()}`).
-   - Jeśli istnieje już pole tego typu, przesunąć nową instancję o `+20px` w X i Y, żeby nie nakładała się idealnie.
-5. **Legenda** (tabela w `Card` na dole):
-   - Zawsze pokazywać przycisk „+ Dodaj" (a nie „na płótnie"), z licznikiem instancji w nawiasie, np. „+ Dodaj (×2)" gdy już są dwie.
-6. **Nagłówek karty edycji wybranego pola** (`<CardTitle>` z `FIELD_LABELS[selected.key]`): gdy istnieje >1 instancja danego typu, dopisać numer „(#n)" według kolejności w `tpl.fields`.
-7. **Backend (`generate-event-ticket-pdf/index.ts`)**: bez zmian. Funkcja iteruje `template.fields` i renderuje każde pole osobno, używając `f.key` tylko do pobrania wartości — dwa pola z tym samym `key` w różnych miejscach wyrenderują tę samą wartość w dwóch miejscach. To jest dokładnie pożądane zachowanie. JSONB `fields` jest elastyczny i dodatkowe `id` przejdzie bez migracji DB.
+1. Wprowadzić streaming write w `sendSmtp`:
+   - po `DATA` wysyłać body w kawałkach (np. 32 kB) z `await conn.write` w pętli, BEZ czytania po każdym kawałku (SMTP czeka na `.<CRLF>`).
+   - na koniec wysłać `\r\n.\r\n` i dopiero wtedy `await read()`.
+   - dodać explicit `withTimeout` (np. 60 s) na cały send body.
+2. Dodać fallback bez załącznika: jeśli `sendSmtp` z PDF się wywali (timeout/421), spróbować jeszcze raz BEZ załącznika z wyraźnym linkiem do biletu (`ticketViewUrl` + `pdfDownloadUrl`). Wiadomość dotrze zawsze, a użytkownik pobierze PDF z linka.
+3. Po sukcesie ustawić `ticket_sent_at`. Po finalnej porażce (z fallbackiem włącznie) logować i dodawać powiadomienie admina (`user_notifications` typ `ticket_email_failed`) z linkiem do zamówienia.
+4. Resend: `admin-resend-free-ticket` korzysta z `_shared/free-event-ticket.ts` — ten sam fix musi obowiązywać tam.
 
-### B. Podgląd PDF — `EventTicketTemplatePanel.tsx`
+### B. Pełne czyszczenie śladu rejestracji przy usunięciu
+Plik: `supabase/functions/admin-delete-event-order/index.ts` — rozszerzyć po skasowaniu `paid_event_orders`:
+1. `event_form_submissions` — `DELETE` wszystkich rekordów dla pary `(event_id, lower(email))` oraz, jeśli `user_id` istnieje, dla `(event_id, partner_user_id=user_id)` — bo gość/partner mógł najpierw wypełnić ogólny formularz.
+2. `user_notifications` — `DELETE` z `metadata->>'order_id' = $orderId` lub `(metadata->>'event_id' = $eventId AND metadata->>'email' = $email)` ograniczone do `source_module IN ('paid_events','event_forms')`.
+3. `paid_event_order_history` — `DELETE` po `order_id`.
+4. (Opcjonalnie) `suppressed_emails` — NIE ruszamy automatycznie. Dodać UWAGĘ w odpowiedzi funkcji, jeśli email tej osoby jest na liście suppression, żeby admin wiedział, czemu mail mimo wszystko nie pójdzie.
+5. Wszystko wykonywane przez `service_role` z `try/catch` per krok i agregowanym podsumowaniem w odpowiedzi (`{ deleted: { orders: 1, form_submissions: N, notifications: N, ... } }`), żeby admin widział, co zostało wyczyszczone.
 
-W bloku Dialog → preview:
-
-1. Zamiast surowego `<iframe src={previewUrl}>` użyć **`<object data={previewUrl} type="application/pdf">`** z fallbackiem `<embed>` i komunikatem „Twoja przeglądarka nie obsługuje podglądu PDF — kliknij «Otwórz w nowej karcie»".
-2. Dodatkowo, w `preview()`, oprócz `URL.createObjectURL(blob)` zachować również **base64 data URL** (`data:application/pdf;base64,...`) i użyć go w `<object>`/`<embed>` — Edge w wielu przypadkach blokuje `blob:` w iframe, ale akceptuje `data:` w `<object>`. Blob URL pozostaje dla przycisków „Otwórz w nowej karcie" / „Pobierz".
-3. Dodać prosty timer (`setTimeout 1500`): jeśli `<object>` nie wyrenderował się (brak natywnego viewer'a), pokazać przyjazny komunikat z przyciskiem CTA do „Otwórz w nowej karcie". Można to wykryć heurystycznie po `onError` na `<object>`.
-
-### C. Ponowna rejestracja po anulowaniu + usunięciu
-
-Po doprecyzowaniu scenariusza (poniżej) — zakładam, że problemem są wpisy „pomocnicze" pozostające po anulowaniu:
-
-1. **`admin-cancel-event-order`** — gdy `paid_event_orders.status` przechodzi w `cancelled`, dodatkowo:
-   - Zaktualizować odpowiadające wpisy w `event_registrations` (gdy `user_id` istnieje) i/lub `guest_event_registrations` (gdy gość) ustawiając `status='cancelled', cancelled_at=now()`. Powiązanie po `event_id` + `email`/`user_id` + ewentualnie `slot_time`.
-2. **`admin-delete-event-order`** — przed `DELETE` z `paid_event_orders` także skasować/anulować analogiczne wpisy w `event_registrations`/`guest_event_registrations`.
-3. **Dup-check w `register-free-event-order`** — pozostawić bez zmian (już jest poprawny).
-4. **`register_event_guest` (RPC)** — pozostawić; unikalny indeks już wyklucza `cancelled`. Jeśli okaże się, że błąd dotyczy webinarów (innej ścieżki niż paid_event_orders), zmienić RPC tak, by w bloku `EXCEPTION WHEN unique_violation` najpierw sprawdzała czy istniejący wpis ma `status='cancelled'` i wówczas robiła `UPDATE` (reaktywacja) zamiast zwracać `already_registered`.
+### C. Re-rejestracja partnera / gościa
+Po B. ponowna rejestracja przez `register-free-event-order` zadziała bo:
+- brak `paid_event_orders` ze statusem aktywnym → przejdzie walidację „already_registered".
+- brak `event_form_submissions` → UI (`MyEventTicketsInline`, `PurchaseDrawer`) nie pokaże „Masz zarezerwowane miejsce".
+- email z biletem dojdzie dzięki A.
 
 ### D. Weryfikacja
+1. Ręcznie usunąć przez admina rejestrację gościa i partnera dla tego samego eventu.
+2. Sprawdzić w bazie: `paid_event_orders`, `event_form_submissions`, `event_registrations`, `guest_event_registrations`, `user_notifications` — 0 rekordów dla tej pary event/email.
+3. Wykonać ponowną rejestrację — sprawdzić, że przychodzi mail potwierdzający (gość) lub mail z biletem PDF (partner zalogowany).
+4. Sprawdzić logi `confirm-free-event-reservation` / `register-free-event-order` na brak błędów `421`.
 
-1. Szablon: dodać dwa razy „Imię" i dwa razy „Kod QR", przeciągnąć w różne miejsca, zapisać. Podgląd PDF powinien pokazać duplikaty.
-2. Podgląd PDF: otworzyć w Edge — w `<object>` powinno wyświetlić się PDF; w razie braku natywnego viewer'a pokazać CTA „Otwórz w nowej karcie".
-3. Re-rejestracja: anulować + usunąć zamówienie, zarejestrować ponownie tym samym e-mailem — powinna powstać nowa rezerwacja.
+---
 
-## Pytania kontrolne (przed punktem C)
+## Pliki do zmiany
+- `supabase/functions/confirm-free-event-reservation/index.ts` — przebudowa `sendSmtp` (chunked write + fallback bez załącznika).
+- `supabase/functions/_shared/free-event-ticket.ts` — ten sam fix dla resendu.
+- `supabase/functions/register-event-transfer-order/index.ts` — jeśli używa lokalnego `sendSmtp` z załącznikiem, też podmienić.
+- `supabase/functions/admin-delete-event-order/index.ts` — dodatkowe `DELETE`: `event_form_submissions`, `user_notifications`, `paid_event_order_history`.
+- (bez zmian) `admin-cancel-event-order/index.ts` — obecny `status='cancelled'` już nie blokuje re-rejestracji.
 
-Aby nie zmieniać niewłaściwej ścieżki, potrzebuję 1 szybkiego potwierdzenia:
-
-- W którym dokładnie miejscu kliknąłeś „Anuluj" i „Usuń"? Lista zamówień w `/admin?tab=paid-events` (`paid_event_orders` – panel właściciela wydarzenia), czy lista uczestników po stronie organizatora (`EventRegistrationsManagement`)? I czy rejestracja, której nie można powtórzyć, idzie przez formularz publiczny biletu (free/paid), czy formularz gościa webinarowego?
-
-Jeśli odpowiedź to „panel zamówień + ponowna rejestracja przez publiczny formularz biletu", wystarczy część C.1 + C.2. Jeśli „webinar/formularz gościa", konieczna jest też zmiana RPC C.4.
-
-## Czego nie zmieniam
-
-- Generowania PDF (układ, fonty, skalowanie) — to było rozwiązane wcześniej i działa zgodnie z edytorem.
-- Treści maili, SMTP, kodów QR.
-- Schematu tabel — tylko dodatki w SQL gdy potrzeba (cancel triggers).
+Po zatwierdzeniu wchodzę w build mode i implementuję.
