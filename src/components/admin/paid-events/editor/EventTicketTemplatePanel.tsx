@@ -423,16 +423,47 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         </Card>
       )}
 
-      {missingFields.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Dodaj pole</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {missingFields.map((k) => (
-              <Button key={k} size="sm" variant="outline" onClick={() => addField(k)}>+ {FIELD_LABELS[k]}</Button>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Legenda skrótów (auto-podstawiane dane)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted-foreground border-b">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">Klucz</th>
+                  <th className="py-1 pr-3 font-medium">Pole</th>
+                  <th className="py-1 pr-3 font-medium">Co podstawia system</th>
+                  <th className="py-1 font-medium text-right">Akcja</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(FIELD_LABELS).map((k) => {
+                  const onCanvas = tpl.fields.some((f) => f.key === k);
+                  return (
+                    <tr key={k} className="border-b last:border-b-0">
+                      <td className="py-1.5 pr-3 font-mono text-foreground">{k}</td>
+                      <td className="py-1.5 pr-3">{FIELD_LABELS[k]}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{FIELD_DESCRIPTIONS[k]}</td>
+                      <td className="py-1.5 text-right">
+                        {onCanvas ? (
+                          <span className="text-muted-foreground">na płótnie</span>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>+ Dodaj</Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Wartości są podstawiane automatycznie przy generowaniu PDF biletu z danych zamówienia/wydarzenia.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="flex gap-2 sticky bottom-0 bg-background/95 backdrop-blur p-3 border-t -mx-4">
         <Button onClick={save} disabled={saving} className="flex-1">
