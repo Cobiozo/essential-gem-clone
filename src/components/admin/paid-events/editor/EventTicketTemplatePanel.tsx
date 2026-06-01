@@ -295,10 +295,10 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
 
 
   // ---- Drag / resize (window-bound, no pointer capture) ----
-  const beginDrag = (e: React.PointerEvent, key: string, mode: 'move' | 'resize') => {
+  const beginDrag = (e: React.PointerEvent, id: string, mode: 'move' | 'resize') => {
     e.preventDefault(); e.stopPropagation();
-    setSelectedField(key);
-    const field = tplRef.current.fields.find((f) => f.key === key);
+    setSelectedField(id);
+    const field = tplRef.current.fields.find((f) => f.id === id);
     if (!field || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = tplRef.current.width_px / rect.width;
@@ -313,7 +313,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       setTpl((prev) => ({
         ...prev,
         fields: prev.fields.map((f) => {
-          if (f.key !== key) return f;
+          if (f.id !== id) return f;
           if (mode === 'move') {
             return { ...f, x: Math.max(0, Math.round(origX + dx)), y: Math.max(0, Math.round(origY + dy)) };
           }
@@ -329,16 +329,19 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     window.addEventListener('pointerup', up);
   };
 
-  const updateField = (key: string, patch: Partial<FieldDef>) => {
-    setTpl((prev) => ({ ...prev, fields: prev.fields.map((f) => f.key === key ? { ...f, ...patch } : f) }));
+  const updateField = (id: string, patch: Partial<FieldDef>) => {
+    setTpl((prev) => ({ ...prev, fields: prev.fields.map((f) => f.id === id ? { ...f, ...patch } : f) }));
   };
-  const removeField = (key: string) => setTpl((prev) => ({ ...prev, fields: prev.fields.filter((f) => f.key !== key) }));
+  const removeField = (id: string) => setTpl((prev) => ({ ...prev, fields: prev.fields.filter((f) => f.id !== id) }));
   const addField = (key: string) => {
-    if (tpl.fields.some((f) => f.key === key)) return;
+    // Allow multiple instances of the same field type; offset to avoid overlap.
+    const existingOfType = tplRef.current.fields.filter((f) => f.key === key).length;
+    const offset = existingOfType * 20;
     const defaults: FieldDef = key === 'qr'
-      ? { key, x: 100, y: 100, width: 200, height: 200 }
-      : { key, x: 100, y: 100, fontSize: 16, color: '#000000' };
+      ? { id: newId(key), key, x: 100 + offset, y: 100 + offset, width: 200, height: 200 }
+      : { id: newId(key), key, x: 100 + offset, y: 100 + offset, fontSize: 16, color: '#000000' };
     setTpl((prev) => ({ ...prev, fields: [...prev.fields, defaults] }));
+    setSelectedField(defaults.id);
   };
 
   const resetTemplate = () => {
