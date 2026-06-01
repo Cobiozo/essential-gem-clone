@@ -142,7 +142,10 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
   const registeredEmails = new Set(Object.keys(submitterProfilesByEmail));
-  const isPartnerSubmission = (s: any) => registeredEmails.has((s.email || '').toLowerCase());
+  const isPartnerSubmission = (s: any) => {
+    if (s.__source === 'order' && s.__orderUserId) return true;
+    return registeredEmails.has((s.email || '').toLowerCase());
+  };
 
   // Resolve upline profiles by eq_id so we can render full name + email.
   const uplineEqIds = Array.from(new Set(
