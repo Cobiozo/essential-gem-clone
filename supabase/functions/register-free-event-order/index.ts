@@ -310,48 +310,74 @@ serve(async (req) => {
         })
       : "";
 
-    // Send confirmation email (best-effort, in background)
+    // Side-effects: confirm or send confirmation email + CRM mirror
     const sideEffects = (async () => {
-      try {
-        const { data: smtp } = await supabase
-          .from("smtp_settings")
-          .select("*")
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (smtp) {
-          const smtpSettings: SmtpSettings = {
-            smtp_host: (smtp as any).smtp_host,
-            smtp_port: (smtp as any).smtp_port,
-            smtp_username: (smtp as any).smtp_username,
-            smtp_password: (smtp as any).smtp_password,
-            encryption_type: (smtp as any).smtp_encryption,
-            sender_email: (smtp as any).sender_email,
-            sender_name: (smtp as any).sender_name,
-          };
-
-          const html = buildConfirmEmail({
-            firstName: buyer.firstName,
-            eventTitle: event.title,
-            eventDate: eventDateStr,
-            eventLocation: event.location || '',
-            ticketName: ticket.name,
-            confirmUrl,
-            bannerUrl: event.banner_url,
-          });
-          await sendSmtp(smtpSettings, lowerEmail, `Potwierdzenie adresu e-mail i rezerwacji – ${event.title}`, html);
-          console.log(`[register-free-event-order] confirm email sent to ${lowerEmail}`);
-        } else {
-          console.warn("[register-free-event-order] no active SMTP settings");
+      if (currentUserId) {
+        // Logged-in partner — skip the e-mail confirmation step and confirm
+        // server-side immediately. confirm-free-event-reservation handles
+        // ticket generation, attendee insert and ticket email (PDF attached).
+        try {
+          const confRes = await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-free-event-reservation`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ token }),
+            },
+          );
+          if (!confRes.ok) {
+            console.warn("[register-free-event-order] auto-confirm non-ok", confRes.status);
+          } else {
+            console.log("[register-free-event-order] auto-confirmed for logged-in user", currentUserId);
+          }
+        } catch (e) {
+          console.error("[register-free-event-order] auto-confirm failed", e);
         }
-      } catch (mailErr) {
-        console.error("[register-free-event-order] email send failed", mailErr);
+      } else {
+        try {
+          const { data: smtp } = await supabase
+            .from("smtp_settings")
+            .select("*")
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (smtp) {
+            const smtpSettings: SmtpSettings = {
+              smtp_host: (smtp as any).smtp_host,
+              smtp_port: (smtp as any).smtp_port,
+              smtp_username: (smtp as any).smtp_username,
+              smtp_password: (smtp as any).smtp_password,
+              encryption_type: (smtp as any).smtp_encryption,
+              sender_email: (smtp as any).sender_email,
+              sender_name: (smtp as any).sender_name,
+            };
+
+            const html = buildConfirmEmail({
+              firstName: buyer.firstName,
+              eventTitle: event.title,
+              eventDate: eventDateStr,
+              eventLocation: event.location || '',
+              ticketName: ticket.name,
+              confirmUrl,
+              bannerUrl: event.banner_url,
+            });
+            await sendSmtp(smtpSettings, lowerEmail, `Potwierdzenie adresu e-mail i rezerwacji – ${event.title}`, html);
+            console.log(`[register-free-event-order] confirm email sent to ${lowerEmail}`);
+          } else {
+            console.warn("[register-free-event-order] no active SMTP settings");
+          }
+        } catch (mailErr) {
+          console.error("[register-free-event-order] email send failed", mailErr);
+        }
       }
 
       // CRM mirror (best-effort)
       if (partnerUserId) {
         try {
-          const noteLine = `🎟️ ${new Date().toLocaleString("pl-PL")} – Rezerwacja bezpłatna „${event.title}" (oczekuje na potwierdzenie email)`;
+          const noteLine = `🎟️ ${new Date().toLocaleString("pl-PL")} – Rezerwacja bezpłatna „${event.title}" ${currentUserId ? '(potwierdzone automatycznie — partner zalogowany)' : '(oczekuje na potwierdzenie email)'}`;
           const { data: existing } = await supabase
             .from("team_contacts")
             .select("id, notes")
@@ -392,6 +418,7 @@ serve(async (req) => {
       success: true,
       orderId: order.id,
       email: lowerEmail,
+      auto_confirmed: !!currentUserId,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("[register-free-event-order] fatal", err);
