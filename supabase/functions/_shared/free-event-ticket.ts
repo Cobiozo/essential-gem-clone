@@ -20,7 +20,12 @@ export function generateTicketCode(): string {
 
 function base64Encode(str: string): string {
   const data = new TextEncoder().encode(str);
-  return btoa(String.fromCharCode(...data));
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < data.length; i += CHUNK) {
+    binary += String.fromCharCode(...data.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
 function escapeHtml(s: string): string {
@@ -40,6 +45,7 @@ export async function sendSmtp(
   subject: string,
   html: string,
   attachment?: { filename: string; bytes: Uint8Array; contentType: string },
+  plainTextOverride?: string,
 ) {
   let conn: Deno.TcpConn | Deno.TlsConn;
   if (s.encryption_type === "ssl") {
@@ -76,7 +82,7 @@ export async function sendSmtp(
     await send("DATA");
     const boundary = `b_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const messageId = `<${Date.now()}.${Math.random().toString(36).slice(2)}@${senderDomain}>`;
-    const plain = html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    const plain = plainTextOverride || "Twoj bilet znajduje sie w zalaczniku tej wiadomosci (PDF z kodem QR).";
 
     const parts: string[] = [
       `Message-ID: ${messageId}`,
@@ -121,7 +127,9 @@ export async function sendSmtp(
     }
 
     parts.push(`--${boundary}--`, `.`);
-    const r = await send(parts.join("\r\n"));
+    // Send DATA payload; use a longer timeout for read since server processes large attachment
+    await conn.write(enc.encode(parts.join("\r\n") + "\r\n"));
+    const r = await withTimeout(read(), 60000, "DATA read timeout");
     if (!r.includes("250")) throw new Error(`Send failed: ${r}`);
     await send("QUIT");
   } finally {
@@ -137,7 +145,6 @@ export function buildTicketEmail(opts: {
   ticketName: string;
   ticketCode: string;
   bannerUrl?: string | null;
-  ticketViewUrl: string;
 }): string {
   const bannerHtml = opts.bannerUrl
     ? `<div style="background:#000;"><img src="${escapeHtml(opts.bannerUrl)}" alt="${escapeHtml(opts.eventTitle)}" style="display:block;width:100%;max-width:620px;height:auto;margin:0 auto;" /></div>`
@@ -160,13 +167,7 @@ export function buildTicketEmail(opts: {
         <div style="font-size:13px;color:#666;margin-top:8px;">${escapeHtml(opts.ticketName)}</div>
       </div>
       <p style="font-size:14px;color:#555;line-height:1.6;">
-        Bilet (PDF z kodem QR) znajduje się w załączniku tej wiadomości. Możesz też pobrać go online:
-      </p>
-      <div style="margin:20px 0;text-align:center;">
-        <a href="${escapeHtml(opts.ticketViewUrl)}" style="display:inline-block;background:#D4AF37;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">Otwórz bilet online</a>
-      </div>
-      <p style="font-size:14px;line-height:1.6;color:#555;">
-        Podczas wydarzenia okaż kod QR z biletu (na telefonie lub wydrukowany).
+        Twój bilet (PDF z kodem QR) znajduje się w <strong>załączniku</strong> tej wiadomości. Wystarczy, że okażesz go (na telefonie lub wydrukowany) podczas wydarzenia.
       </p>
       <p style="font-size:13px;color:#888;line-height:1.6;margin-top:24px;">
         <strong>Pamiętaj:</strong> rezerwując bilet zadeklarowałeś/aś świadomą obecność na wydarzeniu. Liczymy na Twoje przybycie!
@@ -182,6 +183,7 @@ export function buildTicketEmail(opts: {
 /**
  * Generates PDF (via generate-event-ticket-pdf) and sends ticket email with PDF attachment.
  * Idempotent: skips send if order already has ticket_sent_at.
+ * If PDF generation fails, aborts (does NOT mark sent), so a future retry can succeed.
  */
 export async function issueFreeTicketForOrder(supabase: any, orderId: string): Promise<{ sent: boolean; reason?: string }> {
   const { data: order, error: orderErr } = await supabase
@@ -196,7 +198,7 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
   const event = (order as any).paid_events;
   const ticketCode: string = order.ticket_code;
 
-  // 1) Generate PDF (best-effort)
+  // 1) Generate PDF — REQUIRED. If it fails, abort so retry can succeed later.
   let pdfBytes: Uint8Array | null = null;
   try {
     const pdfRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-event-ticket-pdf`, {
@@ -215,10 +217,15 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
         if (r.ok) pdfBytes = new Uint8Array(await r.arrayBuffer());
       }
     } else {
-      console.warn("[issueFreeTicket] pdf gen non-ok", pdfRes.status);
+      console.warn("[issueFreeTicket] pdf gen non-ok", pdfRes.status, await pdfRes.text().catch(() => ""));
     }
   } catch (e) {
     console.error("[issueFreeTicket] pdf gen failed", e);
+  }
+
+  if (!pdfBytes) {
+    console.error(`[issueFreeTicket] PDF generation failed for order ${order.id} — aborting send (will retry).`);
+    return { sent: false, reason: "pdf_failed" };
   }
 
   // 2) SMTP settings
@@ -239,10 +246,6 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
     ? new Date(event.event_date).toLocaleDateString("pl-PL", { day: "2-digit", month: "long", year: "numeric" })
     : "";
 
-  const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
-    || Deno.env.get("PUBLIC_SITE_URL")
-    || "https://purelife.info.pl";
-
   const html = buildTicketEmail({
     firstName: order.first_name,
     eventTitle: event?.title || "Wydarzenie",
@@ -251,25 +254,20 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
     ticketName: (order as any).paid_event_tickets?.name || "Bilet",
     ticketCode,
     bannerUrl: event?.banner_url,
-    ticketViewUrl: `${publicBaseUrl}/ticket/${ticketCode}`,
   });
 
+  const plainText = `Cześć ${order.first_name}!\n\nTwój bilet (PDF z kodem QR) na wydarzenie "${event?.title || "wydarzenie"}" znajduje się w załączniku tej wiadomości.\n\nNumer biletu: ${ticketCode}\n\nOkaż kod QR z biletu podczas wydarzenia.\n\nDo zobaczenia!`;
+
+  const subject = `🎟️ Twój bilet – ${event?.title || "wydarzenie"}`;
+  const attachment = { filename: `bilet-${ticketCode}.pdf`, bytes: pdfBytes, contentType: "application/pdf" };
+
+  // Send with attachment — one retry on transient failure
   try {
-    await sendSmtp(
-      smtpSettings,
-      order.email,
-      `🎟️ Twój bilet – ${event?.title || "wydarzenie"}`,
-      html,
-      pdfBytes ? { filename: `bilet-${ticketCode}.pdf`, bytes: pdfBytes, contentType: "application/pdf" } : undefined,
-    );
+    await sendSmtp(smtpSettings, order.email, subject, html, attachment, plainText);
   } catch (e) {
-    console.warn("[issueFreeTicket] send with attachment failed, retrying without PDF", e);
-    await sendSmtp(
-      smtpSettings,
-      order.email,
-      `🎟️ Twój bilet – ${event?.title || "wydarzenie"}`,
-      html,
-    );
+    console.warn("[issueFreeTicket] first send failed, retrying once in 3s", e);
+    await new Promise((r) => setTimeout(r, 3000));
+    await sendSmtp(smtpSettings, order.email, subject, html, attachment, plainText);
   }
 
   await supabase.from("paid_event_orders")
