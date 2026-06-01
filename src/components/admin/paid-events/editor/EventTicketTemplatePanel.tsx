@@ -607,7 +607,22 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <iframe src={previewUrl} className="w-full h-full" title="Podgląd PDF biletu" />
+              <object
+                data={previewDataUrl || previewUrl}
+                type="application/pdf"
+                className="w-full h-full"
+                aria-label="Podgląd PDF biletu"
+              >
+                <embed src={previewDataUrl || previewUrl} type="application/pdf" className="w-full h-full" />
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Twoja przeglądarka nie wyświetla podglądu PDF w oknie. Otwórz plik w nowej karcie lub pobierz go.
+                  </p>
+                  <Button onClick={() => window.open(previewUrl, '_blank', 'noopener')}>
+                    <ExternalLink className="w-4 h-4 mr-1" />Otwórz w nowej karcie
+                  </Button>
+                </div>
+              </object>
             )}
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
