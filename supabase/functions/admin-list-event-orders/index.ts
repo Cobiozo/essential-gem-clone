@@ -6,15 +6,24 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("[admin-list-event-orders] request received", {
+      method: req.method,
+      hasAuth: !!req.headers.get("Authorization"),
+    });
+
     const auth = await verifyAdmin(req);
-    if (!auth.ok) return auth.response;
-    const { supabaseAdmin } = auth;
+    if (!auth.ok) {
+      console.warn("[admin-list-event-orders] auth failed -> returning", auth.response.status);
+      return auth.response;
+    }
+    const { supabaseAdmin, userId } = auth;
+    console.log("[admin-list-event-orders] admin verified", { userId });
 
     const body = await req.json().catch(() => ({}));
     const eventId: string | undefined = body.event_id ?? body.eventId;
-    if (!eventId) return jsonResponse({ error: "event_id is required" }, 400);
+    if (!eventId) return jsonResponse({ error: "event_id is required", code: "missing_event_id" }, 400);
 
-    // 1) Pobierz zamówienia bez embedów PostgREST (eliminuje niejednoznaczności FK)
+    // 1) Orders
     const { data: orders, error: ordersErr } = await supabaseAdmin
       .from("paid_event_orders")
       .select(
@@ -24,22 +33,23 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false });
 
     if (ordersErr) {
-      console.error("admin-list-event-orders orders query failed:", {
+      console.error("[admin-list-event-orders] orders query failed:", {
         message: ordersErr.message,
         code: (ordersErr as any).code,
         details: (ordersErr as any).details,
         hint: (ordersErr as any).hint,
       });
-      return jsonResponse({ error: ordersErr.message }, 500);
+      return jsonResponse({ error: ordersErr.message, code: "orders_query_failed" }, 500);
     }
 
     const ordersList = (orders ?? []) as any[];
+    console.log("[admin-list-event-orders] orders fetched", { count: ordersList.length });
     const orderIds = ordersList.map((o) => o.id);
     const ticketIds = Array.from(
       new Set(ordersList.map((o) => o.ticket_id).filter(Boolean))
     ) as string[];
 
-    // 2) Pobierz attendees osobno
+    // 2) Attendees
     let attendees: any[] = [];
     if (orderIds.length > 0) {
       const { data: att, error: attErr } = await supabaseAdmin
@@ -49,7 +59,7 @@ Deno.serve(async (req) => {
         )
         .in("order_id", orderIds);
       if (attErr) {
-        console.error("admin-list-event-orders attendees query failed:", {
+        console.error("[admin-list-event-orders] attendees query failed:", {
           message: attErr.message,
           code: (attErr as any).code,
           details: (attErr as any).details,
@@ -60,15 +70,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3) Pobierz nazwy biletów osobno
-    let ticketsById: Record<string, { name: string | null }> = {};
+    // 3) Ticket names
+    const ticketsById: Record<string, { name: string | null }> = {};
     if (ticketIds.length > 0) {
       const { data: tickets, error: tErr } = await supabaseAdmin
         .from("paid_event_tickets")
         .select("id, name")
         .in("id", ticketIds);
       if (tErr) {
-        console.error("admin-list-event-orders tickets query failed:", {
+        console.error("[admin-list-event-orders] tickets query failed:", {
           message: tErr.message,
           code: (tErr as any).code,
         });
@@ -79,7 +89,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4) Złącz w strukturę zgodną z dotychczasowym frontem
+    // 4) Merge
     const attendeesByOrder: Record<string, any[]> = {};
     attendees.forEach((a) => {
       (attendeesByOrder[a.order_id] ||= []).push(a);
@@ -91,9 +101,10 @@ Deno.serve(async (req) => {
       paid_event_order_attendees: attendeesByOrder[o.id] ?? [],
     }));
 
+    console.log("[admin-list-event-orders] returning", { orders: merged.length, attendees: attendees.length });
     return jsonResponse({ orders: merged });
   } catch (e: any) {
-    console.error("admin-list-event-orders fatal:", e?.message, e?.stack);
-    return jsonResponse({ error: e?.message || "Internal error" }, 500);
+    console.error("[admin-list-event-orders] fatal:", e?.message, e?.stack);
+    return jsonResponse({ error: e?.message || "Internal error", code: "fatal" }, 500);
   }
 });
