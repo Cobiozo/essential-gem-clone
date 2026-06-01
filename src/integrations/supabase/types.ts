@@ -7061,6 +7061,7 @@ export type Database = {
       }
       paid_event_tickets: {
         Row: {
+          audience: string
           benefits: Json | null
           created_at: string
           deleted_at: string | null
@@ -7071,6 +7072,7 @@ export type Database = {
           is_active: boolean | null
           is_featured: boolean | null
           name: string
+          payment_method: string
           paypal_payment_link: string | null
           position: number | null
           price_pln: number
@@ -7082,6 +7084,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          audience?: string
           benefits?: Json | null
           created_at?: string
           deleted_at?: string | null
@@ -7092,6 +7095,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           name: string
+          payment_method?: string
           paypal_payment_link?: string | null
           position?: number | null
           price_pln?: number
@@ -7103,6 +7107,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          audience?: string
           benefits?: Json | null
           created_at?: string
           deleted_at?: string | null
@@ -7113,6 +7118,7 @@ export type Database = {
           is_active?: boolean | null
           is_featured?: boolean | null
           name?: string
+          payment_method?: string
           paypal_payment_link?: string | null
           position?: number | null
           price_pln?: number
