@@ -118,7 +118,50 @@ export const TicketVerification: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('admin-list-event-orders', {
         body: { event_id: eventId },
       });
-      if (error) throw error;
+      if (error) {
+        // Wyciągnij prawdziwy komunikat z FunctionsHttpError (Supabase opakowuje 4xx/5xx)
+        let detail = error.message || 'Edge Function error';
+        try {
+          const ctx = (error as any).context;
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json();
+            if (body?.error) detail = `${body.error}${body.code ? ` (${body.code})` : ''}`;
+          } else if (ctx && typeof ctx.text === 'function') {
+            const txt = await ctx.text();
+            if (txt) detail = txt;
+          }
+        } catch { /* ignore */ }
+        console.warn('[TicketVerification] admin-list-event-orders failed, trying direct fallback:', detail);
+
+        // Fallback: spróbuj pobrać dane bezpośrednio (admin ma RLS).
+        const { data: ordersDirect, error: ordErr } = await supabase
+          .from('paid_event_orders')
+          .select('id, email, first_name, last_name, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id')
+          .eq('event_id', eventId)
+          .order('created_at', { ascending: false });
+        if (ordErr) {
+          toast({ title: 'Błąd listy uczestników', description: detail, variant: 'destructive' });
+          setOrders([]);
+          return;
+        }
+        const orderIds = (ordersDirect || []).map((o: any) => o.id);
+        let attendees: any[] = [];
+        if (orderIds.length > 0) {
+          const { data: att } = await supabase
+            .from('paid_event_order_attendees')
+            .select('id, order_id, seat_index, first_name, last_name, email, ticket_code, checked_in, checked_in_at')
+            .in('order_id', orderIds);
+          attendees = att || [];
+        }
+        const byOrder: Record<string, any[]> = {};
+        attendees.forEach((a) => { (byOrder[a.order_id] ||= []).push(a); });
+        const merged = (ordersDirect || []).map((o: any) => ({
+          ...o,
+          paid_event_order_attendees: byOrder[o.id] || [],
+        }));
+        setOrders(merged as OrderRow[]);
+        return;
+      }
       setOrders((data?.orders || []) as OrderRow[]);
     } catch (e: any) {
       toast({ title: 'Błąd listy uczestników', description: e.message, variant: 'destructive' });
