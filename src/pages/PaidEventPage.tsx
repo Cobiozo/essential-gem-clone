@@ -509,17 +509,22 @@ const PaidEventPage: React.FC = () => {
           {showTickets && (
             <div className="w-full lg:w-[380px] flex-shrink-0">
               <PaidEventSidebar
-                tickets={tickets.map(t => ({
-                  id: t.id,
-                  name: t.name,
-                  price: t.price,
-                  description: t.description,
-                  benefits: t.benefits || [],
-                  highlightText: t.highlight_text,
-                  isFeatured: t.is_featured || false,
-                  available: t.available_quantity,
-                  maxPerOrder: t.max_per_order || undefined,
-                }))}
+                tickets={visibleTickets.map(t => {
+                  const pm = t.payment_method ?? 'inherit';
+                  const free = pm === 'free' || (pm === 'inherit' && eventIsFree);
+                  return {
+                    id: t.id,
+                    name: t.name,
+                    price: free ? 0 : t.price,
+                    description: t.description,
+                    benefits: t.benefits || [],
+                    highlightText: t.highlight_text,
+                    isFeatured: t.is_featured || false,
+                    available: t.available_quantity,
+                    maxPerOrder: t.max_per_order || undefined,
+                    isFree: free,
+                  };
+                })}
                 eventDate={event.event_date}
                 maxTickets={event.max_tickets}
                 ticketsSold={(event.tickets_sold ?? 0) + (activeSubmissionsCount ?? 0)}
@@ -531,7 +536,7 @@ const PaidEventPage: React.FC = () => {
                     : null
                 }
                 helperText={
-                  user && (isPartner || isAdmin) && registrationForm && tickets.length === 0
+                  user && (isPartner || isAdmin) && registrationForm && visibleTickets.length === 0
                     ? 'Twoja rejestracja zostanie automatycznie przypisana do Ciebie.'
                     : null
                 }
@@ -548,12 +553,12 @@ const PaidEventPage: React.FC = () => {
         eventId={event.id}
         eventTitle={event.title}
         ticket={selectedTicket}
-        isFree={(event as any).is_free ?? false}
-        paymentMethodPayu={(event as any).payment_method_payu ?? true}
-        paymentMethodTransfer={(event as any).payment_method_transfer ?? false}
-        paymentMethodPaypal={(event as any).payment_method_paypal ?? false}
+        isFree={drawerIsFree}
+        paymentMethodPayu={!drawerIsFree && drawerPayu}
+        paymentMethodTransfer={!drawerIsFree && drawerTransfer}
+        paymentMethodPaypal={!drawerIsFree && drawerPaypal}
         transferPaymentDetails={(event as any).transfer_payment_details ?? null}
-        refCode={myRefCode ?? null}
+        refCode={refCodeFromUrl ?? myRefCode ?? null}
       />
     </div>
   );
