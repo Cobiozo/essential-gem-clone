@@ -33,7 +33,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
 
-  const { data: submissions = [], isLoading } = useQuery({
+  const { data: rawSubmissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,6 +45,61 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       return data as any[];
     },
   });
+
+  // Also fetch paid_event_orders for the same event so that reservations made
+  // by logged-in partners (which write to paid_event_orders, not
+  // event_form_submissions) appear on the same list.
+  const eventId = form.event_id as string | undefined;
+  const { data: rawOrders = [] } = useQuery({
+    queryKey: ['event-form-submissions-orders', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select('id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, created_at')
+        .eq('event_id', eventId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const mapOrderStatus = (s: string): string => {
+    if (s === 'paid' || s === 'confirmed' || s === 'completed') return 'paid';
+    if (s === 'cancelled') return 'cancelled';
+    if (s === 'refunded') return 'refunded';
+    return 'pending';
+  };
+
+  // Normalize orders to the submission shape used by the table.
+  const orderRows = (rawOrders as any[]).map((o) => ({
+    id: `order:${o.id}`,
+    __source: 'order' as const,
+    __orderId: o.id,
+    __orderUserId: o.user_id as string | null,
+    __ticketCode: o.ticket_code as string | null,
+    created_at: o.created_at,
+    first_name: o.first_name,
+    last_name: o.last_name,
+    email: o.email,
+    phone: o.phone,
+    payment_status: mapOrderStatus(o.status),
+    email_status: o.email_confirmed_at ? 'confirmed' : 'sent',
+    email_confirmed_at: o.email_confirmed_at,
+    cancelled_at: o.status === 'cancelled' ? o.created_at : null,
+    cancelled_by: null,
+    submitted_data: {},
+    partner_user_id: null,
+  }));
+
+  const submissions = React.useMemo(
+    () =>
+      [...(rawSubmissions as any[]), ...orderRows].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [rawSubmissions, orderRows],
+  );
+
 
   // Fetch partner profiles for badges
   const partnerIds = Array.from(new Set(submissions.map(s => s.partner_user_id).filter(Boolean))) as string[];
