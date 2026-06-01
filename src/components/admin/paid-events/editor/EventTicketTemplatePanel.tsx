@@ -97,14 +97,14 @@ const DEFAULT_TEMPLATE: TemplateState = {
   width_px: 1240,
   height_px: 874,
   fields: [
-    { key: 'eventTitle', x: 60, y: 60, fontSize: 28, fontWeight: 'bold', color: '#111111' },
-    { key: 'eventDate', x: 60, y: 110, fontSize: 14, color: '#444444' },
-    { key: 'eventLocation', x: 60, y: 135, fontSize: 14, color: '#444444' },
-    { key: 'firstName', x: 60, y: 320, fontSize: 22, fontWeight: 'bold', color: '#000000' },
-    { key: 'lastName', x: 60, y: 360, fontSize: 22, fontWeight: 'bold', color: '#000000' },
-    { key: 'ticketName', x: 60, y: 410, fontSize: 14, color: '#555555' },
-    { key: 'ticketCode', x: 60, y: 440, fontSize: 12, color: '#888888' },
-    { key: 'qr', x: 950, y: 320, width: 220, height: 220 },
+    { id: 'eventTitle-0',    key: 'eventTitle',    x: 60, y: 60, fontSize: 28, fontWeight: 'bold', color: '#111111' },
+    { id: 'eventDate-0',     key: 'eventDate',     x: 60, y: 110, fontSize: 14, color: '#444444' },
+    { id: 'eventLocation-0', key: 'eventLocation', x: 60, y: 135, fontSize: 14, color: '#444444' },
+    { id: 'firstName-0',     key: 'firstName',     x: 60, y: 320, fontSize: 22, fontWeight: 'bold', color: '#000000' },
+    { id: 'lastName-0',      key: 'lastName',      x: 60, y: 360, fontSize: 22, fontWeight: 'bold', color: '#000000' },
+    { id: 'ticketName-0',    key: 'ticketName',    x: 60, y: 410, fontSize: 14, color: '#555555' },
+    { id: 'ticketCode-0',    key: 'ticketCode',    x: 60, y: 440, fontSize: 12, color: '#888888' },
+    { id: 'qr-0',            key: 'qr',            x: 950, y: 320, width: 220, height: 220 },
   ],
 };
 
