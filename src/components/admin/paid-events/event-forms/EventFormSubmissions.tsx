@@ -710,7 +710,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                           )}
                           {isPartnerRow ? (
                             <div className="text-[10px] text-muted-foreground italic">Bezpośredni upline</div>
-                          ) : (
+                          ) : s.__source === 'order' ? null : (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -723,6 +723,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                         </div>
                       ) : isPartnerRow ? (
                         <span className="text-xs text-muted-foreground italic">— brak uplinu —</span>
+                      ) : s.__source === 'order' ? (
+                        <span className="text-xs text-muted-foreground italic">—</span>
                       ) : (
                         <Button
                           size="sm"
