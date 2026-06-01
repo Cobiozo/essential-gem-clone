@@ -241,6 +241,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+    setPreviewDataUrl(null);
     try {
       try {
         await save();
@@ -267,6 +268,20 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       }
       const blob = await resp.blob();
       setPreviewUrl(URL.createObjectURL(blob));
+      // Also build a data: URL — some browsers (Edge in particular) block
+      // blob: URLs inside <iframe>/<object>, but accept data: URLs there.
+      try {
+        const buf = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
+        }
+        setPreviewDataUrl(`data:application/pdf;base64,${btoa(binary)}`);
+      } catch {
+        /* fallback: only blob URL */
+      }
     } catch (e: any) {
       setPreviewOpen(false);
       toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
@@ -281,6 +296,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+    setPreviewDataUrl(null);
   };
 
   const downloadPreview = () => {
