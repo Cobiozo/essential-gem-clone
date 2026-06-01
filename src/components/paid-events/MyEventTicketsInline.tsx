@@ -39,6 +39,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   const [editAttendee, setEditAttendee] = useState<Attendee | null>(null);
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '' });
   const [saving, setSaving] = useState(false);
+  const [qrDialogCode, setQrDialogCode] = useState<string | null>(null);
 
   const authEmail = user?.email?.toLowerCase() ?? null;
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
