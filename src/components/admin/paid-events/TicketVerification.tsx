@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, Users, RefreshCw, Loader2 } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, Users, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
