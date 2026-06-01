@@ -36,6 +36,17 @@ interface EventOption {
   event_date: string;
 }
 
+interface AttendeeRow {
+  id: string;
+  seat_index: number | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  ticket_code: string | null;
+  checked_in: boolean | null;
+  checked_in_at: string | null;
+}
+
 interface OrderRow {
   id: string;
   email: string | null;
@@ -48,6 +59,19 @@ interface OrderRow {
   checked_in: boolean | null;
   checked_in_at: string | null;
   created_at: string;
+  paid_event_order_attendees?: AttendeeRow[] | null;
+}
+
+interface DisplayRow {
+  key: string;
+  order_id: string;
+  attendee_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  ticket_code: string | null;
+  checked_in: boolean;
+  checked_in_at: string | null;
 }
 
 export const TicketVerification: React.FC = () => {
