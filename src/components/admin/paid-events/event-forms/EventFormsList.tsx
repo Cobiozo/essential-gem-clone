@@ -33,7 +33,12 @@ export const EventFormsList: React.FC = () => {
     },
   });
 
-  const { data: countMap = {} } = useQuery({
+  const eventIds = React.useMemo(
+    () => Array.from(new Set((forms as any[]).map(f => f.event_id).filter(Boolean))) as string[],
+    [forms]
+  );
+
+  const { data: submissionCountMap = {} } = useQuery({
     queryKey: ['event-form-submission-counts'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -50,6 +55,45 @@ export const EventFormsList: React.FC = () => {
       return map;
     },
   });
+
+  const { data: orderCountMap = {} } = useQuery({
+    queryKey: ['event-form-order-counts', eventIds],
+    enabled: eventIds.length > 0,
+    queryFn: async () => {
+      const buildMap = (rows: any[]) => {
+        const map: Record<string, { total: number; paid: number }> = {};
+        rows.forEach(o => {
+          if (o.status === 'cancelled') return;
+          if (!map[o.event_id]) map[o.event_id] = { total: 0, paid: 0 };
+          map[o.event_id].total++;
+          if (['paid', 'confirmed', 'completed'].includes(o.status)) map[o.event_id].paid++;
+        });
+        return map;
+      };
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select('event_id, status')
+        .in('event_id', eventIds);
+      if (!error && data) return buildMap(data as any[]);
+      // Fallback via admin edge fn per event
+      const results = await Promise.all(eventIds.map(async (eid) => {
+        const { data: fnData } = await supabase.functions.invoke('admin-list-event-orders', { body: { event_id: eid } });
+        return ((fnData as any)?.orders as any[]) || [];
+      }));
+      return buildMap(results.flat());
+    },
+  });
+
+  const countMap = React.useMemo(() => {
+    const merged: Record<string, { total: number; paid: number }> = {};
+    (forms as any[]).forEach(f => {
+      const s = (submissionCountMap as any)[f.id] || { total: 0, paid: 0 };
+      const o = f.event_id ? ((orderCountMap as any)[f.event_id] || { total: 0, paid: 0 }) : { total: 0, paid: 0 };
+      merged[f.id] = { total: s.total + o.total, paid: s.paid + o.paid };
+    });
+    return merged;
+  }, [forms, submissionCountMap, orderCountMap]);
+
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {

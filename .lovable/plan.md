@@ -1,37 +1,26 @@
-## Cel
-W panelu „Lista uczestników" (`src/components/admin/paid-events/TicketVerification.tsx`) dodać możliwość eksportu aktualnie wyświetlanej listy uczestników do **Excel (.xlsx)**, **Word (.doc)** i **HTML (.html)**.
+## Problem
 
-## Lokalizacja UI
-Obok przycisku odświeżania (linia ~494) dodać `DropdownMenu` „Eksport" (ikona `Download`) z trzema pozycjami:
-- Excel (.xlsx)
-- Word (.doc)
-- HTML (.html)
+W `EventFormsList` (zakładka Eventy → Formularze) licznik "X zapisanych" liczy tylko rekordy z tabeli `event_form_submissions`. Tymczasem widok szczegółowy "Zgłoszenia: Rejestracja" scala dwa źródła:
+- `event_form_submissions` (rejestracje gości przez publiczny formularz),
+- `paid_event_orders` dla `event_id` przypisanego do formularza (rejestracje zalogowanych partnerów).
 
-Przycisk wyłączony gdy `ordersLoading` lub `filteredOrders.length === 0`.
+Stąd rozbieżność: Sebastian Snopek (Partner) jest w `paid_event_orders`, więc widnieje w liście (1), ale nagłówek pokazuje 0.
 
-## Dane do eksportu
-Eksportowane są aktualnie widoczne wiersze (`filteredOrders` – uwzględnia wyszukiwanie). Kolumny:
-1. Lp.
-2. Imię
-3. Nazwisko
-4. Email
-5. Kod biletu
-6. Check-in (Tak/Nie)
-7. Data check-in (`pl-PL`, Europe/Warsaw, puste gdy brak)
+## Rozwiązanie
 
-Nazwa pliku: `uczestnicy-{slug(selectedEvent.title)}-{YYYY-MM-DD}.{ext}`.
+W `src/components/admin/paid-events/event-forms/EventFormsList.tsx` rozszerzyć licznik tak, żeby logika była identyczna jak w `EventFormSubmissions`:
 
-## Implementacja (frontend only)
-Nowy helper inline w komponencie – `exportAttendees(format: 'xlsx' | 'doc' | 'html')`:
+1. W zapytaniu `forms` już mamy `event_id` — zebrać listę `eventIds` z formularzy mających `event_id`.
+2. Dodać równolegle drugi query (lub rozszerzyć istniejący `countMap`) który pobiera `paid_event_orders` ograniczone do `event_id IN (eventIds)`, kolumny: `event_id, status`, filtr `status != 'cancelled'`.
+3. Zbudować mapę `eventId -> { total, paid }` po stronie zamówień, gdzie `paid` = `status in ('paid','confirmed','completed')`.
+4. Przy renderowaniu wiersza formularza sumować dla danego formularza:
+   - `submissions[form.id]` (jak dziś) + `orders[form.event_id]` dla obu pól `total` i `paid`.
+5. Badge "X zapisanych" / "Y opłaconych" używa zsumowanych wartości.
 
-- **xlsx**: użyć już zainstalowanej biblioteki `xlsx` (`import * as XLSX from 'xlsx'`). `XLSX.utils.aoa_to_sheet`, `XLSX.utils.book_new`, `XLSX.writeFile`. Pierwszy wiersz = nagłówki, kolumny auto-szerokość (`!cols`).
-- **doc**: zbudować string HTML z tabelą (proste style inline) z prefiksem `<html xmlns:o=... xmlns:w=... xmlns="http://www.w3.org/TR/REC-html40">` i nagłówkiem zawierającym `<meta charset="utf-8">`. Pobierz jako Blob `application/msword` z rozszerzeniem `.doc` (otwiera się w Wordzie).
-- **html**: ten sam HTML co dla Word, ale z dodatkowym tytułem `<h1>Lista uczestników – {title}</h1>` i metą daty eksportu; Blob `text/html;charset=utf-8`.
+Fallback: jeżeli bezpośredni `select` na `paid_event_orders` zwróci błąd RLS lub pustą tablicę (jak w `EventFormSubmissions`), użyć edge funkcji `admin-list-event-orders` per event_id — ale tylko gdy direct select faktycznie zawiedzie. Dla wydajności: jeden zbiorczy direct select po `in('event_id', eventIds)` na początek; jeżeli błąd — pętla po eventach z edge fn (równolegle przez `Promise.all`).
 
-Pobieranie przez `URL.createObjectURL` + tymczasowy `<a download>` (dla xlsx używamy `XLSX.writeFile`, który sam pobiera).
+## Zakres zmian
 
-Toast po sukcesie / błędzie (`useToast` jest już importowany).
+- `src/components/admin/paid-events/event-forms/EventFormsList.tsx` — rozszerzenie liczenia w `countMap` (jeden plik, brak zmian backendowych / RLS / edge functions).
 
-## Co nie zmieniam
-- Nic w backendzie/edge functions/DB.
-- Lista, filtry, check-in – bez zmian; eksport tylko czyta `filteredOrders` i `selectedEvent`.
+Brak zmian w bazie danych, edge functions, ani w komponencie `EventFormSubmissions` (tam logika jest już poprawna).
