@@ -63,11 +63,7 @@ const EventFormConfirmPage: React.FC = () => {
               <h1 className="text-2xl font-semibold leading-snug">
                 Twoje dane i rejestracja zostały poprawnie potwierdzone
               </h1>
-              {isFree ? (
-                <p className="text-muted-foreground leading-relaxed">
-                  Sprawdź skrzynkę e-mail, ponieważ na nią dostałeś bilet na to wydarzenie z kodem QR.
-                </p>
-              ) : (
+              {!isFree && (
                 <p className="text-muted-foreground leading-relaxed">
                   Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu.
                   Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
