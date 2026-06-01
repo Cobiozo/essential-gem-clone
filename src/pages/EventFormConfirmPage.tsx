@@ -10,6 +10,7 @@ const EventFormConfirmPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [eventTitle, setEventTitle] = useState<string | null>(null);
+  const [isFree, setIsFree] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -20,6 +21,7 @@ const EventFormConfirmPage: React.FC = () => {
         if (data?.success) {
           setBannerUrl(data?.banner_url ?? null);
           setEventTitle(data?.event_title ?? null);
+          setIsFree(Boolean(data?.is_free));
           setState(data.already_confirmed ? 'already' : 'ok');
         } else {
           setState('error');
@@ -61,10 +63,16 @@ const EventFormConfirmPage: React.FC = () => {
               <h1 className="text-2xl font-semibold leading-snug">
                 Twoje dane i rejestracja zostały poprawnie potwierdzone
               </h1>
-              <p className="text-muted-foreground leading-relaxed">
-                Teraz oczekujemy na płatność na dane wskazane w wysłanym e‑mailu.
-                Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
-              </p>
+              {isFree ? (
+                <p className="text-muted-foreground leading-relaxed">
+                  Sprawdź skrzynkę e-mail, ponieważ na nią dostałeś bilet na to wydarzenie z kodem QR.
+                </p>
+              ) : (
+                <p className="text-muted-foreground leading-relaxed">
+                  Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu.
+                  Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
+                </p>
+              )}
               {state === 'already' && (
                 <p className="text-xs text-muted-foreground italic">
                   (Twoja rejestracja była już potwierdzona wcześniej.)
