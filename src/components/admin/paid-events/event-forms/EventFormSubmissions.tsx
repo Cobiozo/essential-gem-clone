@@ -895,6 +895,14 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
           onAssigned={() => qc.invalidateQueries({ queryKey: ['event-form-submissions', form.id] })}
         />
       )}
+
+      <EditOrderDialog
+        open={!!editOrder}
+        order={editOrder}
+        onOpenChange={(o) => { if (!o) setEditOrder(null); }}
+        onSaved={() => { /* invalidation in dialog */ }}
+      />
+
     </div>
   );
 };
