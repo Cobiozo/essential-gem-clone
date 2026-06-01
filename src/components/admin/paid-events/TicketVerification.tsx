@@ -186,6 +186,55 @@ export const TicketVerification: React.FC = () => {
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
+  const exportAttendees = (fmt: 'xlsx' | 'doc' | 'html') => {
+    if (!filteredOrders.length) return;
+    const title = selectedEvent?.title || 'wydarzenie';
+    const slug = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'wydarzenie';
+    const dateStr = format(new Date(), 'yyyy-MM-dd');
+    const headers = ['Lp.', 'Imię', 'Nazwisko', 'Email', 'Kod biletu', 'Check-in', 'Data check-in'];
+    const rows = filteredOrders.map((r, i) => [
+      i + 1,
+      r.first_name || '',
+      r.last_name || '',
+      r.email || '',
+      r.ticket_code || '',
+      r.checked_in ? 'Tak' : 'Nie',
+      r.checked_in_at
+        ? new Date(r.checked_in_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw' })
+        : '',
+    ]);
+
+    try {
+      if (fmt === 'xlsx') {
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        (ws as any)['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 22 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Uczestnicy');
+        XLSX.writeFile(wb, `uczestnicy-${slug}-${dateStr}.xlsx`);
+      } else {
+        const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+        const thead = `<tr>${headers.map(h => `<th style="background:#f0f0f0;border:1px solid #999;padding:6px 8px;text-align:left;font-family:Arial,sans-serif;">${esc(h)}</th>`).join('')}</tr>`;
+        const tbody = rows.map(r => `<tr>${r.map(c => `<td style="border:1px solid #ccc;padding:6px 8px;font-family:Arial,sans-serif;">${esc(c)}</td>`).join('')}</tr>`).join('');
+        const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Lista uczestników - ${esc(title)}</title></head><body style="font-family:Arial,sans-serif;"><h1 style="font-size:18px;">Lista uczestników – ${esc(title)}</h1><p style="color:#555;font-size:12px;">Wygenerowano: ${esc(new Date().toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw' }))} • Liczba uczestników: ${rows.length}</p><table style="border-collapse:collapse;width:100%;font-size:12px;">${thead}${tbody}</table></body></html>`;
+        const mime = fmt === 'doc' ? 'application/msword' : 'text/html;charset=utf-8';
+        const ext = fmt === 'doc' ? 'doc' : 'html';
+        const blob = new Blob(['\ufeff', html], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `uczestnicy-${slug}-${dateStr}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      toast({ title: 'Eksport gotowy', description: `Pobrano listę (${rows.length} ${rows.length === 1 ? 'uczestnik' : 'uczestników'}).` });
+    } catch (e: any) {
+      toast({ title: 'Błąd eksportu', description: e?.message || 'Nie udało się wyeksportować listy.', variant: 'destructive' });
+    }
+  };
+
   const verifyTicket = async (code: string, mode: 'verify' | 'check_in' | 'check_out' = 'verify') => {
     if (!code.trim()) return;
 
