@@ -12,6 +12,24 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type PaymentMethodOption = 'inherit' | 'payu' | 'transfer' | 'paypal' | 'free';
+type AudienceOption = 'all' | 'logged_in' | 'guest_only';
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethodOption, string> = {
+  inherit: 'Dziedzicz z wydarzenia (domyślnie)',
+  payu: 'Płatność online (PayU)',
+  transfer: 'Płatność przelewem',
+  paypal: 'Płatność PayPal',
+  free: 'Bezpłatny (rezerwacja + email)',
+};
+
+const AUDIENCE_LABELS: Record<AudienceOption, string> = {
+  all: 'Wszyscy (zalogowani i goście)',
+  logged_in: 'Tylko zalogowani użytkownicy',
+  guest_only: 'Tylko goście z linkiem zapraszającego',
+};
 
 interface EventTicketsPanelProps {
   eventId: string;
