@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     // Load order + event + ticket + attendees
     const { data: order, error: oErr } = await supabase
       .from("paid_event_orders")
-      .select(`*, paid_events ( id, title, event_date, location, slug ), paid_event_tickets ( name )`)
+      .select(`*, paid_events ( id, title, event_date, event_end_date, location, slug ), paid_event_tickets ( name )`)
       .eq("id", orderId).single();
     if (oErr || !order) {
       return new Response(JSON.stringify({ error: "Order not found" }), {
