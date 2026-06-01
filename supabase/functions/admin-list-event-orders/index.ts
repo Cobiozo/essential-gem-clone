@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabaseAdmin
       .from("paid_event_orders")
       .select(
-        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id, paid_event_tickets(name)"
+        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id, paid_event_tickets(name), paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code, checked_in, checked_in_at)"
       )
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });

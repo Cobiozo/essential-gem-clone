@@ -36,6 +36,17 @@ interface EventOption {
   event_date: string;
 }
 
+interface AttendeeRow {
+  id: string;
+  seat_index: number | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  ticket_code: string | null;
+  checked_in: boolean | null;
+  checked_in_at: string | null;
+}
+
 interface OrderRow {
   id: string;
   email: string | null;
@@ -48,6 +59,19 @@ interface OrderRow {
   checked_in: boolean | null;
   checked_in_at: string | null;
   created_at: string;
+  paid_event_order_attendees?: AttendeeRow[] | null;
+}
+
+interface DisplayRow {
+  key: string;
+  order_id: string;
+  attendee_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  ticket_code: string | null;
+  checked_in: boolean;
+  checked_in_at: string | null;
 }
 
 export const TicketVerification: React.FC = () => {
@@ -106,25 +130,57 @@ export const TicketVerification: React.FC = () => {
     loadOrders(selectedEventId);
   }, [selectedEventId]);
 
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
+    const rows: DisplayRow[] = [];
+    for (const o of eligible) {
+      const attendees = o.paid_event_order_attendees || [];
+      if (attendees.length > 0) {
+        for (const a of attendees) {
+          rows.push({
+            key: a.id,
+            order_id: o.id,
+            attendee_id: a.id,
+            first_name: a.first_name || o.first_name,
+            last_name: a.last_name || o.last_name,
+            email: a.email || o.email,
+            ticket_code: a.ticket_code || o.ticket_code,
+            checked_in: !!a.checked_in,
+            checked_in_at: a.checked_in_at,
+          });
+        }
+      } else {
+        rows.push({
+          key: o.id,
+          order_id: o.id,
+          attendee_id: null,
+          first_name: o.first_name,
+          last_name: o.last_name,
+          email: o.email,
+          ticket_code: o.ticket_code,
+          checked_in: !!o.checked_in,
+          checked_in_at: o.checked_in_at,
+        });
+      }
+    }
+    return rows;
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
-    if (!q) return eligible;
-    return eligible.filter(o => {
-      const name = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-      const email = (o.email || '').toLowerCase();
-      const code = (o.ticket_code || '').toLowerCase();
+    if (!q) return displayRows;
+    return displayRows.filter(r => {
+      const name = `${r.first_name || ''} ${r.last_name || ''}`.toLowerCase();
+      const email = (r.email || '').toLowerCase();
+      const code = (r.ticket_code || '').toLowerCase();
       return name.includes(q) || email.includes(q) || code.includes(q);
     });
-  }, [orders, search]);
+  }, [displayRows, search]);
 
-  const counts = useMemo(() => {
-    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
-    return {
-      total: eligible.length,
-      checkedIn: eligible.filter(o => o.checked_in).length,
-    };
-  }, [orders]);
+  const counts = useMemo(() => ({
+    total: displayRows.length,
+    checkedIn: displayRows.filter(r => r.checked_in).length,
+  }), [displayRows]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
@@ -200,11 +256,24 @@ export const TicketVerification: React.FC = () => {
         // Sync list on any state-changing action
         if (data.action === 'check_in' || data.action === 'check_out') {
           const newCheckedIn = data.action === 'check_in';
-          setOrders(prev => prev.map(o =>
-            (o.ticket_code || '').toUpperCase() === mapped.ticket_code.toUpperCase()
-              ? { ...o, checked_in: newCheckedIn, checked_in_at: newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null }
-              : o
-          ));
+          const scannedCode = code.trim().toUpperCase();
+          const newCheckedAt = newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null;
+          setOrders(prev => prev.map(o => {
+            const orderMatches = (o.ticket_code || '').toUpperCase() === scannedCode;
+            const attendees = o.paid_event_order_attendees || [];
+            const attendeeMatches = attendees.some(a => (a.ticket_code || '').toUpperCase() === scannedCode);
+            if (!orderMatches && !attendeeMatches) return o;
+            return {
+              ...o,
+              checked_in: attendeeMatches ? o.checked_in : newCheckedIn,
+              checked_in_at: attendeeMatches ? o.checked_in_at : newCheckedAt,
+              paid_event_order_attendees: attendees.map(a =>
+                (a.ticket_code || '').toUpperCase() === scannedCode
+                  ? { ...a, checked_in: newCheckedIn, checked_in_at: newCheckedAt }
+                  : a
+              ),
+            };
+          }));
           if (selectedEventId && verifiedEventId === selectedEventId) {
             loadOrders(selectedEventId);
           }
@@ -451,7 +520,7 @@ export const TicketVerification: React.FC = () => {
                     const name = `${o.first_name || ''} ${o.last_name || ''}`.trim() || '—';
                     return (
                       <div
-                        key={o.id}
+                        key={o.key}
                         className={`flex items-center gap-3 p-3 rounded-md border ${o.checked_in ? 'bg-green-500/5 border-green-500/30' : 'bg-card'}`}
                       >
                         <div className="shrink-0">
