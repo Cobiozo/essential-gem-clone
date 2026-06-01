@@ -438,18 +438,18 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
             {tpl.fields.map((f) => {
               const left = `${(f.x / tpl.width_px) * 100}%`;
               const top = `${(f.y / tpl.height_px) * 100}%`;
-              const isSelected = selectedField === f.key;
+              const isSelected = selectedField === f.id;
               if (f.key === 'qr') {
                 const w = `${((f.width || 200) / tpl.width_px) * 100}%`;
                 const h = `${((f.height || 200) / tpl.height_px) * 100}%`;
                 return (
-                  <div key={f.key}
-                    onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                  <div key={f.id}
+                    onPointerDown={(e) => beginDrag(e, f.id, 'move')}
                     className={`absolute border-2 ${isSelected ? 'border-primary' : 'border-foreground/50'} bg-foreground/10 flex items-center justify-center cursor-move touch-none`}
                     style={{ left, top, width: w, height: h }}>
                     <span className="text-[10px] font-semibold uppercase tracking-wider">QR</span>
                     <div
-                      onPointerDown={(e) => beginDrag(e, f.key, 'resize')}
+                      onPointerDown={(e) => beginDrag(e, f.id, 'resize')}
                       className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary cursor-nwse-resize touch-none"
                       title="Zmień rozmiar"
                     />
@@ -463,8 +463,8 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
               const boxWidth = hasBox ? `${((f.width || 0) / tpl.width_px) * 100}%` : undefined;
               const sample = SAMPLE_VALUES[f.key] ?? FIELD_LABELS[f.key] ?? f.key;
               return (
-                <div key={f.key}
-                  onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                <div key={f.id}
+                  onPointerDown={(e) => beginDrag(e, f.id, 'move')}
                   className={`absolute cursor-move ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/20'} whitespace-nowrap touch-none leading-none`}
                   style={{
                     left,
