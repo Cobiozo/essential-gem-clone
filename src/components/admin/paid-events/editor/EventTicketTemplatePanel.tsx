@@ -130,14 +130,20 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       const { data } = await supabase
         .from('event_ticket_templates').select('*').eq('event_id', eventId).maybeSingle();
       if (data) {
+        const rawFields: any[] = Array.isArray((data as any).fields) && (data as any).fields.length > 0
+          ? (data as any).fields : DEFAULT_TEMPLATE.fields;
+        // Backwards-compat: ensure every field has a unique `id`.
+        const migrated: FieldDef[] = rawFields.map((f, i) => ({
+          ...f,
+          id: typeof f?.id === 'string' && f.id ? f.id : `${f?.key || 'field'}-${i}`,
+        }));
         setTpl({
           background_url: (data as any).background_url || null,
           page_format: (data as any).page_format || 'A5',
           orientation: ((data as any).orientation as any) || 'landscape',
           width_px: (data as any).width_px || 1240,
           height_px: (data as any).height_px || 874,
-          fields: Array.isArray((data as any).fields) && (data as any).fields.length > 0
-            ? (data as any).fields : DEFAULT_TEMPLATE.fields,
+          fields: migrated,
         });
       }
       setLoading(false);
