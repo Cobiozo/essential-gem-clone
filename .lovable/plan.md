@@ -1,73 +1,63 @@
-# Dlaczego partnera nie widać i nie ma biletu
+## Problemy do rozwiązania
 
-## Diagnoza (zweryfikowane w bazie)
+### 1. Błąd uploadu tła biletu („new row violates row-level security policy")
 
-Rezerwacja Sebastiana istnieje w `paid_event_orders`:
-- `user_id = 629a2d9a-…` (zalogowany partner), `email = sebastiansnopek87@gmail.com`
-- `status = awaiting_email_confirmation`
-- `email_confirmed_at = NULL`, `ticket_sent_at = NULL`
+Bucket `event-tickets` istnieje, polityki RLS odwołują się do `has_role(auth.uid(),'admin')` i `is_admin()`. Mimo to upload bezpośrednio z przeglądarki czasami trafia w błąd RLS (m.in. przez kolejność polityk SELECT, nakładające się reguły na `storage.objects` i fakt, że bucket jest publiczny). Najpewniejsze rozwiązanie: przenieść upload tła do funkcji brzegowej z `service_role`, która jednoznacznie weryfikuje rolę admina przez JWT i wgrywa plik z pominięciem RLS.
 
-Dwa niezależne problemy:
+**Zmiany:**
+- Nowa funkcja `upload-ticket-template-bg` (POST, multipart/form-data, weryfikacja admina przez `verifyAdmin`, upload do `event-tickets/templates/{eventId}/bg.{ext}` z `service_role`, zwraca `{ url, width, height }`).
+- `EventTicketTemplatePanel.tsx`: zamiast `supabase.storage.upload` wywołuje fetch do nowej funkcji z FormData (plik + eventId). Po sukcesie zapisuje `background_url` w `event_ticket_templates`.
+- Komunikat błędu wyświetla treść z odpowiedzi (np. „Brak uprawnień admina").
 
-1. **Brak na liście „Zgłoszenia: Rejestracja"** — ta lista czyta tylko z tabeli `event_form_submissions` (czyli formularzy gościa). Rezerwacje zalogowanych partnerów lądują w `paid_event_orders` i są pomijane.
-2. **Brak biletu** — zalogowany partner ma w profilu zweryfikowany e-mail, ale flow `register-free-event-order` mimo to wymaga ponownego kliknięcia w mail potwierdzający. Dopóki nie kliknie, status zostaje `awaiting_email_confirmation`, bilet się nie generuje i nie wysyła.
+### 2. Legenda skrótów w edytorze pól biletu
 
-## Plan naprawczy
+W panelu `Szablon → Edytor pól` pod kanwą dodać sekcję „Dostępne pola (skróty)" — pełna lista kluczy, które system automatycznie zaciąga z zamówienia/wydarzenia, plus przycisk „Dodaj na płótno" obok każdego.
 
-### 1. Zalogowany partner → bilet od razu, bez potwierdzania maila
+Lista skrótów do udokumentowania (zgodna z obecnym generatorem PDF):
 
-W `supabase/functions/register-free-event-order/index.ts`:
+| Klucz | Co podstawia system |
+|---|---|
+| `eventTitle` | Tytuł wydarzenia |
+| `eventDate` | Data i godzina rozpoczęcia |
+| `eventEndDate` | Data i godzina zakończenia |
+| `eventLocation` | Lokalizacja (miasto/adres/online) |
+| `firstName` | Imię uczestnika |
+| `lastName` | Nazwisko uczestnika |
+| `fullName` | Imię + nazwisko |
+| `email` | E-mail uczestnika |
+| `phone` | Telefon uczestnika |
+| `ticketName` | Nazwa biletu (np. „Bilet wstępu") |
+| `ticketCode` | Kod biletu (np. EVJT5GJXJVYJ) |
+| `seatNumber` | Numer miejsca (dla biletów grupowych) |
+| `orderNumber` | Numer zamówienia |
+| `qr` | Kod QR z linkiem do weryfikacji |
 
-- Po weryfikacji JWT (jeśli `user_id` istnieje i e-mail w `auth.users` jest potwierdzony lub e-mail z zamówienia = e-mail konta), tworzyć zamówienie od razu ze statusem `confirmed`:
-  - `email_confirmed_at = now()`
-  - Wygenerować `ticket_code` i bilet PDF (ta sama ścieżka co w `confirm-free-event-reservation`).
-  - Wysłać mail „Twój bilet na wydarzenie" zamiast „Potwierdź adres e-mail".
-  - Ustawić `ticket_sent_at = now()`.
-- Dla niezalogowanych gości — bez zmian (dalej flow z potwierdzeniem e-mail).
-- Frontend `PurchaseDrawer`: jeśli odpowiedź zawiera `ticket_code`/`auto_confirmed: true`, pokazać banner: *„Miejsce zarezerwowane. Bilet z kodem QR został wysłany na Twój e-mail."* zamiast komunikatu o potwierdzeniu.
+**Zmiany:**
+- W `EventTicketTemplatePanel.tsx` rozszerzyć `FIELD_LABELS` o nowe klucze (`eventEndDate`, `fullName`, `email`, `phone`, `orderNumber`) i dodać pod edytorem kartę „Legenda skrótów" — tabelka z kluczem, opisem oraz akcją „Dodaj" (gdy pole nie jest jeszcze na kanwie).
+- W `generate-event-ticket-pdf` dopisać podstawianie nowych kluczy (mapowanie z `order`, `attendee`, `event`).
 
-### 2. Admin „Zgłoszenia: Rejestracja" — pokazuje też partnerów
+### 3. Weryfikacja biletu zwraca „Ticket code is required"
 
-W `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`:
+Bug po stronie front-endu: `TicketVerification.tsx` wysyła do funkcji `verify-event-ticket` body z polami `ticket_code` / `perform_check_in`, ale funkcja oczekuje `ticketCode` / `markAsCheckedIn`. Stąd 400 „Ticket code is required". Dodatkowo:
+- Funkcja przyjmuje tylko `status === 'paid'` — bezpłatne rezerwacje mają `status = 'confirmed'`, więc nawet po naprawie front-endu zwracałaby NOT_PAID.
+- Sprawdza rolę admina po nieistniejącej kolumnie `profiles.role` zamiast tabeli `user_roles`.
+- Odpowiedź funkcji ma kształt `{ valid, attendee, event, order, ticket }`, a front oczekuje `data.ticket.buyer_name`, `event_title`, `event_date`, `is_checked_in` itp. — wynik pokazałby się jako „prawidłowy", ale puste pola.
+- Bilet jest na wydarzenie 4 lipca 2026, a sprawdzenie `TOO_EARLY` blokuje check-in więcej niż 2h przed startem. Dla potrzeb panelu admina (weryfikacja przed dniem wydarzenia) wprowadzić tryb „tylko sprawdź" (`markAsCheckedIn=false`) który nie zwraca TOO_EARLY — informuje tylko „bilet ważny, check-in możliwy od X" zamiast `valid:false`.
 
-- Dociągnąć dodatkowo `paid_event_orders` dla `event_id = form.event_id` (z wyłączeniem `status = cancelled` jeśli zakładka nie filtruje anulowanych — utrzymać tę samą logikę co dla submissions).
-- Zmapować order → wiersz listy zgodny ze schematem submissions:
-  - `id` (z prefiksem `order:` żeby uniknąć kolizji)
-  - `created_at`, `email`, `first_name`, `last_name`, `phone`
-  - `payment_status` ← mapowanie:
-    - `confirmed` / `paid` → `paid`
-    - `awaiting_email_confirmation` / `awaiting_transfer` / `pending` → `pending`
-    - `cancelled` → `cancelled`
-    - `refunded` → `refunded`
-  - `email_status`: `confirmed` jeśli `email_confirmed_at`, inaczej `sent`
-  - `email_confirmed_at`, `cancelled_at`
-  - `partner_user_id` ← `user_id` (sam partner jest jednocześnie zapisanym)
-  - Dodatkowo `__source: 'order'` + `ticket_code` żeby UI wiedział, że to zamówienie
-- Scalić oba źródła w jedną listę, sortować po `created_at` malejąco.
-- Liczniki zakładek (Wszystkie / Goście / Partnerzy) liczyć po połączonym zbiorze — partner = wiersz pochodzący z `paid_event_orders` z `user_id`, lub submission z dopasowanym `profiles.email`.
-- W kolumnie „Osoba" dla wiersza pochodzącego z `paid_event_orders` z `user_id` pokazać badge „Partner" (zamiast „Gość").
-- W kolumnie „Partner zapraszający" dla partnera użyć istniejącej logiki `getInvitingPartner` (upline z profilu).
-- W kolumnie „Akcje":
-  - Dla wierszy `order:*` ukryć przyciski specyficzne dla submissions (przypisanie partnera, ponowna wysyłka maila potwierdzenia formularza, usunięcie z `event_form_submissions`).
-  - Dodać link „Bilet" (otwiera `ticket_code` w `TicketPage`) gdy `ticket_code` istnieje.
-- Export Excel: dorzucić te same wiersze do AOA z poprawnym mapowaniem statusów.
-
-### 3. Backfill bieżącej rezerwacji Sebastiana
-
-Migracja jednorazowa (data update — przez insert tool):
-
-```
-UPDATE paid_event_orders
-SET status = 'confirmed', email_confirmed_at = now()
-WHERE id = '1e5a3a26-4eac-4db4-b26b-d953944b9d07'
-  AND status = 'awaiting_email_confirmation';
-```
-
-Następnie wywołanie istniejącej funkcji `confirm-free-event-reservation` (lub bezpośrednio `generate-event-ticket-pdf` + wysyłka maila) dla tego zamówienia, żeby otrzymał bilet bez potrzeby klikania w stary link.
+**Zmiany:**
+- `TicketVerification.tsx`: wysyłać `ticketCode` i `markAsCheckedIn`; mapować odpowiedź z nowego kształtu (`attendee.firstName + lastName`, `event.title`, `event.date`, `checkedIn`, `ticketCode` z `order.ticketCode`).
+- `supabase/functions/verify-event-ticket/index.ts`:
+  - akceptować zarówno `ticketCode` jak i `ticket_code` (oraz `markAsCheckedIn`/`perform_check_in`) – wsteczna kompatybilność,
+  - rola admina przez `user_roles` (`has_role`),
+  - akceptować statusy `paid` **oraz** `confirmed` (wydarzenia bezpłatne) jako ważne,
+  - dla `markAsCheckedIn=false` zwracać `valid:true` nawet gdy `now < checkInStart`, dorzucając pole `checkInStartsAt` jako informację (front pokaże „bilet ważny, check-in dostępny od …"),
+  - zachować `TOO_EARLY`/`EVENT_ENDED` tylko gdy faktycznie próbuje wykonać check-in.
 
 ## Pliki do zmiany
+- `supabase/functions/upload-ticket-template-bg/index.ts` (nowy)
+- `supabase/functions/verify-event-ticket/index.ts`
+- `supabase/functions/generate-event-ticket-pdf/index.ts`
+- `src/components/admin/paid-events/editor/EventTicketTemplatePanel.tsx`
+- `src/components/admin/paid-events/TicketVerification.tsx`
 
-- `supabase/functions/register-free-event-order/index.ts` — auto-confirm dla zalogowanych
-- `src/components/paid-events/public/PurchaseDrawer.tsx` — obsługa `auto_confirmed`
-- `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx` — scalanie z `paid_event_orders`
-- jednorazowy update danych dla istniejącej rezerwacji
+Brak zmian w bazie – polityki RLS pozostają, ale upload tła idzie bocznym kanałem przez funkcję brzegową.
