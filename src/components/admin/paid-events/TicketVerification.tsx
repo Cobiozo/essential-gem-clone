@@ -130,25 +130,57 @@ export const TicketVerification: React.FC = () => {
     loadOrders(selectedEventId);
   }, [selectedEventId]);
 
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
+    const rows: DisplayRow[] = [];
+    for (const o of eligible) {
+      const attendees = o.paid_event_order_attendees || [];
+      if (attendees.length > 0) {
+        for (const a of attendees) {
+          rows.push({
+            key: a.id,
+            order_id: o.id,
+            attendee_id: a.id,
+            first_name: a.first_name || o.first_name,
+            last_name: a.last_name || o.last_name,
+            email: a.email || o.email,
+            ticket_code: a.ticket_code || o.ticket_code,
+            checked_in: !!a.checked_in,
+            checked_in_at: a.checked_in_at,
+          });
+        }
+      } else {
+        rows.push({
+          key: o.id,
+          order_id: o.id,
+          attendee_id: null,
+          first_name: o.first_name,
+          last_name: o.last_name,
+          email: o.email,
+          ticket_code: o.ticket_code,
+          checked_in: !!o.checked_in,
+          checked_in_at: o.checked_in_at,
+        });
+      }
+    }
+    return rows;
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
-    if (!q) return eligible;
-    return eligible.filter(o => {
-      const name = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-      const email = (o.email || '').toLowerCase();
-      const code = (o.ticket_code || '').toLowerCase();
+    if (!q) return displayRows;
+    return displayRows.filter(r => {
+      const name = `${r.first_name || ''} ${r.last_name || ''}`.toLowerCase();
+      const email = (r.email || '').toLowerCase();
+      const code = (r.ticket_code || '').toLowerCase();
       return name.includes(q) || email.includes(q) || code.includes(q);
     });
-  }, [orders, search]);
+  }, [displayRows, search]);
 
-  const counts = useMemo(() => {
-    const eligible = orders.filter(o => o.email_confirmed_at || o.ticket_sent_at || (o.status && ['paid', 'completed', 'confirmed'].includes(o.status)));
-    return {
-      total: eligible.length,
-      checkedIn: eligible.filter(o => o.checked_in).length,
-    };
-  }, [orders]);
+  const counts = useMemo(() => ({
+    total: displayRows.length,
+    checkedIn: displayRows.filter(r => r.checked_in).length,
+  }), [displayRows]);
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
