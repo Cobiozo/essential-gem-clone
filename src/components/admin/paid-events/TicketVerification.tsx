@@ -542,6 +542,30 @@ export const TicketVerification: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">{counts.total} zarejestrowanych</Badge>
                   <Badge variant="outline" className="text-green-600 border-green-600">{counts.checkedIn} po check-in</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={ordersLoading || filteredOrders.length === 0}
+                        className="gap-1"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span className="hidden sm:inline">Eksport</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => exportAttendees('xlsx')}>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel (.xlsx)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportAttendees('doc')}>
+                        <FileText className="w-4 h-4 mr-2" /> Word (.doc)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportAttendees('html')}>
+                        <FileCode className="w-4 h-4 mr-2" /> HTML (.html)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button size="sm" variant="ghost" onClick={() => loadOrders(selectedEventId)} disabled={ordersLoading}>
                     <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
                   </Button>
