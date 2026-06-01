@@ -38,61 +38,81 @@ export const EventFormsList: React.FC = () => {
     [forms]
   );
 
-  const { data: submissionCountMap = {} } = useQuery({
-    queryKey: ['event-form-submission-counts'],
+  const { data: submissionsData = [] } = useQuery({
+    queryKey: ['event-form-submissions-for-counts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('event_form_submissions')
-        .select('form_id, payment_status')
+        .select('form_id, email, payment_status, status, submitted_data')
         .neq('status', 'cancelled');
       if (error) throw error;
-      const map: Record<string, { total: number; paid: number }> = {};
-      (data as any[]).forEach(r => {
-        if (!map[r.form_id]) map[r.form_id] = { total: 0, paid: 0 };
-        map[r.form_id].total++;
-        if (r.payment_status === 'paid') map[r.form_id].paid++;
-      });
-      return map;
+      return data as any[];
     },
   });
 
-  const { data: orderCountMap = {} } = useQuery({
-    queryKey: ['event-form-order-counts', eventIds],
+  const { data: ordersData = [] } = useQuery({
+    queryKey: ['event-form-orders-for-counts', eventIds],
     enabled: eventIds.length > 0,
     queryFn: async () => {
-      const buildMap = (rows: any[]) => {
-        const map: Record<string, { total: number; paid: number }> = {};
-        rows.forEach(o => {
-          if (o.status === 'cancelled') return;
-          if (!map[o.event_id]) map[o.event_id] = { total: 0, paid: 0 };
-          map[o.event_id].total++;
-          if (['paid', 'confirmed', 'completed'].includes(o.status)) map[o.event_id].paid++;
-        });
-        return map;
-      };
       const { data, error } = await supabase
         .from('paid_event_orders')
-        .select('event_id, status')
+        .select('id, event_id, status, email')
         .in('event_id', eventIds);
-      if (!error && data) return buildMap(data as any[]);
-      // Fallback via admin edge fn per event
+      if (!error && data) return data as any[];
       const results = await Promise.all(eventIds.map(async (eid) => {
         const { data: fnData } = await supabase.functions.invoke('admin-list-event-orders', { body: { event_id: eid } });
         return ((fnData as any)?.orders as any[]) || [];
       }));
-      return buildMap(results.flat());
+      return results.flat();
     },
   });
 
   const countMap = React.useMemo(() => {
+    const PAID = new Set(['paid', 'confirmed', 'completed']);
     const merged: Record<string, { total: number; paid: number }> = {};
+
+    const ordersByEvent: Record<string, any[]> = {};
+    (ordersData as any[]).forEach(o => {
+      if (!o?.event_id || o.status === 'cancelled') return;
+      (ordersByEvent[o.event_id] ||= []).push(o);
+    });
+
     (forms as any[]).forEach(f => {
-      const s = (submissionCountMap as any)[f.id] || { total: 0, paid: 0 };
-      const o = f.event_id ? ((orderCountMap as any)[f.event_id] || { total: 0, paid: 0 }) : { total: 0, paid: 0 };
-      merged[f.id] = { total: s.total + o.total, paid: s.paid + o.paid };
+      const formSubs = (submissionsData as any[]).filter(s => s.form_id === f.id);
+      const eventOrders = f.event_id ? (ordersByEvent[f.event_id] || []) : [];
+
+      const consumedOrderIds = new Set<string>();
+      const consumedEmails = new Set<string>();
+      let total = 0;
+      let paid = 0;
+
+      formSubs.forEach(s => {
+        total++;
+        const submitted = s.submitted_data || {};
+        const linkedIds: string[] = Array.isArray(submitted.order_ids)
+          ? submitted.order_ids
+          : (submitted.order_id ? [submitted.order_id] : []);
+        linkedIds.forEach((id: string) => consumedOrderIds.add(id));
+        if (s.email) consumedEmails.add(String(s.email).toLowerCase());
+
+        const linkedOrder = eventOrders.find(o => linkedIds.includes(o.id));
+        const isPaid = s.payment_status === 'paid' || (linkedOrder && PAID.has(linkedOrder.status));
+        if (isPaid) paid++;
+      });
+
+      eventOrders.forEach(o => {
+        if (consumedOrderIds.has(o.id)) return;
+        const emailKey = (o.email || '').toLowerCase();
+        if (emailKey && consumedEmails.has(emailKey)) return;
+        total++;
+        if (PAID.has(o.status)) paid++;
+        if (emailKey) consumedEmails.add(emailKey);
+      });
+
+      merged[f.id] = { total, paid };
     });
     return merged;
-  }, [forms, submissionCountMap, orderCountMap]);
+  }, [forms, submissionsData, ordersData]);
 
 
   const toggleActive = useMutation({
