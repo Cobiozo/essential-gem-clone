@@ -49,6 +49,8 @@ interface Ticket {
   benefits: string[] | null;
   seats_per_ticket: number | null;
   paypal_payment_link: string | null;
+  payment_method: PaymentMethodOption | null;
+  audience: AudienceOption | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
