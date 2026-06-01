@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Ticket, Pencil, Loader2, Users } from 'lucide-react';
+import { Ticket, Pencil, Loader2, Users, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Attendee {
