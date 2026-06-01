@@ -267,6 +267,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     };
   };
   const handleSubmit = async () => {
+    // Hard guard: a logged-in user who already holds a reservation cannot
+    // re-register for the SAME free event. Show an informative toast and stop.
+    if (isFree && hasOwnTicket) {
+      toast({
+        title: 'Masz już zarezerwowane miejsce',
+        description: 'Twoje miejsce na to wydarzenie jest już zarezerwowane. Sprawdź skrzynkę e-mail, aby potwierdzić rejestrację lub odebrać bilet z kodem QR.',
+      });
+      return;
+    }
     if (!validate() || !ticket) return;
     setLoadingMode('checkout');
     try {
@@ -279,15 +288,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           let detail = error.message || 'Nie udało się utworzyć rezerwacji';
           try {
             const ctxRes = (error as any).context?.response;
-            if (ctxRes && typeof ctxRes.json === 'function') {
-              const j = await ctxRes.json();
+            if (ctxRes && typeof ctxRes.clone === 'function') {
+              const j = await ctxRes.clone().json();
               if (j?.message) detail = j.message;
               else if (j?.error) detail = j.error;
             }
           } catch { /* ignore */ }
           throw new Error(mapFreeError(detail));
         }
-        if (data?.error) throw new Error(mapFreeError(data.error));
+        // Server now returns 200 with { error, message } on duplicates so this branch fires
+        if (data?.error) {
+          const friendly = data.message || mapFreeError(data.error);
+          throw new Error(friendly);
+        }
 
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
