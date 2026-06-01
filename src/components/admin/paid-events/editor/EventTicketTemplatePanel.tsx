@@ -511,6 +511,39 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
           <Eye className="w-4 h-4 mr-1" />Podgląd PDF
         </Button>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={(o) => { if (!o) closePreview(); }}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Eye className="w-5 h-5" />Podgląd biletu PDF</DialogTitle>
+            <DialogDescription>
+              Tak będzie wyglądał bilet wysyłany e-mailem do uczestników po potwierdzeniu adresu e-mail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 bg-muted rounded-md overflow-hidden">
+            {previewLoading || !previewUrl ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <iframe src={previewUrl} className="w-full h-full" title="Podgląd PDF biletu" />
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {previewUrl && (
+              <>
+                <Button variant="outline" onClick={() => window.open(previewUrl, '_blank', 'noopener')}>
+                  <ExternalLink className="w-4 h-4 mr-1" />Otwórz w nowej karcie
+                </Button>
+                <Button variant="outline" onClick={downloadPreview}>
+                  <Download className="w-4 h-4 mr-1" />Pobierz PDF
+                </Button>
+              </>
+            )}
+            <Button onClick={closePreview}>Zamknij</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
