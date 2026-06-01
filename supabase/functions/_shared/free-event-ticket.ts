@@ -127,9 +127,16 @@ export async function sendSmtp(
     }
 
     parts.push(`--${boundary}--`, `.`);
-    // Send DATA payload; use a long timeout for read since server processes large attachment
-    await conn.write(enc.encode(parts.join("\r\n") + "\r\n"));
-    const r = await withTimeout(read(), 180000, "DATA read timeout");
+    // Send DATA payload — write in chunks ensuring full delivery
+    const payload = enc.encode(parts.join("\r\n") + "\r\n");
+    let written = 0;
+    const CHUNK_W = 16384;
+    while (written < payload.length) {
+      const slice = payload.subarray(written, Math.min(written + CHUNK_W, payload.length));
+      const n = await conn.write(slice);
+      written += n;
+    }
+    const r = await withTimeout(read(), 120000, "DATA read timeout");
     if (!r.includes("250")) throw new Error(`Send failed: ${r}`);
     await send("QUIT");
   } finally {
