@@ -12,6 +12,24 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type PaymentMethodOption = 'inherit' | 'payu' | 'transfer' | 'paypal' | 'free';
+type AudienceOption = 'all' | 'logged_in' | 'guest_only';
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethodOption, string> = {
+  inherit: 'Dziedzicz z wydarzenia (domyślnie)',
+  payu: 'Płatność online (PayU)',
+  transfer: 'Płatność przelewem',
+  paypal: 'Płatność PayPal',
+  free: 'Bezpłatny (rezerwacja + email)',
+};
+
+const AUDIENCE_LABELS: Record<AudienceOption, string> = {
+  all: 'Wszyscy (zalogowani i goście)',
+  logged_in: 'Tylko zalogowani użytkownicy',
+  guest_only: 'Tylko goście z linkiem zapraszającego',
+};
 
 interface EventTicketsPanelProps {
   eventId: string;
@@ -31,6 +49,8 @@ interface Ticket {
   benefits: string[] | null;
   seats_per_ticket: number | null;
   paypal_payment_link: string | null;
+  payment_method: PaymentMethodOption | null;
+  audience: AudienceOption | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
@@ -234,14 +254,30 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isFree && (
-                      <Badge variant="secondary">
-                        {formatPrice(ticket.price_pln)} PLN
-                      </Badge>
-                    )}
-                    {isFree && (
-                      <Badge variant="secondary">Rezerwacja</Badge>
-                    )}
+                    {(() => {
+                      const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
+                      const ticketIsFree = pm === 'free' || isFree;
+                      const aud = (getEditingValue(ticket.id, 'audience', ticket.audience ?? 'all') as AudienceOption);
+                      return (
+                        <>
+                          {ticketIsFree ? (
+                            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                              Bezpłatny
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">{formatPrice(ticket.price_pln)} PLN</Badge>
+                          )}
+                          {pm !== 'inherit' && pm !== 'free' && (
+                            <Badge variant="outline" className="text-[10px] uppercase">{pm}</Badge>
+                          )}
+                          {aud !== 'all' && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {aud === 'logged_in' ? 'Zalogowani' : 'Goście'}
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    })()}
                     <ChevronDown 
                       className={cn(
                         'w-4 h-4 transition-transform',
@@ -264,7 +300,65 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   />
                 </div>
 
-                {!isFree && (
+                {/* Per-ticket payment method */}
+                <div>
+                  <Label>Metoda płatności biletu</Label>
+                  <Select
+                    value={(getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption)}
+                    onValueChange={(val) => {
+                      setEditingValue(ticket.id, 'payment_method', val as PaymentMethodOption);
+                      if (val === 'free') {
+                        setEditingValue(ticket.id, 'price_pln', 0);
+                        setEditingValue(ticket.id, 'paypal_payment_link', null);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethodOption[]).map((k) => (
+                        <SelectItem key={k} value={k}>{PAYMENT_METHOD_LABELS[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(() => {
+                      const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
+                      if (pm === 'free') return 'Bilet bezpłatny — kupujący wypełnia formularz, otrzymuje email potwierdzający, a po kliknięciu CTA — bilet QR. Cena i PayPal ignorowane.';
+                      if (pm === 'inherit') return 'Bilet używa metod ustawionych na wydarzeniu (sekcja „Metody płatności" powyżej).';
+                      return 'Bilet wymusza tę jedną metodę — przy checkoucie kupujący nie zobaczy innych opcji.';
+                    })()}
+                  </p>
+                </div>
+
+                {/* Per-ticket audience */}
+                <div>
+                  <Label>Widoczność biletu</Label>
+                  <Select
+                    value={(getEditingValue(ticket.id, 'audience', ticket.audience ?? 'all') as AudienceOption)}
+                    onValueChange={(val) => setEditingValue(ticket.id, 'audience', val as AudienceOption)}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(AUDIENCE_LABELS) as AudienceOption[]).map((k) => (
+                        <SelectItem key={k} value={k}>{AUDIENCE_LABELS[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(() => {
+                      const aud = (getEditingValue(ticket.id, 'audience', ticket.audience ?? 'all') as AudienceOption);
+                      if (aud === 'logged_in') return 'Bilet widoczny tylko dla zalogowanych użytkowników.';
+                      if (aud === 'guest_only') return 'Bilet widoczny tylko dla niezalogowanych odwiedzających, którzy weszli przez link partnerski (URL z ?ref=...).';
+                      return 'Bilet widoczny dla wszystkich.';
+                    })()}
+                  </p>
+                </div>
+
+                {(() => {
+                  const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
+                  const ticketIsFree = pm === 'free' || isFree;
+                  return !ticketIsFree;
+                })() && (
                   <div>
                     <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
                     <Input
@@ -280,7 +374,11 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   </div>
                 )}
 
-                {!isFree && (
+                {(() => {
+                  const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
+                  const ticketIsFree = pm === 'free' || isFree;
+                  return !ticketIsFree;
+                })() && (
                   <div>
                     <Label htmlFor={`paypal-${ticket.id}`}>Łącze do płatności PayPal (opcjonalne)</Label>
                     <Input

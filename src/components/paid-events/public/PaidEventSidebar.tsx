@@ -15,6 +15,7 @@ interface TicketType {
   isFeatured?: boolean;
   available?: number | null;
   maxPerOrder?: number;
+  isFree?: boolean;
 }
 
 interface PaidEventSidebarProps {
@@ -182,7 +183,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
                         )}
                       </div>
                       <div className="text-lg font-bold text-primary">
-                        {formatPrice(ticket.price)}
+                        {ticket.isFree ? 'Bezpłatny' : formatPrice(ticket.price)}
                       </div>
                     </div>
                     {ticket.description && (
@@ -196,9 +197,11 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
             ) : (
               <div className="text-center py-2">
                 <div className="text-3xl font-bold text-primary">
-                  {formatPrice(tickets[0].price)}
+                  {tickets[0].isFree ? 'Bezpłatny' : formatPrice(tickets[0].price)}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">brutto (z VAT)</div>
+                {!tickets[0].isFree && (
+                  <div className="text-sm text-muted-foreground mt-1">brutto (z VAT)</div>
+                )}
               </div>
             )}
 

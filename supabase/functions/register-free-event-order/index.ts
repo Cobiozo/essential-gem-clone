@@ -224,7 +224,9 @@ serve(async (req) => {
     }
 
     const event = (ticket as any).paid_events;
-    if (!event?.is_free) {
+    // Allow free flow when EITHER the event is fully free OR this specific ticket is marked free.
+    const ticketIsFree = (ticket as any).payment_method === 'free';
+    if (!event?.is_free && !ticketIsFree) {
       return new Response(JSON.stringify({ error: "event_not_free" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

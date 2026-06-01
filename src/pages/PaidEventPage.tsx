@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +44,8 @@ interface Ticket {
   max_per_order: number | null;
   is_active: boolean | null;
   seats_per_ticket: number;
+  payment_method: 'inherit' | 'payu' | 'transfer' | 'paypal' | 'free';
+  audience: 'all' | 'logged_in' | 'guest_only';
 }
 
 interface PaidEvent {
@@ -76,6 +78,8 @@ interface PaidEvent {
 const PaidEventPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const refCodeFromUrl = (searchParams.get('ref') || '').trim() || null;
   const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
   
   const [activeSection, setActiveSection] = useState<string>('');
@@ -158,6 +162,8 @@ const PaidEventPage: React.FC = () => {
         max_per_order: null,
         is_active: ticket.is_active ?? true,
         seats_per_ticket: Math.max(1, Number((ticket as any).seats_per_ticket) || 1),
+        payment_method: (ticket.payment_method ?? 'inherit') as Ticket['payment_method'],
+        audience: (ticket.audience ?? 'all') as Ticket['audience'],
       })) as Ticket[];
     },
     enabled: !!event?.id,
@@ -328,6 +334,19 @@ const PaidEventPage: React.FC = () => {
     }
   }, []);
 
+  // Filter tickets by audience (logged_in / guest_only / all).
+  // guest_only = unauthenticated visitor that came in through a partner link (?ref=...).
+  const visibleTickets = useMemo(() => {
+    return tickets.filter((t) => {
+      const aud = t.audience ?? 'all';
+      if (isAdmin) return true; // admin always sees everything for preview
+      if (aud === 'all') return true;
+      if (aud === 'logged_in') return !!user;
+      if (aud === 'guest_only') return !user && !!refCodeFromUrl;
+      return true;
+    });
+  }, [tickets, user, isAdmin, refCodeFromUrl]);
+
   // Handle purchase
   const handlePurchase = useCallback((ticketId: string) => {
     setSelectedTicketId(ticketId);
@@ -345,8 +364,20 @@ const PaidEventPage: React.FC = () => {
       price: ticket.price,
       seats_per_ticket: ticket.seats_per_ticket,
       available_quantity: ticket.available_quantity,
+      payment_method: ticket.payment_method,
     };
   }, [selectedTicketId, tickets]);
+
+  // Effective payment config for the selected ticket — overrides event-level when ticket pins a method.
+  const eventIsFree = (event as any)?.is_free ?? false;
+  const eventPayu = (event as any)?.payment_method_payu ?? true;
+  const eventTransfer = (event as any)?.payment_method_transfer ?? false;
+  const eventPaypal = (event as any)?.payment_method_paypal ?? false;
+  const ticketPm = selectedTicket?.payment_method ?? 'inherit';
+  const drawerIsFree = ticketPm === 'free' || (ticketPm === 'inherit' && eventIsFree);
+  const drawerPayu = ticketPm === 'payu' || (ticketPm === 'inherit' && eventPayu);
+  const drawerTransfer = ticketPm === 'transfer' || (ticketPm === 'inherit' && eventTransfer);
+  const drawerPaypal = ticketPm === 'paypal' || (ticketPm === 'inherit' && eventPaypal);
 
   // Loading state
   if (eventLoading) {
@@ -478,17 +509,22 @@ const PaidEventPage: React.FC = () => {
           {showTickets && (
             <div className="w-full lg:w-[380px] flex-shrink-0">
               <PaidEventSidebar
-                tickets={tickets.map(t => ({
-                  id: t.id,
-                  name: t.name,
-                  price: t.price,
-                  description: t.description,
-                  benefits: t.benefits || [],
-                  highlightText: t.highlight_text,
-                  isFeatured: t.is_featured || false,
-                  available: t.available_quantity,
-                  maxPerOrder: t.max_per_order || undefined,
-                }))}
+                tickets={visibleTickets.map(t => {
+                  const pm = t.payment_method ?? 'inherit';
+                  const free = pm === 'free' || (pm === 'inherit' && eventIsFree);
+                  return {
+                    id: t.id,
+                    name: t.name,
+                    price: free ? 0 : t.price,
+                    description: t.description,
+                    benefits: t.benefits || [],
+                    highlightText: t.highlight_text,
+                    isFeatured: t.is_featured || false,
+                    available: t.available_quantity,
+                    maxPerOrder: t.max_per_order || undefined,
+                    isFree: free,
+                  };
+                })}
                 eventDate={event.event_date}
                 maxTickets={event.max_tickets}
                 ticketsSold={(event.tickets_sold ?? 0) + (activeSubmissionsCount ?? 0)}
@@ -500,7 +536,7 @@ const PaidEventPage: React.FC = () => {
                     : null
                 }
                 helperText={
-                  user && (isPartner || isAdmin) && registrationForm && tickets.length === 0
+                  user && (isPartner || isAdmin) && registrationForm && visibleTickets.length === 0
                     ? 'Twoja rejestracja zostanie automatycznie przypisana do Ciebie.'
                     : null
                 }
@@ -517,12 +553,12 @@ const PaidEventPage: React.FC = () => {
         eventId={event.id}
         eventTitle={event.title}
         ticket={selectedTicket}
-        isFree={(event as any).is_free ?? false}
-        paymentMethodPayu={(event as any).payment_method_payu ?? true}
-        paymentMethodTransfer={(event as any).payment_method_transfer ?? false}
-        paymentMethodPaypal={(event as any).payment_method_paypal ?? false}
+        isFree={drawerIsFree}
+        paymentMethodPayu={!drawerIsFree && drawerPayu}
+        paymentMethodTransfer={!drawerIsFree && drawerTransfer}
+        paymentMethodPaypal={!drawerIsFree && drawerPaypal}
         transferPaymentDetails={(event as any).transfer_payment_details ?? null}
-        refCode={myRefCode ?? null}
+        refCode={refCodeFromUrl ?? myRefCode ?? null}
       />
     </div>
   );

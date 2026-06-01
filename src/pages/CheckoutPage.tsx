@@ -29,8 +29,9 @@ interface OrderInfo {
     transfer_payment_details: string | null;
   };
   ticket_id: string | null;
-  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null }
-    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null }>
+  paid_event_tickets:
+    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }
+    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }>
     | null;
 }
 
@@ -74,22 +75,20 @@ const CheckoutPage: React.FC = () => {
         .from('paid_event_orders')
         .select(`id, event_id, ticket_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details ),
-                 paid_event_tickets ( name, price_pln, paypal_payment_link )`)
+                 paid_event_tickets ( name, price_pln, paypal_payment_link, payment_method )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
         navigate('/paid-events'); return;
       }
       let orderData = data as any;
-      // Defensive fallback: if embed didn't return the ticket row (RLS / cardinality
-      // edge cases), fetch it directly so PayPal link is still picked up.
       const embedded = Array.isArray(orderData.paid_event_tickets)
         ? orderData.paid_event_tickets[0]
         : orderData.paid_event_tickets;
       if (!embedded && orderData.ticket_id) {
         const { data: t } = await supabase
           .from('paid_event_tickets')
-          .select('name, price_pln, paypal_payment_link')
+          .select('name, price_pln, paypal_payment_link, payment_method')
           .eq('id', orderData.ticket_id).maybeSingle();
         if (t) orderData = { ...orderData, paid_event_tickets: t };
       }
@@ -111,14 +110,21 @@ const CheckoutPage: React.FC = () => {
   const paypalLink = ticketRow?.paypal_payment_link?.trim() || null;
   const hasPaypal = !!paypalLink && /^https?:\/\//i.test(paypalLink);
 
+  const ticketPaymentMethod = (ticketRow as any)?.payment_method ?? 'inherit';
+
   const availableMethods = useMemo<Method[]>(() => {
     if (!order) return [];
+    // Per-ticket override: when a ticket pins a method, only that one is offered.
+    if (ticketPaymentMethod === 'transfer') return ['transfer'];
+    if (ticketPaymentMethod === 'payu') return ['payu', 'blik'];
+    if (ticketPaymentMethod === 'paypal') return hasPaypal ? ['paypal'] : [];
+    // 'inherit' (or legacy null) — use event-level flags
     const list: Method[] = [];
     if (order.paid_events.payment_method_transfer) list.push('transfer');
     if (order.paid_events.payment_method_payu) { list.push('payu'); list.push('blik'); }
     if (order.paid_events.payment_method_paypal && hasPaypal) list.push('paypal');
     return list;
-  }, [order, hasPaypal]);
+  }, [order, hasPaypal, ticketPaymentMethod]);
 
   // PayPal is independent of PayU readiness — treat the page as "actionable"
   // whenever PayU is ready OR PayPal link is available.

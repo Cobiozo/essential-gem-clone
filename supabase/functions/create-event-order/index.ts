@@ -38,11 +38,16 @@ Deno.serve(async (req) => {
 
     const { data: ticket, error: tErr } = await supabase
       .from("paid_event_tickets")
-      .select("id, name, price_pln, seats_per_ticket, is_active, quantity_available, quantity_sold, sale_start, sale_end")
+      .select("id, name, price_pln, seats_per_ticket, is_active, quantity_available, quantity_sold, sale_start, sale_end, payment_method")
       .eq("id", ticketId).eq("event_id", eventId).maybeSingle();
     if (tErr || !ticket || !ticket.is_active) {
       return new Response(JSON.stringify({ error: "Bilet niedostępny" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if ((ticket as any).payment_method === 'free') {
+      return new Response(JSON.stringify({ error: "Ten bilet jest bezpłatny — użyj formularza rezerwacji." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const now = new Date();
