@@ -61,7 +61,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
           .select(`
             id, quantity, total_amount, status, created_at, email, ticket_code,
             ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
-            attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email)
+            attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)
           `)
           .eq('event_id', eventId)
           .or(orParts.join(','))
@@ -118,12 +118,11 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
   const INACTIVE = new Set(['cancelled', 'refunded', 'failed', 'expired']);
   const activeOrders = orders.filter((o: any) => !INACTIVE.has(o.status));
-  // Non-admins only ever see active orders; admins also see inactive history.
-  const visibleOrders = isAdmin ? orders : activeOrders;
+  // The "Twoje bilety na to wydarzenie" panel is the user's personal ticket view.
+  // It must ONLY ever show active/paid tickets — cancelled history belongs in the
+  // admin CMS view, never here (even for admins browsing their own /paid-events).
+  const visibleOrders = activeOrders;
   const activeTickets = activeOrders
-    .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
-  const inactiveTickets = orders
-    .filter((o: any) => INACTIVE.has(o.status))
     .reduce((sum: number, o: any) => sum + (Number(o.quantity) || 0), 0);
   const activeSeats = activeOrders.reduce(
     (sum: number, o: any) =>
@@ -218,9 +217,6 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                     <>
                       Zarezerwowałeś {activeSeats} {pluralPL(activeSeats, ['miejsce', 'miejsca', 'miejsc'])}
                       {' '}w {activeOrdersCount} {pluralPL(activeOrdersCount, ['rezerwacji', 'rezerwacjach', 'rezerwacjach'])}
-                      {isAdmin && inactiveTickets > 0 && (
-                        <span className="text-muted-foreground/80"> (+{inactiveTickets} anulowanych)</span>
-                      )}
                     </>
                   )}
                 </div>
@@ -265,9 +261,6 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         </span>
         <span className="flex items-center gap-1">
           <Badge variant="outline" className="text-[10px]">{activeTickets} {activeTickets === 1 ? 'bilet' : 'biletów'}</Badge>
-          {isAdmin && inactiveTickets > 0 && (
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">+{inactiveTickets} anulowanych</Badge>
-          )}
         </span>
       </div>
 
@@ -290,7 +283,11 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         const attendees: Attendee[] = [...(o.attendees || [])].sort((a: any, b: any) => a.seat_index - b.seat_index);
         const isInactive = INACTIVE.has(o.status);
         const canEdit = !isInactive;
-        const canShowQR = !isInactive && !!o.ticket_code && (o.status === 'paid' || o.status === 'completed' || o.status === 'confirmed');
+        // Prefer the buyer's attendee ticket_code (matches the QR/PDF sent by e-mail).
+        // Fall back to the order-level ticket_code if no per-attendee code exists.
+        const buyerAttendee = attendees.find((a: any) => a.seat_index === 1) as any;
+        const qrCode = buyerAttendee?.ticket_code || o.ticket_code;
+        const canShowQR = !isInactive && !!qrCode && (o.status === 'paid' || o.status === 'completed' || o.status === 'confirmed');
 
         return (
           <div key={o.id} className={`text-xs space-y-1.5 border-l-2 pl-2 ${isInactive ? 'border-muted-foreground/30 opacity-60' : 'border-primary/40'}`}>
@@ -310,7 +307,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                   size="sm"
                   variant="default"
                   className="h-6 px-2 text-[10px] ml-auto"
-                  onClick={() => window.open(`/ticket/${o.ticket_code}`, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(`/ticket/${qrCode}`, '_blank', 'noopener,noreferrer')}
                 >
                   <QrCode className="h-3 w-3 mr-1" /> Otwórz bilet (QR)
                 </Button>
