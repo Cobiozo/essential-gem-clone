@@ -544,18 +544,16 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
               </thead>
               <tbody>
                 {Object.keys(FIELD_LABELS).map((k) => {
-                  const onCanvas = tpl.fields.some((f) => f.key === k);
+                  const count = tpl.fields.filter((f) => f.key === k).length;
                   return (
                     <tr key={k} className="border-b last:border-b-0">
                       <td className="py-1.5 pr-3 font-mono text-foreground">{k}</td>
                       <td className="py-1.5 pr-3">{FIELD_LABELS[k]}</td>
                       <td className="py-1.5 pr-3 text-muted-foreground">{FIELD_DESCRIPTIONS[k]}</td>
                       <td className="py-1.5 text-right">
-                        {onCanvas ? (
-                          <span className="text-muted-foreground">na płótnie</span>
-                        ) : (
-                          <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>+ Dodaj</Button>
-                        )}
+                        <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>
+                          + Dodaj{count > 0 ? ` (×${count})` : ''}
+                        </Button>
                       </td>
                     </tr>
                   );
