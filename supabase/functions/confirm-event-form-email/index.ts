@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { issueFreeTicketForOrder, generateTicketCode } from "../_shared/free-event-ticket.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,118 @@ function nowStamp() {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw",
   });
+}
+
+/**
+ * Ensures a paid_event_orders row exists for a confirmed free-event form submission,
+ * then issues the ticket email (PDF + QR). Idempotent.
+ */
+async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string): Promise<void> {
+  const { data: sub } = await supabase
+    .from("event_form_submissions")
+    .select("id, event_id, email, first_name, last_name, phone, submitted_data, partner_user_id")
+    .eq("id", submissionId)
+    .maybeSingle();
+  if (!sub?.event_id || !sub.email) return;
+
+  const { data: ev } = await supabase
+    .from("paid_events")
+    .select("id, is_free, title")
+    .eq("id", sub.event_id)
+    .maybeSingle();
+  if (!ev?.is_free) return;
+
+  const submitted = (sub.submitted_data || {}) as any;
+  let orderId: string | null = submitted.order_id || null;
+
+  if (orderId) {
+    const { data: existing } = await supabase
+      .from("paid_event_orders")
+      .select("id, ticket_sent_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!existing) orderId = null;
+    else if (existing.ticket_sent_at) return;
+  }
+
+  if (!orderId) {
+    const { data: byEmail } = await supabase
+      .from("paid_event_orders")
+      .select("id, ticket_sent_at")
+      .eq("event_id", sub.event_id)
+      .eq("email", sub.email)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byEmail?.id) {
+      if (byEmail.ticket_sent_at) return;
+      orderId = byEmail.id;
+    }
+  }
+
+  if (!orderId) {
+    const { data: tickets } = await supabase
+      .from("paid_event_tickets")
+      .select("id, price_pln, is_active, deleted_at, position")
+      .eq("event_id", sub.event_id)
+      .is("deleted_at", null)
+      .order("position", { ascending: true });
+    const freeTicket = (tickets || []).find((t: any) => t.is_active && Number(t.price_pln) === 0)
+      || (tickets || []).find((t: any) => t.is_active)
+      || (tickets || [])[0];
+    if (!freeTicket) {
+      console.warn("[confirm-event-form-email] no ticket type found for event", sub.event_id);
+      return;
+    }
+
+    const ticketCode = generateTicketCode();
+    const nowIso = new Date().toISOString();
+    const { data: inserted, error: insErr } = await supabase
+      .from("paid_event_orders")
+      .insert({
+        event_id: sub.event_id,
+        ticket_id: freeTicket.id,
+        email: sub.email,
+        first_name: sub.first_name || "",
+        last_name: sub.last_name || "",
+        phone: sub.phone || null,
+        quantity: 1,
+        total_amount: 0,
+        status: "paid",
+        email_confirmed_at: nowIso,
+        ticket_code: ticketCode,
+        ticket_generated_at: nowIso,
+      })
+      .select("id")
+      .single();
+    if (insErr || !inserted) {
+      console.error("[confirm-event-form-email] failed creating free order", insErr);
+      return;
+    }
+    orderId = inserted.id;
+
+    await supabase.from("paid_event_order_attendees").insert({
+      order_id: orderId,
+      event_id: sub.event_id,
+      seat_index: 1,
+      first_name: sub.first_name || "",
+      last_name: sub.last_name || "",
+      email: sub.email,
+      ticket_code: ticketCode,
+    });
+
+    await supabase
+      .from("event_form_submissions")
+      .update({ submitted_data: { ...submitted, order_id: orderId } })
+      .eq("id", sub.id);
+  }
+
+  try {
+    const res = await issueFreeTicketForOrder(supabase, orderId!);
+    console.log("[confirm-event-form-email] issueFreeTicketForOrder", orderId, res);
+  } catch (e) {
+    console.error("[confirm-event-form-email] issueFreeTicketForOrder failed", e);
+  }
 }
 
 async function notifyAndUpdateCRM(supabase: any, submissionId: string) {
@@ -141,7 +254,19 @@ serve(async (req) => {
         await notifyAndUpdateCRM(supabase, data.submission_id);
       } catch (notifyErr) {
         console.error("[confirm-event-form-email] notify error:", notifyErr);
-        // nie failujemy całego requestu — gość ma zobaczyć potwierdzenie
+      }
+    }
+
+    // Dla wydarzeń bezpłatnych: utwórz zamówienie + wyślij maila z biletem (PDF + QR) w tle
+    if (data?.success && data?.submission_id && is_free) {
+      const ticketTask = ensureFreeOrderAndSendTicket(supabase, data.submission_id)
+        .then(() => console.log("[confirm-event-form-email] free-ticket flow finished", data.submission_id))
+        .catch((e) => console.error("[confirm-event-form-email] ticket flow failed", e));
+      try {
+        // @ts-ignore EdgeRuntime is provided by Supabase
+        EdgeRuntime.waitUntil(ticketTask);
+      } catch {
+        void ticketTask;
       }
     }
 
