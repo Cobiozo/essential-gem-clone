@@ -115,6 +115,7 @@ serve(async (req) => {
     let event_id: string | null = null;
     let banner_url: string | null = null;
     let event_title: string | null = null;
+    let is_free: boolean | null = null;
     if (data?.success && data?.submission_id) {
       const { data: sub } = await supabase
         .from("event_form_submissions")
@@ -125,11 +126,12 @@ serve(async (req) => {
         event_id = sub.event_id;
         const { data: ev } = await supabase
           .from("paid_events")
-          .select("banner_url, title")
+          .select("banner_url, title, is_free")
           .eq("id", sub.event_id)
           .maybeSingle();
         banner_url = ev?.banner_url ?? null;
         event_title = ev?.title ?? null;
+        is_free = ev?.is_free ?? null;
       }
     }
 
@@ -144,7 +146,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ...data, event_id, banner_url, event_title }),
+      JSON.stringify({ ...data, event_id, banner_url, event_title, is_free }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e: any) {
