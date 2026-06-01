@@ -33,6 +33,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const [filter, setFilter] = useState<string>('all');
   const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
+  const [editOrder, setEditOrder] = useState<any | null>(null);
 
   const { data: rawSubmissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
