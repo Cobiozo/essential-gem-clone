@@ -500,7 +500,7 @@ export const TicketVerification: React.FC = () => {
                   const code = extractCode(raw);
                   setScannerOpen(false);
                   setTicketCode(code);
-                  verifyTicket(code, false);
+                  verifyTicket(code, 'verify');
                 }}
                 onError={(err) => {
                   console.error('[QR Scanner]', err);
