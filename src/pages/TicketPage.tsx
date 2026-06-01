@@ -68,13 +68,32 @@ const TicketPage: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!code) return;
-    const { data, error } = await supabase
-      .from('paid_event_orders')
-      .select(`id, status, email, first_name, last_name, total_amount, ticket_code, ticket_pdf_url, payment_method, payment_provider, created_at,
+    const orderSelect = `id, status, email, first_name, last_name, total_amount, ticket_code, ticket_pdf_url, payment_method, payment_provider, created_at,
                paid_events ( id, title, slug, event_date, location, is_online, banner_url, transfer_payment_details ),
-               paid_event_tickets ( name )`)
+               paid_event_tickets ( name )`;
+    // Primary lookup: order-level ticket_code.
+    let { data, error } = await supabase
+      .from('paid_event_orders')
+      .select(orderSelect)
       .eq('ticket_code', code)
       .maybeSingle();
+    // Fallback: per-attendee ticket_code (this is the code embedded in the QR / e-mailed PDF).
+    if (!data) {
+      const { data: att } = await supabase
+        .from('paid_event_order_attendees')
+        .select('order_id')
+        .eq('ticket_code', code)
+        .maybeSingle();
+      if (att?.order_id) {
+        const res = await supabase
+          .from('paid_event_orders')
+          .select(orderSelect)
+          .eq('id', att.order_id)
+          .maybeSingle();
+        data = res.data as any;
+        error = res.error as any;
+      }
+    }
     if (error || !data) { setError('Nie znaleziono biletu o podanym kodzie.'); setLoading(false); return; }
     setOrder(data as unknown as OrderInfo);
     const { data: att } = await supabase
