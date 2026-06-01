@@ -355,19 +355,54 @@ serve(async (req) => {
             ticketViewUrl: `${publicBaseUrl}/ticket/${ticketCode}`,
           });
 
-          await sendSmtp(
-            smtpSettings,
-            order.email,
-            `🎟️ Twój bilet – ${event.title}`,
-            html,
-            pdfBytes ? { filename: `bilet-${ticketCode}.pdf`, bytes: pdfBytes, contentType: "application/pdf" } : undefined,
-          );
+          const subject = `🎟️ Twój bilet – ${event.title}`;
+          let sent = false;
+          try {
+            await sendSmtp(
+              smtpSettings,
+              order.email,
+              subject,
+              html,
+              pdfBytes ? { filename: `bilet-${ticketCode}.pdf`, bytes: pdfBytes, contentType: "application/pdf" } : undefined,
+            );
+            sent = true;
+          } catch (primaryErr) {
+            console.error("[confirm-free-event-reservation] primary send failed, retrying without attachment", primaryErr);
+            // Fallback: resend without the PDF attachment so the user still receives the
+            // ticket info and a download link (SMTP host may time out on large attachments).
+            try {
+              const htmlNoAttach = html.replace(
+                'Bilet (PDF z kodem QR) znajduje się w załączniku tej wiadomości. Możesz też pobrać go online:',
+                'Bilet (PDF z kodem QR) jest dostępny online — kliknij przycisk poniżej, aby go otworzyć i pobrać:'
+              );
+              await sendSmtp(smtpSettings, order.email, subject, htmlNoAttach);
+              sent = true;
+              console.log(`[confirm-free-event-reservation] ticket email sent WITHOUT attachment to ${order.email}`);
+            } catch (fallbackErr) {
+              console.error("[confirm-free-event-reservation] fallback send also failed", fallbackErr);
+              // Notify admins that the ticket email could not be delivered.
+              try {
+                const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+                const failNotifs = (admins || []).map((a: any) => ({
+                  user_id: a.user_id,
+                  notification_type: "ticket_email_failed",
+                  source_module: "paid_events",
+                  title: "⚠️ Nie udało się wysłać maila z biletem",
+                  message: `Bilet ${ticketCode} dla ${order.email} (${event.title}) nie został wysłany. Sprawdź ustawienia SMTP lub użyj „Wyślij ponownie".`,
+                  link: `/admin?tab=paid-events`,
+                  metadata: { order_id: order.id, event_id: order.event_id, ticket_code: ticketCode, error: String(fallbackErr) },
+                }));
+                if (failNotifs.length > 0) await supabase.from("user_notifications").insert(failNotifs);
+              } catch (_) { /* ignore */ }
+            }
+          }
 
-          await supabase.from("paid_event_orders")
-            .update({ ticket_sent_at: new Date().toISOString() })
-            .eq("id", order.id);
-
-          console.log(`[confirm-free-event-reservation] ticket email sent to ${order.email}`);
+          if (sent) {
+            await supabase.from("paid_event_orders")
+              .update({ ticket_sent_at: new Date().toISOString() })
+              .eq("id", order.id);
+            console.log(`[confirm-free-event-reservation] ticket email sent to ${order.email}`);
+          }
         }
       } catch (mailErr) {
         console.error("[confirm-free-event-reservation] email send failed", mailErr);
