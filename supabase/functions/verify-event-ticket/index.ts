@@ -22,14 +22,21 @@ Deno.serve(async (req) => {
     if (authHeader) {
       const anonClient = createClient(supabaseUrl, supabaseAnonKey);
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await anonClient.auth.getUser(token);
+      const { data: { user }, error: userErr } = await anonClient.auth.getUser(token);
+      if (userErr) console.log('auth.getUser error:', userErr.message);
       if (user) {
         const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-        const { data: roleRow } = await serviceClient
+        const { data: roleRow, error: roleErr } = await serviceClient
           .from('user_roles').select('role')
           .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+        if (roleErr) console.log('user_roles query error:', roleErr.message);
         isAdmin = !!roleRow;
+        console.log(`[auth] user=${user.id} isAdmin=${isAdmin}`);
+      } else {
+        console.log('[auth] no user resolved from token');
       }
+    } else {
+      console.log('[auth] no Authorization header');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
