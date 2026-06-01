@@ -378,6 +378,24 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!qrDialogCode} onOpenChange={(o) => !o && setQrDialogCode(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Bilet</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="bg-white p-4 rounded-lg">
+              {qrDialogCode && (
+                <QRCodeSVG value={qrDialogCode} size={256} level="H" includeMargin />
+              )}
+            </div>
+            <div className="font-mono tracking-wider text-sm text-foreground break-all text-center select-all">
+              {qrDialogCode}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
