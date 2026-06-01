@@ -1,33 +1,32 @@
-## Problem
+## Diagnoza
 
-Na ekranie **Eventy → Weryfikacja biletów** po wybraniu wydarzenia „Kompleksowe szkolenie TEST" pojawia się czerwony toast:
+Błąd nadal pochodzi z wywołania Edge Function `admin-list-event-orders` w zakładce **Weryfikacja biletów**. Dane w bazie są poprawne: wydarzenie „Kompleksowe szkolenie TEST” ma 2 opłacone zamówienia i po 1 uczestniku w każdym. Problem jest więc po stronie sposobu pobierania danych/autoryzacji funkcji, nie po stronie braku rejestracji.
 
-> Błąd listy uczestników — Edge Function returned a non-2xx status code
+W obecnym kodzie frontend pokazuje tylko ogólny komunikat Supabase: `Edge Function returned a non-2xx status code`, więc nie widać, czy realnie jest to 401/403/500. Logi funkcji pokazują bootowanie, ale brak szczegółowego logu przy odrzuceniu autoryzacji.
 
-W bazie wydarzenie ma 2 zamówienia (`paid_event_orders`, status `paid`), więc lista powinna się załadować. Funkcja `admin-list-event-orders` zwraca błąd (nie-2xx) zamiast danych. Logi edge nie zawierają szczegółów (brak `console.error` na poziomie zapytania), a wbudowany select PostgREST z osadzonymi tabelami (`paid_event_tickets(name)`, `paid_event_order_attendees(...)`) maskuje prawdziwą przyczynę.
+## Plan naprawy
 
-## Zakres naprawy (tylko funkcja edge + drobny refactor frontu)
+1. **Dodać czytelne logowanie i komunikaty błędów w `admin-list-event-orders`**
+   - Zalogować etap: start requestu, brak tokenu, niepoprawny token, brak roli admin, błąd zapytań.
+   - Zwracać JSON z kodem błędu (`unauthorized`, `forbidden`, `orders_query_failed`) zamiast samego ogólnego statusu.
 
-### 1. `supabase/functions/admin-list-event-orders/index.ts`
+2. **Wzmocnić frontend `TicketVerification.tsx`**
+   - Przy błędzie Edge Function odczytać treść odpowiedzi HTTP z `FunctionsHttpError.context`.
+   - Pokazywać prawdziwy komunikat administracyjny zamiast ogólnego `Edge Function returned a non-2xx status code`.
+   - Dzięki temu, jeśli problemem jest sesja/rola, będzie to widoczne wprost.
 
-- Rozbić jedno duże zapytanie PostgREST z embedami na **dwa proste zapytania** (eliminuje wszelkie problemy z rozpoznawaniem relacji FK przez PostgREST):
-  1. `paid_event_orders` — same kolumny, bez embedów.
-  2. `paid_event_order_attendees` — `select(...).in('order_id', orderIds)`.
-- Po stronie funkcji złączyć attendees do odpowiednich zamówień (`paid_event_order_attendees: AttendeeRow[]`) i zwrócić strukturę identyczną jak dotychczas, żeby front (`TicketVerification.tsx` i `EventFormsList.tsx`) działał bez zmian.
-- Dodać pełniejsze `console.error` z `error.code` / `error.details` / `error.hint`, żeby kolejne błędy były widoczne w logach edge.
-- Zachować obecny `verifyAdmin` + odpowiedzi 401/403/400.
+3. **Dodać bezpieczny fallback bez Edge Function dla listy uczestników**
+   - Jeśli funkcja nadal zwróci błąd, frontend spróbuje pobrać `paid_event_orders` i `paid_event_order_attendees` bezpośrednio przez istniejące RLS dla zalogowanego admina.
+   - Dane zostaną scalone do tej samej struktury co obecnie, żeby lista uczestników działała bez zmiany UI.
+   - Jeśli fallback zadziała, użytkownik od razu zobaczy 2 uczestników zamiast pustej listy.
 
-### 2. Redeploy funkcji
+4. **Wdrożyć ponownie Edge Function i zweryfikować**
+   - Wdrożyć `admin-list-event-orders`.
+   - Sprawdzić funkcję dla wydarzenia `Kompleksowe szkolenie TEST`.
+   - Oczekiwany efekt: w **Lista uczestników** ma być `2 zarejestrowanych`, a toast błędu ma zniknąć albo zawierać konkretną przyczynę, jeśli sesja admina jest niepoprawna.
 
-- `deploy_edge_functions(["admin-list-event-orders"])` po zapisaniu zmian.
+## Pliki do zmiany
 
-### 3. Walidacja
-
-- Sprawdzić logi `admin-list-event-orders` zaraz po wdrożeniu (czy boot przechodzi czysto).
-- Poprosić użytkownika o odświeżenie zakładki — lista uczestników powinna pokazać 2 wpisy dla „Kompleksowe szkolenie TEST".
-
-## Czego NIE zmieniam
-
-- `EventFormsList.tsx`, `EventFormConfirmPage.tsx`, `confirm-event-form-email/index.ts` — pozostają nietknięte (nie dotyczą tego błędu).
-- Schemat bazy, RLS, granty — nie ruszamy.
-- UI `TicketVerification.tsx` — bez zmian, wyłącznie poprawka backendowa.
+- `supabase/functions/admin-list-event-orders/index.ts`
+- `supabase/functions/_shared/admin-auth.ts` — tylko jeżeli będzie potrzebne doprecyzowanie logów autoryzacji
+- `src/components/admin/paid-events/TicketVerification.tsx`
