@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, MailX, Search, FileSpreadsheet, UserPlus, UserCheck, User as UserIcon, Shield, Trash2, Ticket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
 import * as XLSX from 'xlsx-js-style';
@@ -33,7 +33,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
 
-  const { data: submissions = [], isLoading } = useQuery({
+  const { data: rawSubmissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,6 +45,61 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       return data as any[];
     },
   });
+
+  // Also fetch paid_event_orders for the same event so that reservations made
+  // by logged-in partners (which write to paid_event_orders, not
+  // event_form_submissions) appear on the same list.
+  const eventId = form.event_id as string | undefined;
+  const { data: rawOrders = [] } = useQuery({
+    queryKey: ['event-form-submissions-orders', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_event_orders')
+        .select('id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, created_at')
+        .eq('event_id', eventId!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const mapOrderStatus = (s: string): string => {
+    if (s === 'paid' || s === 'confirmed' || s === 'completed') return 'paid';
+    if (s === 'cancelled') return 'cancelled';
+    if (s === 'refunded') return 'refunded';
+    return 'pending';
+  };
+
+  // Normalize orders to the submission shape used by the table.
+  const orderRows = (rawOrders as any[]).map((o) => ({
+    id: `order:${o.id}`,
+    __source: 'order' as const,
+    __orderId: o.id,
+    __orderUserId: o.user_id as string | null,
+    __ticketCode: o.ticket_code as string | null,
+    created_at: o.created_at,
+    first_name: o.first_name,
+    last_name: o.last_name,
+    email: o.email,
+    phone: o.phone,
+    payment_status: mapOrderStatus(o.status),
+    email_status: o.email_confirmed_at ? 'confirmed' : 'sent',
+    email_confirmed_at: o.email_confirmed_at,
+    cancelled_at: o.status === 'cancelled' ? o.created_at : null,
+    cancelled_by: null,
+    submitted_data: {},
+    partner_user_id: null,
+  }));
+
+  const submissions = React.useMemo(
+    () =>
+      [...(rawSubmissions as any[]), ...orderRows].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [rawSubmissions, orderRows],
+  );
+
 
   // Fetch partner profiles for badges
   const partnerIds = Array.from(new Set(submissions.map(s => s.partner_user_id).filter(Boolean))) as string[];
@@ -87,7 +142,10 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
   const registeredEmails = new Set(Object.keys(submitterProfilesByEmail));
-  const isPartnerSubmission = (s: any) => registeredEmails.has((s.email || '').toLowerCase());
+  const isPartnerSubmission = (s: any) => {
+    if (s.__source === 'order' && s.__orderUserId) return true;
+    return registeredEmails.has((s.email || '').toLowerCase());
+  };
 
   // Resolve upline profiles by eq_id so we can render full name + email.
   const uplineEqIds = Array.from(new Set(
@@ -652,7 +710,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                           )}
                           {isPartnerRow ? (
                             <div className="text-[10px] text-muted-foreground italic">Bezpośredni upline</div>
-                          ) : (
+                          ) : s.__source === 'order' ? null : (
                             <Button
                               size="sm"
                               variant="ghost"
@@ -665,6 +723,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                         </div>
                       ) : isPartnerRow ? (
                         <span className="text-xs text-muted-foreground italic">— brak uplinu —</span>
+                      ) : s.__source === 'order' ? (
+                        <span className="text-xs text-muted-foreground italic">—</span>
                       ) : (
                         <Button
                           size="sm"
@@ -677,38 +737,57 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       )}
                     </TableCell>
                     <TableCell className="text-right space-x-1">
-                      {s.payment_status !== 'paid' && (
-                        <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        </Button>
+                      {s.__source === 'order' ? (
+                        <>
+                          {s.__ticketCode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Otwórz bilet"
+                              asChild
+                            >
+                              <a href={`/ticket/${s.__ticketCode}`} target="_blank" rel="noreferrer">
+                                <Ticket className="w-4 h-4 text-primary" />
+                              </a>
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {s.payment_status !== 'paid' && (
+                            <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            </Button>
+                          )}
+                          {s.payment_status === 'paid' && (
+                            <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {s.payment_status !== 'cancelled' && (
+                            <Button size="sm" variant="ghost" title="Anuluj zgłoszenie" onClick={() => {
+                              if (confirm('Anulować to zgłoszenie?')) updatePayment.mutate({ submissionId: s.id, paymentStatus: 'cancelled' });
+                            }}>
+                              <XCircle className="w-4 h-4 text-destructive" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Usuń zgłoszenie całkowicie"
+                            onClick={() => {
+                              const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
+                              if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
+                              deleteSubmission.mutate(s.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </>
                       )}
-                      {s.payment_status === 'paid' && (
-                        <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
-                          <RotateCcw className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {s.payment_status !== 'cancelled' && (
-                        <Button size="sm" variant="ghost" title="Anuluj zgłoszenie" onClick={() => {
-                          if (confirm('Anulować to zgłoszenie?')) updatePayment.mutate({ submissionId: s.id, paymentStatus: 'cancelled' });
-                        }}>
-                          <XCircle className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" title="Wyślij email ponownie" onClick={() => resendEmail.mutate(s.id)}>
-                        <Mail className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Usuń zgłoszenie całkowicie"
-                        onClick={() => {
-                          const personLabel = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email;
-                          if (!window.confirm(`Usunąć całkowicie zgłoszenie ${personLabel} (${s.email})?\n\nTej operacji nie można cofnąć.`)) return;
-                          deleteSubmission.mutate(s.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 );
