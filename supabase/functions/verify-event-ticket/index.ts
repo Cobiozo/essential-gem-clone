@@ -5,11 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface VerifyRequest {
-  ticketCode: string;
-  markAsCheckedIn?: boolean;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -20,30 +15,28 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify user is authenticated (for admin check-in)
+    // Verify user is authenticated (for admin check-in) via user_roles
     const authHeader = req.headers.get('Authorization');
     let isAdmin = false;
 
     if (authHeader) {
       const anonClient = createClient(supabaseUrl, supabaseAnonKey);
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-
-      if (!authError && user) {
-        // Check if user is admin
+      const { data: { user } } = await anonClient.auth.getUser(token);
+      if (user) {
         const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-        const { data: profile } = await serviceClient
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        isAdmin = profile?.role === 'admin';
+        const { data: roleRow } = await serviceClient
+          .from('user_roles').select('role')
+          .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+        isAdmin = !!roleRow;
       }
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { ticketCode, markAsCheckedIn }: VerifyRequest = await req.json();
+    const body = await req.json();
+    // Accept both camelCase and snake_case for backwards compatibility
+    const ticketCode: string | undefined = body.ticketCode ?? body.ticket_code;
+    const markAsCheckedIn: boolean = !!(body.markAsCheckedIn ?? body.perform_check_in);
 
     if (!ticketCode) {
       return new Response(
