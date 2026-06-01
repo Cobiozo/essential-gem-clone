@@ -334,6 +334,19 @@ const PaidEventPage: React.FC = () => {
     }
   }, []);
 
+  // Filter tickets by audience (logged_in / guest_only / all).
+  // guest_only = unauthenticated visitor that came in through a partner link (?ref=...).
+  const visibleTickets = useMemo(() => {
+    return tickets.filter((t) => {
+      const aud = t.audience ?? 'all';
+      if (isAdmin) return true; // admin always sees everything for preview
+      if (aud === 'all') return true;
+      if (aud === 'logged_in') return !!user;
+      if (aud === 'guest_only') return !user && !!refCodeFromUrl;
+      return true;
+    });
+  }, [tickets, user, isAdmin, refCodeFromUrl]);
+
   // Handle purchase
   const handlePurchase = useCallback((ticketId: string) => {
     setSelectedTicketId(ticketId);
@@ -351,8 +364,20 @@ const PaidEventPage: React.FC = () => {
       price: ticket.price,
       seats_per_ticket: ticket.seats_per_ticket,
       available_quantity: ticket.available_quantity,
+      payment_method: ticket.payment_method,
     };
   }, [selectedTicketId, tickets]);
+
+  // Effective payment config for the selected ticket — overrides event-level when ticket pins a method.
+  const eventIsFree = (event as any)?.is_free ?? false;
+  const eventPayu = (event as any)?.payment_method_payu ?? true;
+  const eventTransfer = (event as any)?.payment_method_transfer ?? false;
+  const eventPaypal = (event as any)?.payment_method_paypal ?? false;
+  const ticketPm = selectedTicket?.payment_method ?? 'inherit';
+  const drawerIsFree = ticketPm === 'free' || (ticketPm === 'inherit' && eventIsFree);
+  const drawerPayu = ticketPm === 'payu' || (ticketPm === 'inherit' && eventPayu);
+  const drawerTransfer = ticketPm === 'transfer' || (ticketPm === 'inherit' && eventTransfer);
+  const drawerPaypal = ticketPm === 'paypal' || (ticketPm === 'inherit' && eventPaypal);
 
   // Loading state
   if (eventLoading) {
