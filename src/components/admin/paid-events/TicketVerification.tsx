@@ -520,7 +520,7 @@ export const TicketVerification: React.FC = () => {
                     const name = `${o.first_name || ''} ${o.last_name || ''}`.trim() || '—';
                     return (
                       <div
-                        key={o.id}
+                        key={o.key}
                         className={`flex items-center gap-3 p-3 rounded-md border ${o.checked_in ? 'bg-green-500/5 border-green-500/30' : 'bg-card'}`}
                       >
                         <div className="shrink-0">
