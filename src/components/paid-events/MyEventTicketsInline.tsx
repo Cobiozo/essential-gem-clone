@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   const [editAttendee, setEditAttendee] = useState<Attendee | null>(null);
   const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '' });
   const [saving, setSaving] = useState(false);
+  const [qrDialogCode, setQrDialogCode] = useState<string | null>(null);
 
   const authEmail = user?.email?.toLowerCase() ?? null;
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
@@ -307,7 +309,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                   size="sm"
                   variant="default"
                   className="h-6 px-2 text-[10px] ml-auto"
-                  onClick={() => window.open(`/ticket/${qrCode}`, '_blank', 'noopener,noreferrer')}
+                  onClick={() => setQrDialogCode(qrCode)}
                 >
                   <QrCode className="h-3 w-3 mr-1" /> Otwórz bilet (QR)
                 </Button>
@@ -374,6 +376,24 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
               {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Zapisywanie...</> : 'Zapisz'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!qrDialogCode} onOpenChange={(o) => !o && setQrDialogCode(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Bilet</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="bg-white p-4 rounded-lg">
+              {qrDialogCode && (
+                <QRCodeSVG value={qrDialogCode} size={256} level="H" includeMargin />
+              )}
+            </div>
+            <div className="font-mono tracking-wider text-sm text-foreground break-all text-center select-all">
+              {qrDialogCode}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
