@@ -5,11 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface VerifyRequest {
-  ticketCode: string;
-  markAsCheckedIn?: boolean;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -20,30 +15,28 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify user is authenticated (for admin check-in)
+    // Verify user is authenticated (for admin check-in) via user_roles
     const authHeader = req.headers.get('Authorization');
     let isAdmin = false;
 
     if (authHeader) {
       const anonClient = createClient(supabaseUrl, supabaseAnonKey);
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-
-      if (!authError && user) {
-        // Check if user is admin
+      const { data: { user } } = await anonClient.auth.getUser(token);
+      if (user) {
         const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-        const { data: profile } = await serviceClient
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        isAdmin = profile?.role === 'admin';
+        const { data: roleRow } = await serviceClient
+          .from('user_roles').select('role')
+          .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+        isAdmin = !!roleRow;
       }
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { ticketCode, markAsCheckedIn }: VerifyRequest = await req.json();
+    const body = await req.json();
+    // Accept both camelCase and snake_case for backwards compatibility
+    const ticketCode: string | undefined = body.ticketCode ?? body.ticket_code;
+    const markAsCheckedIn: boolean = !!(body.markAsCheckedIn ?? body.perform_check_in);
 
     if (!ticketCode) {
       return new Response(
@@ -96,11 +89,12 @@ Deno.serve(async (req) => {
       order = ord;
     }
 
-    // Check payment status
-    if (order.status !== 'paid') {
+    // Accept paid OR confirmed (free events) as valid statuses
+    const VALID_STATUSES = new Set(['paid', 'confirmed']);
+    if (!VALID_STATUSES.has(order.status)) {
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
+        JSON.stringify({
+          valid: false,
           error: 'Ticket not paid',
           code: 'NOT_PAID',
           status: order.status
@@ -130,27 +124,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check event date (allow check-in from 2 hours before to end of event)
+    // Event time bounds — only enforced when actually performing check-in
     const now = new Date();
     const eventDate = new Date(order.paid_events.event_date);
     const eventEndDate = order.paid_events.event_end_date
       ? new Date(order.paid_events.event_end_date)
       : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
-
     const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000);
 
-    if (now < checkInStart) {
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (now > eventEndDate) {
-      return new Response(
-        JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (markAsCheckedIn) {
+      if (now < checkInStart) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (now > eventEndDate) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Mark as checked in if requested and user is admin
@@ -184,10 +178,13 @@ Deno.serve(async (req) => {
     }
 
     // Return valid ticket info
+    const ticketRel = (order as any).paid_event_tickets;
     return new Response(
       JSON.stringify({
         valid: true,
         checkedIn: markAsCheckedIn && isAdmin,
+        checkInStartsAt: checkInStart.toISOString(),
+        eventEndedAt: eventEndDate.toISOString(),
         order: {
           id: order.id,
           quantity: order.quantity,
@@ -212,11 +209,11 @@ Deno.serve(async (req) => {
           location: order.paid_events.location,
           isOnline: order.paid_events.is_online,
         },
-        ticket: {
-          id: order.paid_event_tickets.id,
-          name: order.paid_event_tickets.name,
-          description: order.paid_event_tickets.description,
-        },
+        ticket: ticketRel ? {
+          id: ticketRel.id,
+          name: ticketRel.name,
+          description: ticketRel.description,
+        } : null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

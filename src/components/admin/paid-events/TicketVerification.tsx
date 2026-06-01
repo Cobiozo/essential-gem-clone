@@ -25,6 +25,7 @@ interface VerificationResult {
     checked_in_at: string | null;
   };
   checked_in?: boolean;
+  checkInStartsAt?: string | null;
 }
 
 export const TicketVerification: React.FC = () => {
@@ -66,37 +67,50 @@ export const TicketVerification: React.FC = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token || ''}`,
           },
-          body: JSON.stringify({ 
-            ticket_code: code.trim(),
-            perform_check_in: performCheckIn 
+          body: JSON.stringify({
+            ticketCode: code.trim(),
+            markAsCheckedIn: performCheckIn,
           }),
         }
       );
 
       const data = await response.json();
-      
-      if (!response.ok) {
+
+      if (!response.ok || data.valid === false) {
         setResult({
           valid: false,
           message: data.error || 'Błąd weryfikacji biletu',
         });
-        toast({ 
-          title: 'Bilet nieprawidłowy', 
+        toast({
+          title: 'Bilet nieprawidłowy',
           description: data.error,
-          variant: 'destructive' 
+          variant: 'destructive',
         });
       } else {
+        const buyerName = [data.attendee?.firstName, data.attendee?.lastName].filter(Boolean).join(' ').trim()
+          || [data.buyer?.firstName, data.buyer?.lastName].filter(Boolean).join(' ').trim()
+          || '—';
+        const mapped = {
+          ticket_code: data.order?.ticketCode || code.trim(),
+          buyer_name: buyerName,
+          buyer_email: data.attendee?.email || data.buyer?.email || '',
+          event_title: data.event?.title || '',
+          event_date: data.event?.date || '',
+          is_checked_in: !!data.checkedIn,
+          checked_in_at: data.checkedIn ? new Date().toISOString() : null,
+        };
         setResult({
           valid: true,
-          message: data.message || 'Bilet prawidłowy',
-          ticket: data.ticket,
-          checked_in: data.checked_in,
+          message: 'Bilet prawidłowy',
+          ticket: mapped,
+          checked_in: !!data.checkedIn,
+          checkInStartsAt: data.checkInStartsAt || null,
         });
-        
-        if (data.checked_in) {
-          toast({ 
-            title: 'Check-in wykonany!', 
-            description: `Zarejestrowano wejście dla: ${data.ticket?.buyer_name}` 
+
+        if (data.checkedIn) {
+          toast({
+            title: 'Check-in wykonany!',
+            description: `Zarejestrowano wejście dla: ${buyerName}`,
           });
         }
       }
@@ -277,10 +291,18 @@ export const TicketVerification: React.FC = () => {
                       )}
                     </Badge>
                   ) : (
-                    <Button onClick={handleCheckIn} size="lg" className="w-full">
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Wykonaj check-in
-                    </Button>
+                    <>
+                      <Button onClick={handleCheckIn} size="lg" className="w-full">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Wykonaj check-in
+                      </Button>
+                      {result.checkInStartsAt && new Date(result.checkInStartsAt) > new Date() && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Bilet ważny. Check-in możliwy od{' '}
+                          {format(new Date(result.checkInStartsAt), 'dd MMMM yyyy, HH:mm', { locale: pl })}.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </>

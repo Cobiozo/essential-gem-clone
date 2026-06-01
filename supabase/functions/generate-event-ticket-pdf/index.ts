@@ -124,11 +124,15 @@ Deno.serve(async (req) => {
       const pdfBytes = await renderTicket({
         firstName: "Jan",
         lastName: "Kowalski",
+        email: "jan.kowalski@example.com",
+        phone: "+48 123 456 789",
         ticketCode: "PODGLĄD-XXXX",
         ticketName: "Bilet testowy",
         seatNumber: "1",
+        orderNumber: "PODGLĄD",
         eventTitle: event?.title || "Wydarzenie",
         eventDate: formatPlDate(event?.event_date || null),
+        eventEndDate: "",
         eventLocation: event?.location || "",
         qrUrl: `${APP_URL}/ticket/PREVIEW-XXXX`,
         template: (template as TemplateRow | null),
@@ -148,7 +152,7 @@ Deno.serve(async (req) => {
     // Load order + event + ticket + attendees
     const { data: order, error: oErr } = await supabase
       .from("paid_event_orders")
-      .select(`*, paid_events ( id, title, event_date, location, slug ), paid_event_tickets ( name )`)
+      .select(`*, paid_events ( id, title, event_date, event_end_date, location, slug ), paid_event_tickets ( name )`)
       .eq("id", orderId).single();
     if (oErr || !order) {
       return new Response(JSON.stringify({ error: "Order not found" }), {
@@ -184,11 +188,15 @@ Deno.serve(async (req) => {
       const pdfBytes = await renderTicket({
         firstName: a.first_name || "",
         lastName: a.last_name || "",
+        email: a.email || order.email || "",
+        phone: order.phone || "",
         ticketCode: code,
         ticketName: (order as any).paid_event_tickets?.name || "",
         seatNumber: String(a.seat_index || 1),
+        orderNumber: (order as any).order_number || String(order.id).slice(0, 8).toUpperCase(),
         eventTitle: (order as any).paid_events?.title || "",
         eventDate: formatPlDate((order as any).paid_events?.event_date || null),
+        eventEndDate: formatPlDate((order as any).paid_events?.event_end_date || null),
         eventLocation: (order as any).paid_events?.location || "",
         qrUrl: `${APP_URL}/ticket/${code}`,
         template: (template as TemplateRow | null),
@@ -229,11 +237,15 @@ Deno.serve(async (req) => {
 async function renderTicket(args: {
   firstName: string;
   lastName: string;
+  email?: string;
+  phone?: string;
   ticketCode: string;
   ticketName: string;
   seatNumber: string;
+  orderNumber?: string;
   eventTitle: string;
   eventDate: string;
+  eventEndDate?: string;
   eventLocation: string;
   qrUrl: string;
   template: TemplateRow | null;
@@ -298,11 +310,16 @@ async function renderTicket(args: {
     switch (key) {
       case "firstName":     return args.firstName;
       case "lastName":      return args.lastName;
+      case "fullName":      return `${args.firstName || ""} ${args.lastName || ""}`.trim();
+      case "email":         return args.email || "";
+      case "phone":         return args.phone || "";
       case "ticketCode":    return args.ticketCode;
       case "ticketName":    return args.ticketName;
       case "seatNumber":    return `Miejsce ${args.seatNumber}`;
+      case "orderNumber":   return args.orderNumber || "";
       case "eventTitle":    return args.eventTitle;
       case "eventDate":     return args.eventDate;
+      case "eventEndDate":  return args.eventEndDate || "";
       case "eventLocation": return args.eventLocation;
       default:              return "";
     }

@@ -29,14 +29,36 @@ interface TemplateState {
 
 const FIELD_LABELS: Record<string, string> = {
   eventTitle: 'Tytuł wydarzenia',
-  eventDate: 'Data',
+  eventDate: 'Data rozpoczęcia',
+  eventEndDate: 'Data zakończenia',
   eventLocation: 'Lokalizacja',
   firstName: 'Imię',
   lastName: 'Nazwisko',
+  fullName: 'Imię i nazwisko',
+  email: 'E-mail uczestnika',
+  phone: 'Telefon uczestnika',
   ticketName: 'Nazwa biletu',
   ticketCode: 'Numer biletu',
+  orderNumber: 'Numer zamówienia',
   seatNumber: 'Numer miejsca',
   qr: 'Kod QR',
+};
+
+const FIELD_DESCRIPTIONS: Record<string, string> = {
+  eventTitle: 'Pełny tytuł wydarzenia',
+  eventDate: 'Data i godzina rozpoczęcia (PL)',
+  eventEndDate: 'Data i godzina zakończenia (PL)',
+  eventLocation: 'Miasto / adres / online',
+  firstName: 'Imię uczestnika z rezerwacji',
+  lastName: 'Nazwisko uczestnika z rezerwacji',
+  fullName: 'Imię + nazwisko w jednej linii',
+  email: 'Adres e-mail z rezerwacji',
+  phone: 'Numer telefonu z rezerwacji',
+  ticketName: 'Nazwa rodzaju biletu',
+  ticketCode: 'Unikalny kod biletu (np. EVJT5GJXJVYJ)',
+  orderNumber: 'Identyfikator zamówienia',
+  seatNumber: 'Numer miejsca (bilety grupowe)',
+  qr: 'Kod QR z linkiem do weryfikacji biletu',
 };
 
 const DEFAULT_TEMPLATE: TemplateState = {
@@ -121,13 +143,24 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     }
     setUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-      const path = `templates/${eventId}/bg.${ext}`;
-      const { error: upErr } = await supabase.storage.from('event-tickets')
-        .upload(path, file, { contentType: file.type, upsert: true });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from('event-tickets').getPublicUrl(path);
-      const url = `${pub.publicUrl}?t=${Date.now()}`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('eventId', eventId);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-ticket-template-bg`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: fd,
+        }
+      );
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json?.error || `HTTP ${resp.status}`);
+      const url: string = json.url;
       const img = new Image();
       img.onload = async () => {
         const next: TemplateState = {
@@ -390,16 +423,47 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         </Card>
       )}
 
-      {missingFields.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Dodaj pole</CardTitle></CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {missingFields.map((k) => (
-              <Button key={k} size="sm" variant="outline" onClick={() => addField(k)}>+ {FIELD_LABELS[k]}</Button>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Legenda skrótów (auto-podstawiane dane)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted-foreground border-b">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">Klucz</th>
+                  <th className="py-1 pr-3 font-medium">Pole</th>
+                  <th className="py-1 pr-3 font-medium">Co podstawia system</th>
+                  <th className="py-1 font-medium text-right">Akcja</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(FIELD_LABELS).map((k) => {
+                  const onCanvas = tpl.fields.some((f) => f.key === k);
+                  return (
+                    <tr key={k} className="border-b last:border-b-0">
+                      <td className="py-1.5 pr-3 font-mono text-foreground">{k}</td>
+                      <td className="py-1.5 pr-3">{FIELD_LABELS[k]}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{FIELD_DESCRIPTIONS[k]}</td>
+                      <td className="py-1.5 text-right">
+                        {onCanvas ? (
+                          <span className="text-muted-foreground">na płótnie</span>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>+ Dodaj</Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Wartości są podstawiane automatycznie przy generowaniu PDF biletu z danych zamówienia/wydarzenia.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="flex gap-2 sticky bottom-0 bg-background/95 backdrop-blur p-3 border-t -mx-4">
         <Button onClick={save} disabled={saving} className="flex-1">
