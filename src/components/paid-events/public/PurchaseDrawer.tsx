@@ -171,7 +171,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   // When the buyer already has their own ticket for this event, EVERY seat is for a guest.
   // Otherwise, seat #1 is the buyer themselves and only the remaining seats are extras.
-  const buyerIsAttendee = !hasOwnTicket;
+  // For FREE events we never want the "guest-only" mode — re-registration is fully blocked.
+  const buyerIsAttendee = isFree ? true : !hasOwnTicket;
   const guestSeatsCount = buyerIsAttendee ? Math.max(0, totalSeats - 1) : totalSeats;
 
   // Resize attendees array when guest count changes (preserve existing entries)
@@ -267,6 +268,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     };
   };
   const handleSubmit = async () => {
+    // Hard guard: a logged-in user who already holds a reservation cannot
+    // re-register for the SAME free event. Show an informative toast and stop.
+    if (isFree && hasOwnTicket) {
+      toast({
+        title: 'Masz już zarezerwowane miejsce',
+        description: 'Twoje miejsce na to wydarzenie jest już zarezerwowane. Sprawdź skrzynkę e-mail, aby potwierdzić rejestrację lub odebrać bilet z kodem QR.',
+      });
+      return;
+    }
     if (!validate() || !ticket) return;
     setLoadingMode('checkout');
     try {
@@ -279,15 +289,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           let detail = error.message || 'Nie udało się utworzyć rezerwacji';
           try {
             const ctxRes = (error as any).context?.response;
-            if (ctxRes && typeof ctxRes.json === 'function') {
-              const j = await ctxRes.json();
+            if (ctxRes && typeof ctxRes.clone === 'function') {
+              const j = await ctxRes.clone().json();
               if (j?.message) detail = j.message;
               else if (j?.error) detail = j.error;
             }
           } catch { /* ignore */ }
           throw new Error(mapFreeError(detail));
         }
-        if (data?.error) throw new Error(mapFreeError(data.error));
+        // Server now returns 200 with { error, message } on duplicates so this branch fires
+        if (data?.error) {
+          const friendly = data.message || mapFreeError(data.error);
+          throw new Error(friendly);
+        }
 
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
@@ -394,9 +408,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-4 text-sm flex gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-semibold text-primary mb-1">Jesteś już zarejestrowany na to wydarzenie</div>
+                    <div className="font-semibold text-primary mb-1">
+                      {isFree
+                        ? 'Masz już zarezerwowane miejsce na to wydarzenie'
+                        : 'Jesteś już zarejestrowany na to wydarzenie'}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety".
+                      {isFree
+                        ? 'Twoje miejsce jest już zarezerwowane. Sprawdź skrzynkę e-mail, aby potwierdzić rejestrację lub odebrać bilet z kodem QR. Nie musisz rezerwować ponownie.'
+                        : 'Kolejne bilety zostaną przypisane gościom (uczestnikom), których chcesz zaprosić. Uzupełnij ich dane poniżej lub zrób to później w sekcji „Moje bilety".'}
                     </div>
                   </div>
                 </div>
@@ -603,6 +623,15 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
               <div className="text-sm text-center text-muted-foreground py-2">
                 Sprzedaż biletów jest aktualnie wyłączona dla tego wydarzenia.
               </div>
+            ) : isFree && hasOwnTicket ? (
+              <>
+                <Button size="lg" className="w-full" onClick={() => onOpenChange(false)}>
+                  Rozumiem, zamknij
+                </Button>
+                <p className="text-xs text-center text-muted-foreground px-2">
+                  Masz już zarezerwowane miejsce na to wydarzenie – nie możesz zarezerwować go ponownie.
+                </p>
+              </>
             ) : (
               <>
                 <Button

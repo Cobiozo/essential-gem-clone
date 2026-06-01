@@ -116,6 +116,8 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         return <Badge className="bg-green-600 hover:bg-green-700 text-[10px]">Opłacone</Badge>;
       case 'completed':
         return <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Potwierdzone</Badge>;
+      case 'awaiting_email_confirmation':
+        return <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] text-white">Potwierdź e-mail</Badge>;
       case 'awaiting_transfer':
         return <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] text-white">Oczekuje przelewu</Badge>;
       case 'pending':
@@ -173,12 +175,22 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
             <div className="flex items-start gap-2 min-w-0">
               <Ticket className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <div className="font-semibold text-primary">Jesteś zarejestrowany na to wydarzenie</div>
+                <div className="font-semibold text-primary">
+                  {activeOrders[0].status === 'awaiting_email_confirmation'
+                    ? 'Masz zarezerwowane miejsce – potwierdź e-mail'
+                    : 'Jesteś zarejestrowany na to wydarzenie'}
+                </div>
                 <div className="text-muted-foreground">
-                  Zarezerwowałeś {activeSeats} {pluralPL(activeSeats, ['miejsce', 'miejsca', 'miejsc'])}
-                  {' '}w {activeOrdersCount} {pluralPL(activeOrdersCount, ['rezerwacji', 'rezerwacjach', 'rezerwacjach'])}
-                  {inactiveTickets > 0 && (
-                    <span className="text-muted-foreground/80"> (+{inactiveTickets} anulowanych)</span>
+                  {activeOrders[0].status === 'awaiting_email_confirmation' ? (
+                    <>Sprawdź skrzynkę e-mail i kliknij przycisk potwierdzenia, aby otrzymać bilet z kodem QR.</>
+                  ) : (
+                    <>
+                      Zarezerwowałeś {activeSeats} {pluralPL(activeSeats, ['miejsce', 'miejsca', 'miejsc'])}
+                      {' '}w {activeOrdersCount} {pluralPL(activeOrdersCount, ['rezerwacji', 'rezerwacjach', 'rezerwacjach'])}
+                      {inactiveTickets > 0 && (
+                        <span className="text-muted-foreground/80"> (+{inactiveTickets} anulowanych)</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

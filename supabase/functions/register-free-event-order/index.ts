@@ -232,24 +232,30 @@ serve(async (req) => {
 
     const lowerEmail = buyer.email.trim().toLowerCase();
 
-    // Check duplicate (same email/event, not cancelled)
+    // Check duplicate by email OR by logged-in user_id (same event, not cancelled).
+    // We OR both filters so a logged-in user cannot re-register from a different
+    // email and a guest cannot register twice with the same email.
+    const orFilters = [`email.eq.${lowerEmail}`];
+    if (currentUserId) orFilters.push(`user_id.eq.${currentUserId}`);
     const { data: existingOrder } = await supabase
       .from("paid_event_orders")
       .select("id, status, email_confirmed_at")
       .eq("event_id", eventId)
-      .eq("email", lowerEmail)
-      .in("status", ["awaiting_email_confirmation", "confirmed", "paid"])
+      .or(orFilters.join(","))
+      .in("status", ["awaiting_email_confirmation", "confirmed", "paid", "completed"])
       .limit(1)
       .maybeSingle();
 
     if (existingOrder) {
+      // Return 200 with an explicit error code so the frontend's data.error path
+      // handles it cleanly (avoids "Edge Function returned a non-2xx status code").
       return new Response(JSON.stringify({
         error: "already_registered",
         message: existingOrder.email_confirmed_at
-          ? "Ten adres email ma już bilet na to wydarzenie. Sprawdź skrzynkę."
-          : "Wysłaliśmy już email z potwierdzeniem na ten adres. Sprawdź skrzynkę (także folder Spam).",
+          ? "Masz już zarezerwowane miejsce na to wydarzenie. Bilet z kodem QR został wysłany na Twój e-mail – sprawdź skrzynkę (także folder Spam)."
+          : "Masz już zarezerwowane miejsce na to wydarzenie. Wysłaliśmy e-mail z potwierdzeniem – kliknij w nim przycisk potwierdzenia, aby otrzymać bilet z kodem QR.",
       }), {
-        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
