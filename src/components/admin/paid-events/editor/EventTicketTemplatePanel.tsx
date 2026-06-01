@@ -200,8 +200,12 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   };
 
   const preview = async () => {
-    // Open window synchronously to preserve user-gesture and avoid pop-up blocker
-    const win = window.open('', '_blank');
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     try {
       try {
         await save();
@@ -227,25 +231,33 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         throw new Error(`HTTP ${resp.status}: ${msg?.slice(0, 200) || 'brak treści'}`);
       }
       const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      if (win && !win.closed) {
-        win.location.href = url;
-      } else {
-        // Fallback if pop-up was blocked
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.download = 'ticket-preview.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
+      setPreviewUrl(URL.createObjectURL(blob));
     } catch (e: any) {
-      if (win && !win.closed) win.close();
+      setPreviewOpen(false);
       toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
+    } finally {
+      setPreviewLoading(false);
     }
   };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  const downloadPreview = () => {
+    if (!previewUrl) return;
+    const a = document.createElement('a');
+    a.href = previewUrl;
+    a.download = 'ticket-preview.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
 
 
   // ---- Drag / resize (window-bound, no pointer capture) ----
