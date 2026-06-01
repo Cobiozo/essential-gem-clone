@@ -196,13 +196,21 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   };
 
   const preview = async () => {
+    // Open window synchronously to preserve user-gesture and avoid pop-up blocker
+    const win = window.open('', '_blank');
     try {
-      await save();
+      try {
+        await save();
+      } catch (saveErr: any) {
+        toast({ title: 'Uwaga: nie zapisano zmian', description: saveErr?.message || 'Podgląd pokaże ostatnio zapisaną wersję.', variant: 'destructive' });
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-event-ticket-pdf`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ preview: true, eventId }),
@@ -212,15 +220,29 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
         const txt = await resp.text();
         let msg = txt;
         try { msg = JSON.parse(txt).error || txt; } catch {}
-        throw new Error(msg || `HTTP ${resp.status}`);
+        throw new Error(`HTTP ${resp.status}: ${msg?.slice(0, 200) || 'brak treści'}`);
       }
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      if (win && !win.closed) {
+        win.location.href = url;
+      } else {
+        // Fallback if pop-up was blocked
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.download = 'ticket-preview.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
     } catch (e: any) {
+      if (win && !win.closed) win.close();
       toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
     }
   };
+
 
   // ---- Drag / resize (window-bound, no pointer capture) ----
   const beginDrag = (e: React.PointerEvent, key: string, mode: 'move' | 'resize') => {
