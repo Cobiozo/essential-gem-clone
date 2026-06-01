@@ -14,22 +14,86 @@ Deno.serve(async (req) => {
     const eventId: string | undefined = body.event_id ?? body.eventId;
     if (!eventId) return jsonResponse({ error: "event_id is required" }, 400);
 
-    const { data, error } = await supabaseAdmin
+    // 1) Pobierz zamówienia bez embedów PostgREST (eliminuje niejednoznaczności FK)
+    const { data: orders, error: ordersErr } = await supabaseAdmin
       .from("paid_event_orders")
       .select(
-        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id, paid_event_tickets(name), paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code, checked_in, checked_in_at)"
+        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id"
       )
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("admin-list-event-orders error:", error);
-      return jsonResponse({ error: error.message }, 500);
+    if (ordersErr) {
+      console.error("admin-list-event-orders orders query failed:", {
+        message: ordersErr.message,
+        code: (ordersErr as any).code,
+        details: (ordersErr as any).details,
+        hint: (ordersErr as any).hint,
+      });
+      return jsonResponse({ error: ordersErr.message }, 500);
     }
 
-    return jsonResponse({ orders: data ?? [] });
+    const ordersList = (orders ?? []) as any[];
+    const orderIds = ordersList.map((o) => o.id);
+    const ticketIds = Array.from(
+      new Set(ordersList.map((o) => o.ticket_id).filter(Boolean))
+    ) as string[];
+
+    // 2) Pobierz attendees osobno
+    let attendees: any[] = [];
+    if (orderIds.length > 0) {
+      const { data: att, error: attErr } = await supabaseAdmin
+        .from("paid_event_order_attendees")
+        .select(
+          "id, order_id, seat_index, first_name, last_name, email, ticket_code, checked_in, checked_in_at"
+        )
+        .in("order_id", orderIds);
+      if (attErr) {
+        console.error("admin-list-event-orders attendees query failed:", {
+          message: attErr.message,
+          code: (attErr as any).code,
+          details: (attErr as any).details,
+          hint: (attErr as any).hint,
+        });
+      } else {
+        attendees = att ?? [];
+      }
+    }
+
+    // 3) Pobierz nazwy biletów osobno
+    let ticketsById: Record<string, { name: string | null }> = {};
+    if (ticketIds.length > 0) {
+      const { data: tickets, error: tErr } = await supabaseAdmin
+        .from("paid_event_tickets")
+        .select("id, name")
+        .in("id", ticketIds);
+      if (tErr) {
+        console.error("admin-list-event-orders tickets query failed:", {
+          message: tErr.message,
+          code: (tErr as any).code,
+        });
+      } else {
+        (tickets ?? []).forEach((t: any) => {
+          ticketsById[t.id] = { name: t.name };
+        });
+      }
+    }
+
+    // 4) Złącz w strukturę zgodną z dotychczasowym frontem
+    const attendeesByOrder: Record<string, any[]> = {};
+    attendees.forEach((a) => {
+      (attendeesByOrder[a.order_id] ||= []).push(a);
+    });
+
+    const merged = ordersList.map((o) => ({
+      ...o,
+      paid_event_tickets: o.ticket_id ? ticketsById[o.ticket_id] ?? null : null,
+      paid_event_order_attendees: attendeesByOrder[o.id] ?? [],
+    }));
+
+    return jsonResponse({ orders: merged });
   } catch (e: any) {
-    console.error("admin-list-event-orders fatal:", e);
-    return jsonResponse({ error: e.message || "Internal error" }, 500);
+    console.error("admin-list-event-orders fatal:", e?.message, e?.stack);
+    return jsonResponse({ error: e?.message || "Internal error" }, 500);
   }
 });

@@ -1,46 +1,33 @@
 ## Problem
 
-Po kliknięciu w link potwierdzający rejestrację (CTA z e-maila) użytkownik widzi stronę z komunikatem:
+Na ekranie **Eventy → Weryfikacja biletów** po wybraniu wydarzenia „Kompleksowe szkolenie TEST" pojawia się czerwony toast:
 
-> „Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu. Po zaksięgowaniu wpłaty otrzymasz bilet…"
+> Błąd listy uczestników — Edge Function returned a non-2xx status code
 
-Ten tekst pojawia się również dla wydarzeń **bezpłatnych** (np. „Kompleksowe szkolenie test"), choć powinien być pokazywany tylko przy wydarzeniach **płatnych**.
+W bazie wydarzenie ma 2 zamówienia (`paid_event_orders`, status `paid`), więc lista powinna się załadować. Funkcja `admin-list-event-orders` zwraca błąd (nie-2xx) zamiast danych. Logi edge nie zawierają szczegółów (brak `console.error` na poziomie zapytania), a wbudowany select PostgREST z osadzonymi tabelami (`paid_event_tickets(name)`, `paid_event_order_attendees(...)`) maskuje prawdziwą przyczynę.
 
-## Analiza
+## Zakres naprawy (tylko funkcja edge + drobny refactor frontu)
 
-W pliku `src/pages/EventFormConfirmPage.tsx` (linie 66–75) logika rozgałęzienia już istnieje – używa flagi `isFree` zwracanej przez edge function `confirm-event-form-email`. Funkcja czyta `paid_events.is_free` z bazy.
+### 1. `supabase/functions/admin-list-event-orders/index.ts`
 
-Najprawdopodobniej dla tego wydarzenia rekord `paid_events` ma `is_free = false`, mimo że bilety mają cenę 0 PLN. Trzeba ustalić warunek „darmowe" bardziej odpornie, żeby ekran zawsze pasował do realnej natury wydarzenia.
+- Rozbić jedno duże zapytanie PostgREST z embedami na **dwa proste zapytania** (eliminuje wszelkie problemy z rozpoznawaniem relacji FK przez PostgREST):
+  1. `paid_event_orders` — same kolumny, bez embedów.
+  2. `paid_event_order_attendees` — `select(...).in('order_id', orderIds)`.
+- Po stronie funkcji złączyć attendees do odpowiednich zamówień (`paid_event_order_attendees: AttendeeRow[]`) i zwrócić strukturę identyczną jak dotychczas, żeby front (`TicketVerification.tsx` i `EventFormsList.tsx`) działał bez zmian.
+- Dodać pełniejsze `console.error` z `error.code` / `error.details` / `error.hint`, żeby kolejne błędy były widoczne w logach edge.
+- Zachować obecny `verifyAdmin` + odpowiedzi 401/403/400.
 
-## Plan zmian
+### 2. Redeploy funkcji
 
-### 1. `supabase/functions/confirm-event-form-email/index.ts`
-Wzmocnić wyliczanie `is_free`:
-- nadal czytać `paid_events.is_free`,
-- dodatkowo, jeśli `is_free` jest `false`/`null`, sprawdzić `paid_event_tickets` dla tego `event_id` (aktywne, `deleted_at IS NULL`) – jeśli wszystkie mają `price_pln = 0` (lub nie ma w ogóle płatnych biletów), traktować wydarzenie jako bezpłatne i zwrócić `is_free: true`.
-- Zwracać też pomocnicze `is_free_effective` (alias, ten sam boolean) w odpowiedzi – nazwę zostawiamy `is_free` dla kompatybilności z frontem.
+- `deploy_edge_functions(["admin-list-event-orders"])` po zapisaniu zmian.
 
-### 2. `src/pages/EventFormConfirmPage.tsx`
-Tylko kosmetycznie doprecyzować teksty (logika warunkowa już jest poprawna):
+### 3. Walidacja
 
-- **Wariant BEZPŁATNY** (`is_free === true`):
-  - Nagłówek: „Twoje dane i rejestracja zostały poprawnie potwierdzone"
-  - Bez akapitu o płatności.
-  - Stopka: „Dziękujemy i do zobaczenia na wydarzeniu!"
-  - (usuwamy obecny tekst „Sprawdź skrzynkę e-mail, ponieważ na nią dostałeś bilet…" – użytkownik prosi o sam komunikat „dziękujemy"; bilet i tak przychodzi mailem, ale ekran ma być zwięzły).
+- Sprawdzić logi `admin-list-event-orders` zaraz po wdrożeniu (czy boot przechodzi czysto).
+- Poprosić użytkownika o odświeżenie zakładki — lista uczestników powinna pokazać 2 wpisy dla „Kompleksowe szkolenie TEST".
 
-- **Wariant PŁATNY** (`is_free === false`):
-  - Nagłówek bez zmian.
-  - Akapit: „Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu. Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu."
-  - Stopka: „Dziękujemy i do zobaczenia na wydarzeniu!"
+## Czego NIE zmieniam
 
-Komunikat „(Twoja rejestracja była już potwierdzona wcześniej.)" zostaje dla obu wariantów, gdy `state === 'already'`.
-
-### 3. Deploy
-Po zmianach: `deploy_edge_functions` dla `confirm-event-form-email`.
-
-## Pliki do zmiany
-- `supabase/functions/confirm-event-form-email/index.ts`
-- `src/pages/EventFormConfirmPage.tsx`
-
-Bez zmian w bazie danych ani innych komponentach.
+- `EventFormsList.tsx`, `EventFormConfirmPage.tsx`, `confirm-event-form-email/index.ts` — pozostają nietknięte (nie dotyczą tego błędu).
+- Schemat bazy, RLS, granty — nie ruszamy.
+- UI `TicketVerification.tsx` — bez zmian, wyłącznie poprawka backendowa.
