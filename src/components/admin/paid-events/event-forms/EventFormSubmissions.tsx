@@ -267,6 +267,60 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
   });
 
+  const invalidateOrders = () => {
+    qc.invalidateQueries({ queryKey: ['event-form-submissions-orders'] });
+    qc.invalidateQueries({ queryKey: ['event-form-submission-counts'] });
+  };
+
+  const resendOrderConfirmation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-resend-event-order-confirmation', {
+        body: { orderId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Email z potwierdzeniem wysłany ponownie' }); },
+    onError: (e: Error) => toast({ title: 'Błąd wysyłki', description: e.message, variant: 'destructive' }),
+  });
+
+  const resendOrderTicket = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-resend-free-ticket', {
+        body: { orderId, force: true },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Bilet PDF wysłany ponownie' }); },
+    onError: (e: Error) => toast({ title: 'Błąd wysyłki biletu', description: e.message, variant: 'destructive' }),
+  });
+
+  const cancelOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-cancel-event-order', { body: { orderId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Rezerwacja anulowana' }); },
+    onError: (e: Error) => toast({ title: 'Błąd anulowania', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-event-order', { body: { orderId } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => { invalidateOrders(); toast({ title: 'Rezerwacja usunięta' }); },
+    onError: (e: Error) => toast({ title: 'Błąd usuwania', description: e.message, variant: 'destructive' }),
+  });
+
+
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
     if (audience !== 'all') {
