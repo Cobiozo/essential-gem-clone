@@ -1,43 +1,38 @@
-**Diagnoza**
+## Cel
 
-Jan Kowal zarejestrował się przez formularz rejestracyjny wydarzenia („Kompleksowe szkolenie TEST", `is_free=true`) — jego dane są w `event_form_submissions` (`email_confirmed_at` ustawione, `payment_status=paid`), ale NIE ma odpowiadającego wpisu w `paid_event_orders`. Ścieżka potwierdzenia maila dla zgłoszeń przez formularz (`confirm-event-form-email`) tylko:
-- oznacza zgłoszenie jako potwierdzone,
-- powiadamia administratorów i partnera zapraszającego,
-- aktualizuje CRM.
+1. Usunąć z e-maila z biletem przycisk CTA „Otwórz bilet online" oraz zduplikowany tekst widoczny w podglądzie Gmaila (powyżej szablonu).
+2. Zagwarantować, że PDF z biletem zawsze trafia do załącznika.
+3. Wysłać ponownie poprawioną wiadomość do zarejestrowanego partnera oraz gościa (Jan Kowal) wydarzenia „Kompleksowe szkolenie TEST".
 
-Nie generuje biletu ani nie wysyła maila z biletem (QR/PDF). Ta logika istnieje wyłącznie w `confirm-free-event-reservation`, która obsługuje rezerwacje przez `paid_event_orders`. Dlatego gość zarejestrowany formularzem na darmowe wydarzenie nigdy nie dostaje biletu.
+## Zmiany w kodzie
 
-**Plan naprawy**
+### `supabase/functions/_shared/free-event-ticket.ts`
 
-1. **Wyodrębnić wspólny helper wysyłki biletu** do `supabase/functions/_shared/free-event-ticket.ts`:
-   - `buildTicketEmail`, `sendSmtp` (z obsługą załącznika PDF),
-   - `issueFreeTicketForOrder(supabase, orderId)` — generuje PDF (`generate-event-ticket-pdf`), wysyła maila z biletem przez aktywne `smtp_settings`, ustawia `ticket_sent_at`.
-   Refaktor `confirm-free-event-reservation` aby korzystała z tego helpera (bez zmian funkcjonalnych).
+**`buildTicketEmail`** — uproszczenie treści HTML:
+- Usunąć cały blok `<div>` z przyciskiem „Otwórz bilet online" oraz parametr `ticketViewUrl`.
+- Zmienić zdanie wprowadzające do PDF na: „Twój bilet (PDF z kodem QR) znajduje się w załączniku tej wiadomości. Wystarczy, że okażesz go (na telefonie lub wydrukowany) podczas wydarzenia."
+- Zachować nagłówek, dane wydarzenia, blok z numerem biletu i przypomnienie o świadomej obecności.
 
-2. **Rozszerzyć `confirm-event-form-email`**:
-   - Po sukcesie potwierdzenia, jeśli wydarzenie ma `is_free = true`:
-     a) Sprawdzić, czy dla tego zgłoszenia istnieje już `paid_event_orders` (po `submitted_data.order_id` lub po `event_id + email + source='form_free'`). Jeśli nie — utworzyć nowy wiersz `paid_event_orders`:
-        - `event_id`, `ticket_id` = aktywny darmowy bilet wydarzenia (`price_pln = 0`, `is_active = true`), fallback: pierwszy aktywny,
-        - `email`, `first_name`, `last_name`, `phone` ze zgłoszenia,
-        - `quantity = 1`, `total_amount = 0`, `status = 'paid'`,
-        - `email_confirmed_at = now`, `ticket_code` = wygenerowany kod, `ticket_generated_at = now`,
-        - powiązanie ze zgłoszeniem zapisać w `submitted_data.order_id` (update zgłoszenia).
-     b) Wstawić `paid_event_order_attendees` (seat 1) z danymi gościa i `ticket_code`.
-     c) Uruchomić w tle `issueFreeTicketForOrder(orderId)` (PDF + email z biletem) używając `EdgeRuntime.waitUntil`.
-   - Nie blokuje to istniejącego flow powiadomień admina/CRM.
+**`sendSmtp`** — naprawa duplikatu nad szablonem (plain-text part):
+- Obecnie część `text/plain` wiadomości to całe HTML pozbawione tagów, co Gmail pokazuje jako szary tekst nad właściwym mailem.
+- Zamienić na krótki, ręcznie napisany odpowiednik (powitanie + info „Twój bilet znajduje się w załączniku PDF" + numer biletu), zamiast `html.replace(/<[^>]*>/g, "")`.
 
-3. **Idempotencja**:
-   - Jeśli order już istnieje i ma `ticket_sent_at` → nie wysyłać ponownie.
-   - Jeśli istnieje ale brak `ticket_sent_at` → tylko wywołać `issueFreeTicketForOrder`.
+**`issueFreeTicketForOrder`** — gwarancja PDF-a:
+- Jeśli generacja PDF się nie uda (`pdfBytes === null`), zalogować błąd i **przerwać** wysyłkę zwracając `{ sent: false, reason: "pdf_failed" }` — wtedy `ticket_sent_at` nie zostanie ustawione, więc kolejne uruchomienie spróbuje ponownie.
+- Usunąć fallback `sendSmtp` bez załącznika (był on dodany dla 421 timeout, ale w efekcie wysyłano mail bez biletu).
+- Dla 421 timeout: zwiększyć timeout odczytu na komendzie `DATA` do 60 s i ponowić wysyłkę z załącznikiem jednokrotnie po krótkim odczekaniu.
 
-4. **Backfill dla Jana Kowala**:
-   - Jednorazowy zabieg: utworzyć ręcznie `paid_event_orders` + `attendees` dla zgłoszenia `049da202-...` i wywołać `issueFreeTicketForOrder` (przez krótki skrypt edge function lub bezpośrednio przez RPC po deployu). Alternatywnie nowa logika z punktu 2 zostanie automatycznie odpalona, jeśli admin „wyśle ponownie" maila potwierdzającego — ale prościej będzie zrobić jednorazowy backfill skryptem.
+### Ponowna wysyłka (operacja jednorazowa)
 
-5. **Brak zmian w bazie danych** — wszystkie kolumny już istnieją.
+Po wdrożeniu poprawek:
+1. Zidentyfikować w bazie zamówienia dla wydarzenia „Kompleksowe szkolenie TEST":
+   - gość: Jan Kowal (order `ec456ea1…`, kod `DHHF47B43VX7`)
+   - partner: znaleźć aktywne zamówienie z `event_form_submissions` powiązane z tym wydarzeniem (zarejestrowany, zalogowany użytkownik)
+2. Wyzerować `ticket_sent_at = NULL` dla obu zamówień (przez migrację SQL, bo to UPDATE).
+3. Wywołać `issueFreeTicketForOrder` dla obu zamówień (przez tymczasowe wywołanie edge funkcji lub bezpośrednio z `confirm-event-form-email` w trybie „resend").
 
-**Co zostanie zmienione**
+## Czego nie zmieniam
 
-- nowy plik: `supabase/functions/_shared/free-event-ticket.ts` (helper),
-- edytowany: `supabase/functions/confirm-free-event-reservation/index.ts` (użycie helpera),
-- edytowany: `supabase/functions/confirm-event-form-email/index.ts` (tworzenie zamówienia + wysyłka biletu dla `is_free=true`),
-- jednorazowy backfill dla istniejących potwierdzonych zgłoszeń bez biletu.
+- Szablon graficzny biletu PDF (`generate-event-ticket-pdf`) — bez zmian.
+- Logika tworzenia zamówienia w `confirm-event-form-email` — bez zmian, działa.
+- Inne wiadomości transakcyjne — bez zmian.
