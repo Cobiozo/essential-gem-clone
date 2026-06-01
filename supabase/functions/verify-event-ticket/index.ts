@@ -119,20 +119,6 @@ Deno.serve(async (req) => {
     const seatLastName = attendee ? attendee.last_name : order.last_name;
     const seatEmail = attendee ? (attendee.email || order.email) : order.email;
 
-    if (isAlreadyCheckedIn) {
-      return new Response(
-        JSON.stringify({
-          valid: false,
-          error: 'Ticket already used',
-          code: 'ALREADY_CHECKED_IN',
-          checkedInAt,
-          attendee: { firstName: seatFirstName, lastName: seatLastName, email: seatEmail },
-          seatIndex: attendee?.seat_index ?? null,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Event time bounds — only enforced when actually performing check-in
     const now = new Date();
     const eventDate = new Date(order.paid_events.event_date);
@@ -141,28 +127,57 @@ Deno.serve(async (req) => {
       : new Date(eventDate.getTime() + 24 * 60 * 60 * 1000);
     const checkInStart = new Date(eventDate.getTime() - 2 * 60 * 60 * 1000);
 
-    // Admins can check-in at any time (e.g. testing, early entry). Non-admins must respect window.
-    if (markAsCheckedIn && !isAdmin) {
-      if (now < checkInStart) {
+    // Handle CHECK-OUT (admin only)
+    if (isCheckOut) {
+      if (!isAdmin) {
         return new Response(
-          JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ valid: false, error: 'Admin required', code: 'FORBIDDEN' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (now > eventEndDate) {
+      if (attendee) {
+        await supabase.from('paid_event_order_attendees')
+          .update({ checked_in: false, checked_in_at: null })
+          .eq('id', attendee.id);
+      } else {
+        await supabase.from('paid_event_orders')
+          .update({ checked_in: false, checked_in_at: null })
+          .eq('id', order.id);
+      }
+      console.log('Ticket checked OUT:', ticketCode);
+    } else if (isAlreadyCheckedIn && !markAsCheckedIn) {
+      // Already checked-in: return VALID with check-in info (no error)
+      // (handled in final response below)
+    } else if (markAsCheckedIn && isAlreadyCheckedIn) {
+      // Trying to check-in an already-checked-in ticket: just return valid with existing info
+      // (handled in final response below)
+    } else if (markAsCheckedIn) {
+      // Admins can check-in at any time; non-admins must respect window
+      if (!isAdmin) {
+        if (now < checkInStart) {
+          return new Response(
+            JSON.stringify({ valid: false, error: 'Check-in not yet available', code: 'TOO_EARLY', checkInStartsAt: checkInStart.toISOString() }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (now > eventEndDate) {
+          return new Response(
+            JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      if (!isAdmin) {
         return new Response(
-          JSON.stringify({ valid: false, error: 'Event has ended', code: 'EVENT_ENDED' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ valid: false, error: 'Admin required to mark check-in', code: 'FORBIDDEN' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-    }
-
-    // Mark as checked in if requested and user is admin
-    if (markAsCheckedIn && isAdmin) {
+      const nowIso = new Date().toISOString();
       if (attendee) {
         const { error: updateError } = await supabase
           .from('paid_event_order_attendees')
-          .update({ checked_in: true, checked_in_at: new Date().toISOString() })
+          .update({ checked_in: true, checked_in_at: nowIso })
           .eq('id', attendee.id);
         if (updateError) {
           console.error('Failed to mark attendee check-in:', updateError);
@@ -174,7 +189,7 @@ Deno.serve(async (req) => {
       } else {
         const { error: updateError } = await supabase
           .from('paid_event_orders')
-          .update({ checked_in: true, checked_in_at: new Date().toISOString() })
+          .update({ checked_in: true, checked_in_at: nowIso })
           .eq('id', order.id);
         if (updateError) {
           console.error('Failed to mark check-in:', updateError);
@@ -185,6 +200,17 @@ Deno.serve(async (req) => {
         }
       }
       console.log('Ticket checked in:', ticketCode);
+    }
+
+    // Re-read final state
+    let finalCheckedIn = isAlreadyCheckedIn;
+    let finalCheckedInAt = checkedInAt;
+    if (isCheckOut) {
+      finalCheckedIn = false;
+      finalCheckedInAt = null;
+    } else if (markAsCheckedIn && isAdmin && !isAlreadyCheckedIn) {
+      finalCheckedIn = true;
+      finalCheckedInAt = new Date().toISOString();
     }
 
     // Return valid ticket info
