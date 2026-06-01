@@ -256,11 +256,24 @@ export const TicketVerification: React.FC = () => {
         // Sync list on any state-changing action
         if (data.action === 'check_in' || data.action === 'check_out') {
           const newCheckedIn = data.action === 'check_in';
-          setOrders(prev => prev.map(o =>
-            (o.ticket_code || '').toUpperCase() === mapped.ticket_code.toUpperCase()
-              ? { ...o, checked_in: newCheckedIn, checked_in_at: newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null }
-              : o
-          ));
+          const scannedCode = code.trim().toUpperCase();
+          const newCheckedAt = newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null;
+          setOrders(prev => prev.map(o => {
+            const orderMatches = (o.ticket_code || '').toUpperCase() === scannedCode;
+            const attendees = o.paid_event_order_attendees || [];
+            const attendeeMatches = attendees.some(a => (a.ticket_code || '').toUpperCase() === scannedCode);
+            if (!orderMatches && !attendeeMatches) return o;
+            return {
+              ...o,
+              checked_in: attendeeMatches ? o.checked_in : newCheckedIn,
+              checked_in_at: attendeeMatches ? o.checked_in_at : newCheckedAt,
+              paid_event_order_attendees: attendees.map(a =>
+                (a.ticket_code || '').toUpperCase() === scannedCode
+                  ? { ...a, checked_in: newCheckedIn, checked_in_at: newCheckedAt }
+                  : a
+              ),
+            };
+          }));
           if (selectedEventId && verifiedEventId === selectedEventId) {
             loadOrders(selectedEventId);
           }
