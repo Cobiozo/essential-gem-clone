@@ -268,13 +268,23 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
   const subject = `🎟️ Twój bilet – ${event?.title || "wydarzenie"}`;
   const attachment = { filename: `bilet-${ticketCode}.pdf`, bytes: pdfBytes, contentType: "application/pdf" };
 
-  // Send with attachment — one retry on transient failure
+  // Send with attachment — one retry on transient failure, then fallback without attachment
   try {
     await sendSmtp(smtpSettings, order.email, subject, html, attachment, plainText);
   } catch (e) {
     console.warn("[issueFreeTicket] first send failed, retrying once in 3s", e);
-    await new Promise((r) => setTimeout(r, 3000));
-    await sendSmtp(smtpSettings, order.email, subject, html, attachment, plainText);
+    try {
+      await new Promise((r) => setTimeout(r, 3000));
+      await sendSmtp(smtpSettings, order.email, subject, html, attachment, plainText);
+    } catch (e2) {
+      console.warn("[issueFreeTicket] retry failed, sending WITHOUT attachment as last resort", e2);
+      const htmlNoAttach = html.replace(
+        'Twój bilet (PDF z kodem QR) znajduje się w <strong>załączniku</strong> tej wiadomości. Wystarczy, że okażesz go (na telefonie lub wydrukowany) podczas wydarzenia.',
+        `Twój bilet (PDF z kodem QR) jest dostępny online — numer biletu: <strong>${ticketCode}</strong>. Skontaktuj się z organizatorem, jeśli potrzebujesz wersji PDF.`
+      );
+      const plainNoAttach = `Cześć ${order.first_name}!\n\nNumer Twojego biletu: ${ticketCode}\nWydarzenie: ${event?.title || "wydarzenie"}\n\nOkaż ten numer / kod QR z linku organizatora podczas wydarzenia.`;
+      await sendSmtp(smtpSettings, order.email, subject, htmlNoAttach, undefined, plainNoAttach);
+    }
   }
 
   await supabase.from("paid_event_orders")
