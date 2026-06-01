@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, Users, RefreshCw, Loader2 } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, Users, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -128,7 +128,7 @@ export const TicketVerification: React.FC = () => {
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
-  const verifyTicket = async (code: string, performCheckIn = false) => {
+  const verifyTicket = async (code: string, mode: 'verify' | 'check_in' | 'check_out' = 'verify') => {
     if (!code.trim()) return;
 
     setIsVerifying(true);
@@ -148,7 +148,8 @@ export const TicketVerification: React.FC = () => {
           },
           body: JSON.stringify({
             ticketCode: code.trim(),
-            markAsCheckedIn: performCheckIn,
+            markAsCheckedIn: mode === 'check_in',
+            action: mode === 'check_out' ? 'check_out' : undefined,
           }),
         }
       );
@@ -170,7 +171,7 @@ export const TicketVerification: React.FC = () => {
           event_title: data.event?.title || '',
           event_date: data.event?.date || '',
           is_checked_in: !!data.checkedIn,
-          checked_in_at: data.checkedIn ? new Date().toISOString() : null,
+          checked_in_at: data.checkedInAt || null,
         };
         setResult({
           valid: true,
@@ -190,15 +191,20 @@ export const TicketVerification: React.FC = () => {
           });
         }
 
-        if (data.checkedIn) {
+        if (data.action === 'check_in') {
           toast({ title: 'Check-in wykonany!', description: `Zarejestrowano wejście dla: ${buyerName}` });
-          // Optimistic list patch
+        } else if (data.action === 'check_out') {
+          toast({ title: 'Cofnięto check-in', description: buyerName });
+        }
+
+        // Sync list on any state-changing action
+        if (data.action === 'check_in' || data.action === 'check_out') {
+          const newCheckedIn = data.action === 'check_in';
           setOrders(prev => prev.map(o =>
             (o.ticket_code || '').toUpperCase() === mapped.ticket_code.toUpperCase()
-              ? { ...o, checked_in: true, checked_in_at: new Date().toISOString() }
+              ? { ...o, checked_in: newCheckedIn, checked_in_at: newCheckedIn ? (data.checkedInAt || new Date().toISOString()) : null }
               : o
           ));
-          // Refetch if same event
           if (selectedEventId && verifiedEventId === selectedEventId) {
             loadOrders(selectedEventId);
           }
@@ -215,18 +221,29 @@ export const TicketVerification: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    verifyTicket(ticketCode, false);
+    verifyTicket(ticketCode, 'verify');
   };
 
   const handleCheckIn = () => {
     if (result?.ticket?.ticket_code) {
-      verifyTicket(result.ticket.ticket_code, true);
+      verifyTicket(result.ticket.ticket_code, 'check_in');
+    }
+  };
+
+  const handleCheckOut = () => {
+    if (result?.ticket?.ticket_code) {
+      verifyTicket(result.ticket.ticket_code, 'check_out');
     }
   };
 
   const handleRowCheckIn = (code: string) => {
     setTicketCode(code);
-    verifyTicket(code, true);
+    verifyTicket(code, 'check_in');
+  };
+
+  const handleRowCheckOut = (code: string) => {
+    setTicketCode(code);
+    verifyTicket(code, 'check_out');
   };
 
   const resetVerification = () => {
@@ -349,20 +366,26 @@ export const TicketVerification: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t">
+                    <div className="pt-3 border-t space-y-3">
                       {result.ticket.is_checked_in || result.checked_in ? (
-                        <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Check-in wykonany
-                          {result.ticket.checked_in_at && (
-                            <span className="ml-2 text-muted-foreground">
-                              ({format(new Date(result.ticket.checked_in_at), 'HH:mm', { locale: pl })})
-                            </span>
-                          )}
-                        </Badge>
+                        <>
+                          <Badge variant="outline" className="text-green-600 border-green-600 text-base py-2 px-4">
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Check-in wykonano
+                            {result.ticket.checked_in_at && (
+                              <span className="ml-2 text-muted-foreground">
+                                ({format(new Date(result.ticket.checked_in_at), 'dd.MM.yyyy HH:mm', { locale: pl })})
+                              </span>
+                            )}
+                          </Badge>
+                          <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full" disabled={isVerifying}>
+                            <RotateCcw className="w-5 h-5 mr-2" />
+                            Cofnij check-in
+                          </Button>
+                        </>
                       ) : (
                         <>
-                          <Button onClick={handleCheckIn} size="lg" className="w-full">
+                          <Button onClick={handleCheckIn} size="lg" className="w-full" disabled={isVerifying}>
                             <CheckCircle className="w-5 h-5 mr-2" />
                             Wykonaj check-in
                           </Button>
@@ -450,10 +473,21 @@ export const TicketVerification: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        {!o.checked_in && o.ticket_code && (
-                          <Button size="sm" variant="outline" onClick={() => handleRowCheckIn(o.ticket_code!)} disabled={isVerifying}>
-                            <CheckCircle className="w-4 h-4 mr-1" />Check-in
-                          </Button>
+                        {o.ticket_code && (
+                          o.checked_in ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />Check-in
+                              </Badge>
+                              <Button size="sm" variant="outline" onClick={() => handleRowCheckOut(o.ticket_code!)} disabled={isVerifying}>
+                                <RotateCcw className="w-4 h-4 mr-1" />Check-out
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => handleRowCheckIn(o.ticket_code!)} disabled={isVerifying}>
+                              <CheckCircle className="w-4 h-4 mr-1" />Check-in
+                            </Button>
+                          )
                         )}
                       </div>
                     );
@@ -483,7 +517,7 @@ export const TicketVerification: React.FC = () => {
                   const code = extractCode(raw);
                   setScannerOpen(false);
                   setTicketCode(code);
-                  verifyTicket(code, false);
+                  verifyTicket(code, 'verify');
                 }}
                 onError={(err) => {
                   console.error('[QR Scanner]', err);
