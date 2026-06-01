@@ -307,8 +307,10 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
 
         toast({
-          title: 'Rezerwacja przyjęta',
-          description: `Wysłaliśmy email potwierdzający na ${formData.email}.`,
+          title: data?.auto_confirmed ? 'Bilet wysłany' : 'Rezerwacja przyjęta',
+          description: data?.auto_confirmed
+            ? `Twój bilet z kodem QR został wysłany na ${formData.email}. Sprawdź skrzynkę (także folder Spam).`
+            : `Wysłaliśmy email potwierdzający na ${formData.email}.`,
         });
         setFreeSuccess(true);
         return;
