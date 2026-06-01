@@ -10,6 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, Save, Trash2, Eye, FileImage, GripVertical, Loader2, RotateCcw, Download, ExternalLink } from 'lucide-react';
 
 interface FieldDef {
+  /** Unique instance id (allows the same `key` to appear multiple times). */
+  id: string;
+  /** Data type key — looked up in FIELD_LABELS / SAMPLE_VALUES and used by the PDF renderer. */
   key: string;
   x: number; y: number;
   width?: number; height?: number;
@@ -18,6 +21,11 @@ interface FieldDef {
   color?: string;
   textAlign?: 'left' | 'center' | 'right';
 }
+
+const newId = (key: string) =>
+  (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+    ? (crypto as any).randomUUID()
+    : `${key}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 interface TemplateState {
   background_url: string | null;
@@ -89,14 +97,14 @@ const DEFAULT_TEMPLATE: TemplateState = {
   width_px: 1240,
   height_px: 874,
   fields: [
-    { key: 'eventTitle', x: 60, y: 60, fontSize: 28, fontWeight: 'bold', color: '#111111' },
-    { key: 'eventDate', x: 60, y: 110, fontSize: 14, color: '#444444' },
-    { key: 'eventLocation', x: 60, y: 135, fontSize: 14, color: '#444444' },
-    { key: 'firstName', x: 60, y: 320, fontSize: 22, fontWeight: 'bold', color: '#000000' },
-    { key: 'lastName', x: 60, y: 360, fontSize: 22, fontWeight: 'bold', color: '#000000' },
-    { key: 'ticketName', x: 60, y: 410, fontSize: 14, color: '#555555' },
-    { key: 'ticketCode', x: 60, y: 440, fontSize: 12, color: '#888888' },
-    { key: 'qr', x: 950, y: 320, width: 220, height: 220 },
+    { id: 'eventTitle-0',    key: 'eventTitle',    x: 60, y: 60, fontSize: 28, fontWeight: 'bold', color: '#111111' },
+    { id: 'eventDate-0',     key: 'eventDate',     x: 60, y: 110, fontSize: 14, color: '#444444' },
+    { id: 'eventLocation-0', key: 'eventLocation', x: 60, y: 135, fontSize: 14, color: '#444444' },
+    { id: 'firstName-0',     key: 'firstName',     x: 60, y: 320, fontSize: 22, fontWeight: 'bold', color: '#000000' },
+    { id: 'lastName-0',      key: 'lastName',      x: 60, y: 360, fontSize: 22, fontWeight: 'bold', color: '#000000' },
+    { id: 'ticketName-0',    key: 'ticketName',    x: 60, y: 410, fontSize: 14, color: '#555555' },
+    { id: 'ticketCode-0',    key: 'ticketCode',    x: 60, y: 440, fontSize: 12, color: '#888888' },
+    { id: 'qr-0',            key: 'qr',            x: 950, y: 320, width: 220, height: 220 },
   ],
 };
 
@@ -113,6 +121,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
   const [selectedField, setSelectedField] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -122,14 +131,20 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       const { data } = await supabase
         .from('event_ticket_templates').select('*').eq('event_id', eventId).maybeSingle();
       if (data) {
+        const rawFields: any[] = Array.isArray((data as any).fields) && (data as any).fields.length > 0
+          ? (data as any).fields : DEFAULT_TEMPLATE.fields;
+        // Backwards-compat: ensure every field has a unique `id`.
+        const migrated: FieldDef[] = rawFields.map((f, i) => ({
+          ...f,
+          id: typeof f?.id === 'string' && f.id ? f.id : `${f?.key || 'field'}-${i}`,
+        }));
         setTpl({
           background_url: (data as any).background_url || null,
           page_format: (data as any).page_format || 'A5',
           orientation: ((data as any).orientation as any) || 'landscape',
           width_px: (data as any).width_px || 1240,
           height_px: (data as any).height_px || 874,
-          fields: Array.isArray((data as any).fields) && (data as any).fields.length > 0
-            ? (data as any).fields : DEFAULT_TEMPLATE.fields,
+          fields: migrated,
         });
       }
       setLoading(false);
@@ -226,6 +241,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+    setPreviewDataUrl(null);
     try {
       try {
         await save();
@@ -252,6 +268,20 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       }
       const blob = await resp.blob();
       setPreviewUrl(URL.createObjectURL(blob));
+      // Also build a data: URL — some browsers (Edge in particular) block
+      // blob: URLs inside <iframe>/<object>, but accept data: URLs there.
+      try {
+        const buf = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const CHUNK = 0x8000;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
+        }
+        setPreviewDataUrl(`data:application/pdf;base64,${btoa(binary)}`);
+      } catch {
+        /* fallback: only blob URL */
+      }
     } catch (e: any) {
       setPreviewOpen(false);
       toast({ title: 'Błąd podglądu PDF', description: e.message, variant: 'destructive' });
@@ -266,6 +296,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
+    setPreviewDataUrl(null);
   };
 
   const downloadPreview = () => {
@@ -281,10 +312,10 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
 
 
   // ---- Drag / resize (window-bound, no pointer capture) ----
-  const beginDrag = (e: React.PointerEvent, key: string, mode: 'move' | 'resize') => {
+  const beginDrag = (e: React.PointerEvent, id: string, mode: 'move' | 'resize') => {
     e.preventDefault(); e.stopPropagation();
-    setSelectedField(key);
-    const field = tplRef.current.fields.find((f) => f.key === key);
+    setSelectedField(id);
+    const field = tplRef.current.fields.find((f) => f.id === id);
     if (!field || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = tplRef.current.width_px / rect.width;
@@ -299,7 +330,7 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       setTpl((prev) => ({
         ...prev,
         fields: prev.fields.map((f) => {
-          if (f.key !== key) return f;
+          if (f.id !== id) return f;
           if (mode === 'move') {
             return { ...f, x: Math.max(0, Math.round(origX + dx)), y: Math.max(0, Math.round(origY + dy)) };
           }
@@ -315,16 +346,19 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     window.addEventListener('pointerup', up);
   };
 
-  const updateField = (key: string, patch: Partial<FieldDef>) => {
-    setTpl((prev) => ({ ...prev, fields: prev.fields.map((f) => f.key === key ? { ...f, ...patch } : f) }));
+  const updateField = (id: string, patch: Partial<FieldDef>) => {
+    setTpl((prev) => ({ ...prev, fields: prev.fields.map((f) => f.id === id ? { ...f, ...patch } : f) }));
   };
-  const removeField = (key: string) => setTpl((prev) => ({ ...prev, fields: prev.fields.filter((f) => f.key !== key) }));
+  const removeField = (id: string) => setTpl((prev) => ({ ...prev, fields: prev.fields.filter((f) => f.id !== id) }));
   const addField = (key: string) => {
-    if (tpl.fields.some((f) => f.key === key)) return;
+    // Allow multiple instances of the same field type; offset to avoid overlap.
+    const existingOfType = tplRef.current.fields.filter((f) => f.key === key).length;
+    const offset = existingOfType * 20;
     const defaults: FieldDef = key === 'qr'
-      ? { key, x: 100, y: 100, width: 200, height: 200 }
-      : { key, x: 100, y: 100, fontSize: 16, color: '#000000' };
+      ? { id: newId(key), key, x: 100 + offset, y: 100 + offset, width: 200, height: 200 }
+      : { id: newId(key), key, x: 100 + offset, y: 100 + offset, fontSize: 16, color: '#000000' };
     setTpl((prev) => ({ ...prev, fields: [...prev.fields, defaults] }));
+    setSelectedField(defaults.id);
   };
 
   const resetTemplate = () => {
@@ -336,8 +370,9 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
     return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>;
   }
 
-  const selected = tpl.fields.find((f) => f.key === selectedField);
-  const missingFields = Object.keys(FIELD_LABELS).filter((k) => !tpl.fields.some((f) => f.key === k));
+  const selected = tpl.fields.find((f) => f.id === selectedField);
+  const selectedTypeCount = selected ? tpl.fields.filter((f) => f.key === selected.key).length : 0;
+  const selectedTypeIndex = selected ? tpl.fields.filter((f) => f.key === selected.key).findIndex((f) => f.id === selected.id) + 1 : 0;
   const aspect = `${tpl.width_px} / ${tpl.height_px}`;
 
   return (
@@ -420,18 +455,18 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
             {tpl.fields.map((f) => {
               const left = `${(f.x / tpl.width_px) * 100}%`;
               const top = `${(f.y / tpl.height_px) * 100}%`;
-              const isSelected = selectedField === f.key;
+              const isSelected = selectedField === f.id;
               if (f.key === 'qr') {
                 const w = `${((f.width || 200) / tpl.width_px) * 100}%`;
                 const h = `${((f.height || 200) / tpl.height_px) * 100}%`;
                 return (
-                  <div key={f.key}
-                    onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                  <div key={f.id}
+                    onPointerDown={(e) => beginDrag(e, f.id, 'move')}
                     className={`absolute border-2 ${isSelected ? 'border-primary' : 'border-foreground/50'} bg-foreground/10 flex items-center justify-center cursor-move touch-none`}
                     style={{ left, top, width: w, height: h }}>
                     <span className="text-[10px] font-semibold uppercase tracking-wider">QR</span>
                     <div
-                      onPointerDown={(e) => beginDrag(e, f.key, 'resize')}
+                      onPointerDown={(e) => beginDrag(e, f.id, 'resize')}
                       className="absolute -right-1 -bottom-1 w-3 h-3 bg-primary cursor-nwse-resize touch-none"
                       title="Zmień rozmiar"
                     />
@@ -445,8 +480,8 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
               const boxWidth = hasBox ? `${((f.width || 0) / tpl.width_px) * 100}%` : undefined;
               const sample = SAMPLE_VALUES[f.key] ?? FIELD_LABELS[f.key] ?? f.key;
               return (
-                <div key={f.key}
-                  onPointerDown={(e) => beginDrag(e, f.key, 'move')}
+                <div key={f.id}
+                  onPointerDown={(e) => beginDrag(e, f.id, 'move')}
                   className={`absolute cursor-move ${isSelected ? 'outline outline-2 outline-primary outline-offset-1' : 'outline outline-1 outline-foreground/20'} whitespace-nowrap touch-none leading-none`}
                   style={{
                     left,
@@ -472,26 +507,32 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
       {selected && (
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2"><GripVertical className="w-4 h-4" />{FIELD_LABELS[selected.key] || selected.key}</CardTitle>
-            <Button size="sm" variant="ghost" onClick={() => { removeField(selected.key); setSelectedField(null); }}>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <GripVertical className="w-4 h-4" />
+              {FIELD_LABELS[selected.key] || selected.key}
+              {selectedTypeCount > 1 && (
+                <span className="text-xs text-muted-foreground font-normal">(#{selectedTypeIndex} z {selectedTypeCount})</span>
+              )}
+            </CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => { removeField(selected.id); setSelectedField(null); }}>
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">X</Label><Input type="number" value={selected.x} onChange={(e) => updateField(selected.key, { x: Number(e.target.value) })} className="h-8" /></div>
-              <div><Label className="text-xs">Y</Label><Input type="number" value={selected.y} onChange={(e) => updateField(selected.key, { y: Number(e.target.value) })} className="h-8" /></div>
+              <div><Label className="text-xs">X</Label><Input type="number" value={selected.x} onChange={(e) => updateField(selected.id, { x: Number(e.target.value) })} className="h-8" /></div>
+              <div><Label className="text-xs">Y</Label><Input type="number" value={selected.y} onChange={(e) => updateField(selected.id, { y: Number(e.target.value) })} className="h-8" /></div>
               {selected.key === 'qr' ? (
                 <>
-                  <div><Label className="text-xs">Szerokość</Label><Input type="number" value={selected.width || 200} onChange={(e) => updateField(selected.key, { width: Number(e.target.value) })} className="h-8" /></div>
-                  <div><Label className="text-xs">Wysokość</Label><Input type="number" value={selected.height || 200} onChange={(e) => updateField(selected.key, { height: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Szerokość</Label><Input type="number" value={selected.width || 200} onChange={(e) => updateField(selected.id, { width: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Wysokość</Label><Input type="number" value={selected.height || 200} onChange={(e) => updateField(selected.id, { height: Number(e.target.value) })} className="h-8" /></div>
                 </>
               ) : (
                 <>
-                  <div><Label className="text-xs">Rozmiar</Label><Input type="number" value={selected.fontSize || 14} onChange={(e) => updateField(selected.key, { fontSize: Number(e.target.value) })} className="h-8" /></div>
-                  <div><Label className="text-xs">Kolor</Label><Input type="color" value={selected.color || '#000000'} onChange={(e) => updateField(selected.key, { color: e.target.value })} className="h-8 p-1" /></div>
+                  <div><Label className="text-xs">Rozmiar</Label><Input type="number" value={selected.fontSize || 14} onChange={(e) => updateField(selected.id, { fontSize: Number(e.target.value) })} className="h-8" /></div>
+                  <div><Label className="text-xs">Kolor</Label><Input type="color" value={selected.color || '#000000'} onChange={(e) => updateField(selected.id, { color: e.target.value })} className="h-8 p-1" /></div>
                   <div className="col-span-2"><Label className="text-xs">Waga</Label>
-                    <Select value={selected.fontWeight || 'normal'} onValueChange={(v: any) => updateField(selected.key, { fontWeight: v })}>
+                    <Select value={selected.fontWeight || 'normal'} onValueChange={(v: any) => updateField(selected.id, { fontWeight: v })}>
                       <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="normal">Normalna</SelectItem><SelectItem value="bold">Pogrubiona</SelectItem></SelectContent>
                     </Select>
@@ -520,18 +561,16 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
               </thead>
               <tbody>
                 {Object.keys(FIELD_LABELS).map((k) => {
-                  const onCanvas = tpl.fields.some((f) => f.key === k);
+                  const count = tpl.fields.filter((f) => f.key === k).length;
                   return (
                     <tr key={k} className="border-b last:border-b-0">
                       <td className="py-1.5 pr-3 font-mono text-foreground">{k}</td>
                       <td className="py-1.5 pr-3">{FIELD_LABELS[k]}</td>
                       <td className="py-1.5 pr-3 text-muted-foreground">{FIELD_DESCRIPTIONS[k]}</td>
                       <td className="py-1.5 text-right">
-                        {onCanvas ? (
-                          <span className="text-muted-foreground">na płótnie</span>
-                        ) : (
-                          <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>+ Dodaj</Button>
-                        )}
+                        <Button size="sm" variant="outline" className="h-7" onClick={() => addField(k)}>
+                          + Dodaj{count > 0 ? ` (×${count})` : ''}
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -568,7 +607,22 @@ export const EventTicketTemplatePanel: React.FC<Props> = ({ eventId, onDataChang
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <iframe src={previewUrl} className="w-full h-full" title="Podgląd PDF biletu" />
+              <object
+                data={previewDataUrl || previewUrl}
+                type="application/pdf"
+                className="w-full h-full"
+                aria-label="Podgląd PDF biletu"
+              >
+                <embed src={previewDataUrl || previewUrl} type="application/pdf" className="w-full h-full" />
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Twoja przeglądarka nie wyświetla podglądu PDF w oknie. Otwórz plik w nowej karcie lub pobierz go.
+                  </p>
+                  <Button onClick={() => window.open(previewUrl, '_blank', 'noopener')}>
+                    <ExternalLink className="w-4 h-4 mr-1" />Otwórz w nowej karcie
+                  </Button>
+                </div>
+              </object>
             )}
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
