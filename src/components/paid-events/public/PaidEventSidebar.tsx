@@ -15,6 +15,7 @@ interface TicketType {
   isFeatured?: boolean;
   available?: number | null;
   maxPerOrder?: number;
+  isFree?: boolean;
 }
 
 interface PaidEventSidebarProps {
