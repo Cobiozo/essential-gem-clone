@@ -29,8 +29,9 @@ interface OrderInfo {
     transfer_payment_details: string | null;
   };
   ticket_id: string | null;
-  paid_event_tickets: { name: string; price_pln: number; paypal_payment_link: string | null }
-    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null }>
+  paid_event_tickets:
+    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }
+    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }>
     | null;
 }
 
