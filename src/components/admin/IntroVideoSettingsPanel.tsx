@@ -100,6 +100,12 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       skip_after_ms: settings.skip_after_ms,
       allow_skip: settings.allow_skip,
       default_muted: settings.default_muted,
+      display_size: settings.display_size,
+      custom_width_percent: settings.custom_width_percent,
+      position: settings.position,
+      object_fit: settings.object_fit,
+      backdrop_style: settings.backdrop_style,
+      border_radius: settings.border_radius,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     };
