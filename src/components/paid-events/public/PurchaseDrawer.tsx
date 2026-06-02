@@ -336,6 +336,44 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         return;
       }
 
+      if (transferOnly) {
+        const { data, error } = await supabase.functions.invoke('register-event-transfer-order', { body: payload });
+        if (error) {
+          let detail = error.message || 'Nie udało się utworzyć rezerwacji';
+          try {
+            const ctxRes = (error as any).context?.response;
+            if (ctxRes && typeof ctxRes.clone === 'function') {
+              const j = await ctxRes.clone().json();
+              if (j?.error) detail = j.error;
+              else if (j?.message) detail = j.message;
+            }
+          } catch { /* ignore */ }
+          const map: Record<string, string> = {
+            missing_fields: 'Uzupełnij wymagane pola (imię, nazwisko, email).',
+            ticket_not_found: 'Ten bilet nie jest już dostępny.',
+            transfer_disabled: 'Płatność przelewem jest wyłączona dla tego wydarzenia.',
+            transfer_details_missing: 'Brak danych do przelewu — skontaktuj się z organizatorem.',
+            already_registered: 'Ten adres email ma już rezerwację na to wydarzenie.',
+          };
+          throw new Error(map[detail] || detail);
+        }
+        if (data?.error) {
+          throw new Error(data.message || data.error);
+        }
+
+        qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
+        qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
+        qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+        qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
+
+        toast({
+          title: 'Rezerwacja przyjęta',
+          description: `Wysłaliśmy email z danymi do przelewu na ${payload.buyer.email}.`,
+        });
+        setTransferSuccess(true);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-event-order', { body: payload });
       if (error) {
         let detail = error.message || 'Nie udało się utworzyć zamówienia';
@@ -369,6 +407,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   if (!ticket) return null;
 
   const noMethods = !isFree && !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
+  const transferOnly = !isFree && paymentMethodTransfer && !paymentMethodPayu && !paymentMethodPaypal;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -671,6 +710,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
                   ) : isFree ? (
                     <><CheckCircle2 className="w-4 h-4" />Zarezerwuj miejsce<ArrowRight className="w-4 h-4" /></>
+                  ) : transferOnly ? (
+                    <><Banknote className="w-4 h-4" />Rezerwuję<ArrowRight className="w-4 h-4" /></>
                   ) : (
                     <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
                   )}
