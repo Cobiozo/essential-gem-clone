@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PaidEventHero } from '@/components/paid-events/public/PaidEventHero';
 import { PaidEventSection } from '@/components/paid-events/public/PaidEventSection';
+import { PaidEventSidebar } from '@/components/paid-events/public/PaidEventSidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Ticket, Check, UserX, Info } from 'lucide-react';
+import { UserX, Info, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import type { EditorPreviewMode } from './PaidEventEditorLayout';
 
 interface EventEditorPreviewProps {
@@ -23,8 +25,11 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
   highlightedSection,
   previewMode = 'admin',
 }) => {
+  const { toast } = useToast();
   const isGuestPreview = previewMode === 'guest';
-  // Fetch event data
+  const isPartnerPreview = previewMode === 'partner';
+  const isAdminPreview = previewMode === 'admin';
+
   const { data: event } = useQuery({
     queryKey: ['paid-event-preview', eventId],
     queryFn: async () => {
@@ -38,7 +43,6 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     },
   });
 
-  // Fetch sections
   const { data: sections = [] } = useQuery({
     queryKey: ['paid-event-sections-preview', eventId],
     queryFn: async () => {
@@ -53,7 +57,6 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     },
   });
 
-  // Fetch tickets
   const { data: tickets = [] } = useQuery({
     queryKey: ['paid-event-tickets-preview', eventId],
     queryFn: async () => {
@@ -69,7 +72,6 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     },
   });
 
-  // Fetch speakers
   const { data: speakers = [] } = useQuery({
     queryKey: ['paid-event-speakers-preview', eventId],
     queryFn: async () => {
@@ -91,14 +93,7 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     );
   }
 
-  const formatPrice = (priceInGrosze: number) => {
-    return new Intl.NumberFormat('pl-PL', {
-      style: 'currency',
-      currency: 'PLN',
-    }).format(priceInGrosze / 100);
-  };
-
-  // Apply guest visibility filters when in guest preview mode
+  // Guest visibility flags only apply in guest mode
   const eventAny = event as any;
   const guestShowDescription = eventAny.guests_show_description ?? true;
   const guestShowSpeakers = eventAny.guests_show_speakers ?? true;
@@ -117,31 +112,62 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     guest_only: 'Goście',
     logged_in: 'Zalogowani',
   };
-  const filteredTickets = isGuestPreview
-    ? tickets.filter((t: any) => {
-        const a = t.audience ?? 'all';
-        return a === 'all' || a === 'guest_only';
-      })
-    : tickets;
+
+  // Filter tickets exactly like PaidEventPage does
+  const filteredTickets = tickets.filter((t: any) => {
+    const aud = t.audience ?? 'all';
+    if (isAdminPreview) return true;
+    if (aud === 'all') return true;
+    if (isGuestPreview) return aud === 'guest_only';
+    if (isPartnerPreview) return aud === 'logged_in';
+    return true;
+  });
+
+  // Map to PaidEventSidebar shape (price in PLN units, not grosze)
+  const sidebarTickets = filteredTickets.map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    price: (Number(t.price_pln) || 0) / 100,
+    description: t.description ?? null,
+    benefits: Array.isArray(t.benefits) ? t.benefits : [],
+    highlightText: t.highlight_text ?? null,
+    isFeatured: t.is_featured ?? false,
+    available: t.quantity_available ?? null,
+    maxPerOrder: 1,
+    isFree: false,
+  }));
+
+  const handlePreviewPurchase = () => {
+    toast({
+      title: 'Podgląd',
+      description: 'To jest tylko podgląd — akcja zakupu niedostępna.',
+    });
+  };
 
   return (
     <ScrollArea className="h-full">
       <div className="min-h-full bg-background">
-        {/* Preview Badge */}
         <div
           className={cn(
             'sticky top-0 z-10 text-xs text-center py-1.5 font-medium flex items-center justify-center gap-1.5',
-            isGuestPreview
-              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-              : 'bg-primary/10 text-primary'
+            isGuestPreview && 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+            isPartnerPreview && 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+            isAdminPreview && 'bg-primary/10 text-primary'
           )}
         >
-          {isGuestPreview ? (
+          {isGuestPreview && (
             <>
               <UserX className="w-3.5 h-3.5" />
               Podgląd: niezalogowany gość — widzi tylko elementy włączone w „Ustawieniach głównych"
             </>
-          ) : (
+          )}
+          {isPartnerPreview && (
+            <>
+              <User className="w-3.5 h-3.5" />
+              Podgląd: zalogowany partner — widzi pełną treść strony
+            </>
+          )}
+          {isAdminPreview && (
             <>
               <Info className="w-3.5 h-3.5" />
               Podgląd strony wydarzenia — /events/{eventSlug}
@@ -149,7 +175,6 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
           )}
         </div>
 
-        {/* Hero Section — identical in both modes (matches public page 1:1) */}
         <PaidEventHero
           title={event.title}
           shortDescription={event.short_description}
@@ -161,19 +186,17 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
           cacheKey={event.updated_at ?? null}
         />
 
-        {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <div
             className={cn(
-              'grid grid-cols-1 gap-8',
-              showTicketsBlock ? 'lg:grid-cols-3' : 'lg:grid-cols-1'
+              'flex flex-col gap-8',
+              showTicketsBlock && 'lg:flex-row'
             )}
           >
-            {/* Left Column - Sections */}
-            <div className={cn('space-y-8', showTicketsBlock && 'lg:col-span-2')}>
+            <div className="flex-1 min-w-0 space-y-8">
               {showSectionsBlock && (
                 <>
-                  {visibleSections.map((section) => (
+                  {visibleSections.map((section: any) => (
                     <div
                       key={section.id}
                       className={cn(
@@ -203,12 +226,11 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
                 </>
               )}
 
-              {/* Speakers Section */}
               {showSpeakersBlock && speakers.length > 0 && (
                 <section className="py-8">
                   <h2 className="text-2xl font-bold mb-6">Prelegenci</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {speakers.map((speaker) => (
+                    {speakers.map((speaker: any) => (
                       <Card key={speaker.id}>
                         <CardContent className="p-4 flex items-start gap-4">
                           {speaker.photo_url ? (
@@ -236,70 +258,36 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
               )}
             </div>
 
-            {/* Right Column - Tickets */}
             {showTicketsBlock && (
-              <div className="lg:col-span-1">
-                <div className="sticky top-12 space-y-4">
+              <div className="lg:w-[380px] lg:shrink-0">
+                {isAdminPreview && filteredTickets.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-1 justify-end">
+                    {filteredTickets.map((t: any) => (
+                      <Badge key={t.id} variant="outline" className="text-[10px]">
+                        {t.name}: {audienceLabel[t.audience ?? 'all']}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {sidebarTickets.length > 0 ? (
+                  <PaidEventSidebar
+                    tickets={sidebarTickets}
+                    eventDate={event.event_date}
+                    maxTickets={eventAny.max_tickets ?? null}
+                    ticketsSold={eventAny.tickets_sold ?? 0}
+                    onPurchase={handlePreviewPurchase}
+                    showLastSpotsLabel={eventAny.show_last_spots_label ?? false}
+                  />
+                ) : (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Ticket className="w-5 h-5" />
-                        Rejestracja
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {filteredTickets.map((ticket: any) => (
-                        <Card key={ticket.id} className="border-2">
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-start mb-2 gap-2">
-                              <h3 className="font-semibold">{ticket.name}</h3>
-                              <div className="flex gap-1 flex-wrap justify-end">
-                                {!isGuestPreview && (
-                                  <Badge variant="outline" className="text-[10px]">
-                                    {audienceLabel[ticket.audience ?? 'all']}
-                                  </Badge>
-                                )}
-                                {ticket.is_featured && (
-                                  <Badge variant="default">Popularne</Badge>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-2xl font-bold text-primary mb-2">
-                              {formatPrice(ticket.price_pln)}
-                            </p>
-                            {ticket.description && (
-                              <p className="text-sm text-muted-foreground mb-3">
-                                {ticket.description}
-                              </p>
-                            )}
-                            {ticket.benefits && Array.isArray(ticket.benefits) && (
-                              <ul className="space-y-1 text-sm">
-                                {(ticket.benefits as string[]).map((benefit, idx) => (
-                                  <li key={idx} className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-500" />
-                                    {benefit}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-
-                      {filteredTickets.length === 0 && isGuestPreview && (
-                        <div className="text-center py-8 text-sm text-muted-foreground">
-                          Niezalogowany gość nie zobaczy żadnego biletu na tej stronie.
-                        </div>
-                      )}
-
-                      {tickets.length === 0 && !isGuestPreview && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          Brak biletów. Dodaj pierwszy bilet w zakładce "Bilety".
-                        </div>
-                      )}
+                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                      {isGuestPreview && 'Niezalogowany gość nie zobaczy żadnego biletu na tej stronie.'}
+                      {isPartnerPreview && 'Zalogowany użytkownik nie zobaczy żadnego biletu na tej stronie.'}
+                      {isAdminPreview && 'Brak biletów. Dodaj pierwszy bilet w zakładce "Bilety".'}
                     </CardContent>
                   </Card>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -308,4 +296,3 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
     </ScrollArea>
   );
 };
-
