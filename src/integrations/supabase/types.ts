@@ -7082,6 +7082,7 @@ export type Database = {
           sale_end: string | null
           sale_start: string | null
           seats_per_ticket: number
+          transfer_payment_details: string | null
           updated_at: string
         }
         Insert: {
@@ -7106,6 +7107,7 @@ export type Database = {
           sale_end?: string | null
           sale_start?: string | null
           seats_per_ticket?: number
+          transfer_payment_details?: string | null
           updated_at?: string
         }
         Update: {
@@ -7130,6 +7132,7 @@ export type Database = {
           sale_end?: string | null
           sale_start?: string | null
           seats_per_ticket?: number
+          transfer_payment_details?: string | null
           updated_at?: string
         }
         Relationships: [

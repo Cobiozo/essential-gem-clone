@@ -1,0 +1,1 @@
+ALTER TABLE public.paid_event_tickets ADD COLUMN IF NOT EXISTS transfer_payment_details text;
