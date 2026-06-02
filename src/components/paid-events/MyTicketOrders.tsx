@@ -30,7 +30,7 @@ interface OrderRow {
   first_name: string;
   last_name: string;
   email: string;
-  ticket: { name: string; price_pln: number; seats_per_ticket: number | null } | null;
+  ticket: { name: string; price_pln: number; seats_per_ticket: number | null; transfer_payment_details: string | null } | null;
   event: { title: string; slug: string; event_date: string; location: string | null; transfer_payment_details: string | null } | null;
   attendees: Attendee[];
 }
