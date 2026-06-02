@@ -126,7 +126,6 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Ticket> }) => {
       const payload = { ...data };
-      if (isFree) payload.price_pln = 0;
       const { error } = await supabase
         .from('paid_event_tickets')
         .update(payload)
@@ -308,7 +307,6 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     onValueChange={(val) => {
                       setEditingValue(ticket.id, 'payment_method', val as PaymentMethodOption);
                       if (val === 'free') {
-                        setEditingValue(ticket.id, 'price_pln', 0);
                         setEditingValue(ticket.id, 'paypal_payment_link', null);
                       }
                     }}
@@ -354,25 +352,19 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   </p>
                 </div>
 
-                {(() => {
-                  const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
-                  const ticketIsFree = pm === 'free' || isFree;
-                  return !ticketIsFree;
-                })() && (
-                  <div>
-                    <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
-                    <Input
-                      id={`price-${ticket.id}`}
-                      type="text"
-                      value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
-                      onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
-                      placeholder="100.00"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Cena w PLN (np. 648.00)
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
+                  <Input
+                    id={`price-${ticket.id}`}
+                    type="text"
+                    value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln) || 0)}
+                    onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
+                    placeholder="0,00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Cena w PLN (np. 648,00). Jeśli puste — wyświetli się 0,00 zł.
+                  </p>
+                </div>
 
                 {(() => {
                   const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);

@@ -183,7 +183,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
                         )}
                       </div>
                       <div className="text-lg font-bold text-primary">
-                        {ticket.isFree ? 'Bezpłatny' : formatPrice(ticket.price)}
+                        {formatPrice(ticket.price || 0)}
                       </div>
                     </div>
                     {ticket.description && (
@@ -197,9 +197,9 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
             ) : (
               <div className="text-center py-2">
                 <div className="text-3xl font-bold text-primary">
-                  {tickets[0].isFree ? 'Bezpłatny' : formatPrice(tickets[0].price)}
+                  {formatPrice(tickets[0].price || 0)}
                 </div>
-                {!tickets[0].isFree && (
+                {(tickets[0].price || 0) > 0 && (
                   <div className="text-sm text-muted-foreground mt-1">brutto (z VAT)</div>
                 )}
               </div>
