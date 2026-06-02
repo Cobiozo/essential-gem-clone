@@ -6,11 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Trash2, Video as VideoIcon, Eye } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { IntroVideoSettings } from '@/hooks/useIntroVideoSettings';
+import {
+  normalizeSettings,
+  ALL_TRIGGER_MOMENTS,
+  TRIGGER_MOMENT_LABELS,
+  type IntroTriggerMoment,
+  type IntroVideoSettings,
+} from '@/hooks/useIntroVideoSettings';
 import { IntroVideoPreviewDialog } from './IntroVideoPreviewDialog';
 
 const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
@@ -19,6 +26,7 @@ const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   show_on_auth_only: false,
   show_on_anonymous: true,
   frequency: 'always',
+  trigger_moments: ['app_start'],
   trigger_moment: 'app_start',
   skip_after_ms: 1500,
   allow_skip: true,
@@ -44,7 +52,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
     if (error) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     }
-    setSettings((data as any) ?? null);
+    setSettings(normalizeSettings(data));
     setLoading(false);
   };
 
@@ -54,8 +62,21 @@ export const IntroVideoSettingsPanel: React.FC = () => {
     setSettings((s) => (s ? { ...s, ...patch } : ({ ...DEFAULTS, id: '', ...patch } as IntroVideoSettings)));
   };
 
+  const toggleMoment = (m: IntroTriggerMoment, checked: boolean) => {
+    setSettings((s) => {
+      const base = s ?? ({ ...DEFAULTS, id: '' } as IntroVideoSettings);
+      const set = new Set(base.trigger_moments ?? []);
+      if (checked) set.add(m); else set.delete(m);
+      return { ...base, trigger_moments: Array.from(set) };
+    });
+  };
+
   const save = async () => {
     if (!settings) return;
+    if (!settings.trigger_moments || settings.trigger_moments.length === 0) {
+      toast({ title: 'Brak momentu', description: 'Zaznacz co najmniej jeden moment wyświetlania.', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     const payload: any = {
@@ -64,7 +85,8 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       show_on_auth_only: settings.show_on_auth_only,
       show_on_anonymous: settings.show_on_anonymous,
       frequency: settings.frequency,
-      trigger_moment: settings.trigger_moment,
+      trigger_moments: settings.trigger_moments,
+      trigger_moment: settings.trigger_moments[0] ?? null,
       skip_after_ms: settings.skip_after_ms,
       allow_skip: settings.allow_skip,
       default_muted: settings.default_muted,
@@ -87,8 +109,8 @@ export const IntroVideoSettingsPanel: React.FC = () => {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) {
-      toast({ title: 'Plik za duży', description: 'Maks. 20 MB.', variant: 'destructive' });
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: 'Plik za duży', description: 'Maks. 50 MB.', variant: 'destructive' });
       return;
     }
     setUploading(true);
@@ -100,9 +122,12 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       contentType: file.type,
     });
     if (upErr) {
-      const msg = /bucket not found/i.test(upErr.message)
-        ? 'Magazyn wideo nie jest jeszcze skonfigurowany — uruchom migrację Supabase.'
-        : upErr.message;
+      let msg = upErr.message;
+      if (/bucket not found/i.test(msg)) {
+        msg = 'Magazyn wideo „intro-videos" nie istnieje — uruchom migrację Supabase.';
+      } else if (/row.?level security|policy|unauthor/i.test(msg)) {
+        msg = 'Brak uprawnień: tylko administrator może wgrywać intro wideo.';
+      }
       toast({ title: 'Błąd uploadu', description: msg, variant: 'destructive' });
       setUploading(false);
       return;
@@ -116,6 +141,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
   if (loading) return <div className="p-8 text-center text-muted-foreground">Ładowanie…</div>;
 
   const s = settings ?? ({ ...DEFAULTS, id: '' } as IntroVideoSettings);
+  const activeMoments = new Set(s.trigger_moments ?? []);
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -124,7 +150,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
           <CardTitle className="flex items-center gap-2"><VideoIcon className="w-5 h-5" /> Intro wideo</CardTitle>
           <CardDescription>
             Krótki film odtwarzany jako ekran powitalny przy wejściu do aplikacji.
-            Zalecana długość: 4–5 sekund, format MP4, max 20 MB.
+            Zalecana długość: 4–5 sekund, format MP4, max 50 MB.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -167,35 +193,37 @@ export const IntroVideoSettingsPanel: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Moment wyświetlania</Label>
-              <Select value={s.trigger_moment} onValueChange={(v: any) => update({ trigger_moment: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="app_start">Po włączeniu strony</SelectItem>
-                  <SelectItem value="auth_page">Na stronie logowania (/auth)</SelectItem>
-                  <SelectItem value="before_login">Przed zalogowaniem (niezalogowani na /auth)</SelectItem>
-                  <SelectItem value="after_login">Po prawidłowym logowaniu</SelectItem>
-                  <SelectItem value="dashboard_entry">Przy wejściu do dashboardu</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-3 rounded-lg border p-4">
+            <div>
+              <Label className="text-base">Momenty wyświetlania</Label>
+              <p className="text-sm text-muted-foreground">Możesz zaznaczyć wiele momentów – intro pokaże się przy każdym z nich.</p>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {ALL_TRIGGER_MOMENTS.map((m) => (
+                <label key={m} className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-accent/40 transition">
+                  <Checkbox
+                    checked={activeMoments.has(m)}
+                    onCheckedChange={(v) => toggleMoment(m, !!v)}
+                  />
+                  <span className="text-sm">{TRIGGER_MOMENT_LABELS[m]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label>Częstotliwość wyświetlania</Label>
-              <Select value={s.frequency} onValueChange={(v: any) => update({ frequency: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="always">Zawsze (każde otwarcie/odświeżenie)</SelectItem>
-                  <SelectItem value="once_per_session">Raz na sesję przeglądarki</SelectItem>
-                  <SelectItem value="once_per_day">Raz dziennie</SelectItem>
-                  <SelectItem value="once_per_week">Raz w tygodniu</SelectItem>
-                  <SelectItem value="once_per_user">Raz na użytkownika (na zawsze)</SelectItem>
-                  <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Częstotliwość wyświetlania</Label>
+            <Select value={s.frequency} onValueChange={(v: any) => update({ frequency: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="always">Zawsze (każde otwarcie/odświeżenie)</SelectItem>
+                <SelectItem value="once_per_session">Raz na sesję przeglądarki</SelectItem>
+                <SelectItem value="once_per_day">Raz dziennie</SelectItem>
+                <SelectItem value="once_per_week">Raz w tygodniu</SelectItem>
+                <SelectItem value="once_per_user">Raz na użytkownika (na zawsze)</SelectItem>
+                <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
