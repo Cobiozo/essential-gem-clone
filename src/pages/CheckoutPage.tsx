@@ -30,8 +30,8 @@ interface OrderInfo {
   };
   ticket_id: string | null;
   paid_event_tickets:
-    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }
-    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }>
+    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null; transfer_payment_details: string | null }
+    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null; transfer_payment_details: string | null }>
     | null;
 }
 
