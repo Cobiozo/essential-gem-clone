@@ -45,12 +45,12 @@ const markPlayed = (frequency: IntroFrequency, userId?: string | null, loginTrig
   else if (frequency === 'every_login') sessionStorage.setItem(LOGIN_TRIGGER_KEY, String(loginTrigger ?? 0));
 };
 
-const matchesTrigger = (
+const triggerMatches = (
   trigger: IntroTriggerMoment,
   pathname: string,
   user: any,
   loginTrigger: number,
-  lastSeenLoginTriggerRef: React.MutableRefObject<number>,
+  lastSeenLoginTrigger: number,
 ): boolean => {
   switch (trigger) {
     case 'app_start':
@@ -60,11 +60,11 @@ const matchesTrigger = (
     case 'before_login':
       return pathname === '/auth' && !user;
     case 'after_login':
-      return !!user && loginTrigger > lastSeenLoginTriggerRef.current;
+      return !!user && loginTrigger > lastSeenLoginTrigger;
     case 'dashboard_entry':
       return !!user && pathname.startsWith('/dashboard');
     default:
-      return true;
+      return false;
   }
 };
 
@@ -78,20 +78,27 @@ export const IntroVideoOverlay: React.FC = () => {
   const [muted, setMuted] = useState(true);
   const [showSkip, setShowSkip] = useState(false);
   const lastSeenLoginTriggerRef = useRef(loginTrigger);
-  const playedForPathRef = useRef<string | null>(null);
+  const playedForKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoading || !settings) return;
     if (!settings.enabled || !settings.video_url) return;
     if (!settings.show_on_anonymous && !user) return;
 
-    const trigger = (settings.trigger_moment as IntroTriggerMoment) ?? 'app_start';
-    if (!matchesTrigger(trigger, location.pathname, user, loginTrigger, lastSeenLoginTriggerRef)) return;
+    const moments = settings.trigger_moments?.length
+      ? settings.trigger_moments
+      : (settings.trigger_moment ? [settings.trigger_moment] : ['app_start' as IntroTriggerMoment]);
+
+    const matched = moments.find((m) =>
+      triggerMatches(m, location.pathname, user, loginTrigger, lastSeenLoginTriggerRef.current),
+    );
+    if (!matched) return;
+
     if (!shouldShowByFrequency(settings.frequency, user?.id, loginTrigger)) return;
 
-    const key = `${trigger}:${location.pathname}:${loginTrigger}`;
-    if (playedForPathRef.current === key) return;
-    playedForPathRef.current = key;
+    const key = `${matched}:${location.pathname}:${loginTrigger}`;
+    if (playedForKeyRef.current === key) return;
+    playedForKeyRef.current = key;
 
     setMuted(settings.default_muted);
     setVisible(true);
