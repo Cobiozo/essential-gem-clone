@@ -357,15 +357,32 @@ export const TicketVerificationPanel: React.FC = () => {
             const attendees = o.paid_event_order_attendees || [];
             const attendeeMatches = attendees.some(a => (a.ticket_code || '').toUpperCase() === scannedCode);
             if (!orderMatches && !attendeeMatches) return o;
+
+            // Legacy: scanned code is the order code, but attendees have their own codes.
+            // Mirror the check-in onto the "primary" attendee (email match → seat 0 → first)
+            // so the participants list reflects it immediately.
+            let primaryAttendeeId: string | null = null;
+            if (orderMatches && !attendeeMatches && attendees.length > 0) {
+              const byEmail = attendees.find(
+                a => (a.email || '').toLowerCase() === (o.email || '').toLowerCase()
+              );
+              const sorted = [...attendees].sort(
+                (a, b) => (a.seat_index ?? 0) - (b.seat_index ?? 0)
+              );
+              primaryAttendeeId = (byEmail || sorted[0]).id;
+            }
+
             return {
               ...o,
               checked_in: attendeeMatches ? o.checked_in : newCheckedIn,
               checked_in_at: attendeeMatches ? o.checked_in_at : newCheckedAt,
-              paid_event_order_attendees: attendees.map(a =>
-                (a.ticket_code || '').toUpperCase() === scannedCode
-                  ? { ...a, checked_in: newCheckedIn, checked_in_at: newCheckedAt }
-                  : a
-              ),
+              paid_event_order_attendees: attendees.map(a => {
+                const codeMatch = (a.ticket_code || '').toUpperCase() === scannedCode;
+                if (codeMatch || a.id === primaryAttendeeId) {
+                  return { ...a, checked_in: newCheckedIn, checked_in_at: newCheckedAt };
+                }
+                return a;
+              }),
             };
           }));
           if (selectedEventId && verifiedEventId === selectedEventId) {
