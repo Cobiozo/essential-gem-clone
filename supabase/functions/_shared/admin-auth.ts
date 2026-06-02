@@ -109,10 +109,28 @@ export async function verifyTicketVerifier(req: Request): Promise<any> {
   const userId = userData.user.id;
 
   const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-  const { data: canRow } = await supabaseAdmin
-    .rpc("has_ticket_verifier_access", { _user_id: userId });
 
-  if (!canRow) {
+  // 1) Try RPC
+  let hasAccess = false;
+  const { data: canRow, error: rpcErr } = await supabaseAdmin
+    .rpc("has_ticket_verifier_access", { _user_id: userId });
+  if (!rpcErr && canRow === true) hasAccess = true;
+
+  // 2) Fallback: direct table checks (service role bypasses RLS)
+  if (!hasAccess) {
+    const { data: adminRow } = await supabaseAdmin
+      .from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
+    if (adminRow) hasAccess = true;
+  }
+  if (!hasAccess) {
+    const { data: tvaRow } = await supabaseAdmin
+      .from("ticket_verifier_access").select("is_enabled").eq("user_id", userId).maybeSingle();
+    if (tvaRow?.is_enabled) hasAccess = true;
+  }
+
+  console.log("[verifyTicketVerifier]", { userId, rpcErr: rpcErr?.message, canRow, hasAccess });
+
+  if (!hasAccess) {
     return {
       ok: false,
       response: new Response(
