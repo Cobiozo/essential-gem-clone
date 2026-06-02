@@ -4799,6 +4799,11 @@ const Admin = () => {
           <TabsContent value="mobile-bottom-nav">
             <MobileBottomNavSettings />
           </TabsContent>
+
+          <TabsContent value="intro-video">
+            <IntroVideoSettingsPanel />
+          </TabsContent>
+
         </Tabs>
       </div>
 
