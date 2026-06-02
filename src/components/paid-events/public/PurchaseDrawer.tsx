@@ -369,6 +369,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   if (!ticket) return null;
 
   const noMethods = !isFree && !paymentMethodPayu && !paymentMethodTransfer && !paymentMethodPaypal;
+  const transferOnly = !isFree && paymentMethodTransfer && !paymentMethodPayu && !paymentMethodPaypal;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
