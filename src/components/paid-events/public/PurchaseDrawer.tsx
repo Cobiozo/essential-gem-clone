@@ -130,8 +130,12 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const maxQty = useMemo(() => {
     const qa = ticket?.available_quantity;
-    return Math.max(1, Math.min(MAX_TICKETS, qa && qa > 0 ? qa : MAX_TICKETS));
-  }, [ticket?.available_quantity]);
+    const mpo = ticket?.max_per_order;
+    const availCap = qa && qa > 0 ? qa : MAX_TICKETS;
+    const orderCap = mpo && mpo > 0 ? mpo : MAX_TICKETS;
+    return Math.max(1, Math.min(MAX_TICKETS, availCap, orderCap));
+  }, [ticket?.available_quantity, ticket?.max_per_order]);
+  const allowMultiple = maxQty > 1;
 
   // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input).
   // Skip auto-fill entirely if the user is already registered for this event — buyer fields
