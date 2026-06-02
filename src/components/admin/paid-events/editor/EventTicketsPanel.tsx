@@ -126,7 +126,6 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Ticket> }) => {
       const payload = { ...data };
-      if (isFree) payload.price_pln = 0;
       const { error } = await supabase
         .from('paid_event_tickets')
         .update(payload)
