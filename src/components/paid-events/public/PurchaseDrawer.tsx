@@ -242,7 +242,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     const guests = attendees.map(a => ({
       firstName: a.firstName.trim(),
       lastName: a.lastName.trim(),
-      email: a.email?.trim() || null,
+      email: a.email.trim(),
     }));
     const attendeesPayload = buyerIsAttendee
       ? [
