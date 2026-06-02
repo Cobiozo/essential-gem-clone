@@ -159,7 +159,7 @@ export const AppBanners: React.FC = () => {
     [banners]
   );
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading: profileLoading, isFetched: profileFetched } = useQuery({
     queryKey: ['app-banners-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;

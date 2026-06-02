@@ -1,3 +1,4 @@
+// re-deploy: pick up updated verifyTicketVerifier in _shared/admin-auth.ts
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
