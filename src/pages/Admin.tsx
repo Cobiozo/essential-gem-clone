@@ -2133,6 +2133,8 @@ const Admin = () => {
     if (authLoading || !rolesReady) return;
     
     if (!user) {
+      lockAdminGate();
+      setGateUnlocked(false);
       setLoading(false);
       navigate('/auth');
       return;
