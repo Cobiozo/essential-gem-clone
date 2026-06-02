@@ -427,6 +427,23 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   </div>
                 </div>
 
+                {/* Allow multi-purchase toggle */}
+                <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`multi-${ticket.id}`} className="text-sm font-medium">
+                      Zezwól na zakup więcej niż 1 sztuki
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Gdy włączone, kupujący może w jednym zamówieniu zarezerwować kilka {unitLabelLower === 'bilet' ? 'biletów' : 'rezerwacji'} (każda z obowiązkowymi danymi uczestnika: imię, nazwisko, email).
+                    </p>
+                  </div>
+                  <Switch
+                    id={`multi-${ticket.id}`}
+                    checked={!!getEditingValue(ticket.id, 'allow_multiple_purchase', ticket.allow_multiple_purchase ?? false)}
+                    onCheckedChange={(checked) => setEditingValue(ticket.id, 'allow_multiple_purchase', checked)}
+                  />
+                </div>
+
                 {/* Benefits */}
                 <div>
                   <Label>Benefity</Label>
