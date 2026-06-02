@@ -50,6 +50,7 @@ import {
   Heart,
   Sparkles,
   Ticket,
+  QrCode,
   FileText,
   Crown,
   icons as LucideIcons,
