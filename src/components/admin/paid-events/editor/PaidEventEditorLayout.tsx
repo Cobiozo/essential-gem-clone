@@ -1,7 +1,7 @@
 import React from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Eye, UserX, Settings } from 'lucide-react';
+import { ArrowLeft, Eye, UserX, Settings, User } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { EventEditorSidebar } from './EventEditorSidebar';
 import { EventEditorPreview } from './EventEditorPreview';
