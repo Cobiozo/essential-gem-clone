@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, Video as VideoIcon } from 'lucide-react';
+import { Upload, Trash2, Video as VideoIcon, Eye } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { IntroVideoSettings } from '@/hooks/useIntroVideoSettings';
+import { IntroVideoPreviewDialog } from './IntroVideoPreviewDialog';
 
 const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   enabled: false,
@@ -18,6 +19,7 @@ const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   show_on_auth_only: false,
   show_on_anonymous: true,
   frequency: 'always',
+  trigger_moment: 'app_start',
   skip_after_ms: 1500,
   allow_skip: true,
   default_muted: true,
@@ -30,6 +32,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [settings, setSettings] = useState<IntroVideoSettings | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -45,9 +48,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const update = (patch: Partial<IntroVideoSettings>) => {
     setSettings((s) => (s ? { ...s, ...patch } : ({ ...DEFAULTS, id: '', ...patch } as IntroVideoSettings)));
@@ -63,18 +64,16 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       show_on_auth_only: settings.show_on_auth_only,
       show_on_anonymous: settings.show_on_anonymous,
       frequency: settings.frequency,
+      trigger_moment: settings.trigger_moment,
       skip_after_ms: settings.skip_after_ms,
       allow_skip: settings.allow_skip,
       default_muted: settings.default_muted,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     };
-    let res;
-    if (settings.id) {
-      res = await supabase.from('intro_video_settings' as any).update(payload).eq('id', settings.id);
-    } else {
-      res = await supabase.from('intro_video_settings' as any).insert(payload);
-    }
+    const res = settings.id
+      ? await supabase.from('intro_video_settings' as any).update(payload).eq('id', settings.id)
+      : await supabase.from('intro_video_settings' as any).insert(payload);
     if (res.error) {
       toast({ title: 'Błąd zapisu', description: res.error.message, variant: 'destructive' });
     } else {
@@ -101,7 +100,10 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       contentType: file.type,
     });
     if (upErr) {
-      toast({ title: 'Błąd uploadu', description: upErr.message, variant: 'destructive' });
+      const msg = /bucket not found/i.test(upErr.message)
+        ? 'Magazyn wideo nie jest jeszcze skonfigurowany — uruchom migrację Supabase.'
+        : upErr.message;
+      toast({ title: 'Błąd uploadu', description: msg, variant: 'destructive' });
       setUploading(false);
       return;
     }
@@ -165,16 +167,35 @@ export const IntroVideoSettingsPanel: React.FC = () => {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Częstotliwość wyświetlania</Label>
-            <Select value={s.frequency} onValueChange={(v: any) => update({ frequency: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="always">Zawsze (każde otwarcie/odświeżenie)</SelectItem>
-                <SelectItem value="once_per_session">Raz na sesję przeglądarki</SelectItem>
-                <SelectItem value="once_per_day">Raz dziennie</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Moment wyświetlania</Label>
+              <Select value={s.trigger_moment} onValueChange={(v: any) => update({ trigger_moment: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="app_start">Po włączeniu strony</SelectItem>
+                  <SelectItem value="auth_page">Na stronie logowania (/auth)</SelectItem>
+                  <SelectItem value="before_login">Przed zalogowaniem (niezalogowani na /auth)</SelectItem>
+                  <SelectItem value="after_login">Po prawidłowym logowaniu</SelectItem>
+                  <SelectItem value="dashboard_entry">Przy wejściu do dashboardu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Częstotliwość wyświetlania</Label>
+              <Select value={s.frequency} onValueChange={(v: any) => update({ frequency: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="always">Zawsze (każde otwarcie/odświeżenie)</SelectItem>
+                  <SelectItem value="once_per_session">Raz na sesję przeglądarki</SelectItem>
+                  <SelectItem value="once_per_day">Raz dziennie</SelectItem>
+                  <SelectItem value="once_per_week">Raz w tygodniu</SelectItem>
+                  <SelectItem value="once_per_user">Raz na użytkownika (na zawsze)</SelectItem>
+                  <SelectItem value="every_login">Przy każdym logowaniu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -201,16 +222,16 @@ export const IntroVideoSettingsPanel: React.FC = () => {
               <Switch checked={s.default_muted} onCheckedChange={(v) => update({ default_muted: v })} />
             </div>
             <div className="flex items-center justify-between">
-              <Label>Pokazuj tylko na stronie logowania (/auth)</Label>
-              <Switch checked={s.show_on_auth_only} onCheckedChange={(v) => update({ show_on_auth_only: v })} />
-            </div>
-            <div className="flex items-center justify-between">
               <Label>Pokazuj też niezalogowanym</Label>
               <Switch checked={s.show_on_anonymous} onCheckedChange={(v) => update({ show_on_anonymous: v })} />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={() => setPreviewOpen(true)} disabled={!s.video_url}>
+              <Eye className="w-4 h-4 mr-2" />
+              Podgląd
+            </Button>
             <Button onClick={save} disabled={saving}>
               <Upload className="w-4 h-4 mr-2" />
               {saving ? 'Zapisywanie…' : 'Zapisz'}
@@ -218,6 +239,8 @@ export const IntroVideoSettingsPanel: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      <IntroVideoPreviewDialog open={previewOpen} onOpenChange={setPreviewOpen} settings={s} />
     </div>
   );
 };
