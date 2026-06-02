@@ -82,10 +82,15 @@ serve(async (req) => {
 
           // Flip order to paid if it's a transfer reservation still awaiting payment
           if (ord.status !== "paid" && ord.status !== "cancelled" && ord.status !== "refunded") {
-            await supabase
+            const { error: upErr } = await supabase
               .from("paid_event_orders")
-              .update({ status: "paid", paid_at: new Date().toISOString() })
+              .update({ status: "paid" })
               .eq("id", oid);
+            if (upErr) {
+              console.error("[admin-mark-event-payment] order status update failed", oid, upErr);
+              ticketResults.push({ orderId: oid, ok: false, error: `status_update: ${upErr.message}` });
+              continue;
+            }
           }
 
           // Issue ticket if not already sent
