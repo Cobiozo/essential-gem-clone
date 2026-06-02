@@ -31,6 +31,7 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
+import { IntroVideoOverlay } from "@/components/intro/IntroVideoOverlay";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
 
