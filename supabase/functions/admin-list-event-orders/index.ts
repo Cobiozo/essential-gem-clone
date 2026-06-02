@@ -1,4 +1,4 @@
-import { verifyAdmin, corsHeaders, jsonResponse } from "../_shared/admin-auth.ts";
+import { verifyTicketVerifier as verifyAdmin, corsHeaders, jsonResponse } from "../_shared/admin-auth.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
