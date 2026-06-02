@@ -105,6 +105,7 @@ const SIDEBAR_KEYS = {
   dashboardFooter: 'admin.sidebar.dashboardFooter',
   adminPanel: 'admin.sidebar.adminPanel',
   administrator: 'admin.sidebar.administrator',
+  introVideo: 'Intro wideo',
 };
 
 interface AdminSidebarProps {
