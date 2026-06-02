@@ -13,7 +13,7 @@ interface PaidEventEditorLayoutProps {
   onClose: () => void;
 }
 
-export type EditorPreviewMode = 'admin' | 'guest';
+export type EditorPreviewMode = 'admin' | 'guest' | 'partner';
 
 export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
   eventId,
