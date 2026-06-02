@@ -183,7 +183,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
                         )}
                       </div>
                       <div className="text-lg font-bold text-primary">
-                        {ticket.isFree ? 'Bezpłatny' : formatPrice(ticket.price)}
+                        {formatPrice(ticket.price || 0)}
                       </div>
                     </div>
                     {ticket.description && (
