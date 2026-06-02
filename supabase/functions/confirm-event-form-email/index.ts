@@ -17,6 +17,11 @@ function nowStamp() {
 /**
  * Ensures a paid_event_orders row exists for a confirmed free-event form submission,
  * then issues the ticket email (PDF + QR). Idempotent.
+ *
+ * IMPORTANT: When the existing order is a transfer reservation (per-ticket override
+ * — e.g. a paid 20 zł ticket on an otherwise "free" event), we DO NOT auto-mark it
+ * as paid and DO NOT issue the ticket. The admin must confirm payment manually
+ * via admin-mark-event-payment, which then triggers ticket issuance.
  */
 async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string): Promise<void> {
   const { data: sub } = await supabase
@@ -35,22 +40,26 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
 
   const submitted = (sub.submitted_data || {}) as any;
   let orderId: string | null = submitted.order_id || null;
+  let existingOrder: any = null;
   let ticketAlreadySent = false;
 
   if (orderId) {
     const { data: existing } = await supabase
       .from("paid_event_orders")
-      .select("id, ticket_sent_at")
+      .select("id, ticket_sent_at, payment_provider, status, total_amount")
       .eq("id", orderId)
       .maybeSingle();
     if (!existing) orderId = null;
-    else if (existing.ticket_sent_at) ticketAlreadySent = true;
+    else {
+      existingOrder = existing;
+      if (existing.ticket_sent_at) ticketAlreadySent = true;
+    }
   }
 
   if (!orderId) {
     const { data: byEmail } = await supabase
       .from("paid_event_orders")
-      .select("id, ticket_sent_at")
+      .select("id, ticket_sent_at, payment_provider, status, total_amount")
       .eq("event_id", sub.event_id)
       .eq("email", sub.email)
       .order("created_at", { ascending: false })
@@ -58,8 +67,36 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
       .maybeSingle();
     if (byEmail?.id) {
       orderId = byEmail.id;
+      existingOrder = byEmail;
       if (byEmail.ticket_sent_at) ticketAlreadySent = true;
     }
+  }
+
+  // === TRANSFER RESERVATION GUARD ===
+  // If the order is a transfer reservation (per-ticket override on a "free" event),
+  // record email confirmation but do NOT mark as paid and do NOT issue the ticket.
+  // Admin must confirm payment manually.
+  const isTransferReservation = existingOrder && (
+    existingOrder.payment_provider === "transfer"
+    || existingOrder.status === "awaiting_transfer"
+    || Number(existingOrder.total_amount || 0) > 0
+  );
+
+  if (isTransferReservation && orderId) {
+    console.log(`[confirm-event-form-email] transfer reservation detected (order=${orderId}); skipping auto-paid/ticket flow`);
+    await supabase
+      .from("paid_event_orders")
+      .update({ email_confirmed_at: new Date().toISOString() })
+      .eq("id", orderId)
+      .is("email_confirmed_at", null);
+    await supabase
+      .from("event_form_submissions")
+      .update({
+        submitted_data: { ...submitted, order_id: orderId, order_ids: [orderId] },
+        email_status: "confirmed",
+      })
+      .eq("id", sub.id);
+    return;
   }
 
   if (!orderId) {
