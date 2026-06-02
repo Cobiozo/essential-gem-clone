@@ -1,0 +1,1 @@
+UPDATE public.paid_event_orders SET status = 'paid' WHERE id = '15d3f6cc-c4e4-4e62-ab38-e50a06a589f1' AND status = 'awaiting_transfer';
