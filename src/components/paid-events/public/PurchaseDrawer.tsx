@@ -567,8 +567,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {buyerIsAttendee
-                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później — z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.'
-                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dane gości możesz uzupełnić teraz lub później w sekcji „Moje bilety". Każdy gość dostanie własny kod QR.'}
+                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dla każdego dodatkowego biletu podaj imię, nazwisko i email — bilety są imienne, każdy uczestnik dostanie własny kod QR.'
+                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dla każdego gościa podaj imię, nazwisko i email — bilety są imienne, każdy gość dostanie własny kod QR.'}
                   </p>
 
                   <div className="space-y-3">
@@ -578,27 +578,30 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             {buyerIsAttendee ? `Uczestnik ${idx + 2}` : `Gość ${idx + 1}`}
                           </span>
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                            opcjonalnie
+                          <span className="text-[10px] uppercase tracking-wide text-destructive">
+                            wymagane
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
                             value={a.firstName}
                             onChange={(e) => updateAttendee(idx, { firstName: e.target.value })}
-                            placeholder="Imię"
+                            placeholder="Imię *"
+                            required
                           />
                           <Input
                             value={a.lastName}
                             onChange={(e) => updateAttendee(idx, { lastName: e.target.value })}
-                            placeholder="Nazwisko"
+                            placeholder="Nazwisko *"
+                            required
                           />
                         </div>
                         <Input
                           type="email"
                           value={a.email}
                           onChange={(e) => updateAttendee(idx, { email: e.target.value })}
-                          placeholder="Email (opcjonalnie)"
+                          placeholder="Email *"
+                          required
                         />
                       </div>
                     ))}
