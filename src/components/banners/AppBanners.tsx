@@ -196,6 +196,10 @@ export const AppBanners: React.FC = () => {
   const visible = useMemo(() => {
     if (!banners) return [];
     return banners.filter((b) => {
+      // Anti-flash: skip profile-based banners until profile finished loading
+      if (b.audience_type === 'missing_profile_fields') {
+        if (needsProfile && (profileLoading || !profileFetched)) return false;
+      }
       const m = matchBanner(b, {
         userId: user?.id,
         role: userRole?.role,
@@ -211,7 +215,7 @@ export const AppBanners: React.FC = () => {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [banners, profile, location.pathname, userRole?.role, user?.id, dismissedTick]);
+  }, [banners, profile, profileLoading, profileFetched, needsProfile, location.pathname, userRole?.role, user?.id, dismissedTick]);
 
   const handleDismiss = (id: string) => {
     try { sessionStorage.setItem(`app-banner-dismissed-${id}`, '1'); } catch (_e) { /* ignore */ }
