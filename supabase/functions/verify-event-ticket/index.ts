@@ -59,11 +59,12 @@ Deno.serve(async (req) => {
     const codeUpper = ticketCode.toUpperCase();
 
     // 1) Try the per-attendee table first (group tickets — one QR per seat).
-    const { data: attendee } = await supabase
+    const { data: attendeeFound } = await supabase
       .from('paid_event_order_attendees')
       .select('*')
       .eq('ticket_code', codeUpper)
       .maybeSingle();
+    let attendee: any = attendeeFound;
 
     let order: any = null;
 
