@@ -131,6 +131,7 @@ const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKn
 const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
+const TicketVerificationPage = lazyWithRetry(() => import("./pages/TicketVerificationPage"));
 const EventFormPublicPage = lazyWithRetry(() => import("./pages/EventFormPublicPage"));
 // EAGER load — public email link pages must render instantly without
 // triggering chunk loads (which can fail in stale browser caches and
