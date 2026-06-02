@@ -42,7 +42,7 @@ interface OrderInfo {
     banner_url: string | null;
     transfer_payment_details: string | null;
   };
-  paid_event_tickets: { name: string };
+  paid_event_tickets: { name: string; transfer_payment_details: string | null } | null;
 }
 
 const formatPrice = (groszy: number) =>
@@ -70,7 +70,7 @@ const TicketPage: React.FC = () => {
     if (!code) return;
     const orderSelect = `id, status, email, first_name, last_name, total_amount, ticket_code, ticket_pdf_url, payment_method, payment_provider, created_at,
                paid_events ( id, title, slug, event_date, location, is_online, banner_url, transfer_payment_details ),
-               paid_event_tickets ( name )`;
+               paid_event_tickets ( name, transfer_payment_details )`;
     // Primary lookup: order-level ticket_code.
     let { data, error } = await supabase
       .from('paid_event_orders')
@@ -200,7 +200,7 @@ const TicketPage: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <pre className="text-xs bg-background p-3 rounded border whitespace-pre-wrap font-mono">
-                {order.paid_events.transfer_payment_details || 'Brak danych — skontaktuj się z organizatorem.'}
+                {order.paid_event_tickets?.transfer_payment_details || order.paid_events.transfer_payment_details || 'Brak danych — skontaktuj się z organizatorem.'}
               </pre>
               <div className="text-xs space-y-1">
                 <div><strong>Tytuł przelewu:</strong> {order.ticket_code} — {order.first_name} {order.last_name}</div>

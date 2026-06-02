@@ -30,8 +30,8 @@ interface OrderInfo {
   };
   ticket_id: string | null;
   paid_event_tickets:
-    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }
-    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null }>
+    { name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null; transfer_payment_details: string | null }
+    | Array<{ name: string; price_pln: number; paypal_payment_link: string | null; payment_method: string | null; transfer_payment_details: string | null }>
     | null;
 }
 
@@ -75,7 +75,7 @@ const CheckoutPage: React.FC = () => {
         .from('paid_event_orders')
         .select(`id, event_id, ticket_id, total_amount, status, email, first_name, last_name, ticket_code, quantity,
                  paid_events ( title, slug, event_date, location, payment_method_payu, payment_method_transfer, payment_method_paypal, transfer_payment_details ),
-                 paid_event_tickets ( name, price_pln, paypal_payment_link, payment_method )`)
+                 paid_event_tickets ( name, price_pln, paypal_payment_link, payment_method, transfer_payment_details )`)
         .eq('id', orderId).maybeSingle();
       if (error || !data) {
         toast({ title: 'Nie znaleziono zamówienia', variant: 'destructive' });
@@ -372,15 +372,19 @@ const CheckoutPage: React.FC = () => {
             )}
 
 
-            {method === 'transfer' && payuReady && order.paid_events.transfer_payment_details && (
-              <div className="rounded-md border bg-muted/30 p-3">
-                <div className="text-xs font-semibold mb-1">Dane do przelewu (zostaną też wysłane mailem):</div>
-                <pre className="text-xs whitespace-pre-wrap font-mono">{order.paid_events.transfer_payment_details}</pre>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Tytuł przelewu: <strong>{order.ticket_code} — {order.first_name} {order.last_name}</strong>
-                </p>
-              </div>
-            )}
+            {method === 'transfer' && payuReady && (() => {
+              const ticketObj = Array.isArray(order.paid_event_tickets) ? order.paid_event_tickets[0] : order.paid_event_tickets;
+              const details = ticketObj?.transfer_payment_details || order.paid_events.transfer_payment_details;
+              return details ? (
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold mb-1">Dane do przelewu (zostaną też wysłane mailem):</div>
+                  <pre className="text-xs whitespace-pre-wrap font-mono">{details}</pre>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tytuł przelewu: <strong>{order.ticket_code} — {order.first_name} {order.last_name}</strong>
+                  </p>
+                </div>
+              ) : null;
+            })()}
 
             <div className="pt-2 text-xs text-muted-foreground">
               Akceptuję warunki polityki prywatności. Zgadzam się na otrzymywanie informacji dotyczących zamówień w myśl ustawy z dnia 18 lipca 2002r. o świadczeniu usług drogą elektroniczną. Więcej na{' '}

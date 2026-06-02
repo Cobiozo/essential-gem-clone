@@ -52,6 +52,7 @@ interface Ticket {
   payment_method: PaymentMethodOption | null;
   audience: AudienceOption | null;
   allow_multiple_purchase: boolean | null;
+  transfer_payment_details: string | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
@@ -64,20 +65,21 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const [editingData, setEditingData] = useState<Record<string, Partial<Ticket>>>({});
   const [newBenefit, setNewBenefit] = useState<Record<string, string>>({});
 
-  // Fetch event meta (is_free flag)
+  // Fetch event meta (is_free flag + event-level transfer details for fallback validation)
   const { data: eventMeta } = useQuery({
     queryKey: ['paid-event-meta-tickets-panel', eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('paid_events')
-        .select('is_free')
+        .select('is_free, transfer_payment_details')
         .eq('id', eventId)
         .maybeSingle();
       if (error) throw error;
-      return data as { is_free: boolean | null } | null;
+      return data as { is_free: boolean | null; transfer_payment_details: string | null } | null;
     },
   });
   const isFree = !!eventMeta?.is_free;
+  const eventTransferDetails = (eventMeta?.transfer_payment_details || '').trim();
   const unitLabel = isFree ? 'Rezerwacja' : 'Bilet';
   const unitLabelLower = isFree ? 'rezerwacja' : 'bilet';
 
@@ -193,14 +195,24 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
 
   const handleSaveTicket = (ticketId: string) => {
     const data = editingData[ticketId];
-    if (data) {
-      updateMutation.mutate({ id: ticketId, data });
-      setEditingData(prev => {
-        const newData = { ...prev };
-        delete newData[ticketId];
-        return newData;
+    if (!data) return;
+    const original = tickets.find(t => t.id === ticketId);
+    const pm = (data.payment_method ?? original?.payment_method ?? 'inherit') as PaymentMethodOption;
+    const ticketTransfer = ((data.transfer_payment_details ?? original?.transfer_payment_details) || '').trim();
+    if (pm === 'transfer' && !ticketTransfer && !eventTransferDetails) {
+      toast({
+        title: 'Brak danych do przelewu',
+        description: 'Bilet wymusza płatność przelewem — uzupełnij „Dane do przelewu" w biletcie lub na poziomie wydarzenia w sekcji „Metody płatności".',
+        variant: 'destructive',
       });
+      return;
     }
+    updateMutation.mutate({ id: ticketId, data });
+    setEditingData(prev => {
+      const newData = { ...prev };
+      delete newData[ticketId];
+      return newData;
+    });
   };
 
   const addBenefit = (ticketId: string, ticket: Ticket) => {
@@ -328,6 +340,36 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     })()}
                   </p>
                 </div>
+
+                {/* Per-ticket transfer payment details — shown only when ticket forces 'transfer' */}
+                {(getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption) === 'transfer' && (
+                  <div>
+                    <Label htmlFor={`ticket-transfer-${ticket.id}`}>
+                      Dane do przelewu (dla tego biletu) {eventTransferDetails ? '' : '*'}
+                    </Label>
+                    <Textarea
+                      id={`ticket-transfer-${ticket.id}`}
+                      value={(getEditingValue(ticket.id, 'transfer_payment_details', ticket.transfer_payment_details ?? '') as string) || ''}
+                      onChange={(e) => setEditingValue(ticket.id, 'transfer_payment_details', e.target.value.trim() === '' ? null : e.target.value)}
+                      placeholder={
+                        'Odbiorca: Pure Life Sp. z o.o.\n' +
+                        'Numer konta: PL00 0000 0000 0000 0000 0000 0000\n' +
+                        'BIC/SWIFT: XXXXXXXX\n' +
+                        'Tytuł przelewu: Bilet [Imię Nazwisko] – ' + (ticket.name || 'TEST') + '\n' +
+                        'Termin: 7 dni od rejestracji'
+                      }
+                      rows={6}
+                      className="mt-1 font-mono text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {eventTransferDetails
+                        ? 'Opcjonalnie. Jeśli puste, użyte zostaną dane do przelewu z poziomu wydarzenia (sekcja „Metody płatności").'
+                        : 'Wymagane — wydarzenie nie ma ustawionych globalnych danych do przelewu. Ta treść trafi do emaila kupującego po rezerwacji tego biletu.'}
+                    </p>
+                  </div>
+                )}
+
+
 
                 {/* Per-ticket audience */}
                 <div>

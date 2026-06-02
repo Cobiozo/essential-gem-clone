@@ -30,7 +30,7 @@ interface OrderRow {
   first_name: string;
   last_name: string;
   email: string;
-  ticket: { name: string; price_pln: number; seats_per_ticket: number | null } | null;
+  ticket: { name: string; price_pln: number; seats_per_ticket: number | null; transfer_payment_details: string | null } | null;
   event: { title: string; slug: string; event_date: string; location: string | null; transfer_payment_details: string | null } | null;
   attendees: Attendee[];
 }
@@ -78,7 +78,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
         .select(`
           id, quantity, total_amount, status, payment_provider, created_at,
           first_name, last_name, email, event_id,
-          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, price_pln, seats_per_ticket),
+          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, price_pln, seats_per_ticket, transfer_payment_details),
           event:paid_events!paid_event_orders_event_id_fkey(title, slug, event_date, location, transfer_payment_details),
           attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)
         `)
@@ -226,7 +226,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
                   )}
                 </div>
 
-                {isPending && isTransfer && o.event?.transfer_payment_details && (
+                {isPending && isTransfer && (o.ticket?.transfer_payment_details || o.event?.transfer_payment_details) && (
                   <Button size="sm" variant="outline" onClick={() => setShowTransferOrderId(o.id)}>
                     <Banknote className="h-4 w-4 mr-2" /> Pokaż dane do przelewu
                   </Button>
@@ -275,7 +275,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
             <DialogTitle>Dane do przelewu</DialogTitle>
           </DialogHeader>
           <pre className="bg-muted/50 border-l-4 border-primary p-4 rounded text-xs whitespace-pre-wrap font-mono">
-            {transferOrder?.event?.transfer_payment_details || ''}
+            {transferOrder?.ticket?.transfer_payment_details || transferOrder?.event?.transfer_payment_details || ''}
           </pre>
           <p className="text-xs text-muted-foreground">
             Kwota do zapłaty: <strong className="text-primary">{transferOrder ? formatPrice(transferOrder.total_amount) : ''}</strong>
