@@ -205,6 +205,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const validate = (): boolean => {
     if (!ticket) return false;
+    const emailRe = /^\S+@\S+\.\S+$/;
     if (!hasOwnTicket) {
       if (!formData.firstName || !formData.lastName || !formData.email) {
         toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
@@ -215,9 +216,18 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         toast({ title: 'Brak gości', description: 'Zwiększ liczbę biletów, aby zarejestrować gości', variant: 'destructive' });
         return false;
       }
-      const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
-      if (incomplete !== -1) {
-        toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
+    }
+    // Every additional attendee (guest seat) must have full identifying data:
+    // imię, nazwisko oraz prawidłowy email — bilety są imienne.
+    for (let i = 0; i < attendees.length; i++) {
+      const a = attendees[i];
+      const label = buyerIsAttendee ? `uczestnika ${i + 2}` : `uczestnika ${i + 1}`;
+      if (!a.firstName.trim() || !a.lastName.trim() || !a.email.trim()) {
+        toast({ title: 'Uzupełnij dane uczestnika', description: `Imię, nazwisko i email dla ${label} są wymagane`, variant: 'destructive' });
+        return false;
+      }
+      if (!emailRe.test(a.email.trim())) {
+        toast({ title: 'Nieprawidłowy email', description: `Sprawdź adres email dla ${label}`, variant: 'destructive' });
         return false;
       }
     }
