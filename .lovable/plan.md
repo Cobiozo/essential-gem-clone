@@ -1,46 +1,53 @@
-## Cel
+# Dane do przelewu per bilet + weryfikacja powiadomień
 
-1. Sprzedaż więcej niż 1 biletu staje się **opcją włączaną przez admina per bilet**. Domyślnie wyłączone — kupujący może wziąć tylko 1 bilet.
-2. Gdy wielokrotny zakup jest włączony i kupujący dodaje kolejne bilety, **dane każdego dodatkowego uczestnika (imię, nazwisko, email) są obowiązkowe** — nie „opcjonalne" jak teraz.
+## Problem
 
-## Zmiany
+Obecnie dane do przelewu są wspólne dla całego wydarzenia (`paid_events.transfer_payment_details`). Gdy wydarzenie jest oznaczone jako **bezpłatne**, sekcja „Metody płatności" jest wyłączona, więc nie da się ustawić danych do przelewu — a Ty potrzebujesz pojedynczego biletu „TRANSFER" dla zalogowanych w bezpłatnym wydarzeniu (np. „Kompleksowe szkolenie test").
 
-### 1. Baza danych — `paid_event_tickets`
-Dodać kolumnę `allow_multiple_purchase boolean NOT NULL DEFAULT false`.
+## Rozwiązanie
 
-### 2. Panel admina — `EventTicketsPanel.tsx`
-W sekcji edycji biletu, obok pola „Osób na 1 bilet", dodać przełącznik (`Switch`):
-- Label: „Zezwól na zakup więcej niż 1 sztuki"
-- Pomocniczy opis: „Gdy włączone, kupujący może w jednym zamówieniu zarezerwować kilka biletów (każdy z osobnymi danymi uczestnika)."
-- Mapowanie do `allow_multiple_purchase`.
+### 1. Dane do przelewu na poziomie biletu
+- Migracja: dodaj kolumnę `transfer_payment_details text` do `paid_event_tickets` (NULLABLE).
+- W `EventTicketsPanel.tsx`: gdy `payment_method === 'transfer'` (per bilet), pokaż pod listą metody płatności biletu **Textarea „Dane do przelewu *"** (analogiczna do tej w `EventPaymentMethodsPanel`) z placeholderem i podpowiedzią: „Treść zostanie umieszczona w emailu po rezerwacji tego biletu". Zapis wraz z resztą pól biletu.
+- Walidacja zapisu: jeśli bilet wymusza `transfer`, musi mieć wpisane dane do przelewu **albo** wydarzenie musi mieć ustawione globalne `transfer_payment_details`.
 
-### 3. Mapowanie do publicznej strony — `PaidEventPage.tsx`
-W mapie tickets ustawić `max_per_order = allow_multiple_purchase ? (quantity_available ?? null) : 1`.
-W typie `TicketInfo` (PurchaseDrawer) i `available_quantity` przekazać też nowy efektywny limit.
+### 2. Edge function `register-event-transfer-order`
+- Pobranie ticketu rozszerzyć o `transfer_payment_details` z `paid_event_tickets`.
+- Logika priorytetu: `transferDetails = ticket.transfer_payment_details?.trim() || event.transfer_payment_details?.trim()`.
+- Złagodzenie sprawdzenia `event.payment_method_transfer`: jeśli `ticket.payment_method === 'transfer'`, bilet sam wymusza metodę — pomiń wymóg włączenia metody na poziomie wydarzenia (to odblokowuje scenariusz „bezpłatne wydarzenie + 1 bilet TRANSFER dla zalogowanych").
+- Jeśli ani bilet ani wydarzenie nie mają danych → zwróć `transfer_details_missing`.
 
-### 4. Drawer zakupu — `PurchaseDrawer.tsx`
-- `TicketInfo` dostaje `max_per_order?: number | null`.
-- `maxQty` liczy się jako `min(MAX_TICKETS, available_quantity, max_per_order || 1)`. Gdy `max_per_order === 1`, selektor ilości jest ukryty (zamiast „Liczba biletów" pokazujemy tylko podsumowanie z 1 szt.).
-- Dla każdego dodatkowego uczestnika (`attendees[idx]`):
-  - inputy `firstName`, `lastName`, `email` oznaczone gwiazdką (`*`), z `required`.
-  - usunąć etykietę „opcjonalnie" — zastąpić „wymagane".
-  - placeholder e-maila bez „(opcjonalnie)".
-- `validate()`:
-  - Zamiast sprawdzać tylko imię i nazwisko, sprawdzać też email (`a.email.trim()` + prosty regex `^\S+@\S+\.\S+$`).
-  - Komunikat: „Uzupełnij imię, nazwisko i email dla uczestnika N".
-- `buildPayload()`: email gościa wysyłany zawsze (nie `|| null`).
+### 3. Wyświetlanie po rezerwacji (frontend)
+W tych miejscach dane do przelewu są pokazywane z `paid_events.transfer_payment_details`. Zmienić, aby zaciągały najpierw z ticketu (jeśli zamówienie ma `ticket_id`):
+- `src/pages/TicketPage.tsx`
+- `src/pages/CheckoutPage.tsx`
+- `src/components/paid-events/MyTicketOrders.tsx`
 
-### 5. Edge function `create-event-order` (opcjonalna walidacja serwerowa)
-Dodać walidację: jeśli `quantity > 1`, każdy `attendees[i]` musi mieć `firstName`, `lastName`, `email`. W przeciwnym razie zwrócić 400 z komunikatem „Brak wymaganych danych uczestnika #i".
+Query rozszerzyć o `paid_event_tickets ( transfer_payment_details )` i przy renderze użyć `ticket.transfer_payment_details || event.transfer_payment_details`.
 
-## Co bez zmian
-- Logika „guest-only" (gdy zalogowany już ma bilet) działa po staremu — tam wszystkie miejsca są dla gości i tak będą wymagać kompletu danych.
-- Cena, podsumowanie, płatność, formularze gościa (gdy bilet kupowany jest dla zalogowanego z `seats_per_ticket > 1`) — bez zmian poza wymogiem pełnych danych.
-- Brak zmian w widoku partnera/gościa w podglądzie admina.
+### 4. Weryfikacja powiadomień (bez zmian w logice — tylko potwierdzenie)
 
-## Pliki do edycji
-- migracja SQL (`paid_event_tickets.allow_multiple_purchase`)
+Po wdrożeniu konfiguracja „Kompleksowe szkolenie test" (event `is_free=true`, bilet TRANSFER widoczny tylko dla zalogowanych z własnymi danymi do przelewu, drugi bilet darmowy dla gości) zachowuje się tak:
+
+**Zalogowany partner → bilet TRANSFER:**
+1. `PurchaseDrawer` woła `register-event-transfer-order`.
+2. Tworzony jest order ze statusem `pending_transfer`.
+3. Edge function wysyła email z nagłówkiem wydarzenia, danymi gościa i **danymi do przelewu z biletu** (fallback do event-level).
+4. Bilet QR generuje się dopiero po ręcznym oznaczeniu zapłaty przez admina (`admin-mark-event-payment`) — to obecne zachowanie i nie zmieniamy go.
+
+**Gość → bilet darmowy:**
+1. `PurchaseDrawer` (lub flow free) woła `register-free-event-order`.
+2. Gość dostaje **email z linkiem potwierdzającym adres** (`confirm-free-event-reservation`).
+3. Po kliknięciu w link generowany jest bilet QR i wysyłany na ten sam adres.
+
+Oba przepływy istnieją i są używane warunkowo na podstawie `payment_method` biletu — żadnych zmian nie potrzeba poza punktami 1–3 powyżej.
+
+## Pliki do zmiany
+
+- migracja SQL: `ALTER TABLE paid_event_tickets ADD COLUMN transfer_payment_details text`
 - `src/components/admin/paid-events/editor/EventTicketsPanel.tsx`
-- `src/pages/PaidEventPage.tsx`
-- `src/components/paid-events/public/PurchaseDrawer.tsx`
-- `supabase/functions/create-event-order/index.ts`
+- `src/integrations/supabase/types.ts` (auto po migracji)
+- `supabase/functions/register-event-transfer-order/index.ts`
+- `src/pages/TicketPage.tsx`
+- `src/pages/CheckoutPage.tsx`
+- `src/components/paid-events/MyTicketOrders.tsx`
