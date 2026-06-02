@@ -307,7 +307,6 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     onValueChange={(val) => {
                       setEditingValue(ticket.id, 'payment_method', val as PaymentMethodOption);
                       if (val === 'free') {
-                        setEditingValue(ticket.id, 'price_pln', 0);
                         setEditingValue(ticket.id, 'paypal_payment_link', null);
                       }
                     }}
