@@ -4406,6 +4406,8 @@ export type Database = {
           show_on_anonymous: boolean
           show_on_auth_only: boolean
           skip_after_ms: number
+          trigger_moment: string | null
+          trigger_moments: string[]
           updated_at: string
           updated_by: string | null
           video_url: string | null
@@ -4419,6 +4421,8 @@ export type Database = {
           show_on_anonymous?: boolean
           show_on_auth_only?: boolean
           skip_after_ms?: number
+          trigger_moment?: string | null
+          trigger_moments?: string[]
           updated_at?: string
           updated_by?: string | null
           video_url?: string | null
@@ -4432,6 +4436,8 @@ export type Database = {
           show_on_anonymous?: boolean
           show_on_auth_only?: boolean
           skip_after_ms?: number
+          trigger_moment?: string | null
+          trigger_moments?: string[]
           updated_at?: string
           updated_by?: string | null
           video_url?: string | null
