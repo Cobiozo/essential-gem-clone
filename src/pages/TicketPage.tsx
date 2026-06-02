@@ -70,7 +70,7 @@ const TicketPage: React.FC = () => {
     if (!code) return;
     const orderSelect = `id, status, email, first_name, last_name, total_amount, ticket_code, ticket_pdf_url, payment_method, payment_provider, created_at,
                paid_events ( id, title, slug, event_date, location, is_online, banner_url, transfer_payment_details ),
-               paid_event_tickets ( name )`;
+               paid_event_tickets ( name, transfer_payment_details )`;
     // Primary lookup: order-level ticket_code.
     let { data, error } = await supabase
       .from('paid_event_orders')
