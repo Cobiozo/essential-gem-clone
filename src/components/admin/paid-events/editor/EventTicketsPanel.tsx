@@ -52,6 +52,7 @@ interface Ticket {
   payment_method: PaymentMethodOption | null;
   audience: AudienceOption | null;
   allow_multiple_purchase: boolean | null;
+  transfer_payment_details: string | null;
 }
 
 export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
