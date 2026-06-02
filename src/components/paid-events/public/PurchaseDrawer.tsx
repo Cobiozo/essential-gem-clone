@@ -137,6 +137,11 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   }, [ticket?.available_quantity, ticket?.max_per_order]);
   const allowMultiple = maxQty > 1;
 
+  // Keep quantity within the dynamic upper bound (admin may forbid multi-purchase, in which case maxQty=1).
+  useEffect(() => {
+    setQuantity(q => Math.max(1, Math.min(maxQty, q)));
+  }, [maxQty]);
+
   // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input).
   // Skip auto-fill entirely if the user is already registered for this event — buyer fields
   // must stay empty so the buyer cannot accidentally re-register themselves.
