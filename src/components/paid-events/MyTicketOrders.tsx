@@ -226,7 +226,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
                   )}
                 </div>
 
-                {isPending && isTransfer && o.event?.transfer_payment_details && (
+                {isPending && isTransfer && (o.ticket?.transfer_payment_details || o.event?.transfer_payment_details) && (
                   <Button size="sm" variant="outline" onClick={() => setShowTransferOrderId(o.id)}>
                     <Banknote className="h-4 w-4 mr-2" /> Pokaż dane do przelewu
                   </Button>
