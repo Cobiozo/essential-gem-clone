@@ -76,7 +76,7 @@ interface DisplayRow {
   checked_in_at: string | null;
 }
 
-export const TicketVerification: React.FC = () => {
+export const TicketVerificationPanel: React.FC = () => {
   const { toast } = useToast();
   const [ticketCode, setTicketCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
