@@ -364,6 +364,7 @@ const PaidEventPage: React.FC = () => {
       price: ticket.price,
       seats_per_ticket: ticket.seats_per_ticket,
       available_quantity: ticket.available_quantity,
+      max_per_order: ticket.max_per_order,
       payment_method: ticket.payment_method,
     };
   }, [selectedTicketId, tickets]);
