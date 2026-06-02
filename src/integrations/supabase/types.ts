@@ -4396,6 +4396,48 @@ export type Database = {
           },
         ]
       }
+      intro_video_settings: {
+        Row: {
+          allow_skip: boolean
+          default_muted: boolean
+          enabled: boolean
+          frequency: string
+          id: string
+          show_on_anonymous: boolean
+          show_on_auth_only: boolean
+          skip_after_ms: number
+          updated_at: string
+          updated_by: string | null
+          video_url: string | null
+        }
+        Insert: {
+          allow_skip?: boolean
+          default_muted?: boolean
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          show_on_anonymous?: boolean
+          show_on_auth_only?: boolean
+          skip_after_ms?: number
+          updated_at?: string
+          updated_by?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          allow_skip?: boolean
+          default_muted?: boolean
+          enabled?: boolean
+          frequency?: string
+          id?: string
+          show_on_anonymous?: boolean
+          show_on_auth_only?: boolean
+          skip_after_ms?: number
+          updated_at?: string
+          updated_by?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       knowledge_resource_translations: {
         Row: {
           context_of_use: string | null
