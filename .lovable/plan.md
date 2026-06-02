@@ -1,40 +1,73 @@
-## Cel
-Przed wejściem do panelu administratora (`/admin`) admin musi ponownie wpisać swoje hasło logowania. Bez tego widzi tylko ekran blokady, nawet jeśli jest zalogowany.
+## Intro wideo na starcie aplikacji
 
-## Działanie dla użytkownika
-1. Admin klika "Panel CMS" / wchodzi na `/admin`.
-2. Pojawia się pełnoekranowy ekran blokady z polem hasła (to samo hasło, którym loguje się do aplikacji).
-3. Po poprawnym hasle uzyskuje dostęp do panelu na czas sesji (do wylogowania lub zamknięcia karty, ~30 min bezczynności).
-4. Błędne hasło → komunikat „Nieprawidłowe hasło". Po 5 błędnych próbach – 60 s blokady.
+Krótki film (MP4) odtwarzany jako splash screen przy każdym wejściu/odświeżeniu strony, z możliwością pominięcia po 1–2 s, wyciszony domyślnie z opcją włączenia dźwięku. Konfigurowalny przez admina.
 
-## Zakres techniczny
+### 1. Baza danych — tabela `intro_video_settings` (single row)
 
-**Nowy komponent** `src/components/admin/AdminPasswordGate.tsx`
-- Pełnoekranowa karta z ikoną kłódki, polem hasła (typ `password`, toggle eye) i przyciskiem „Odblokuj".
-- Weryfikacja przez `supabase.auth.signInWithPassword({ email: user.email, password })` – Supabase nie zmienia istniejącej sesji, tylko potwierdza poprawność hasła (jeśli token się odświeży, to OK).
-- Po sukcesie: zapisuje znacznik w `sessionStorage` jako `admin_cms_unlocked_at = Date.now()` oraz w stanie React Context.
-- Liczy nieudane próby w `sessionStorage`, po 5 → 60 s lockout (disabled input + countdown).
+Pola:
+- `enabled` (bool) — globalny włącznik
+- `video_url` (text) — URL pliku MP4 w Supabase Storage
+- `show_on_auth_only` (bool, default false) — tylko przy logowaniu vs cała aplikacja
+- `frequency` (enum: `always` / `once_per_session` / `once_per_day`) — jak często
+- `skip_after_ms` (int, default 1500) — po ilu ms pokazać przycisk "Pomiń"
+- `allow_skip` (bool, default true)
+- `default_muted` (bool, default true)
+- `show_on_anonymous` (bool, default true) — też dla niezalogowanych
+- `updated_at`, `updated_by`
 
-**Nowy hook/context** `src/contexts/AdminGateContext.tsx`
-- `isUnlocked`, `unlock()`, `lock()`.
-- Auto-lock po 30 min bezczynności (reuse pattern z `useInactivityTimeout`) lub na `signOut`.
-- Tylko dla użytkowników z rolą `admin` – inne role nie wchodzą na `/admin` i tak.
+RLS: SELECT dla wszystkich (anon + authenticated), UPDATE tylko admin.
 
-**Integracja w `src/pages/Admin.tsx`**
-- Na samej górze renderowania: jeśli `!isUnlocked` → zwróć `<AdminPasswordGate />` zamiast całego panelu.
-- Resztę kodu zostawiamy bez zmian.
+### 2. Storage bucket `intro-videos`
 
-**Bezpieczeństwo**
-- Hasło nie jest zapisywane nigdzie (tylko boolean unlock + timestamp).
-- Weryfikacja po stronie Supabase Auth, nie ma własnego hashowania.
-- Brak nowych tabel ani migracji – wszystko po stronie frontu.
+Publiczny bucket na pliki MP4. Admin uploaduje plik z panelu, link trafia do `video_url`.
 
-## Pliki do dodania/zmiany
-- `src/components/admin/AdminPasswordGate.tsx` (nowy)
-- `src/contexts/AdminGateContext.tsx` (nowy)
-- `src/main.tsx` lub `src/App.tsx` – owinięcie providerem (tylko gałąź `/admin` lub globalnie obok `AuthProvider`)
-- `src/pages/Admin.tsx` – wstawienie bramki na początku renderu
+### 3. Panel admina — `src/components/admin/IntroVideoSettings.tsx`
 
-## Poza zakresem
-- Nie dotyczymy żadnych innych zakładek bocznego paska poza `/admin`.
-- Nie zmieniamy logiki ról ani RLS.
+Nowa sekcja w panelu CMS/Ustawienia:
+- Przełącznik "Włącz intro wideo"
+- Upload pliku MP4 (z podglądem i walidacją: max ~10 MB, zalecane ≤5 s)
+- Pole "URL wideo" (alternatywa)
+- Select: częstotliwość (zawsze / raz na sesję / raz dziennie)
+- Slider: opóźnienie przycisku Pomiń (0–5000 ms)
+- Checkboxy: pokazuj na auth, pokazuj anonimowym, pozwól pominąć, domyślnie wyciszone
+- Podgląd na żywo
+
+### 4. Komponent `src/components/intro/IntroVideoOverlay.tsx`
+
+Fullscreen overlay (`z-[9999]`) z:
+- `<video autoPlay muted={muted} playsInline>` z `src` z ustawień
+- Przycisk "Pomiń ▶" pojawia się po `skip_after_ms` (animowany fade-in)
+- Ikona głośnika (Volume2/VolumeX) w rogu — toggle mute
+- Po `onEnded` lub kliknięciu Pomiń → fade-out i unmount
+- Zapis do sessionStorage / localStorage według `frequency`:
+  - `always` → brak zapisu
+  - `once_per_session` → `sessionStorage.intro_played`
+  - `once_per_day` → `localStorage.intro_played_date`
+
+### 5. Integracja w `src/App.tsx`
+
+- Hook `useIntroVideo()` (`src/hooks/useIntroVideo.ts`) pobiera ustawienia (cache 5 min) i decyduje czy renderować overlay
+- Renderowanie warunkowe na poziomie App, nad całym routerem
+- Respektuje `show_on_auth_only` (sprawdza route) i `show_on_anonymous` (sprawdza user)
+- Nie blokuje ładowania aplikacji — overlay nakłada się na już renderowaną treść
+
+### Szczegóły techniczne
+
+- Wideo `playsInline` + `muted` na starcie (wymóg autoplay w przeglądarkach)
+- Preload: `preload="auto"`, fallback gdy plik nie załaduje się w 2 s → auto-skip
+- Mobile: pełny ekran, `object-fit: cover`
+- Dostępność: `aria-label`, focus na przycisk Pomiń, Esc = pomiń
+- Brak wpływu na PWA splash (to oddzielna warstwa wewnątrz aplikacji)
+
+### Pliki
+
+Nowe:
+- `supabase/migrations/<ts>_intro_video.sql` (tabela + RLS + bucket policies)
+- `src/components/intro/IntroVideoOverlay.tsx`
+- `src/hooks/useIntroVideo.ts`
+- `src/components/admin/IntroVideoSettings.tsx`
+
+Edytowane:
+- `src/App.tsx` — montaż overlay
+- Panel admina (dodanie zakładki/sekcji "Intro wideo")
+- `src/integrations/supabase/types.ts` (auto)
