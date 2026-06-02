@@ -78,6 +78,7 @@ import { PushNotificationsManagement } from '@/components/admin/PushNotification
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
+import { AdminPasswordGate, isAdminGateUnlocked, lockAdminGate } from '@/components/admin/AdminPasswordGate';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
 import { SecurityModule } from '@/components/admin/SecurityModule';
