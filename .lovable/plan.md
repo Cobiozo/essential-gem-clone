@@ -1,43 +1,36 @@
-## Cel
+## Problem 1 — „Weryfikator" widzi `Forbidden: admin role required`
 
-Dodać na pasku bocznym pulpitu zakładkę **„Weryfikacja biletów"** otwierającą dedykowaną stronę z **identyczną funkcjonalnością** jak zakładka „Weryfikacja" w panelu Eventy (wybór wydarzenia, lista uczestników, wyszukiwarka, skaner QR, ręczne wpisanie kodu, check‑in / check‑out, eksport). Dostęp ma mieć **admin** oraz **zalogowani użytkownicy, którym admin udzieli uprawnienia**.
+**Co już działa:**
+- W bazie: `has_ticket_verifier_access(60645dff-…)` zwraca `true` (rola admin + wpis `ticket_verifier_access.is_enabled=true`, granted 16:30:04).
+- Kod źródłowy `supabase/functions/admin-list-event-orders/index.ts` importuje już `verifyTicketVerifier` jako `verifyAdmin`.
+- Mimo to logi Edge Function pokazują `auth failed -> returning 403`, a UI dostaje literalnie komunikat „admin role required" — ten string istnieje **wyłącznie** w `verifyAdmin` (stara ścieżka). To oznacza, że uruchomiona wersja funkcji to jeszcze poprzedni bundle (zmiana w `_shared/admin-auth.ts` nie została wciągnięta do `admin-list-event-orders` / `verify-event-ticket`).
 
-## Co powstanie
+**Plan naprawy:**
+1. Wymuszenie redeploya obu funkcji przez dotknięcie plików (komentarz „re-deploy"):
+   - `supabase/functions/admin-list-event-orders/index.ts`
+   - `supabase/functions/verify-event-ticket/index.ts`
+2. Uodpornienie `verifyTicketVerifier` w `_shared/admin-auth.ts`:
+   - jeśli RPC `has_ticket_verifier_access` zwróci `null`/błąd, dodatkowo sprawdzić bezpośrednio (service role): `user_roles.role='admin'` LUB `ticket_verifier_access.is_enabled=true`.
+   - logować `userId` i wynik (`isAdmin`, `hasAccess`) przed zwrotem 403, żeby kolejne diagnozy były jednoznaczne.
+3. Po redeployu komunikat 403 (jeśli się jeszcze pojawi) będzie brzmiał „ticket verifier access required" — łatwiej odróżnić rolę od dostępu.
 
-### 1. Baza – nowa tabela uprawnień
-- `public.ticket_verifier_access` (`user_id uuid PK`, `is_enabled boolean default true`, `granted_by uuid`, `granted_at timestamptz default now()`)
-- GRANTy: `select, insert, update, delete` dla `authenticated`; `all` dla `service_role`
-- RLS: użytkownik widzi tylko swój rekord; admin (`has_role`) ma pełen dostęp
-- Funkcja `public.has_ticket_verifier_access(_user_id uuid) returns boolean` (SECURITY DEFINER, `SET search_path = public`) – zwraca `true` jeśli admin lub rekord w `ticket_verifier_access` z `is_enabled=true`
+Bez zmian: tabela `ticket_verifier_access`, RLS, funkcja SQL `has_ticket_verifier_access`, panel admina, sidebar.
 
-### 2. Backend – rozszerzenie istniejących edge functions
-Obie funkcje obecnie sprawdzają wyłącznie rolę `admin`. Zmieniamy je tak, aby akceptowały również użytkowników z `ticket_verifier_access`:
-- `supabase/functions/verify-event-ticket/index.ts` – zamiast `isAdmin` używamy `canVerify` (admin OR ticket_verifier_access). Logika check‑in / check‑out działa identycznie.
-- `supabase/functions/admin-list-event-orders/index.ts` – ta sama zmiana autoryzacji (potrzebne do listy uczestników).
+## Problem 2 — Baner „uzupełnij dane adresowe" mruga na pulpicie
 
-### 3. Frontend – nowa, dedykowana strona
-- Wydzielenie **współdzielonego komponentu** `src/components/ticket-verification/TicketVerificationPanel.tsx` z obecnego `src/components/admin/paid-events/TicketVerification.tsx` (1:1 ta sama funkcjonalność: selektor wydarzenia, pole kodu + przycisk Sprawdź, skaner QR aparatem, lista uczestników z wyszukiwarką i licznikami, przyciski Check‑in / Cofnij check‑in per wiersz, eksport XLSX/DOC/HTML).
-- Plik w `admin/paid-events/TicketVerification.tsx` staje się cienkim wrapperem nad nowym komponentem (zero zmian wizualnych w panelu admina).
-- Nowa strona `src/pages/TicketVerificationPage.tsx` używająca `DashboardLayout` z tytułem **„Weryfikacja biletów"** i renderująca `TicketVerificationPanel` w „ładnym, profesjonalnym" wrapperze (gradientowy nagłówek z ikoną QR, karty z `bg-card/60 backdrop-blur`, te same tokeny co reszta pulpitu – bez własnych kolorów spoza design‑systemu).
-- Route w `src/App.tsx`: `/weryfikacja-biletow` chroniony – wejdzie tylko admin lub użytkownik z aktywnym `ticket_verifier_access` (sprawdzenie po stronie klienta + ochrona w edge functions).
+**Przyczyna (`src/components/banners/AppBanners.tsx`):**
+- Banery z `audience_type='missing_profile_fields'` są filtrowane przez `matchBanner`, który dla `profile == null` traktuje **wszystkie** wymagane pola jako brakujące i zwraca `visible: true`.
+- Query `app-banners-profile` startuje **po** tym jak załadują się banery (bo `enabled: enabled && needsProfile`). Przez ~200–500 ms `profile` jest `undefined`, więc baner mignie, a po pobraniu profilu znika.
 
-### 4. Sidebar – nowy element menu
-- W `src/components/dashboard/DashboardSidebar.tsx` dodać pozycję `{ id: 'ticket-verification', icon: QrCode, labelKey: 'Weryfikacja biletów', path: '/weryfikacja-biletow' }`.
-- Widoczność: nowy hook `useTicketVerifierAccess(userId)` (zwraca `{ canAccess, loading }` – admin lub rekord w `ticket_verifier_access` z `is_enabled=true`). Pozycja renderuje się tylko gdy `canAccess === true`.
-- Umiejscowienie: zaraz pod „Eventy płatne" w bloku partnerskim/wspólnym, aby było logicznie blisko biletów.
+**Plan naprawy (tylko frontend, `AppBanners.tsx`):**
+1. Dodać do hooka stan `isLoading` z `useQuery` (profile + banners).
+2. W filtrze `visible` pominąć banery `missing_profile_fields`, dopóki `profile === undefined` (jeszcze nieładowane) lub `profileLoading === true`.
+3. Wczesny `return null`, gdy baner z `missing_profile_fields` istnieje, a profil nie został jeszcze pobrany — to eliminuje flash bez wpływu na inne typy banerów.
 
-### 5. Panel admina – nadawanie uprawnienia
-- W istniejącym ekranie konfiguracji uprawnień użytkownika (tam, gdzie są pozostałe `*_user_access`) dodać **toggle „Weryfikacja biletów"**: upsert/delete w `ticket_verifier_access` z `granted_by = auth.uid()`.
-- Wpis do `admin_activity_log` (`action: 'ticket_verifier_access_changed'`, `details` JSONB z `target_user_id` i `enabled`).
-- Rozszerzyć `useUserPermissions.ts` o nową pozycję, aby było widać status uprawnienia w widoku „Moje uprawnienia" użytkownika.
+Bez zmian: logika `matchBanner`, definicje banerów w bazie, redirect po uzupełnieniu profilu.
 
-## Bezpieczeństwo
-
-- Edge functions pozostają **jedynym** źródłem prawdy dla check‑in/out – ukrycie pozycji w sidebarze to UX, realna autoryzacja odbywa się serwerowo (`has_role` admin **lub** `has_ticket_verifier_access`).
-- RLS na `ticket_verifier_access` nie pozwala użytkownikowi nadać sobie dostępu – tylko admin może wstawiać/aktualizować rekordy innych.
-- Brak zmian w już istniejących politykach `paid_event_orders` – odczyt listy uczestników nadal wyłącznie przez edge function (która sama waliduje uprawnienia).
-
-## Czego NIE ruszamy
-
-- Wygląd i logika zakładki „Weryfikacja" w panelu Eventy – pozostają nietknięte (dzielimy ten sam komponent, więc każda przyszła poprawka działa w obu miejscach).
-- Generowanie biletów, e‑maile, PDF‑y, statusy zamówień.
+## Pliki do edycji
+- `supabase/functions/_shared/admin-auth.ts` — hardening `verifyTicketVerifier` + log.
+- `supabase/functions/admin-list-event-orders/index.ts` — touch (re-deploy).
+- `supabase/functions/verify-event-ticket/index.ts` — touch (re-deploy).
+- `src/components/banners/AppBanners.tsx` — anty-flash dla banerów profilowych.
