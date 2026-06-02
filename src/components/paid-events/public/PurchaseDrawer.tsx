@@ -445,33 +445,35 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   <span className="font-medium text-right">{ticket.name}</span>
                 </div>
 
-                {/* Quantity selector */}
-                <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                      disabled={quantity <= 1}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <span className="w-8 text-center font-semibold">{quantity}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
-                      disabled={quantity >= maxQty}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                {/* Quantity selector — visible only when admin allows multi-purchase or buyer has own ticket (guest-only flow) */}
+                {(allowMultiple || hasOwnTicket) && (
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                        disabled={quantity <= 1}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <span className="w-8 text-center font-semibold">{quantity}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+                        disabled={quantity >= maxQty}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {seatsPerTicket > 1 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
