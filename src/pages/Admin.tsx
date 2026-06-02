@@ -3031,6 +3031,12 @@ const Admin = () => {
     );
   }
 
+  // Password gate – admin musi potwierdzić hasło przed wejściem do CMS
+  if (isAdmin && !gateUnlocked) {
+    return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
+  }
+
+
   return (
     <>
       {/* Layout Editor for specific page */}
