@@ -15,9 +15,9 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Verify user is authenticated (for admin check-in) via user_roles
+    // Authorize check-in / check-out: admin OR explicit ticket_verifier_access
     const authHeader = req.headers.get('Authorization');
-    let isAdmin = false;
+    let isAdmin = false; // semantic: "can perform admin-grade check-in/out"
 
     if (authHeader) {
       const anonClient = createClient(supabaseUrl, supabaseAnonKey);
@@ -26,12 +26,11 @@ Deno.serve(async (req) => {
       if (userErr) console.log('auth.getUser error:', userErr.message);
       if (user) {
         const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-        const { data: roleRow, error: roleErr } = await serviceClient
-          .from('user_roles').select('role')
-          .eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-        if (roleErr) console.log('user_roles query error:', roleErr.message);
-        isAdmin = !!roleRow;
-        console.log(`[auth] user=${user.id} isAdmin=${isAdmin}`);
+        const { data: canRow, error: rpcErr } = await serviceClient
+          .rpc('has_ticket_verifier_access', { _user_id: user.id });
+        if (rpcErr) console.log('has_ticket_verifier_access error:', rpcErr.message);
+        isAdmin = !!canRow;
+        console.log(`[auth] user=${user.id} canVerify=${isAdmin}`);
       } else {
         console.log('[auth] no user resolved from token');
       }
