@@ -17,6 +17,7 @@ interface TicketInfo {
   price: number;
   seats_per_ticket?: number;
   available_quantity?: number | null;
+  max_per_order?: number | null;
 }
 
 interface PurchaseDrawerProps {
