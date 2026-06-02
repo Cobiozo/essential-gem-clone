@@ -36,6 +36,24 @@ Deno.serve(async (req) => {
     }
     const qty = Math.max(1, Math.min(50, Number(quantity) || 1));
 
+    // When quantity > 1, every additional attendee must have full identifying data (imię, nazwisko, email).
+    // Buyer takes seat #1 when buyerIsAttendee, so additional attendees start at index 1.
+    if (qty > 1) {
+      const emailRe = /^\S+@\S+\.\S+$/;
+      const startIdx = buyerIsAttendee ? 1 : 0;
+      for (let i = startIdx; i < attendees.length; i++) {
+        const a = attendees[i] || ({} as Attendee);
+        const firstName = (a.firstName || "").trim();
+        const lastName = (a.lastName || "").trim();
+        const email = (a.email || "").trim();
+        if (!firstName || !lastName || !email || !emailRe.test(email)) {
+          return new Response(JSON.stringify({
+            error: `Brak wymaganych danych uczestnika #${i + 1} (imię, nazwisko, email)`,
+          }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     const { data: ticket, error: tErr } = await supabase
       .from("paid_event_tickets")
       .select("id, name, price_pln, seats_per_ticket, is_active, quantity_available, quantity_sold, sale_start, sale_end, payment_method")
