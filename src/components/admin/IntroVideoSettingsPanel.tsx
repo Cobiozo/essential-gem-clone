@@ -131,7 +131,7 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       upsert: false,
       contentType: file.type,
     });
-    let { error: upErr } = await uploadFile();
+    let { error: upErr }: { error: { message: string } | null } = await uploadFile();
 
     if (upErr && /bucket.*not found|not found/i.test(upErr.message)) {
       const { error: ensureErr } = await supabase.functions.invoke('ensure-intro-video-bucket', { body: {} });
