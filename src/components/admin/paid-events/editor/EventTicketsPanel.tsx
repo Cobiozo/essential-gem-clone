@@ -341,6 +341,36 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   </p>
                 </div>
 
+                {/* Per-ticket transfer payment details — shown only when ticket forces 'transfer' */}
+                {(getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption) === 'transfer' && (
+                  <div>
+                    <Label htmlFor={`ticket-transfer-${ticket.id}`}>
+                      Dane do przelewu (dla tego biletu) {eventTransferDetails ? '' : '*'}
+                    </Label>
+                    <Textarea
+                      id={`ticket-transfer-${ticket.id}`}
+                      value={(getEditingValue(ticket.id, 'transfer_payment_details', ticket.transfer_payment_details ?? '') as string) || ''}
+                      onChange={(e) => setEditingValue(ticket.id, 'transfer_payment_details', e.target.value.trim() === '' ? null : e.target.value)}
+                      placeholder={
+                        'Odbiorca: Pure Life Sp. z o.o.\n' +
+                        'Numer konta: PL00 0000 0000 0000 0000 0000 0000\n' +
+                        'BIC/SWIFT: XXXXXXXX\n' +
+                        'Tytuł przelewu: Bilet [Imię Nazwisko] – ' + (ticket.name || 'TEST') + '\n' +
+                        'Termin: 7 dni od rejestracji'
+                      }
+                      rows={6}
+                      className="mt-1 font-mono text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {eventTransferDetails
+                        ? 'Opcjonalnie. Jeśli puste, użyte zostaną dane do przelewu z poziomu wydarzenia (sekcja „Metody płatności").'
+                        : 'Wymagane — wydarzenie nie ma ustawionych globalnych danych do przelewu. Ta treść trafi do emaila kupującego po rezerwacji tego biletu.'}
+                    </p>
+                  </div>
+                )}
+
+
+
                 {/* Per-ticket audience */}
                 <div>
                   <Label>Widoczność biletu</Label>
