@@ -1,45 +1,39 @@
-## Co zostanie zrobione
+Plan wdrożenia:
 
-Po zaakceptowanej migracji rozbuduję panel intro wideo o nowe opcje i podgląd.
+1. **Naprawa bazy danych dla ustawień intro**
+   - Dodać brakujące pole dla momentów wyświetlania.
+   - Zmienić model z jednego momentu na wiele momentów, np. `trigger_moments` jako lista zaznaczonych opcji.
+   - Rozszerzyć ograniczenie `frequency`, bo w bazie nadal są tylko stare wartości: `always`, `once_per_session`, `once_per_day`.
+   - Zachować kompatybilność z istniejącym ustawieniem, żeby obecna konfiguracja nie zniknęła.
 
-### 1. Nowe pola w panelu `/admin?tab=intro-video`
+2. **Naprawa uploadu w Supabase Storage**
+   - Problem nie wynika z braku publikacji na produkcję. Błąd pokazuje, że w podłączonym Supabase nie istnieje bucket `intro-videos`.
+   - Utworzyć/naprawić bucket `intro-videos` jako publiczny, z limitem 20 MB i typami wideo.
+   - Zostawić obecne polityki RLS: odczyt publiczny, upload/edycja/usuwanie tylko dla administratora.
 
-**Moment wyświetlania** (`trigger_moment`):
-- Po włączeniu strony (app_start) — obecne zachowanie
-- Na stronie logowania (/auth)
-- Przed zalogowaniem (niezalogowani na /auth)
-- Po prawidłowym logowaniu
-- Przy wejściu do dashboardu
+3. **Panel admina: wybór kilku momentów naraz**
+   - Zastąpić pojedynczy dropdown „Moment wyświetlania” listą checkboxów/przełączników.
+   - Pozwolić zaznaczyć jednocześnie np.:
+     - po włączeniu strony,
+     - na stronie logowania,
+     - przed zalogowaniem,
+     - po prawidłowym logowaniu,
+     - przy wejściu do dashboardu.
+   - Dodać walidację: minimum jeden moment musi być zaznaczony przed zapisem.
 
-**Częstotliwość** — rozszerzona o:
-- Raz w tygodniu
-- Raz na użytkownika (na zawsze)
-- Przy każdym logowaniu
+4. **Logika wyświetlania intro**
+   - Zmienić `IntroVideoOverlay`, żeby sprawdzał listę momentów, a nie jedną wartość.
+   - Zachować istniejące częstotliwości: zawsze, raz na sesję, raz dziennie, raz w tygodniu, raz na użytkownika, przy każdym logowaniu.
+   - Dopilnować, żeby intro nie odpalało się wielokrotnie w tym samym momencie przez re-render.
 
-### 2. Podgląd „jak to będzie wyglądało"
+5. **Podgląd**
+   - Zaktualizować podgląd tak, żeby pokazywał wszystkie zaznaczone momenty wyświetlania.
+   - Przycisk „Podgląd” nadal będzie działał niezależnie od wybranych triggerów.
 
-Nowy przycisk **Podgląd** w panelu admina otwiera modal z:
-- ramką wideo w proporcjach 16:9 odtwarzającą aktualnie wybrany plik,
-- przyciskami sterującymi (mute, pomiń, odtwórz ponownie) dokładnie jak w realnym overlay,
-- kafelkami podsumowującymi wybrany moment, częstotliwość, opóźnienie „Pomiń" i ustawienie dźwięku.
+6. **Komunikaty błędów**
+   - Dodać bardziej precyzyjne komunikaty:
+     - brak bucketa `intro-videos`,
+     - brak migracji kolumn `trigger_moment/trigger_moments`,
+     - brak uprawnień administratora do uploadu.
 
-Podgląd działa offline od reszty appki — nie zapisuje stanu odtworzenia, można go uruchamiać ile razy potrzeba.
-
-### 3. Logika overlay (`IntroVideoOverlay`)
-
-- Respektuje `trigger_moment` — pokazuje się tylko w odpowiednim momencie (np. po `loginTrigger` z `AuthContext` dla „after_login", na `/dashboard*` dla „dashboard_entry").
-- Rozpoznaje wszystkie nowe wartości `frequency` (tydzień ISO, klucz per user.id w localStorage, klucz per loginTrigger w sessionStorage).
-- Zapobiega podwójnemu wyzwoleniu na tej samej ścieżce w jednym cyklu.
-
-### 4. Czyszczenie
-
-Usuwam z UI redundantny przełącznik „Pokazuj tylko na stronie logowania (/auth)" — zastąpiony opcją w polu „Moment wyświetlania". Kolumna w bazie zostaje (kompatybilność).
-
-## Pliki
-
-- `src/hooks/useIntroVideoSettings.ts` — typ rozszerzony o `frequency` i `trigger_moment`.
-- `src/components/intro/IntroVideoOverlay.tsx` — nowa logika triggerów i częstotliwości.
-- `src/components/admin/IntroVideoSettingsPanel.tsx` — nowe selecty, usunięty stary toggle, przycisk Podgląd.
-- `src/components/admin/IntroVideoPreviewDialog.tsx` (nowy) — modal podglądu z ramką wideo i podsumowaniem ustawień.
-
-Brak zmian w bazie (migracja już zatwierdzona) i brak zmian w `App.tsx`.
+Po zatwierdzeniu wdrożę migrację Supabase oraz zmiany w UI/logice.
