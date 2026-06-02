@@ -352,25 +352,19 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                   </p>
                 </div>
 
-                {(() => {
-                  const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
-                  const ticketIsFree = pm === 'free' || isFree;
-                  return !ticketIsFree;
-                })() && (
-                  <div>
-                    <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
-                    <Input
-                      id={`price-${ticket.id}`}
-                      type="text"
-                      value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln))}
-                      onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
-                      placeholder="100.00"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Cena w PLN (np. 648.00)
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor={`price-${ticket.id}`}>Cena (PLN)</Label>
+                  <Input
+                    id={`price-${ticket.id}`}
+                    type="text"
+                    value={formatPrice(getEditingValue(ticket.id, 'price_pln', ticket.price_pln) || 0)}
+                    onChange={(e) => setEditingValue(ticket.id, 'price_pln', parsePrice(e.target.value))}
+                    placeholder="0,00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Cena w PLN (np. 648,00). Jeśli puste — wyświetli się 0,00 zł.
+                  </p>
+                </div>
 
                 {(() => {
                   const pm = (getEditingValue(ticket.id, 'payment_method', ticket.payment_method ?? 'inherit') as PaymentMethodOption);
