@@ -296,3 +296,6 @@ verify_jwt = false
 
 [functions.confirm-free-event-reservation]
 verify_jwt = false
+
+[functions.ensure-intro-video-bucket]
+verify_jwt = true

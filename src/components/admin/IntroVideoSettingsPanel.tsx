@@ -33,6 +33,10 @@ const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   default_muted: true,
 };
 
+const INTRO_BUCKET = 'intro-videos';
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+
 export const IntroVideoSettingsPanel: React.FC = () => {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -109,32 +113,51 @@ export const IntroVideoSettingsPanel: React.FC = () => {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) {
+    if (file.size > MAX_VIDEO_SIZE) {
       toast({ title: 'Plik za duży', description: 'Maks. 50 MB.', variant: 'destructive' });
+      e.target.value = '';
+      return;
+    }
+    if (file.type && !ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      toast({ title: 'Nieobsługiwany format', description: 'Wgraj plik MP4, WebM lub MOV.', variant: 'destructive' });
+      e.target.value = '';
       return;
     }
     setUploading(true);
     const ext = file.name.split('.').pop() || 'mp4';
     const path = `intro-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('intro-videos').upload(path, file, {
+    const uploadFile = () => supabase.storage.from(INTRO_BUCKET).upload(path, file, {
       cacheControl: '3600',
       upsert: false,
       contentType: file.type,
     });
+    let { error: upErr }: { error: { message: string } | null } = await uploadFile();
+
+    if (upErr && /bucket.*not found|not found/i.test(upErr.message)) {
+      const { error: ensureErr } = await supabase.functions.invoke('ensure-intro-video-bucket', { body: {} });
+      if (!ensureErr) {
+        ({ error: upErr } = await uploadFile());
+      } else {
+        upErr = ensureErr;
+      }
+    }
+
     if (upErr) {
       let msg = upErr.message;
-      if (/bucket not found/i.test(msg)) {
-        msg = 'Magazyn wideo „intro-videos" nie istnieje — uruchom migrację Supabase.';
+      if (/bucket.*not found|not found/i.test(msg)) {
+        msg = 'Nie udało się utworzyć magazynu wideo. Odśwież stronę i spróbuj ponownie.';
       } else if (/row.?level security|policy|unauthor/i.test(msg)) {
         msg = 'Brak uprawnień: tylko administrator może wgrywać intro wideo.';
       }
       toast({ title: 'Błąd uploadu', description: msg, variant: 'destructive' });
       setUploading(false);
+      e.target.value = '';
       return;
     }
-    const { data } = supabase.storage.from('intro-videos').getPublicUrl(path);
+    const { data } = supabase.storage.from(INTRO_BUCKET).getPublicUrl(path);
     update({ video_url: data.publicUrl });
     setUploading(false);
+    e.target.value = '';
     toast({ title: 'Plik przesłany', description: 'Nie zapomnij kliknąć „Zapisz".' });
   };
 
