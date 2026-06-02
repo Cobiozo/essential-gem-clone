@@ -31,6 +31,12 @@ const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   skip_after_ms: 1500,
   allow_skip: true,
   default_muted: true,
+  display_size: 'medium',
+  custom_width_percent: 60,
+  position: 'center',
+  object_fit: 'contain',
+  backdrop_style: 'solid',
+  border_radius: 16,
 };
 
 const INTRO_BUCKET = 'intro-videos';
@@ -94,6 +100,12 @@ export const IntroVideoSettingsPanel: React.FC = () => {
       skip_after_ms: settings.skip_after_ms,
       allow_skip: settings.allow_skip,
       default_muted: settings.default_muted,
+      display_size: settings.display_size,
+      custom_width_percent: settings.custom_width_percent,
+      position: settings.position,
+      object_fit: settings.object_fit,
+      backdrop_style: settings.backdrop_style,
+      border_radius: settings.border_radius,
       updated_at: new Date().toISOString(),
       updated_by: user?.id ?? null,
     };
@@ -275,6 +287,93 @@ export const IntroVideoSettingsPanel: React.FC = () => {
             <div className="flex items-center justify-between">
               <Label>Pokazuj też niezalogowanym</Label>
               <Switch checked={s.show_on_anonymous} onCheckedChange={(v) => update({ show_on_anonymous: v })} />
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <div>
+              <Label className="text-base">Wygląd i pozycja</Label>
+              <p className="text-sm text-muted-foreground">Kontroluj rozmiar wideo, miejsce na ekranie i tło.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Rozmiar</Label>
+                <Select value={s.display_size} onValueChange={(v: any) => update({ display_size: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Mały (30% szerokości)</SelectItem>
+                    <SelectItem value="medium">Średni (60%)</SelectItem>
+                    <SelectItem value="large">Duży (85%)</SelectItem>
+                    <SelectItem value="fullscreen">Pełny ekran</SelectItem>
+                    <SelectItem value="custom">Niestandardowy…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Pozycja</Label>
+                <Select value={s.position} onValueChange={(v: any) => update({ position: v })} disabled={s.display_size === 'fullscreen'}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="center">Środek</SelectItem>
+                    <SelectItem value="top">Góra</SelectItem>
+                    <SelectItem value="bottom">Dół</SelectItem>
+                    <SelectItem value="top-left">Góra-lewo</SelectItem>
+                    <SelectItem value="top-right">Góra-prawo</SelectItem>
+                    <SelectItem value="bottom-left">Dół-lewo</SelectItem>
+                    <SelectItem value="bottom-right">Dół-prawo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dopasowanie obrazu</Label>
+                <Select value={s.object_fit} onValueChange={(v: any) => update({ object_fit: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contain">Wpasuj (cały kadr widoczny)</SelectItem>
+                    <SelectItem value="cover">Wypełnij (może przyciąć)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tło</Label>
+                <Select value={s.backdrop_style} onValueChange={(v: any) => update({ backdrop_style: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solid">Czarne (jednolite)</SelectItem>
+                    <SelectItem value="dim">Przyciemnione (półprzezroczyste)</SelectItem>
+                    <SelectItem value="blur">Rozmycie strony</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {s.display_size === 'custom' && (
+              <div className="space-y-2">
+                <Label>Szerokość wideo: <span className="font-mono">{s.custom_width_percent}%</span></Label>
+                <Slider
+                  value={[s.custom_width_percent]}
+                  min={20}
+                  max={100}
+                  step={5}
+                  onValueChange={([v]) => update({ custom_width_percent: v })}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Zaokrąglenie rogów: <span className="font-mono">{s.border_radius} px</span></Label>
+              <Slider
+                value={[s.border_radius]}
+                min={0}
+                max={48}
+                step={2}
+                onValueChange={([v]) => update({ border_radius: v })}
+                disabled={s.display_size === 'fullscreen'}
+              />
             </div>
           </div>
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Volume2, VolumeX, X, Play, RotateCcw } from 'lucide-react';
+import { Play, RotateCcw, Monitor, Smartphone } from 'lucide-react';
 import type { IntroVideoSettings } from '@/hooks/useIntroVideoSettings';
+import { IntroVideoStage } from '@/components/intro/IntroVideoStage';
 
 interface Props {
   open: boolean;
@@ -28,95 +29,63 @@ const frequencyLabels: Record<string, string> = {
 };
 
 export const IntroVideoPreviewDialog: React.FC<Props> = ({ open, onOpenChange, settings }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(settings.default_muted);
-  const [showSkip, setShowSkip] = useState(false);
-  const [playing, setPlaying] = useState(true);
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [replayKey, setReplayKey] = useState(0);
 
-  useEffect(() => {
-    if (!open) return;
-    setMuted(settings.default_muted);
-    setShowSkip(false);
-    setPlaying(true);
-    const t = window.setTimeout(() => setShowSkip(true), settings.skip_after_ms);
-    return () => window.clearTimeout(t);
-  }, [open, settings.default_muted, settings.skip_after_ms]);
-
-  const restart = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {});
-    }
-    setShowSkip(false);
-    setPlaying(true);
-    window.setTimeout(() => setShowSkip(true), settings.skip_after_ms);
+  const stageProps = {
+    settings,
+    mode: 'preview' as const,
+    resetKey: `${replayKey}-${device}-${settings.display_size}-${settings.position}-${settings.custom_width_percent}-${settings.backdrop_style}-${settings.object_fit}-${settings.border_radius}-${settings.video_url}`,
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background">
-        <DialogHeader className="p-4 border-b">
+      <DialogContent className="max-w-5xl p-0 overflow-hidden bg-background">
+        <DialogHeader className="p-4 border-b flex-row items-center justify-between gap-3 space-y-0">
           <DialogTitle className="flex items-center gap-2">
-            <Play className="w-4 h-4" /> Podgląd intro wideo
+            <Play className="w-4 h-4" /> Podgląd intro wideo (realny wygląd)
           </DialogTitle>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border p-0.5 bg-muted">
+              <button
+                type="button"
+                onClick={() => setDevice('desktop')}
+                className={`px-2.5 py-1 text-xs rounded flex items-center gap-1.5 ${device === 'desktop' ? 'bg-background shadow-sm' : 'opacity-60'}`}
+              >
+                <Monitor className="w-3.5 h-3.5" /> Desktop
+              </button>
+              <button
+                type="button"
+                onClick={() => setDevice('mobile')}
+                className={`px-2.5 py-1 text-xs rounded flex items-center gap-1.5 ${device === 'mobile' ? 'bg-background shadow-sm' : 'opacity-60'}`}
+              >
+                <Smartphone className="w-3.5 h-3.5" /> Mobile
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setReplayKey((k) => k + 1)}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Odtwórz
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="p-6 bg-muted/30">
-          <div className="relative mx-auto rounded-2xl overflow-hidden bg-black shadow-2xl aspect-video max-w-3xl border border-border">
-            {settings.video_url ? (
-              <video
-                ref={videoRef}
-                src={settings.video_url}
-                autoPlay
-                muted={muted}
-                playsInline
-                className="w-full h-full object-cover"
-                onEnded={() => setPlaying(false)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
-                Brak pliku wideo — najpierw prześlij MP4.
-              </div>
-            )}
-
-            {settings.video_url && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMuted((m) => {
-                    if (videoRef.current) videoRef.current.muted = !m;
-                    return !m;
-                  });
-                }}
-                className="absolute bottom-4 left-4 bg-black/50 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm transition"
-                aria-label={muted ? 'Włącz dźwięk' : 'Wycisz'}
-              >
-                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-            )}
-
-            {settings.video_url && settings.allow_skip && showSkip && playing && (
-              <button
-                type="button"
-                onClick={() => setPlaying(false)}
-                className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-2 text-xs font-medium"
-              >
-                Pomiń <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {!playing && settings.video_url && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                <Button onClick={restart} variant="secondary" size="sm">
-                  <RotateCcw className="w-4 h-4 mr-2" /> Odtwórz ponownie
-                </Button>
-              </div>
-            )}
+          <div className="mx-auto" style={{ maxWidth: device === 'desktop' ? '100%' : 380 }}>
+            <div className="text-xs text-muted-foreground mb-2 text-center">
+              {device === 'desktop' ? 'Symulacja okna przeglądarki' : 'Symulacja telefonu'}
+            </div>
+            <div
+              className="relative w-full rounded-xl overflow-hidden border border-border shadow-2xl bg-background"
+              style={{ aspectRatio: device === 'desktop' ? '16 / 10' : '9 / 19' }}
+            >
+              {/* fake page background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-muted via-background to-muted/50" />
+              <IntroVideoStage key={stageProps.resetKey} {...stageProps} />
+            </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm max-w-3xl mx-auto">
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm max-w-5xl mx-auto">
             <div className="rounded-lg border border-border bg-card/50 p-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Momenty wyświetlania</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Momenty</div>
               <div className="font-medium">
                 {(settings.trigger_moments?.length ? settings.trigger_moments : [settings.trigger_moment])
                   .filter(Boolean)
@@ -129,14 +98,12 @@ export const IntroVideoPreviewDialog: React.FC<Props> = ({ open, onOpenChange, s
               <div className="font-medium">{frequencyLabels[settings.frequency] ?? settings.frequency}</div>
             </div>
             <div className="rounded-lg border border-border bg-card/50 p-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Przycisk „Pomiń"</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Rozmiar / pozycja</div>
               <div className="font-medium">
-                {settings.allow_skip ? `Po ${settings.skip_after_ms} ms` : 'Wyłączony'}
+                {settings.display_size}
+                {settings.display_size === 'custom' ? ` (${settings.custom_width_percent}%)` : ''}
+                {' · '}{settings.position}
               </div>
-            </div>
-            <div className="rounded-lg border border-border bg-card/50 p-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Dźwięk</div>
-              <div className="font-medium">{settings.default_muted ? 'Domyślnie wyciszone' : 'Domyślnie z dźwiękiem'}</div>
             </div>
           </div>
         </div>

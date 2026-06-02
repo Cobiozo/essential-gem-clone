@@ -4399,10 +4399,16 @@ export type Database = {
       intro_video_settings: {
         Row: {
           allow_skip: boolean
+          backdrop_style: string
+          border_radius: number
+          custom_width_percent: number
           default_muted: boolean
+          display_size: string
           enabled: boolean
           frequency: string
           id: string
+          object_fit: string
+          position: string
           show_on_anonymous: boolean
           show_on_auth_only: boolean
           skip_after_ms: number
@@ -4414,10 +4420,16 @@ export type Database = {
         }
         Insert: {
           allow_skip?: boolean
+          backdrop_style?: string
+          border_radius?: number
+          custom_width_percent?: number
           default_muted?: boolean
+          display_size?: string
           enabled?: boolean
           frequency?: string
           id?: string
+          object_fit?: string
+          position?: string
           show_on_anonymous?: boolean
           show_on_auth_only?: boolean
           skip_after_ms?: number
@@ -4429,10 +4441,16 @@ export type Database = {
         }
         Update: {
           allow_skip?: boolean
+          backdrop_style?: string
+          border_radius?: number
+          custom_width_percent?: number
           default_muted?: boolean
+          display_size?: string
           enabled?: boolean
           frequency?: string
           id?: string
+          object_fit?: string
+          position?: string
           show_on_anonymous?: boolean
           show_on_auth_only?: boolean
           skip_after_ms?: number
