@@ -1,7 +1,7 @@
 import React from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Eye, UserX, Settings } from 'lucide-react';
+import { ArrowLeft, Eye, UserX, Settings, User } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { EventEditorSidebar } from './EventEditorSidebar';
 import { EventEditorPreview } from './EventEditorPreview';
@@ -13,7 +13,7 @@ interface PaidEventEditorLayoutProps {
   onClose: () => void;
 }
 
-export type EditorPreviewMode = 'admin' | 'guest';
+export type EditorPreviewMode = 'admin' | 'guest' | 'partner';
 
 export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
   eventId,
@@ -62,6 +62,10 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
             <ToggleGroupItem value="guest" aria-label="Widok niezalogowanego gościa" className="text-xs gap-1.5 px-2.5">
               <UserX className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Widok gościa</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="partner" aria-label="Widok zalogowanego partnera" className="text-xs gap-1.5 px-2.5">
+              <User className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Widok partnera</span>
             </ToggleGroupItem>
           </ToggleGroup>
           <Button variant="outline" size="sm" onClick={refreshPreview}>
