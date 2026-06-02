@@ -1,30 +1,52 @@
-## Diagnoza
+## Problem
 
-W bazie zamówienie `15d3f6cc-c4e4-4e62-ab38-e50a06a589f1` partnera `sebastiansnopek.eqology@gmail.com` nadal ma `status = 'awaiting_transfer'`, mimo że admin kliknął „Opłacono" (zgłoszenie ma `payment_status='paid'`, `payment_marked_at=12:12:31`). Karta partnera w UI czyta status z `paid_event_orders.status`, dlatego dalej widzi „Oczekuje przelewu".
+Gość po potwierdzeniu maila (free event) zobaczył banner z tekstem przeznaczonym dla rezerwacji z przelewem:
 
-**Przyczyna:** w `admin-mark-event-payment/index.ts` próbujemy zrobić:
-```ts
-.update({ status: "paid", paid_at: new Date().toISOString() })
-```
-ale w tabeli `paid_event_orders` **nie ma kolumny `paid_at`**. Supabase JS nie rzuca wyjątku – zwraca `{ error }`, którego kod nie sprawdza, więc update po cichu nie wykonuje się. Bilet PDF i tak idzie (bo `issueFreeTicketForOrder` to osobne wywołanie, aktualizuje tylko `ticket_sent_at`), ale status zamówienia nigdy nie zmienia się na `paid`. Logi edge-funkcji potwierdzają wysyłkę biletu, ale brak udanego UPDATE statusu.
+> „Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu. Po zaksięgowaniu wpłaty otrzymasz bilet…"
+
+Dla wydarzenia bezpłatnego nie powinno być żadnej wzmianki o płatności.
+
+## Przyczyna
+
+W `src/pages/EventFormConfirmPage.tsx` (linie 60-97) są dwie gałęzie:
+- `isFree === true` → komunikat bez płatności (obecny tekst też wymaga poprawy do dokładnego brzmienia)
+- `isFree === false` → komunikat o przelewie (ten, który widać na screenie)
+
+Wartość `isFree` pochodzi z edge-funkcji `confirm-event-form-email`, która sprawdza `paid_events.is_free`, a w fallbacku ceny biletów (`paid_event_tickets.price_pln`). Jeśli dane wydarzenie ma `is_free=false` i istnieje choć jeden bilet płatny (np. partnerski/VIP), fallback nie ustawi `is_free=true` nawet gdy gość rezerwuje bilet bezpłatny — wtedy ekran pokazuje gałąź „płatność".
 
 ## Plan naprawy
 
-### 1. `supabase/functions/admin-mark-event-payment/index.ts`
-- Usunąć `paid_at` z update'u (kolumna nie istnieje). Zostawić `{ status: "paid" }` – `updated_at` zaktualizuje się triggerem.
-- Sprawdzać `error` z `.update(...).select()` i logować/zwracać błąd per zamówienie, żeby kolejna regresja nie była cicha.
+### 1. `src/pages/EventFormConfirmPage.tsx`
+Zmienić tekst w gałęzi `isFree` (linie 66-79) na dokładnie wymagane brzmienie (jeden komunikat, bez separatora „Dziękujemy…" na osobnej linii):
 
-### 2. `supabase/functions/_shared/free-event-ticket.ts` (defensywnie)
-- W `issueFreeTicketForOrder` dorzucić podniesienie `status='paid'` wraz z `ticket_sent_at` (tylko jeśli aktualny status nie jest `cancelled`/`refunded`). To gwarantuje spójność: jeśli bilet zostaje wysłany, zamówienie zawsze jest oznaczone jako opłacone.
+```
+Twoje dane i rejestracja zostały poprawnie potwierdzone.
+W kolejnym mailu otrzymasz swój bilet do uczestnictwa w wydarzeniu.
+Dziękujemy i do zobaczenia na wydarzeniu!
+```
 
-### 3. Data fix (migracja)
-- `UPDATE public.paid_event_orders SET status='paid' WHERE id='15d3f6cc-c4e4-4e62-ab38-e50a06a589f1';`
-  – pozwoli partnerowi natychmiast zobaczyć właściwy status na karcie wydarzenia bez czekania na ponowne kliknięcie admina.
+Nagłówek „Twoje dane i rejestracja zostały poprawnie potwierdzone" zostaje jako `<h1>` (już jest), a treść poniżej staje się dwoma akapitami:
+1. „W kolejnym mailu otrzymasz swój bilet do uczestnictwa w wydarzeniu."
+2. „Dziękujemy i do zobaczenia na wydarzeniu!"
 
-### 4. Weryfikacja
-- Po migracji odświeżyć stronę – baner powinien zmienić się z pomarańczowego „Oczekuje przelewu" na zielony „Opłacone".
-- Sprawdzić ponowne kliknięcie „Opłacono" na innym zgłoszeniu testowym – status w `paid_event_orders` musi po nim wynosić `paid`.
+Komunikat „(Twoja rejestracja była już potwierdzona wcześniej.)" dla stanu `already` zostawiamy bez zmian.
+
+### 2. `supabase/functions/confirm-event-form-email/index.ts` — poprawa detekcji „bezpłatne dla gościa"
+W bloku `is_free` (linie 278-309) dodać dodatkowe rozpoznanie: jeśli zgłoszenie gościa (`event_form_submissions`) ma powiązany `ticket_id` wskazujący na bilet o `price_pln = 0`, ustawić `is_free = true` niezależnie od `paid_events.is_free` i innych biletów.
+
+Logika:
+1. Po pobraniu `sub.event_id` dociągnąć też `sub.selected_ticket_id` (lub odpowiednią kolumnę, którą formularz zapisuje — sprawdzić w schemacie `event_form_submissions`).
+2. Jeśli `selected_ticket_id` istnieje, pobrać `price_pln` tego konkretnego biletu i — przy `price_pln === 0` — wymusić `is_free = true`.
+3. Dotychczasowy fallback po wszystkich biletach zostaje jako ostatnia deska ratunku.
+
+Dzięki temu gość, który rezerwuje darmowe miejsce na wydarzeniu mającym też płatne pule, zawsze trafi w gałąź free i zobaczy poprawny komunikat oraz dostanie bilet w osobnym mailu.
+
+### 3. Weryfikacja
+- Otworzyć link potwierdzający z testowego maila gościa na wydarzeniu bezpłatnym → banner pokazuje wyłącznie nową treść, bez wzmianki o płatności.
+- Powtórzyć dla wydarzenia z mieszanymi pulami (free + paid), wybierając pulę bezpłatną → ten sam komunikat.
+- Dla zarejestrowanego partnera z przelewem na płatne wydarzenie tekst „Teraz oczekujemy na płatność…" pozostaje bez zmian (gałąź `!isFree`).
 
 ## Czego NIE zmieniamy
-- Logika `confirm-event-form-email` (rozróżnianie rezerwacji przelewowych) zostaje – działa poprawnie.
-- Nie dodajemy kolumny `paid_at` – nie jest potrzebna; `updated_at` wystarcza, a dodanie kolumny byłoby zmianą schema bez wartości biznesowej.
+- Gałęzi paid (`!isFree`) — komunikat o przelewie dla partnera z płatnym biletem zostaje.
+- Logiki wystawiania biletu PDF (`issueFreeTicketForOrder`) i maila z biletem — nie wpływa na ten ekran.
+- Tłumaczeń i innych ekranów potwierdzeń.

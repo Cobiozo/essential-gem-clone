@@ -66,7 +66,7 @@ const EventFormConfirmPage: React.FC = () => {
               {isFree ? (
                 <>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Następnie otrzymasz e-mail wraz z biletem uprawniającym do uczestnictwa w wydarzeniu.
+                    W kolejnym mailu otrzymasz swój bilet do uczestnictwa w wydarzeniu.
                   </p>
                   {state === 'already' && (
                     <p className="text-xs text-muted-foreground italic">
