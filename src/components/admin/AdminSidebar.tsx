@@ -64,6 +64,7 @@ import {
   Plug,
   Activity,
   Smartphone,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
