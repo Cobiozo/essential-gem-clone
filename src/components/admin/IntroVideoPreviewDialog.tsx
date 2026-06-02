@@ -116,8 +116,13 @@ export const IntroVideoPreviewDialog: React.FC<Props> = ({ open, onOpenChange, s
 
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm max-w-3xl mx-auto">
             <div className="rounded-lg border border-border bg-card/50 p-3">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Moment wyświetlania</div>
-              <div className="font-medium">{triggerLabels[settings.trigger_moment] ?? settings.trigger_moment}</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Momenty wyświetlania</div>
+              <div className="font-medium">
+                {(settings.trigger_moments?.length ? settings.trigger_moments : [settings.trigger_moment])
+                  .filter(Boolean)
+                  .map((m) => triggerLabels[m as string] ?? m)
+                  .join(', ') || '—'}
+              </div>
             </div>
             <div className="rounded-lg border border-border bg-card/50 p-3">
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Częstotliwość</div>
