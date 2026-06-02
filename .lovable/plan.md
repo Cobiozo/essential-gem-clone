@@ -1,63 +1,61 @@
-## Cel
+## Diagnoza
 
-1. Naprawić błąd „Edge Function returned a non-2xx status code" przy rezerwacji biletu przelewem przez zalogowanego partnera.
-2. Zmienić układ tekstu na stronie potwierdzenia e-maila dla bezpłatnej rejestracji gościa.
+`sebastiansnopek.ekology@...` zarezerwował bilet "REZERWUJĘ BILET" (20 zł, przelew) na wydarzeniu "Kompleksowe szkolenie TEST". Wydarzenie ma flagę `is_free = true` (bilet ma własną cenę przez per-ticket override). Flow:
 
----
+1. `register-event-transfer-order` poprawnie utworzył order ze `status='awaiting_transfer'` i wysłał e-mail z danymi do przelewu + przyciskiem **"Potwierdzam otrzymanie wiadomości"**. ✅
+2. Partner kliknął przycisk → `confirm-event-form-email` odpalił `confirm_event_form_email` RPC (potwierdzenie e-maila) → następnie, ponieważ `event.is_free === true`, wywołał **`ensureFreeOrderAndSendTicket`**.
+3. `ensureFreeOrderAndSendTicket` znalazł istniejący order po `event_id + email` (ten transferowy, 20 zł, awaiting_transfer), ustawił `payment_status='paid'`, `email_status='confirmed'` na submission i wywołał `issueFreeTicketForOrder` → **wysłał bilet PDF + QR mimo braku zaksięgowania przelewu**. ❌
 
-## 1. Błąd rezerwacji biletu przelewem
+To jest błąd: logika "free event" nie rozróżnia biletów wymagających przelewu (per-ticket override z ceną > 0).
 
-### Diagnoza
-- Wydarzenie „Kompleksowe szkolenie TEST" ma `is_free = true` i wszystkie flagi `payment_method_* = false` na poziomie wydarzenia.
-- Bilet „REZERWUJĘ BILET" (id `95e0f9a9...`) ma własne `payment_method = 'transfer'`, cenę 20 zł oraz wypełnione `transfer_payment_details`.
-- Frontend (`PurchaseDrawer`) poprawnie wykrywa `transferOnly = true` i wywołuje funkcję `register-event-transfer-order`.
-- Funkcja w repo (linie 350–358) już zawiera „ticket-level override" (`ticketForcesTransfer`), który powinien przepuścić to żądanie.
-- Wykonany testowy `curl` do funkcji zwraca jednak `400 {"error":"transfer_disabled"}`. To oznacza, że **wdrożona wersja edge functiona nie zawiera jeszcze ostatniej poprawki** (override per bilet) — kod w repo jest poprawny, ale build/deploy nie został przepchnięty.
-
-### Działanie
-- Ponowne wdrożenie funkcji `register-event-transfer-order` (re-deploy), aby działała logika `ticketForcesTransfer`.
-- Po wdrożeniu wykonać kontrolny `curl` z tym samym ticketId — oczekiwany wynik: `200 {success:true,orderId,ticketCode}` zamiast `400 transfer_disabled`.
-- Bez zmian w kodzie źródłowym funkcji (jest już prawidłowy).
-- Bez zmian w `PurchaseDrawer.tsx` — flow „Rezerwuję" i komunikat sukcesu już istnieją.
-
-### Efekt
-- Zalogowany partner po kliknięciu **„Rezerwuję"** dostanie toast „Rezerwacja przyjęta" + e-mail z danymi do przelewu (z brandowanego SMTP, z bannerem wydarzenia, danymi konta i kodem QR po zaksięgowaniu).
+Dodatkowo: `admin-mark-event-payment` aktualizuje tylko `event_form_submissions.payment_status` — **nie** wystawia biletu ani nie aktualizuje `paid_event_orders.status`. Po naprawie głównego błędu, admin musi mieć możliwość wysłania biletu w momencie potwierdzenia płatności.
 
 ---
 
-## 2. Strona potwierdzenia e-maila — wariant bezpłatny (gość)
+## Plan
 
-Plik: `src/pages/EventFormConfirmPage.tsx`, blok renderowany gdy `state === 'ok' | 'already'` i `isFree === true`.
+### 1. `supabase/functions/confirm-event-form-email/index.ts`
 
-### Aktualny układ (do zmiany)
-```
-✓
-Twoje dane i rejestracja zostały poprawnie potwierdzone
-Na wskazany adres e-mail otrzymasz bilet... Dziękujemy i do zobaczenia na wydarzeniu.
-```
-(jeden akapit, brak hierarchii, brak osobnego stopki „dziękujemy")
+W funkcji `ensureFreeOrderAndSendTicket` — przed wywołaniem `issueFreeTicketForOrder` sprawdzić znaleziony order:
 
-### Nowy układ
-```
-✓
-Twoje dane i rejestracja zostały poprawnie potwierdzone   ← nagłówek (bez zmian)
+- Jeśli istnieje order powiązany z submission (po `submitted_data.order_id` LUB po `event_id + email`) i ma **`payment_provider = 'transfer'`** LUB **`status = 'awaiting_transfer'`** LUB **`total_amount > 0`** → traktować jako "rezerwacja przelewem":
+  - zaktualizować na orderze tylko `email_confirmed_at = now()` (potwierdzenie odbioru maila, bez zmiany statusu płatności),
+  - **NIE** ustawiać `payment_status='paid'` na submission — pozostawić `'pending'`,
+  - ustawić `email_status='confirmed'` na submission (potwierdzenie e-maila to OK),
+  - **NIE** wywoływać `issueFreeTicketForOrder`,
+  - powiadomienie do admina i partnera o potwierdzeniu e-maila — bez zmian.
 
-Następnie otrzymasz e-mail wraz z biletem uprawniającym
-do uczestnictwa w wydarzeniu.                              ← mniejsza czcionka, text-sm, text-muted-foreground
+- Tylko gdy `total_amount = 0` i nie ma przelewu → uruchomić stary flow (auto-paid + ticket PDF). Czyli prawdziwie bezpłatny bilet bez przelewu działa jak dotąd.
 
-Dziękujemy i do zobaczenia na wydarzeniu!                  ← osobny akapit na dole, text-sm, lekki odstęp pt-2
-```
+### 2. `supabase/functions/admin-mark-event-payment/index.ts`
 
-### Co konkretnie zrobić w kodzie
-- W gałęzi `isFree` zastąpić obecny jeden `<p>` dwoma akapitami:
-  - pierwszy: klasy `text-sm text-muted-foreground leading-relaxed`, treść: „Następnie otrzymasz e-mail wraz z biletem uprawniającym do uczestnictwa w wydarzeniu."
-  - drugi: klasy `text-sm text-muted-foreground pt-2`, treść: „Dziękujemy i do zobaczenia na wydarzeniu!"
-- Płatny wariant (przelew) zostaje bez zmian.
-- Brak zmian w funkcji `confirm-event-form-email` ani w mailach.
+Rozszerzyć tak, by przy `paymentStatus === 'paid'`:
+
+- Znaleźć powiązany order(y) (z `event_form_submissions.submitted_data.order_ids` lub `order_id`).
+- Dla każdego z `payment_provider='transfer'` i `status='awaiting_transfer'`:
+  - zaktualizować `paid_event_orders` → `status='paid'`, `paid_at=now()`,
+  - wywołać `issueFreeTicketForOrder(order_id)` (shared helper) — wystawi PDF + QR i wyśle e-mail z biletem,
+  - dodać activity log "Wysłano bilet po zaksięgowaniu przelewu".
+- Best-effort: pojedynczy błąd wysyłki nie blokuje aktualizacji statusu (loguje się i wraca z `ticket_send_warning` w odpowiedzi).
+
+Brak zmian w UI panelu admina — przycisk "Opłacono" już istnieje i wywołuje tę funkcję.
+
+### 3. Naprawienie istniejącego rekordu testowego (data fix, jednorazowo)
+
+Dla `sebastiansnopek.ekology@gmail.com` na "Kompleksowe szkolenie TEST":
+- `UPDATE paid_event_orders SET status='awaiting_transfer', ticket_sent_at = NULL WHERE id = <ten order>`,
+- `UPDATE event_form_submissions SET payment_status='pending' WHERE ...`.
+
+(Wykonane przez insert tool po akceptacji.)
 
 ---
 
-## Weryfikacja po wdrożeniu
+## Efekt końcowy (zgodny z wymaganiem)
 
-1. Zalogowany partner → wybiera bilet „REZERWUJĘ BILET" (20 zł, przelew) → klika **„Rezerwuję"** → pojawia się banner sukcesu, w skrzynce e-mail z danymi do przelewu.
-2. Gość → wybiera bilet bezpłatny → potwierdza e-mail → strona pokazuje nowy 3-warstwowy układ („potwierdzone" → mała informacja o bilecie → „dziękujemy").
+Logowany partner z biletem **przelew**:
+
+1. Klika "Rezerwuję" → dostaje mail z danymi do przelewu i linkiem "Potwierdzam otrzymanie wiadomości".
+2. Klika link potwierdzenia → strona pokazuje "Twoje dane zostały potwierdzone"; status submission = email confirmed, payment_status = pending; **bilet nie idzie**.
+3. Admin w panelu klika "Opłacono" przy zgłoszeniu → dopiero wtedy order zmienia się na `paid` i automatycznie wysyłany jest e-mail z biletem PDF + QR.
+
+Gość z biletem **darmowym (0 zł, bez przelewu)** — flow bez zmian: po potwierdzeniu e-maila bilet idzie od razu.
