@@ -112,6 +112,18 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
   const showTicketsBlock = !isGuestPreview || guestShowTickets;
   const showSectionsBlock = !isGuestPreview || guestShowDescription;
 
+  const audienceLabel: Record<string, string> = {
+    all: 'Wszyscy',
+    guest_only: 'Goście',
+    logged_in: 'Zalogowani',
+  };
+  const filteredTickets = isGuestPreview
+    ? tickets.filter((t: any) => {
+        const a = t.audience ?? 'all';
+        return a === 'all' || a === 'guest_only';
+      })
+    : tickets;
+
   return (
     <ScrollArea className="h-full">
       <div className="min-h-full bg-background">
