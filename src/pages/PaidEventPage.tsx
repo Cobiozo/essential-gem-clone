@@ -159,7 +159,7 @@ const PaidEventPage: React.FC = () => {
         highlight_text: ticket.highlight_text ?? null,
         is_featured: ticket.is_featured ?? false,
         available_quantity: ticket.quantity_available ?? null,
-        max_per_order: null,
+        max_per_order: (ticket as any).allow_multiple_purchase ? null : 1,
         is_active: ticket.is_active ?? true,
         seats_per_ticket: Math.max(1, Number((ticket as any).seats_per_ticket) || 1),
         payment_method: (ticket.payment_method ?? 'inherit') as Ticket['payment_method'],
