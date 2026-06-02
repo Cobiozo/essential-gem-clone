@@ -7061,6 +7061,7 @@ export type Database = {
       }
       paid_event_tickets: {
         Row: {
+          allow_multiple_purchase: boolean
           audience: string
           benefits: Json | null
           created_at: string
@@ -7084,6 +7085,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_multiple_purchase?: boolean
           audience?: string
           benefits?: Json | null
           created_at?: string
@@ -7107,6 +7109,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_multiple_purchase?: boolean
           audience?: string
           benefits?: Json | null
           created_at?: string

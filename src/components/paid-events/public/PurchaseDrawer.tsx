@@ -17,6 +17,7 @@ interface TicketInfo {
   price: number;
   seats_per_ticket?: number;
   available_quantity?: number | null;
+  max_per_order?: number | null;
 }
 
 interface PurchaseDrawerProps {
@@ -129,8 +130,17 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const maxQty = useMemo(() => {
     const qa = ticket?.available_quantity;
-    return Math.max(1, Math.min(MAX_TICKETS, qa && qa > 0 ? qa : MAX_TICKETS));
-  }, [ticket?.available_quantity]);
+    const mpo = ticket?.max_per_order;
+    const availCap = qa && qa > 0 ? qa : MAX_TICKETS;
+    const orderCap = mpo && mpo > 0 ? mpo : MAX_TICKETS;
+    return Math.max(1, Math.min(MAX_TICKETS, availCap, orderCap));
+  }, [ticket?.available_quantity, ticket?.max_per_order]);
+  const allowMultiple = maxQty > 1;
+
+  // Keep quantity within the dynamic upper bound (admin may forbid multi-purchase, in which case maxQty=1).
+  useEffect(() => {
+    setQuantity(q => Math.max(1, Math.min(maxQty, q)));
+  }, [maxQty]);
 
   // Auto-fill from logged-in user's profile when the drawer opens (don't overwrite user input).
   // Skip auto-fill entirely if the user is already registered for this event — buyer fields
@@ -200,6 +210,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
   const validate = (): boolean => {
     if (!ticket) return false;
+    const emailRe = /^\S+@\S+\.\S+$/;
     if (!hasOwnTicket) {
       if (!formData.firstName || !formData.lastName || !formData.email) {
         toast({ title: 'Uzupełnij dane', description: 'Imię, nazwisko i email kupującego są wymagane', variant: 'destructive' });
@@ -210,9 +221,18 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         toast({ title: 'Brak gości', description: 'Zwiększ liczbę biletów, aby zarejestrować gości', variant: 'destructive' });
         return false;
       }
-      const incomplete = attendees.findIndex(a => !a.firstName.trim() || !a.lastName.trim());
-      if (incomplete !== -1) {
-        toast({ title: 'Uzupełnij dane gości', description: `Podaj imię i nazwisko dla uczestnika ${incomplete + 1}`, variant: 'destructive' });
+    }
+    // Every additional attendee (guest seat) must have full identifying data:
+    // imię, nazwisko oraz prawidłowy email — bilety są imienne.
+    for (let i = 0; i < attendees.length; i++) {
+      const a = attendees[i];
+      const label = buyerIsAttendee ? `uczestnika ${i + 2}` : `uczestnika ${i + 1}`;
+      if (!a.firstName.trim() || !a.lastName.trim() || !a.email.trim()) {
+        toast({ title: 'Uzupełnij dane uczestnika', description: `Imię, nazwisko i email dla ${label} są wymagane`, variant: 'destructive' });
+        return false;
+      }
+      if (!emailRe.test(a.email.trim())) {
+        toast({ title: 'Nieprawidłowy email', description: `Sprawdź adres email dla ${label}`, variant: 'destructive' });
         return false;
       }
     }
@@ -227,7 +247,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
     const guests = attendees.map(a => ({
       firstName: a.firstName.trim(),
       lastName: a.lastName.trim(),
-      email: a.email?.trim() || null,
+      email: a.email.trim(),
     }));
     const attendeesPayload = buyerIsAttendee
       ? [
@@ -430,33 +450,35 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   <span className="font-medium text-right">{ticket.name}</span>
                 </div>
 
-                {/* Quantity selector */}
-                <div className="flex items-center justify-between gap-3">
-                  <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                      disabled={quantity <= 1}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <span className="w-8 text-center font-semibold">{quantity}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
-                      disabled={quantity >= maxQty}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                {/* Quantity selector — visible only when admin allows multi-purchase or buyer has own ticket (guest-only flow) */}
+                {(allowMultiple || hasOwnTicket) && (
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-sm">{isFree ? 'Liczba miejsc' : 'Liczba biletów'}</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                        disabled={quantity <= 1}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <span className="w-8 text-center font-semibold">{quantity}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQuantity(q => Math.min(maxQty, q + 1))}
+                        disabled={quantity >= maxQty}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {seatsPerTicket > 1 && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -545,8 +567,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {buyerIsAttendee
-                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dane pozostałych osób możesz uzupełnić teraz lub później — z poziomu strony zamówienia. Każdy uczestnik dostanie własny kod QR.'
-                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dane gości możesz uzupełnić teraz lub później w sekcji „Moje bilety". Każdy gość dostanie własny kod QR.'}
+                      ? 'Kupujący jest zapisany jako Uczestnik 1. Dla każdego dodatkowego biletu podaj imię, nazwisko i email — bilety są imienne, każdy uczestnik dostanie własny kod QR.'
+                      : 'Masz już własny bilet na to wydarzenie — te bilety będą wyłącznie dla gości. Dla każdego gościa podaj imię, nazwisko i email — bilety są imienne, każdy gość dostanie własny kod QR.'}
                   </p>
 
                   <div className="space-y-3">
@@ -556,27 +578,30 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             {buyerIsAttendee ? `Uczestnik ${idx + 2}` : `Gość ${idx + 1}`}
                           </span>
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                            opcjonalnie
+                          <span className="text-[10px] uppercase tracking-wide text-destructive">
+                            wymagane
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
                             value={a.firstName}
                             onChange={(e) => updateAttendee(idx, { firstName: e.target.value })}
-                            placeholder="Imię"
+                            placeholder="Imię *"
+                            required
                           />
                           <Input
                             value={a.lastName}
                             onChange={(e) => updateAttendee(idx, { lastName: e.target.value })}
-                            placeholder="Nazwisko"
+                            placeholder="Nazwisko *"
+                            required
                           />
                         </div>
                         <Input
                           type="email"
                           value={a.email}
                           onChange={(e) => updateAttendee(idx, { email: e.target.value })}
-                          placeholder="Email (opcjonalnie)"
+                          placeholder="Email *"
+                          required
                         />
                       </div>
                     ))}
