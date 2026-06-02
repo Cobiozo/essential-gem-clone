@@ -427,6 +427,7 @@ const AppContent = () => {
                 <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
                 <Route path="/paid-events" element={<PaidEventsListPage />} />
+                <Route path="/weryfikacja-biletow" element={<TicketVerificationPage />} />
                 <Route path="/events/:slug" element={<PaidEventPage />} />
                 <Route path="/event-form/:slug" element={<EventFormPublicPage />} />
                 <Route path="/event-form/confirm/:token" element={<EventFormConfirmPage />} />
