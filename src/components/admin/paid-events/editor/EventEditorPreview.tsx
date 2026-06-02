@@ -248,14 +248,21 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {tickets.map((ticket) => (
+                      {filteredTickets.map((ticket: any) => (
                         <Card key={ticket.id} className="border-2">
                           <CardContent className="p-4">
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex justify-between items-start mb-2 gap-2">
                               <h3 className="font-semibold">{ticket.name}</h3>
-                              {ticket.is_featured && (
-                                <Badge variant="default">Popularne</Badge>
-                              )}
+                              <div className="flex gap-1 flex-wrap justify-end">
+                                {!isGuestPreview && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    {audienceLabel[ticket.audience ?? 'all']}
+                                  </Badge>
+                                )}
+                                {ticket.is_featured && (
+                                  <Badge variant="default">Popularne</Badge>
+                                )}
+                              </div>
                             </div>
                             <p className="text-2xl font-bold text-primary mb-2">
                               {formatPrice(ticket.price_pln)}
@@ -278,6 +285,12 @@ export const EventEditorPreview: React.FC<EventEditorPreviewProps> = ({
                           </CardContent>
                         </Card>
                       ))}
+
+                      {filteredTickets.length === 0 && isGuestPreview && (
+                        <div className="text-center py-8 text-sm text-muted-foreground">
+                          Niezalogowany gość nie zobaczy żadnego biletu na tej stronie.
+                        </div>
+                      )}
 
                       {tickets.length === 0 && !isGuestPreview && (
                         <div className="text-center py-8 text-muted-foreground">
