@@ -464,6 +464,8 @@ const AppContent = () => {
           <ChatWidgetsWrapper />
           <PWAInstallBanner />
           <MobileBottomNav />
+          <IntroVideoOverlay />
+
           
         </InactivityHandler>
         </ChatSidebarProvider>
