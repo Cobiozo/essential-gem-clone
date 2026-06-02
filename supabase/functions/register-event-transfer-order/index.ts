@@ -346,14 +346,21 @@ serve(async (req) => {
     }
 
     const event = ticket.paid_events as any;
-    if (!event.payment_method_transfer) {
+    // A ticket can FORCE 'transfer' as its own payment method (per-ticket override).
+    // In that case we don't require the event-level `payment_method_transfer` flag —
+    // this enables the "free event + single TRANSFER ticket for logged-in users" scenario.
+    const ticketForcesTransfer = (ticket as any).payment_method === "transfer";
+    if (!ticketForcesTransfer && !event.payment_method_transfer) {
       return new Response(JSON.stringify({ error: "transfer_disabled" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const transferDetails = (event.transfer_payment_details || "").trim();
+    // Priority: ticket-level transfer details override event-level details.
+    const ticketTransferDetails = ((ticket as any).transfer_payment_details || "").trim();
+    const eventTransferDetails = (event.transfer_payment_details || "").trim();
+    const transferDetails = ticketTransferDetails || eventTransferDetails;
     if (!transferDetails) {
       return new Response(JSON.stringify({ error: "transfer_details_missing" }), {
         status: 400,
