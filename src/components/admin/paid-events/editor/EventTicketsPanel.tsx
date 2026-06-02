@@ -65,20 +65,21 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
   const [editingData, setEditingData] = useState<Record<string, Partial<Ticket>>>({});
   const [newBenefit, setNewBenefit] = useState<Record<string, string>>({});
 
-  // Fetch event meta (is_free flag)
+  // Fetch event meta (is_free flag + event-level transfer details for fallback validation)
   const { data: eventMeta } = useQuery({
     queryKey: ['paid-event-meta-tickets-panel', eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('paid_events')
-        .select('is_free')
+        .select('is_free, transfer_payment_details')
         .eq('id', eventId)
         .maybeSingle();
       if (error) throw error;
-      return data as { is_free: boolean | null } | null;
+      return data as { is_free: boolean | null; transfer_payment_details: string | null } | null;
     },
   });
   const isFree = !!eventMeta?.is_free;
+  const eventTransferDetails = (eventMeta?.transfer_payment_details || '').trim();
   const unitLabel = isFree ? 'Rezerwacja' : 'Bilet';
   const unitLabelLower = isFree ? 'rezerwacja' : 'bilet';
 
