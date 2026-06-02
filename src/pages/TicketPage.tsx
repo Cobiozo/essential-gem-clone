@@ -42,7 +42,7 @@ interface OrderInfo {
     banner_url: string | null;
     transfer_payment_details: string | null;
   };
-  paid_event_tickets: { name: string };
+  paid_event_tickets: { name: string; transfer_payment_details: string | null } | null;
 }
 
 const formatPrice = (groszy: number) =>
