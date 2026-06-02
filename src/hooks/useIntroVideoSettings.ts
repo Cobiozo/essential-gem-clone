@@ -32,6 +32,12 @@ export const ALL_TRIGGER_MOMENTS: IntroTriggerMoment[] = [
   'dashboard_entry',
 ];
 
+export type IntroDisplaySize = 'small' | 'medium' | 'large' | 'fullscreen' | 'custom';
+export type IntroPosition =
+  | 'center' | 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type IntroObjectFit = 'contain' | 'cover';
+export type IntroBackdropStyle = 'solid' | 'blur' | 'dim';
+
 export interface IntroVideoSettings {
   id: string;
   enabled: boolean;
@@ -45,6 +51,12 @@ export interface IntroVideoSettings {
   skip_after_ms: number;
   allow_skip: boolean;
   default_muted: boolean;
+  display_size: IntroDisplaySize;
+  custom_width_percent: number;
+  position: IntroPosition;
+  object_fit: IntroObjectFit;
+  backdrop_style: IntroBackdropStyle;
+  border_radius: number;
 }
 
 export const normalizeSettings = (raw: any): IntroVideoSettings | null => {
@@ -66,6 +78,12 @@ export const normalizeSettings = (raw: any): IntroVideoSettings | null => {
     skip_after_ms: raw.skip_after_ms ?? 1500,
     allow_skip: raw.allow_skip ?? true,
     default_muted: raw.default_muted ?? true,
+    display_size: (raw.display_size ?? 'medium') as IntroDisplaySize,
+    custom_width_percent: raw.custom_width_percent ?? 60,
+    position: (raw.position ?? 'center') as IntroPosition,
+    object_fit: (raw.object_fit ?? 'contain') as IntroObjectFit,
+    backdrop_style: (raw.backdrop_style ?? 'solid') as IntroBackdropStyle,
+    border_radius: raw.border_radius ?? 16,
   };
 };
 
