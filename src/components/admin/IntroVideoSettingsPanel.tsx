@@ -31,6 +31,12 @@ const DEFAULTS: Omit<IntroVideoSettings, 'id'> = {
   skip_after_ms: 1500,
   allow_skip: true,
   default_muted: true,
+  display_size: 'medium',
+  custom_width_percent: 60,
+  position: 'center',
+  object_fit: 'contain',
+  backdrop_style: 'solid',
+  border_radius: 16,
 };
 
 const INTRO_BUCKET = 'intro-videos';

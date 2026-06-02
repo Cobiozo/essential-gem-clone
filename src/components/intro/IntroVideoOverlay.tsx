@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Volume2, VolumeX, X } from 'lucide-react';
 import { useIntroVideoSettings, type IntroFrequency, type IntroTriggerMoment } from '@/hooks/useIntroVideoSettings';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { IntroVideoStage } from './IntroVideoStage';
 
 const SESSION_KEY = 'intro_video_played_session';
 const DAILY_KEY = 'intro_video_played_date';
@@ -53,18 +53,12 @@ const triggerMatches = (
   lastSeenLoginTrigger: number,
 ): boolean => {
   switch (trigger) {
-    case 'app_start':
-      return true;
-    case 'auth_page':
-      return pathname === '/auth';
-    case 'before_login':
-      return pathname === '/auth' && !user;
-    case 'after_login':
-      return !!user && loginTrigger > lastSeenLoginTrigger;
-    case 'dashboard_entry':
-      return !!user && pathname.startsWith('/dashboard');
-    default:
-      return false;
+    case 'app_start': return true;
+    case 'auth_page': return pathname === '/auth';
+    case 'before_login': return pathname === '/auth' && !user;
+    case 'after_login': return !!user && loginTrigger > lastSeenLoginTrigger;
+    case 'dashboard_entry': return !!user && pathname.startsWith('/dashboard');
+    default: return false;
   }
 };
 
@@ -72,11 +66,8 @@ export const IntroVideoOverlay: React.FC = () => {
   const { data: settings, isLoading } = useIntroVideoSettings();
   const { user, loginTrigger } = useAuth();
   const location = useLocation();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const [showSkip, setShowSkip] = useState(false);
   const lastSeenLoginTriggerRef = useRef(loginTrigger);
   const playedForKeyRef = useRef<string | null>(null);
 
@@ -100,17 +91,10 @@ export const IntroVideoOverlay: React.FC = () => {
     if (playedForKeyRef.current === key) return;
     playedForKeyRef.current = key;
 
-    setMuted(settings.default_muted);
     setVisible(true);
     markPlayed(settings.frequency, user?.id, loginTrigger);
     lastSeenLoginTriggerRef.current = loginTrigger;
   }, [isLoading, settings, user, loginTrigger, location.pathname]);
-
-  useEffect(() => {
-    if (!visible || !settings?.allow_skip) return;
-    const t = window.setTimeout(() => setShowSkip(true), settings.skip_after_ms);
-    return () => window.clearTimeout(t);
-  }, [visible, settings]);
 
   useEffect(() => {
     if (!visible) return;
@@ -121,71 +105,21 @@ export const IntroVideoOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [visible, settings]);
 
-  useEffect(() => {
-    if (!visible) return;
-    const t = window.setTimeout(() => {
-      if (videoRef.current && videoRef.current.readyState < 2) handleClose();
-    }, 3000);
-    return () => window.clearTimeout(t);
-  }, [visible]);
-
   const handleClose = () => {
     setClosing(true);
     window.setTimeout(() => {
       setVisible(false);
       setClosing(false);
-      setShowSkip(false);
     }, 300);
-  };
-
-  const toggleMute = () => {
-    setMuted((m) => {
-      if (videoRef.current) videoRef.current.muted = !m;
-      return !m;
-    });
   };
 
   if (!visible || !settings?.video_url) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-black flex items-center justify-center transition-opacity duration-300 ${
-        closing ? 'opacity-0' : 'opacity-100'
-      }`}
-      role="dialog"
-      aria-label="Intro"
+      className={`fixed inset-0 z-[9999] transition-opacity duration-300 ${closing ? 'opacity-0' : 'opacity-100'}`}
     >
-      <video
-        ref={videoRef}
-        src={settings.video_url}
-        autoPlay
-        muted={muted}
-        playsInline
-        preload="auto"
-        className="w-full h-full object-cover"
-        onEnded={handleClose}
-        onError={handleClose}
-      />
-
-      <button
-        type="button"
-        onClick={toggleMute}
-        className="absolute bottom-6 left-6 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full backdrop-blur-sm transition"
-        aria-label={muted ? 'Włącz dźwięk' : 'Wycisz'}
-      >
-        {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-      </button>
-
-      {settings.allow_skip && showSkip && (
-        <button
-          type="button"
-          onClick={handleClose}
-          className="absolute top-6 right-6 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full backdrop-blur-sm flex items-center gap-2 text-sm font-medium animate-fade-in"
-          aria-label="Pomiń intro"
-        >
-          Pomiń <X className="w-4 h-4" />
-        </button>
-      )}
+      <IntroVideoStage settings={settings} mode="live" onClose={handleClose} />
     </div>
   );
 };
