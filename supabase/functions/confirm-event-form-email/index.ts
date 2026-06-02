@@ -279,7 +279,7 @@ serve(async (req) => {
     if (data?.success && data?.submission_id) {
       const { data: sub } = await supabase
         .from("event_form_submissions")
-        .select("event_id")
+        .select("event_id, submitted_data")
         .eq("id", data.submission_id)
         .maybeSingle();
       if (sub?.event_id) {
@@ -292,6 +292,23 @@ serve(async (req) => {
         banner_url = ev?.banner_url ?? null;
         event_title = ev?.title ?? null;
         is_free = ev?.is_free ?? null;
+
+        // Detekcja "bezpłatne dla gościa": jeśli formularz zawiera konkretny
+        // ticket_id o cenie 0, traktujemy zgłoszenie jako bezpłatne nawet gdy
+        // wydarzenie ma też płatne pule.
+        if (is_free !== true) {
+          const submittedTicketId = (sub.submitted_data as any)?.ticket_id ?? null;
+          if (submittedTicketId) {
+            const { data: tk } = await supabase
+              .from("paid_event_tickets")
+              .select("price_pln")
+              .eq("id", submittedTicketId)
+              .maybeSingle();
+            if (tk && Number(tk.price_pln) === 0) {
+              is_free = true;
+            }
+          }
+        }
 
         // Fallback: jeśli flaga is_free nie jest ustawiona na true,
         // sprawdź ceny aktywnych biletów. Brak biletów płatnych = wydarzenie bezpłatne.
