@@ -43,6 +43,7 @@ import CertificateEditor from '@/components/admin/CertificateEditor';
 import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
 import { CookieConsentManagement } from '@/components/admin/CookieConsentManagement';
+import { IntroVideoSettingsPanel } from '@/components/admin/IntroVideoSettingsPanel';
 import { AiCompassManagement } from '@/components/admin/AiCompassManagement';
 import { DailySignalManagement } from '@/components/admin/DailySignalManagement';
 import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagement';
@@ -4798,6 +4799,11 @@ const Admin = () => {
           <TabsContent value="mobile-bottom-nav">
             <MobileBottomNavSettings />
           </TabsContent>
+
+          <TabsContent value="intro-video">
+            <IntroVideoSettingsPanel />
+          </TabsContent>
+
         </Tabs>
       </div>
 

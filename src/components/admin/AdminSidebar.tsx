@@ -64,6 +64,7 @@ import {
   Plug,
   Activity,
   Smartphone,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -104,6 +105,7 @@ const SIDEBAR_KEYS = {
   dashboardFooter: 'admin.sidebar.dashboardFooter',
   adminPanel: 'admin.sidebar.adminPanel',
   administrator: 'admin.sidebar.administrator',
+  introVideo: 'Intro wideo',
 };
 
 interface AdminSidebarProps {
@@ -218,6 +220,8 @@ const navCategories: NavCategory[] = [
       { value: 'security', labelKey: 'security', icon: Shield },
       { value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug },
       { value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
+      { value: 'intro-video', labelKey: 'introVideo', icon: VideoIcon },
+
     ],
   },
 ];
