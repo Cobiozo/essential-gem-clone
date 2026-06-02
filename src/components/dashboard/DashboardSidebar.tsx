@@ -68,6 +68,7 @@ import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatS
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
+import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
