@@ -1,50 +1,63 @@
-## Problem
+## Cel
 
-W `PurchaseDrawer` dla biletu płatnego, niezależnie od metody płatności, klikamy „Przejdź do płatności" → wywoływana jest `create-event-order` i przekierowanie na `/checkout/{orderId}`. Gdy bilet wymusza wyłącznie **płatność przelewem**, to:
-1. Etykieta przycisku jest myląca („Przejdź do płatności" zamiast „Rezerwuję").
-2. Nie wysyłany jest e-mail z danymi do przelewu (bo `register-event-transfer-order` nie jest wywoływane).
-3. `/checkout/{orderId}` pokazuje błąd „Nie znaleziono zamówienia" / mylący ekran PayU dla zamówienia, które powinno być rezerwacją przelewową.
+1. Naprawić błąd „Edge Function returned a non-2xx status code" przy rezerwacji biletu przelewem przez zalogowanego partnera.
+2. Zmienić układ tekstu na stronie potwierdzenia e-maila dla bezpłatnej rejestracji gościa.
 
-`register-event-transfer-order` już istnieje, wspiera per‑ticket `transfer_payment_details` i wysyła profesjonalny e-mail z danymi do przelewu (dla zalogowanego również).
+---
 
-## Zakres zmian (tylko frontend `PurchaseDrawer.tsx`)
+## 1. Błąd rezerwacji biletu przelewem
 
-### 1. Wykryj „tryb przelew"
-Wyliczyć flagę:
-```text
-transferOnly = !isFree && paymentMethodTransfer && !paymentMethodPayu && !paymentMethodPaypal
+### Diagnoza
+- Wydarzenie „Kompleksowe szkolenie TEST" ma `is_free = true` i wszystkie flagi `payment_method_* = false` na poziomie wydarzenia.
+- Bilet „REZERWUJĘ BILET" (id `95e0f9a9...`) ma własne `payment_method = 'transfer'`, cenę 20 zł oraz wypełnione `transfer_payment_details`.
+- Frontend (`PurchaseDrawer`) poprawnie wykrywa `transferOnly = true` i wywołuje funkcję `register-event-transfer-order`.
+- Funkcja w repo (linie 350–358) już zawiera „ticket-level override" (`ticketForcesTransfer`), który powinien przepuścić to żądanie.
+- Wykonany testowy `curl` do funkcji zwraca jednak `400 {"error":"transfer_disabled"}`. To oznacza, że **wdrożona wersja edge functiona nie zawiera jeszcze ostatniej poprawki** (override per bilet) — kod w repo jest poprawny, ale build/deploy nie został przepchnięty.
+
+### Działanie
+- Ponowne wdrożenie funkcji `register-event-transfer-order` (re-deploy), aby działała logika `ticketForcesTransfer`.
+- Po wdrożeniu wykonać kontrolny `curl` z tym samym ticketId — oczekiwany wynik: `200 {success:true,orderId,ticketCode}` zamiast `400 transfer_disabled`.
+- Bez zmian w kodzie źródłowym funkcji (jest już prawidłowy).
+- Bez zmian w `PurchaseDrawer.tsx` — flow „Rezerwuję" i komunikat sukcesu już istnieją.
+
+### Efekt
+- Zalogowany partner po kliknięciu **„Rezerwuję"** dostanie toast „Rezerwacja przyjęta" + e-mail z danymi do przelewu (z brandowanego SMTP, z bannerem wydarzenia, danymi konta i kodem QR po zaksięgowaniu).
+
+---
+
+## 2. Strona potwierdzenia e-maila — wariant bezpłatny (gość)
+
+Plik: `src/pages/EventFormConfirmPage.tsx`, blok renderowany gdy `state === 'ok' | 'already'` i `isFree === true`.
+
+### Aktualny układ (do zmiany)
 ```
-(czyli jedyną dostępną metodą płatności jest przelew — co odpowiada konfiguracji „bilet wymusza transfer" przekazanej z `PaidEventPage`).
-
-### 2. Etykieta przycisku
-W bloku CTA w `DrawerFooter`:
-- `isFree` → `Zarezerwuj miejsce` (bez zmian)
-- `transferOnly` → **`Rezerwuję`** (ikona `Banknote`)
-- pozostałe → `Przejdź do płatności` (bez zmian)
-
-### 3. Routing zapisu w `handleSubmit`
-Dodać gałąź przed obecnym wywołaniem `create-event-order`:
-```text
-if (transferOnly) {
-  invoke('register-event-transfer-order', { body: payload })
-  // map errors (transfer_disabled, transfer_details_missing, ticket_not_found,
-  //   missing_fields, already_registered) → polskie komunikaty
-  // ustaw setTransferSuccess(true) — istniejący ekran sukcesu pokazuje
-  //   „Wysłaliśmy email z danymi do przelewu na …"
-  // invalidate queries: my-ticket-orders, my-event-tickets-inline,
-  //   my-event-ticket-exists, my-event-registration-fallback
-  return
-}
+✓
+Twoje dane i rejestracja zostały poprawnie potwierdzone
+Na wskazany adres e-mail otrzymasz bilet... Dziękujemy i do zobaczenia na wydarzeniu.
 ```
-Nie ruszamy gałęzi `isFree` ani standardowej PayU.
+(jeden akapit, brak hierarchii, brak osobnego stopki „dziękujemy")
 
-### 4. Info-box „Płatność przelewem"
-Bez zmian — komunikat „po rejestracji wyślemy Ci email z danymi do przelewu" już istnieje (linie 631–635) i pasuje do nowego flow.
+### Nowy układ
+```
+✓
+Twoje dane i rejestracja zostały poprawnie potwierdzone   ← nagłówek (bez zmian)
 
-## Walidacja po implementacji
-- Zalogowany partner → bilet `Kompleksowe szkolenie test` (transfer) → klika **Rezerwuję** → widzi ekran „Dziękujemy za rejestrację" + ekran z informacją, że e-mail z danymi do przelewu został wysłany. Brak przekierowania na `/checkout/...`.
-- Sprawdzić w `email_send_log` / skrzynce, że e-mail z `register-event-transfer-order` dotarł na adres profilu zalogowanego, zawiera per‑ticket `transfer_payment_details` (z fallback na event-level).
-- Gość z darmowym biletem → bez zmian (osobny flow `register-free-event-order` + e-mail potwierdzający → po kliknięciu w link otrzymuje bilet QR).
+Następnie otrzymasz e-mail wraz z biletem uprawniającym
+do uczestnictwa w wydarzeniu.                              ← mniejsza czcionka, text-sm, text-muted-foreground
 
-## Pliki do edycji
-- `src/components/paid-events/public/PurchaseDrawer.tsx` (jedyna zmiana logiczna; brak migracji, brak zmian w edge functions).
+Dziękujemy i do zobaczenia na wydarzeniu!                  ← osobny akapit na dole, text-sm, lekki odstęp pt-2
+```
+
+### Co konkretnie zrobić w kodzie
+- W gałęzi `isFree` zastąpić obecny jeden `<p>` dwoma akapitami:
+  - pierwszy: klasy `text-sm text-muted-foreground leading-relaxed`, treść: „Następnie otrzymasz e-mail wraz z biletem uprawniającym do uczestnictwa w wydarzeniu."
+  - drugi: klasy `text-sm text-muted-foreground pt-2`, treść: „Dziękujemy i do zobaczenia na wydarzeniu!"
+- Płatny wariant (przelew) zostaje bez zmian.
+- Brak zmian w funkcji `confirm-event-form-email` ani w mailach.
+
+---
+
+## Weryfikacja po wdrożeniu
+
+1. Zalogowany partner → wybiera bilet „REZERWUJĘ BILET" (20 zł, przelew) → klika **„Rezerwuję"** → pojawia się banner sukcesu, w skrzynce e-mail z danymi do przelewu.
+2. Gość → wybiera bilet bezpłatny → potwierdza e-mail → strona pokazuje nowy 3-warstwowy układ („potwierdzone" → mała informacja o bilecie → „dziękujemy").
