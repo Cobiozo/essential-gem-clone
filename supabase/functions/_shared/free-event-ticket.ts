@@ -287,8 +287,14 @@ export async function issueFreeTicketForOrder(supabase: any, orderId: string): P
     }
   }
 
+  // Mark ticket as sent and ensure order status reflects paid state
+  // (unless cancelled/refunded). Wysłany bilet = zamówienie opłacone.
+  const orderUpdate: Record<string, any> = { ticket_sent_at: new Date().toISOString() };
+  if (order.status !== "cancelled" && order.status !== "refunded" && order.status !== "paid") {
+    orderUpdate.status = "paid";
+  }
   await supabase.from("paid_event_orders")
-    .update({ ticket_sent_at: new Date().toISOString() })
+    .update(orderUpdate)
     .eq("id", order.id);
 
   console.log(`[issueFreeTicket] ticket email sent to ${order.email} (order ${order.id})`);
