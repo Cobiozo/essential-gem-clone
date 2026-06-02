@@ -18,37 +18,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ success: false, error: 'unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { data: isAdmin, error: roleError } = await supabaseAdmin.rpc('has_role', {
-      _user_id: user.id,
-      _role: 'admin',
-    });
-    if (roleError || !isAdmin) {
-      return new Response(JSON.stringify({ success: false, error: 'forbidden' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
     if (listError) throw listError;
