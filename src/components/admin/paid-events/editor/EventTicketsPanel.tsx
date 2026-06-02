@@ -195,14 +195,24 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
 
   const handleSaveTicket = (ticketId: string) => {
     const data = editingData[ticketId];
-    if (data) {
-      updateMutation.mutate({ id: ticketId, data });
-      setEditingData(prev => {
-        const newData = { ...prev };
-        delete newData[ticketId];
-        return newData;
+    if (!data) return;
+    const original = tickets.find(t => t.id === ticketId);
+    const pm = (data.payment_method ?? original?.payment_method ?? 'inherit') as PaymentMethodOption;
+    const ticketTransfer = ((data.transfer_payment_details ?? original?.transfer_payment_details) || '').trim();
+    if (pm === 'transfer' && !ticketTransfer && !eventTransferDetails) {
+      toast({
+        title: 'Brak danych do przelewu',
+        description: 'Bilet wymusza płatność przelewem — uzupełnij „Dane do przelewu" w biletcie lub na poziomie wydarzenia w sekcji „Metody płatności".',
+        variant: 'destructive',
       });
+      return;
     }
+    updateMutation.mutate({ id: ticketId, data });
+    setEditingData(prev => {
+      const newData = { ...prev };
+      delete newData[ticketId];
+      return newData;
+    });
   };
 
   const addBenefit = (ticketId: string, ticket: Ticket) => {
