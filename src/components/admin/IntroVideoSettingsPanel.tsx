@@ -290,6 +290,93 @@ export const IntroVideoSettingsPanel: React.FC = () => {
             </div>
           </div>
 
+          <div className="space-y-4 rounded-lg border p-4">
+            <div>
+              <Label className="text-base">Wygląd i pozycja</Label>
+              <p className="text-sm text-muted-foreground">Kontroluj rozmiar wideo, miejsce na ekranie i tło.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Rozmiar</Label>
+                <Select value={s.display_size} onValueChange={(v: any) => update({ display_size: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Mały (30% szerokości)</SelectItem>
+                    <SelectItem value="medium">Średni (60%)</SelectItem>
+                    <SelectItem value="large">Duży (85%)</SelectItem>
+                    <SelectItem value="fullscreen">Pełny ekran</SelectItem>
+                    <SelectItem value="custom">Niestandardowy…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Pozycja</Label>
+                <Select value={s.position} onValueChange={(v: any) => update({ position: v })} disabled={s.display_size === 'fullscreen'}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="center">Środek</SelectItem>
+                    <SelectItem value="top">Góra</SelectItem>
+                    <SelectItem value="bottom">Dół</SelectItem>
+                    <SelectItem value="top-left">Góra-lewo</SelectItem>
+                    <SelectItem value="top-right">Góra-prawo</SelectItem>
+                    <SelectItem value="bottom-left">Dół-lewo</SelectItem>
+                    <SelectItem value="bottom-right">Dół-prawo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Dopasowanie obrazu</Label>
+                <Select value={s.object_fit} onValueChange={(v: any) => update({ object_fit: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contain">Wpasuj (cały kadr widoczny)</SelectItem>
+                    <SelectItem value="cover">Wypełnij (może przyciąć)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tło</Label>
+                <Select value={s.backdrop_style} onValueChange={(v: any) => update({ backdrop_style: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solid">Czarne (jednolite)</SelectItem>
+                    <SelectItem value="dim">Przyciemnione (półprzezroczyste)</SelectItem>
+                    <SelectItem value="blur">Rozmycie strony</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {s.display_size === 'custom' && (
+              <div className="space-y-2">
+                <Label>Szerokość wideo: <span className="font-mono">{s.custom_width_percent}%</span></Label>
+                <Slider
+                  value={[s.custom_width_percent]}
+                  min={20}
+                  max={100}
+                  step={5}
+                  onValueChange={([v]) => update({ custom_width_percent: v })}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Zaokrąglenie rogów: <span className="font-mono">{s.border_radius} px</span></Label>
+              <Slider
+                value={[s.border_radius]}
+                min={0}
+                max={48}
+                step={2}
+                onValueChange={([v]) => update({ border_radius: v })}
+                disabled={s.display_size === 'fullscreen'}
+              />
+            </div>
+          </div>
+
           <div className="flex flex-wrap justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setPreviewOpen(true)} disabled={!s.video_url}>
               <Eye className="w-4 h-4 mr-2" />
