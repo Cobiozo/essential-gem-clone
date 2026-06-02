@@ -372,15 +372,19 @@ const CheckoutPage: React.FC = () => {
             )}
 
 
-            {method === 'transfer' && payuReady && order.paid_events.transfer_payment_details && (
-              <div className="rounded-md border bg-muted/30 p-3">
-                <div className="text-xs font-semibold mb-1">Dane do przelewu (zostaną też wysłane mailem):</div>
-                <pre className="text-xs whitespace-pre-wrap font-mono">{order.paid_events.transfer_payment_details}</pre>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Tytuł przelewu: <strong>{order.ticket_code} — {order.first_name} {order.last_name}</strong>
-                </p>
-              </div>
-            )}
+            {method === 'transfer' && payuReady && (() => {
+              const ticketObj = Array.isArray(order.paid_event_tickets) ? order.paid_event_tickets[0] : order.paid_event_tickets;
+              const details = ticketObj?.transfer_payment_details || order.paid_events.transfer_payment_details;
+              return details ? (
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <div className="text-xs font-semibold mb-1">Dane do przelewu (zostaną też wysłane mailem):</div>
+                  <pre className="text-xs whitespace-pre-wrap font-mono">{details}</pre>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tytuł przelewu: <strong>{order.ticket_code} — {order.first_name} {order.last_name}</strong>
+                  </p>
+                </div>
+              ) : null;
+            })()}
 
             <div className="pt-2 text-xs text-muted-foreground">
               Akceptuję warunki polityki prywatności. Zgadzam się na otrzymywanie informacji dotyczących zamówień w myśl ustawy z dnia 18 lipca 2002r. o świadczeniu usług drogą elektroniczną. Więcej na{' '}
