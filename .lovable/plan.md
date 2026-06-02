@@ -1,53 +1,50 @@
-# Dane do przelewu per bilet + weryfikacja powiadomień
-
 ## Problem
 
-Obecnie dane do przelewu są wspólne dla całego wydarzenia (`paid_events.transfer_payment_details`). Gdy wydarzenie jest oznaczone jako **bezpłatne**, sekcja „Metody płatności" jest wyłączona, więc nie da się ustawić danych do przelewu — a Ty potrzebujesz pojedynczego biletu „TRANSFER" dla zalogowanych w bezpłatnym wydarzeniu (np. „Kompleksowe szkolenie test").
+W `PurchaseDrawer` dla biletu płatnego, niezależnie od metody płatności, klikamy „Przejdź do płatności" → wywoływana jest `create-event-order` i przekierowanie na `/checkout/{orderId}`. Gdy bilet wymusza wyłącznie **płatność przelewem**, to:
+1. Etykieta przycisku jest myląca („Przejdź do płatności" zamiast „Rezerwuję").
+2. Nie wysyłany jest e-mail z danymi do przelewu (bo `register-event-transfer-order` nie jest wywoływane).
+3. `/checkout/{orderId}` pokazuje błąd „Nie znaleziono zamówienia" / mylący ekran PayU dla zamówienia, które powinno być rezerwacją przelewową.
 
-## Rozwiązanie
+`register-event-transfer-order` już istnieje, wspiera per‑ticket `transfer_payment_details` i wysyła profesjonalny e-mail z danymi do przelewu (dla zalogowanego również).
 
-### 1. Dane do przelewu na poziomie biletu
-- Migracja: dodaj kolumnę `transfer_payment_details text` do `paid_event_tickets` (NULLABLE).
-- W `EventTicketsPanel.tsx`: gdy `payment_method === 'transfer'` (per bilet), pokaż pod listą metody płatności biletu **Textarea „Dane do przelewu *"** (analogiczna do tej w `EventPaymentMethodsPanel`) z placeholderem i podpowiedzią: „Treść zostanie umieszczona w emailu po rezerwacji tego biletu". Zapis wraz z resztą pól biletu.
-- Walidacja zapisu: jeśli bilet wymusza `transfer`, musi mieć wpisane dane do przelewu **albo** wydarzenie musi mieć ustawione globalne `transfer_payment_details`.
+## Zakres zmian (tylko frontend `PurchaseDrawer.tsx`)
 
-### 2. Edge function `register-event-transfer-order`
-- Pobranie ticketu rozszerzyć o `transfer_payment_details` z `paid_event_tickets`.
-- Logika priorytetu: `transferDetails = ticket.transfer_payment_details?.trim() || event.transfer_payment_details?.trim()`.
-- Złagodzenie sprawdzenia `event.payment_method_transfer`: jeśli `ticket.payment_method === 'transfer'`, bilet sam wymusza metodę — pomiń wymóg włączenia metody na poziomie wydarzenia (to odblokowuje scenariusz „bezpłatne wydarzenie + 1 bilet TRANSFER dla zalogowanych").
-- Jeśli ani bilet ani wydarzenie nie mają danych → zwróć `transfer_details_missing`.
+### 1. Wykryj „tryb przelew"
+Wyliczyć flagę:
+```text
+transferOnly = !isFree && paymentMethodTransfer && !paymentMethodPayu && !paymentMethodPaypal
+```
+(czyli jedyną dostępną metodą płatności jest przelew — co odpowiada konfiguracji „bilet wymusza transfer" przekazanej z `PaidEventPage`).
 
-### 3. Wyświetlanie po rezerwacji (frontend)
-W tych miejscach dane do przelewu są pokazywane z `paid_events.transfer_payment_details`. Zmienić, aby zaciągały najpierw z ticketu (jeśli zamówienie ma `ticket_id`):
-- `src/pages/TicketPage.tsx`
-- `src/pages/CheckoutPage.tsx`
-- `src/components/paid-events/MyTicketOrders.tsx`
+### 2. Etykieta przycisku
+W bloku CTA w `DrawerFooter`:
+- `isFree` → `Zarezerwuj miejsce` (bez zmian)
+- `transferOnly` → **`Rezerwuję`** (ikona `Banknote`)
+- pozostałe → `Przejdź do płatności` (bez zmian)
 
-Query rozszerzyć o `paid_event_tickets ( transfer_payment_details )` i przy renderze użyć `ticket.transfer_payment_details || event.transfer_payment_details`.
+### 3. Routing zapisu w `handleSubmit`
+Dodać gałąź przed obecnym wywołaniem `create-event-order`:
+```text
+if (transferOnly) {
+  invoke('register-event-transfer-order', { body: payload })
+  // map errors (transfer_disabled, transfer_details_missing, ticket_not_found,
+  //   missing_fields, already_registered) → polskie komunikaty
+  // ustaw setTransferSuccess(true) — istniejący ekran sukcesu pokazuje
+  //   „Wysłaliśmy email z danymi do przelewu na …"
+  // invalidate queries: my-ticket-orders, my-event-tickets-inline,
+  //   my-event-ticket-exists, my-event-registration-fallback
+  return
+}
+```
+Nie ruszamy gałęzi `isFree` ani standardowej PayU.
 
-### 4. Weryfikacja powiadomień (bez zmian w logice — tylko potwierdzenie)
+### 4. Info-box „Płatność przelewem"
+Bez zmian — komunikat „po rejestracji wyślemy Ci email z danymi do przelewu" już istnieje (linie 631–635) i pasuje do nowego flow.
 
-Po wdrożeniu konfiguracja „Kompleksowe szkolenie test" (event `is_free=true`, bilet TRANSFER widoczny tylko dla zalogowanych z własnymi danymi do przelewu, drugi bilet darmowy dla gości) zachowuje się tak:
+## Walidacja po implementacji
+- Zalogowany partner → bilet `Kompleksowe szkolenie test` (transfer) → klika **Rezerwuję** → widzi ekran „Dziękujemy za rejestrację" + ekran z informacją, że e-mail z danymi do przelewu został wysłany. Brak przekierowania na `/checkout/...`.
+- Sprawdzić w `email_send_log` / skrzynce, że e-mail z `register-event-transfer-order` dotarł na adres profilu zalogowanego, zawiera per‑ticket `transfer_payment_details` (z fallback na event-level).
+- Gość z darmowym biletem → bez zmian (osobny flow `register-free-event-order` + e-mail potwierdzający → po kliknięciu w link otrzymuje bilet QR).
 
-**Zalogowany partner → bilet TRANSFER:**
-1. `PurchaseDrawer` woła `register-event-transfer-order`.
-2. Tworzony jest order ze statusem `pending_transfer`.
-3. Edge function wysyła email z nagłówkiem wydarzenia, danymi gościa i **danymi do przelewu z biletu** (fallback do event-level).
-4. Bilet QR generuje się dopiero po ręcznym oznaczeniu zapłaty przez admina (`admin-mark-event-payment`) — to obecne zachowanie i nie zmieniamy go.
-
-**Gość → bilet darmowy:**
-1. `PurchaseDrawer` (lub flow free) woła `register-free-event-order`.
-2. Gość dostaje **email z linkiem potwierdzającym adres** (`confirm-free-event-reservation`).
-3. Po kliknięciu w link generowany jest bilet QR i wysyłany na ten sam adres.
-
-Oba przepływy istnieją i są używane warunkowo na podstawie `payment_method` biletu — żadnych zmian nie potrzeba poza punktami 1–3 powyżej.
-
-## Pliki do zmiany
-
-- migracja SQL: `ALTER TABLE paid_event_tickets ADD COLUMN transfer_payment_details text`
-- `src/components/admin/paid-events/editor/EventTicketsPanel.tsx`
-- `src/integrations/supabase/types.ts` (auto po migracji)
-- `supabase/functions/register-event-transfer-order/index.ts`
-- `src/pages/TicketPage.tsx`
-- `src/pages/CheckoutPage.tsx`
-- `src/components/paid-events/MyTicketOrders.tsx`
+## Pliki do edycji
+- `src/components/paid-events/public/PurchaseDrawer.tsx` (jedyna zmiana logiczna; brak migracji, brak zmian w edge functions).
