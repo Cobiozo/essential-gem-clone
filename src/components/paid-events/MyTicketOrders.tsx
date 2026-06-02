@@ -275,7 +275,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
             <DialogTitle>Dane do przelewu</DialogTitle>
           </DialogHeader>
           <pre className="bg-muted/50 border-l-4 border-primary p-4 rounded text-xs whitespace-pre-wrap font-mono">
-            {transferOrder?.event?.transfer_payment_details || ''}
+            {transferOrder?.ticket?.transfer_payment_details || transferOrder?.event?.transfer_payment_details || ''}
           </pre>
           <p className="text-xs text-muted-foreground">
             Kwota do zapłaty: <strong className="text-primary">{transferOrder ? formatPrice(transferOrder.total_amount) : ''}</strong>
