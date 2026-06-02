@@ -78,7 +78,7 @@ export const MyTicketOrders: React.FC<MyTicketOrdersProps> = ({ eventId }) => {
         .select(`
           id, quantity, total_amount, status, payment_provider, created_at,
           first_name, last_name, email, event_id,
-          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, price_pln, seats_per_ticket),
+          ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, price_pln, seats_per_ticket, transfer_payment_details),
           event:paid_events!paid_event_orders_event_id_fkey(title, slug, event_date, location, transfer_payment_details),
           attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)
         `)
