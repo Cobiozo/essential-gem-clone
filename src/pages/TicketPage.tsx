@@ -200,7 +200,7 @@ const TicketPage: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-3">
               <pre className="text-xs bg-background p-3 rounded border whitespace-pre-wrap font-mono">
-                {order.paid_events.transfer_payment_details || 'Brak danych — skontaktuj się z organizatorem.'}
+                {order.paid_event_tickets?.transfer_payment_details || order.paid_events.transfer_payment_details || 'Brak danych — skontaktuj się z organizatorem.'}
               </pre>
               <div className="text-xs space-y-1">
                 <div><strong>Tytuł przelewu:</strong> {order.ticket_code} — {order.first_name} {order.last_name}</div>
