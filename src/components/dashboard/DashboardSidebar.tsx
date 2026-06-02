@@ -126,6 +126,7 @@ export const DashboardSidebar: React.FC = () => {
   const location = useLocation();
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t, tf, language } = useLanguage();
+  const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
