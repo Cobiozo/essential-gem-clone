@@ -456,6 +456,12 @@ export const DashboardSidebar: React.FC = () => {
       ],
     },
     { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
+    ...(canVerifyTickets ? [{
+      id: 'ticket-verification',
+      icon: QrCode,
+      labelKey: 'Weryfikacja biletów',
+      path: '/weryfikacja-biletow',
+    }] : []) as MenuItem[],
     { 
       id: 'reflinks', 
       icon: Link2, 
