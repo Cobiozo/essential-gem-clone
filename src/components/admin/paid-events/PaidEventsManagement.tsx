@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ticket, Settings, Users, QrCode, FileText } from 'lucide-react';
+import { Ticket, Settings, Users, QrCode, FileText, ShieldCheck } from 'lucide-react';
 import { PaidEventsList } from './PaidEventsList';
 import { PaidEventsSettings } from './PaidEventsSettings';
 import { PaidEventsOrders } from './PaidEventsOrders';
 import { TicketVerification } from './TicketVerification';
 import { EventFormsList } from './event-forms/EventFormsList';
+import { TicketVerifierAccessManager } from '@/components/admin/TicketVerifierAccessManager';
 
 export const PaidEventsManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('events');
@@ -24,7 +25,7 @@ export const PaidEventsManagement: React.FC = () => {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="events" className="flex items-center gap-2">
               <Ticket className="w-4 h-4" />
               <span className="hidden sm:inline">Wydarzenia</span>
@@ -40,6 +41,10 @@ export const PaidEventsManagement: React.FC = () => {
             <TabsTrigger value="verify" className="flex items-center gap-2">
               <QrCode className="w-4 h-4" />
               <span className="hidden sm:inline">Weryfikacja</span>
+            </TabsTrigger>
+            <TabsTrigger value="verifiers" className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Weryfikatorzy</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
@@ -61,6 +66,10 @@ export const PaidEventsManagement: React.FC = () => {
 
           <TabsContent value="verify">
             <TicketVerification />
+          </TabsContent>
+
+          <TabsContent value="verifiers">
+            <TicketVerifierAccessManager />
           </TabsContent>
 
           <TabsContent value="settings">

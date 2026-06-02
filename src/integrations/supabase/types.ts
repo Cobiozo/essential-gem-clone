@@ -9358,6 +9358,27 @@ export type Database = {
           },
         ]
       }
+      ticket_verifier_access: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          is_enabled: boolean
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          is_enabled?: boolean
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          is_enabled?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_assignments: {
         Row: {
           assigned_at: string
@@ -10749,6 +10770,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_ticket_verifier_access: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       increment_partner_link_click: {

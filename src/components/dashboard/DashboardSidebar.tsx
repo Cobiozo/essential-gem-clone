@@ -50,6 +50,7 @@ import {
   Heart,
   Sparkles,
   Ticket,
+  QrCode,
   FileText,
   Crown,
   icons as LucideIcons,
@@ -68,6 +69,7 @@ import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatS
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
+import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
@@ -126,6 +128,7 @@ export const DashboardSidebar: React.FC = () => {
   const location = useLocation();
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t, tf, language } = useLanguage();
+  const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
@@ -454,6 +457,12 @@ export const DashboardSidebar: React.FC = () => {
       ],
     },
     { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
+    ...(canVerifyTickets ? [{
+      id: 'ticket-verification',
+      icon: QrCode,
+      labelKey: 'Weryfikacja biletów',
+      path: '/weryfikacja-biletow',
+    }] : []) as MenuItem[],
     { 
       id: 'reflinks', 
       icon: Link2, 
