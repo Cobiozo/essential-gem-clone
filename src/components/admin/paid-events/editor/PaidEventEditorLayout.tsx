@@ -63,6 +63,10 @@ export const PaidEventEditorLayout: React.FC<PaidEventEditorLayoutProps> = ({
               <UserX className="w-3.5 h-3.5" />
               <span className="hidden md:inline">Widok gościa</span>
             </ToggleGroupItem>
+            <ToggleGroupItem value="partner" aria-label="Widok zalogowanego partnera" className="text-xs gap-1.5 px-2.5">
+              <User className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Widok partnera</span>
+            </ToggleGroupItem>
           </ToggleGroup>
           <Button variant="outline" size="sm" onClick={refreshPreview}>
             <Eye className="w-4 h-4 mr-2" />
