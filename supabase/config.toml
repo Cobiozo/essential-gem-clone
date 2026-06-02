@@ -298,4 +298,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ensure-intro-video-bucket]
-verify_jwt = false
+verify_jwt = true
