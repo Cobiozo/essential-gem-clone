@@ -74,6 +74,57 @@ export async function verifyAdmin(req: Request): Promise<any> {
   return { ok: true, userId, supabaseAdmin };
 }
 
+// Like verifyAdmin but also allows users with an explicit row in
+// ticket_verifier_access (is_enabled = true). Used by ticket verification
+// endpoints that must be reachable for non-admin staff granted by admin.
+export async function verifyTicketVerifier(req: Request): Promise<any> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return {
+      ok: false,
+      response: new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }),
+    };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !userData?.user) {
+    return {
+      ok: false,
+      response: new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }),
+    };
+  }
+  const userId = userData.user.id;
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+  const { data: canRow } = await supabaseAdmin
+    .rpc("has_ticket_verifier_access", { _user_id: userId });
+
+  if (!canRow) {
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: ticket verifier access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      ),
+    };
+  }
+
+  return { ok: true, userId, supabaseAdmin };
+}
+
 export function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
