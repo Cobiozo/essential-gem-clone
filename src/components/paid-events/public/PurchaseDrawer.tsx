@@ -710,6 +710,8 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                     <><Loader2 className="w-4 h-4 animate-spin" />Przetwarzanie...</>
                   ) : isFree ? (
                     <><CheckCircle2 className="w-4 h-4" />Zarezerwuj miejsce<ArrowRight className="w-4 h-4" /></>
+                  ) : transferOnly ? (
+                    <><Banknote className="w-4 h-4" />Rezerwuję<ArrowRight className="w-4 h-4" /></>
                   ) : (
                     <><CreditCard className="w-4 h-4" />Przejdź do płatności<ArrowRight className="w-4 h-4" /></>
                   )}
