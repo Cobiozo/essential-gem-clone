@@ -78,6 +78,7 @@ import { PushNotificationsManagement } from '@/components/admin/PushNotification
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
+import { AdminPasswordGate, isAdminGateUnlocked, lockAdminGate } from '@/components/admin/AdminPasswordGate';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
 import { SecurityModule } from '@/components/admin/SecurityModule';
@@ -175,6 +176,7 @@ const Admin = () => {
   };
 
   const { user, isAdmin, signOut, loading: authLoading, rolesReady } = useAuth();
+  const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -2131,6 +2133,8 @@ const Admin = () => {
     if (authLoading || !rolesReady) return;
     
     if (!user) {
+      lockAdminGate();
+      setGateUnlocked(false);
       setLoading(false);
       navigate('/auth');
       return;
@@ -3028,6 +3032,12 @@ const Admin = () => {
       </div>
     );
   }
+
+  // Password gate – admin musi potwierdzić hasło przed wejściem do CMS
+  if (isAdmin && !gateUnlocked) {
+    return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
+  }
+
 
   return (
     <>
