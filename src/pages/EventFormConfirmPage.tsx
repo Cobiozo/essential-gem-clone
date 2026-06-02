@@ -64,25 +64,34 @@ const EventFormConfirmPage: React.FC = () => {
                 Twoje dane i rejestracja zostały poprawnie potwierdzone
               </h1>
               {isFree ? (
-                <p className="text-muted-foreground leading-relaxed">
-                  Na wskazany adres e-mail otrzymasz bilet uprawniający cię do uczestnictwa w wydarzeniu.
-                  Dziękujemy i do zobaczenia na wydarzeniu.
-                </p>
+                <>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Następnie otrzymasz e-mail wraz z biletem uprawniającym do uczestnictwa w wydarzeniu.
+                  </p>
+                  {state === 'already' && (
+                    <p className="text-xs text-muted-foreground italic">
+                      (Twoja rejestracja była już potwierdzona wcześniej.)
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground pt-2">
+                    Dziękujemy i do zobaczenia na wydarzeniu!
+                  </p>
+                </>
               ) : (
-                <p className="text-muted-foreground leading-relaxed">
-                  Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu.
-                  Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
-                </p>
-              )}
-              {state === 'already' && (
-                <p className="text-xs text-muted-foreground italic">
-                  (Twoja rejestracja była już potwierdzona wcześniej.)
-                </p>
-              )}
-              {!isFree && (
-                <p className="text-sm text-muted-foreground pt-2">
-                  Dziękujemy i do zobaczenia na wydarzeniu!
-                </p>
+                <>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Teraz oczekujemy na płatność na dane wskazane w wysłanym e-mailu.
+                    Po zaksięgowaniu wpłaty otrzymasz bilet uprawniający do uczestnictwa w wydarzeniu.
+                  </p>
+                  {state === 'already' && (
+                    <p className="text-xs text-muted-foreground italic">
+                      (Twoja rejestracja była już potwierdzona wcześniej.)
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground pt-2">
+                    Dziękujemy i do zobaczenia na wydarzeniu!
+                  </p>
+                </>
               )}
             </>
           )}
