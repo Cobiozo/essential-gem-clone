@@ -1,40 +1,38 @@
-## Cel
-Admin ma kontrolować rozmiar i pozycję intro wideo, a podgląd ma pokazywać realny wygląd (overlay na całym ekranie z wideo w wybranym rozmiarze i pozycji), nie tylko film w okienku dialogu.
+## Problem
 
-## Zmiany
+Bilet `Y6JLN8NV8KBX` to **kod zamówienia** (`paid_event_orders.ticket_code`), ale powiązany uczestnik w `paid_event_order_attendees` ma **inny** kod (`ZQPYP3E9PWSU`) — dane historyczne sprzed migracji do per-attendee.
 
-### 1. Baza danych — nowe kolumny w `intro_video_settings`
-- `display_size` (text, default `'medium'`) — `small` / `medium` / `large` / `fullscreen` / `custom`
-- `custom_width_percent` (int, default `60`) — szerokość wideo w % viewportu (20–100), używana gdy `display_size='custom'`
-- `position` (text, default `'center'`) — `center` / `top` / `bottom` / `top-left` / `top-right` / `bottom-left` / `bottom-right`
-- `object_fit` (text, default `'contain'`) — `contain` / `cover`
-- `backdrop_style` (text, default `'solid'`) — `solid` (czarne tło) / `blur` (rozmycie) / `dim` (półprzezroczyste)
-- `border_radius` (int, default `16`) — px (0–48)
+Przebieg błędu:
+1. Skan `Y6JLN8NV8KBX` → edge function `verify-event-ticket` nie znajduje uczestnika po tym kodzie → wpada w fallback "order-level" → ustawia `paid_event_orders.checked_in = true`.
+2. Frontend (`TicketVerificationPanel.displayRows`) gdy zamówienie ma uczestników, **ignoruje** `order.checked_in` i pokazuje wyłącznie status z `attendee.checked_in` (który nadal jest `false`).
+3. Efekt: górny baner mówi "Check-in wykonano", a lista uczestników pokazuje "0 po check-in" i przycisk "Check-in" przy tej osobie. To samo zachowanie na desktopie i mobile (nie jest to bug responsywny).
 
-### 2. `useIntroVideoSettings.ts`
-- Dodać te pola do typu `IntroVideoSettings` i do `normalizeSettings` z bezpiecznymi defaultami.
+## Rozwiązanie
 
-### 3. `IntroVideoOverlay.tsx` (produkcyjny overlay)
-- Stosować nowe pola: rozmiar (preset lub `custom_width_percent`), pozycję (flex alignment), `object-fit`, tło backdrop, zaokrąglenia.
-- Fullscreen → wideo zajmuje cały viewport. Pozostałe rozmiary → karta wideo w wybranym miejscu na backdropie.
+Ujednolicić zapis check-in tak, żeby zawsze trafiał na właściwego uczestnika, nawet gdy skanowany jest legacy `order.ticket_code`.
 
-### 4. `IntroVideoSettingsPanel.tsx` — nowa sekcja "Wygląd i pozycja"
-- Select „Rozmiar" (Mały 30% / Średni 60% / Duży 85% / Pełny ekran / Niestandardowy)
-- Slider szerokości (widoczny tylko dla `custom`)
-- Select pozycji (siatka 3×3 jako przyciski lub zwykły select 7 opcji)
-- Select dopasowania (Wpasuj / Wypełnij)
-- Select tła (Czarne / Rozmycie / Przyciemnione)
-- Slider zaokrągleń (0–48 px), wyłączony przy fullscreen
+### Zmiana 1 — `supabase/functions/verify-event-ticket/index.ts`
 
-### 5. `IntroVideoPreviewDialog.tsx` — realistyczny podgląd
-- Zamiast dotychczasowej karty: renderować pełnoekranową ramkę „symulacja viewportu" (np. `aspect-video` 16:9 reprezentująca ekran użytkownika) z prawdziwym `IntroVideoOverlay`-stylem w środku — tak samo jak będzie widać produkcyjnie.
-- Pokazać przycisk „Pomiń" i kontrolkę dźwięku w tej samej pozycji co w realnym overlay.
-- Panel z parametrami (momenty, częstotliwość, rozmiar, pozycja) zostaje pod podglądem.
+W gałęzi fallback "order-level" (gdy kod pasuje do `paid_event_orders.ticket_code`, a nie do żadnego uczestnika), jeśli zamówienie posiada rekordy w `paid_event_order_attendees`:
 
-### Szczegóły techniczne
-- Wydzielić wspólny komponent `IntroVideoStage` (shared), używany zarówno przez `IntroVideoOverlay` (produkcja, fixed inset-0) jak i `IntroVideoPreviewDialog` (preview, absolute w kontenerze 16:9). Komponent przyjmuje `settings` i `mode: 'live' | 'preview'`.
-- Mapowanie rozmiarów: small=30%, medium=60%, large=85%, fullscreen=100% z `object-fit: cover` i bez paddingu.
-- Mapowanie pozycji do klas Tailwind: `items-*` / `justify-*` na kontenerze flex.
+- Pobrać uczestników danego zamówienia.
+- Wybrać "głównego" uczestnika do aktualizacji w kolejności:
+  1. uczestnik z `email = order.email`,
+  2. uczestnik z najniższym `seat_index`,
+  3. pierwszy w kolejności.
+- Operacje check-in / check-out wykonywać na **tym** uczestniku (zamiast na `paid_event_orders`).
+- Stan zwracany w odpowiedzi (`checkedIn`, `checkedInAt`, `attendee`) brać z uaktualnionego uczestnika.
 
-## Bez zmian
-- Logika trigger_moments, frequency, upload, bucket, RLS — pozostają nietknięte.
+Dzięki temu lista uczestników zawsze odzwierciedla aktualny status — niezależnie czy skanowany był nowy kod uczestnika, czy stary kod zamówienia.
+
+### Zmiana 2 — `src/components/ticket-verification/TicketVerificationPanel.tsx` (optymistyczne odświeżenie)
+
+Po check-in/out, gdy zeskanowany kod pasuje do `order.ticket_code` ale nie do żadnego `attendee.ticket_code`, w aktualizacji optymistycznej (`setOrders(...)`) zaktualizować również tego samego "głównego" uczestnika (email = order.email → najniższy seat_index → pierwszy). Logika `loadOrders(...)` zaraz po tym i tak pobierze prawdziwy stan z serwera, ale UI od razu pokaże poprawny check-in zanim odpowiedź wróci.
+
+Żadnych zmian w bazie ani RLS — to wyłącznie poprawka logiki w edge function + spójna aktualizacja optymistyczna w UI.
+
+## Weryfikacja
+
+- Cofnąć check-in dla testowego biletu i zeskanować ponownie — lista uczestników powinna natychmiast pokazać "1 po check-in" i zielony badge przy nazwisku.
+- Sprawdzić zarówno desktop, jak i mobile (logika identyczna).
+- Sprawdzić zamówienie z wieloma uczestnikami, gdzie skanowany jest indywidualny `attendee.ticket_code` — działanie bez zmian.

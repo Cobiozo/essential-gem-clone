@@ -96,6 +96,23 @@ Deno.serve(async (req) => {
         );
       }
       order = ord;
+
+      // Legacy compatibility: if the order has attendees but none matched the
+      // scanned code (because the order was created before per-attendee tickets),
+      // map the order code onto the "primary" attendee (email = buyer email,
+      // otherwise lowest seat_index) so check-in updates the attendee row.
+      const { data: orderAttendees } = await supabase
+        .from('paid_event_order_attendees')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('seat_index', { ascending: true });
+      if (orderAttendees && orderAttendees.length > 0) {
+        const byEmail = orderAttendees.find(
+          (a: any) => (a.email || '').toLowerCase() === (order.email || '').toLowerCase()
+        );
+        attendee = byEmail || orderAttendees[0];
+        console.log('[verify] legacy order code mapped to attendee', attendee?.id);
+      }
     }
 
     // Accept paid OR confirmed (free events) as valid statuses
