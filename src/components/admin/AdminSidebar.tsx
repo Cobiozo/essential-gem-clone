@@ -288,10 +288,23 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   };
 
   // Filtered categories based on search
+  // Filter by moderator permissions first (admin sees everything), then by search.
+  // Tab `value` is used directly as module key in moderator_permissions.modules.
+  // 'moderators' tab is always admin-only.
   const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return navCategories;
+    const accessFiltered = navCategories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) => {
+          if (item.value === 'moderators') return isAdmin;
+          if (isAdmin) return true;
+          return can(item.value);
+        }),
+      }))
+      .filter((cat) => cat.items.length > 0);
+    if (!searchQuery.trim()) return accessFiltered;
     const q = searchQuery.toLowerCase();
-    return navCategories
+    return accessFiltered
       .map((cat) => ({
         ...cat,
         items: cat.items.filter((item) =>
@@ -299,7 +312,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         ),
       }))
       .filter((cat) => cat.items.length > 0);
-  }, [searchQuery, t]);
+  }, [searchQuery, t, isAdmin, can]);
 
   const isSearching = searchQuery.trim().length > 0;
 
