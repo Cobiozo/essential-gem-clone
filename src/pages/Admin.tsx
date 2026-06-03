@@ -4804,6 +4804,12 @@ const Admin = () => {
             <IntroVideoSettingsPanel />
           </TabsContent>
 
+          <TabsContent value="moderators">
+            <ModeratorsManagement />
+          </TabsContent>
+
+
+
         </Tabs>
       </div>
 
