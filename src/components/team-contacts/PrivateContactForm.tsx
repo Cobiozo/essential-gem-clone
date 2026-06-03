@@ -57,8 +57,24 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   onCancel,
 }) => {
   const { tf } = useLanguage();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { items: loadedConversations, persist: persistConversations } = useContactConversations(contact?.id);
+  const [conversations, setConversations] = useState<ContactConversation[]>([]);
+
+  useEffect(() => {
+    if (contact?.id) {
+      setConversations(loadedConversations);
+    }
+  }, [loadedConversations, contact?.id]);
+
+  // Detect legacy data on existing contact (so we can show archival info read-only)
+  const hasLegacyData = Boolean(
+    contact?.id &&
+      (contact.first_contact_result || contact.first_contact_annotation || contact.second_contact_date)
+  );
 
   const createdAtDisplay = contact?.created_at
     ? new Date(contact.created_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
