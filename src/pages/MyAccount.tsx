@@ -100,6 +100,7 @@ const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> =
 
 const MyAccount = () => {
   const { user, profile, userRole, signOut, refreshProfile, isPartner, isSpecjalista, isClient } = useAuth();
+  const { data: guardianProfile } = useGuardianProfile((profile as any)?.upline_eq_id);
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
