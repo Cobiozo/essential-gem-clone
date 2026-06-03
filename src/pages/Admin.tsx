@@ -89,6 +89,8 @@ import { PureBoxManagement } from '@/components/admin/PureBoxManagement';
 import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
 import { ApiIntegrationsPanel } from '@/components/admin/ApiIntegrationsPanel';
 import MobileBottomNavSettings from '@/components/admin/MobileBottomNavSettings';
+import { ModeratorsManagement } from '@/components/admin/ModeratorsManagement';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -177,6 +179,7 @@ const Admin = () => {
   };
 
   const { user, isAdmin, signOut, loading: authLoading, rolesReady } = useAuth();
+  const { isModerator, hasAnyAdminAccess, loading: modLoading } = useModeratorAccess();
   const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -2142,14 +2145,18 @@ const Admin = () => {
     }
 
     if (!isAdmin) {
-      setLoading(false);
-      navigate('/dashboard');
-      return;
+      // Moderator z włączonym jakimkolwiek modułem ma dostęp do panelu
+      if (modLoading) return;
+      if (!hasAnyAdminAccess) {
+        setLoading(false);
+        navigate('/dashboard');
+        return;
+      }
     }
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, rolesReady, isAdmin, navigate]);
+  }, [user, authLoading, rolesReady, isAdmin, navigate, modLoading, hasAnyAdminAccess]);
 
   const fetchData = async () => {
     try {
@@ -4803,6 +4810,12 @@ const Admin = () => {
           <TabsContent value="intro-video">
             <IntroVideoSettingsPanel />
           </TabsContent>
+
+          <TabsContent value="moderators">
+            <ModeratorsManagement />
+          </TabsContent>
+
+
 
         </Tabs>
       </div>

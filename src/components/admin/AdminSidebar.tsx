@@ -20,6 +20,7 @@ import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import { cn } from '@/lib/utils';
 import {
   Settings2,
@@ -155,6 +156,7 @@ const navCategories: NavCategory[] = [
       { value: 'account', labelKey: 'account', icon: UserCircle },
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
+      { value: 'moderators', labelKey: 'moderators', icon: Shield },
     ],
   },
   {
@@ -236,6 +238,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const { isAdmin, can } = useModeratorAccess();
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -275,6 +278,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     aiProvider: 'Dostawca AI',
     apiIntegrations: 'API / Integracje',
     userStats: 'Statystyki użytkowników',
+    moderators: 'Moderatorzy',
   };
 
   const getLabel = (key: string): string => {
@@ -284,10 +288,23 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   };
 
   // Filtered categories based on search
+  // Filter by moderator permissions first (admin sees everything), then by search.
+  // Tab `value` is used directly as module key in moderator_permissions.modules.
+  // 'moderators' tab is always admin-only.
   const filteredCategories = useMemo(() => {
-    if (!searchQuery.trim()) return navCategories;
+    const accessFiltered = navCategories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) => {
+          if (item.value === 'moderators') return isAdmin;
+          if (isAdmin) return true;
+          return can(item.value);
+        }),
+      }))
+      .filter((cat) => cat.items.length > 0);
+    if (!searchQuery.trim()) return accessFiltered;
     const q = searchQuery.toLowerCase();
-    return navCategories
+    return accessFiltered
       .map((cat) => ({
         ...cat,
         items: cat.items.filter((item) =>
@@ -295,7 +312,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         ),
       }))
       .filter((cat) => cat.items.length > 0);
-  }, [searchQuery, t]);
+  }, [searchQuery, t, isAdmin, can]);
 
   const isSearching = searchQuery.trim().length > 0;
 

@@ -5539,6 +5539,30 @@ export type Database = {
         }
         Relationships: []
       }
+      moderator_permissions: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          modules: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          modules?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          modules?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       news_hub_categories: {
         Row: {
           color: string | null
@@ -10880,6 +10904,10 @@ export type Database = {
         Args: { _user_a: string; _user_b: string }
         Returns: boolean
       }
+      has_moderator_module: {
+        Args: { _module: string; _user_id: string }
+        Returns: boolean
+      }
       has_news_post_access: {
         Args: { _post_id: string; _user: string }
         Returns: boolean
@@ -10991,7 +11019,13 @@ export type Database = {
       user_registered_event_ids: { Args: never; Returns: string[] }
     }
     Enums: {
-      app_role: "admin" | "partner" | "client" | "specjalista" | "user"
+      app_role:
+        | "admin"
+        | "partner"
+        | "client"
+        | "specjalista"
+        | "user"
+        | "moderator"
       news_hub_bento_size: "s" | "m" | "l"
       news_hub_post_type:
         | "announcement"
@@ -11130,7 +11164,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "partner", "client", "specjalista", "user"],
+      app_role: [
+        "admin",
+        "partner",
+        "client",
+        "specjalista",
+        "user",
+        "moderator",
+      ],
       news_hub_bento_size: ["s", "m", "l"],
       news_hub_post_type: [
         "announcement",
