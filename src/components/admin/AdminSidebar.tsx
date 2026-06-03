@@ -20,6 +20,7 @@ import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import { cn } from '@/lib/utils';
 import {
   Settings2,
