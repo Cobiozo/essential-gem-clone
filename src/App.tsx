@@ -34,6 +34,7 @@ import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { IntroVideoOverlay } from "@/components/intro/IntroVideoOverlay";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
+import { BrowserTranslationWarning } from "@/components/i18n/BrowserTranslationWarning";
 
 // Helper function for lazy loading with automatic retry on chunk errors
 // Improved: More retries, cache clearing, loop detection
@@ -482,6 +483,7 @@ const AppContent = () => {
               2. Info Banners sequentially by priority (after Signal dismissed)
               3. No Info Banner can appear before Daily Signal
           */}
+          <BrowserTranslationWarning />
           {!dailySignalDismissed ? (
             <DailySignalBanner onDismiss={handleDailySignalDismiss} />
           ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (
