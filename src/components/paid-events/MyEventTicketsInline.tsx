@@ -197,11 +197,11 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   };
 
   return (
-    <div className="rounded-md border bg-primary/5 p-3 space-y-3" data-testid="my-event-tickets-inline">
+    <div className="rounded-md border bg-primary/5 p-2.5 sm:p-3 space-y-3" data-testid="my-event-tickets-inline">
       {!isLoading && (
         activeOrdersCount > 0 ? (
           <div
-            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs"
             data-testid="my-event-registration-summary"
           >
             <div className="flex items-start gap-2 min-w-0">
@@ -224,13 +224,13 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                 </div>
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 sm:self-center self-start">
               {statusBadge(activeOrders[0].status)}
             </div>
           </div>
         ) : formSubmission ? (
           <div
-            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs"
             data-testid="my-event-registration-summary"
           >
             <div className="flex items-start gap-2 min-w-0">
@@ -242,7 +242,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                 </div>
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 sm:self-center self-start">
               {statusBadge(formSubmission.payment_status === 'paid' ? 'paid' : 'awaiting_transfer')}
             </div>
           </div>
@@ -256,6 +256,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
           </div>
         )
       )}
+
 
       <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center justify-between gap-2">
         <span className="flex items-center gap-1">
@@ -293,7 +294,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
         return (
           <div key={o.id} className={`text-xs space-y-1.5 border-l-2 pl-2 ${isInactive ? 'border-muted-foreground/30 opacity-60' : 'border-primary/40'}`}>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className={`font-medium ${isInactive ? 'line-through' : ''}`}>{o.ticket?.name || 'Bilet'}</span>
               <Badge variant="outline" className="text-[10px]">{qty} × bilet</Badge>
               <Badge variant="outline" className="text-[10px] gap-1">
@@ -304,17 +305,18 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
               {o.checked_in && (
                 <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Zameldowany</Badge>
               )}
-              {canShowQR && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="h-6 px-2 text-[10px] ml-auto"
-                  onClick={() => setQrDialogCode(qrCode)}
-                >
-                  <QrCode className="h-3 w-3 mr-1" /> Otwórz bilet (QR)
-                </Button>
-              )}
             </div>
+            {canShowQR && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 px-3 text-[11px] w-full sm:w-auto sm:ml-auto sm:flex"
+                onClick={() => setQrDialogCode(qrCode)}
+              >
+                <QrCode className="h-3.5 w-3.5 mr-1.5" /> Otwórz bilet (QR)
+              </Button>
+            )}
+
 
             {attendees.length > 0 ? (
               <ul className="space-y-1">
