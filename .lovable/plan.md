@@ -1,49 +1,72 @@
-# Mobilna karta wydarzenia — uporządkowanie układu
 
-Na zrzucie widać kartę wydarzenia (`PaidEventCard` + `MyEventTicketsInline` + `MyEventFormLinks`) na telefonie. Elementy są rozsypane: data, banner, tytuł, badge cena, przyciski, lista biletów i panel linku partnerskiego źle się wiążą, „Otwórz bilet (QR)" wypada poniżej ceny, przycisk „Zobacz" jest oddzielony od treści, a link partnerski ma 3 odrębne kolumny (ikona / treść / data), które na wąskim ekranie się rozjeżdżają.
+## Część 1 — Wgrywanie wideo z komputera w bloku „Wideo"
 
-Zmiany dotyczą tylko warstwy prezentacyjnej (Tailwind, kolejność elementów) — żadnej logiki biznesowej, zapytań, RLS ani danych nie ruszam.
+### Problem
+W edytorze postu News Hub blok „Wideo" pozwala tylko wkleić URL (YouTube/Vimeo/mp4). Brak przycisku „Wgraj plik z komputera" — stąd nie można dodać własnego nagrania.
 
-## Zakres zmian
+`src/components/news-hub/editor/BlockListEditor.tsx` (case `'video'`, linia 271-277) renderuje wyłącznie dwa `<Input>`-y. Tymczasem w sąsiednim case `'file_download'` używany jest już `FileUploadInput`, który pod spodem korzysta z `useLocalStorage().uploadFile()` (ten sam mechanizm działa np. w `FileDownloadEditor.tsx`).
 
-### 1) `PaidEventCard.tsx` — nagłówek karty
-- Na mobile (`<sm`): zmieniam layout z `flex-col sm:flex-row` na bardziej zwarty układ:
-  - górny rząd: kafelek daty (16×16) + tytuł + cena „od 20 zł" w jednej linii treści (badge ceny obok tytułu lub nad nim, nie wypchnięty na bok)
-  - banner staje się pełnoszerokim obrazem nad treścią (`aspect-video rounded-lg`), bez dziwnego `h-24` obok daty
-  - badge „NADCHODZI / ZAKOŃCZONE" w jednym rzędzie z ceną
-  - meta-info (data, lokalizacja, miejsca) jako pionowa lista ikon na mobile zamiast `flex-wrap`, dzięki czemu nic się nie urywa
-- Przycisk „Zobacz →" na mobile: pełna szerokość pod treścią (`w-full sm:w-auto`), wyraźny CTA; na desktop bez zmian (po prawej, jak teraz)
-- Stała kolejność: banner → badge + tytuł → opis → meta → CTA „Zobacz"
+### Zmiana (czysto UI, bez ruszania logiki biznesowej)
+W `BlockListEditor.tsx` w case `'video'`:
+1. Dodać `FileUploadInput` z `accept="video/*"` i folderem `news-hub-videos` — wynikowy URL trafia do `d.url`.
+2. Pod nim zostawić istniejący `<Input>` z URL (dla YouTube/Vimeo) — etykieta: „...lub wklej link YouTube / Vimeo / mp4".
+3. Pasek postępu i komunikat (już są w `useLocalStorage`).
+4. Walidacja MIME (`video/mp4`, `video/webm`, `video/quicktime`) i limit 2 GB (już obsługiwane przez `storageConfig`).
 
-### 2) `MyEventTicketsInline.tsx` — sekcja „Twoje bilety"
-- Pasek „Jesteś zarejestrowany / Opłacone": na mobile badge `Opłacone` przenoszony pod tekst (`flex-col sm:flex-row`), żeby tekst nie był ściśnięty
-- Nagłówek „TWOJE BILETY NA TO WYDARZENIE" + badge „1 BILET" — na mobile `flex-wrap` zostaje, ale zmniejszam padding i `gap`
-- Wiersz biletu (`Bilet Wejściowy · 1×bilet · 1 · 20,00 zł · Opłacone · QR`):
-  - Na mobile dzielę na 2 rzędy:
-    1. nazwa biletu + badge ilości + ikona osób + cena + status
-    2. przycisk „Otwórz bilet (QR)" jako **pełnoszerokie CTA** pod wierszem (`w-full sm:w-auto sm:ml-auto`), żeby nie zachodził na cenę
-- Lista uczestników: `flex-col` z mniejszym fontem, ikona „Ty" badge bez zmian
+### Co NIE jest ruszane
+- `VideoPlayer` w `PostContent.tsx` — już teraz obsługuje YouTube/Vimeo/`<video src>`, więc wgrany plik zadziała bez zmian.
+- Typ `VideoBlockData` (pole `url`) — bez zmian.
+- RLS, bucket policy storage — wykorzystujemy istniejący bucket `local-uploads`.
 
-### 3) `MyEventFormLinks.tsx` — link partnerski (compact)
-- Header karty (`<FileText/> Rejestracja n... · 0 kliknięć · 1 zapisanych`): na mobile badge'y kliknięć/zapisanych przenoszę pod tytuł (`flex-col sm:flex-row`), żeby tytuł formularza nie był ucinany „Rejestracja n..."
-- Meta-info eventu (tytuł + data + lokalizacja): zamiast jednego rzędu z `·` separatorami stosuję `flex flex-wrap gap-x-2` z mniejszym fontem; obecny dziwny układ „3 kolumn" (data po prawej w tabeli) wynika z `flex` + długiego tytułu — naprawione przez `min-w-0 truncate` na meta items
-- Input z URL + kopiuj: zostaje `flex`, ale input dostaje `text-[11px]` na mobile, żeby cały URL był czytelny (zamiast `https://purelife.info.pl/event-form/rej` ucinanego)
-- Przycisk „Pokaż zapisanych przez mój link (1)": bez zmian funkcjonalnych, tylko `text-xs` i lewa padding-fix
+### Pliki do edycji
+- `src/components/news-hub/editor/BlockListEditor.tsx` (~6 linii w case `'video'`)
 
-### 4) Drobne, globalne fixy mobile w tej karcie
-- Wszystkie wewnętrzne paneli (`.rounded-md border bg-primary/5 p-3`): na mobile `p-2.5` zamiast `p-3`, żeby zwolnić miejsce
-- `text-xs` w `MyEventTicketsInline` zostaje na mobile, ale linie z dużą liczbą badge'y dostają `gap-1.5` zamiast `gap-2`, żeby nie było rozjeżdżania
-- Wszystkie `flex items-center justify-between gap-2` z długim tekstem dostają `flex-wrap` lub mobilny break
+---
 
-## Czego NIE zmieniam
-- Logiki RPC, query keys, RLS, treści tekstów (poza ewentualnym `truncate`)
-- Wyglądu desktop — wszystkie zmiany w klasach mobilnych mają warianty `sm:` przywracające obecny układ
-- Komponentów innych niż te 3 pliki
+## Część 2 — Rola „Moderator" z ograniczonym dostępem do panelu admina
 
-## Pliki edytowane
-- `src/components/paid-events/PaidEventCard.tsx`
-- `src/components/paid-events/MyEventTicketsInline.tsx`
-- `src/components/paid-events/MyEventFormLinks.tsx`
+Aktualne role (`app_role` enum): `admin`, `partner`, `client`, `specjalista`, `user`. Cały panel admina sprawdza `isAdmin` z `AuthContext`. Dodanie roli wymaga rozważnego podejścia, żeby NIE rozbić istniejących RLS i sprawdzeń.
 
-## Walidacja
-Po implementacji sprawdzę kartę w preview 390×844 (iPhone), żeby potwierdzić: brak rozjazdów, czytelne CTA, QR-przycisk pod wierszem biletu, link partnerski bez ucinania URL/tytułu.
+Propozycje (proszę wybrać jedną — zaimplementuję dopiero po akceptacji):
+
+### Opcja A — Nowa rola `moderator` w enumie + flagi modułów (rekomendowana)
+- Dodaję `'moderator'` do enum `app_role` (migracja `ALTER TYPE ... ADD VALUE`).
+- Nowa tabela `moderator_permissions` (user_id + boolean flagi: `can_manage_news_hub`, `can_manage_events`, `can_manage_cms`, `can_manage_users_readonly`, `can_manage_training`, `can_manage_support` itd.).
+- W `AuthContext` dodaję `isModerator` i `moderatorPerms`.
+- W `App.tsx`/routach: ścieżki `/admin/...` dostępne dla `isAdmin || (isModerator && perms.<flag>)`.
+- W UI sidebara Admina pokazuję tylko sekcje na które moderator ma uprawnienia.
+- Wszystkie obecne `has_role(auth.uid(),'admin')` w RLS pozostają nietknięte — moderator widzi panel, ale operacje wrażliwe (usuwanie userów, zmiana ról, e-maile, klucze API) zostają wyłącznie dla admina.
+- Plusy: czyste, audytowalne, granularne.
+- Minusy: migracja DB + jedna tabela + UI do zarządzania uprawnieniami.
+
+### Opcja B — Bez zmian w enumie, tylko tabela `admin_panel_access`
+- Zostawiamy enum `app_role` bez ruchu.
+- Tabela `admin_panel_access(user_id, module text, can_read bool, can_write bool)`.
+- `AuthContext` ładuje uprawnienia i wystawia `hasAdminPanelAccess(module)`.
+- Routy/sidebar używają tej funkcji obok `isAdmin`.
+- Plusy: zero ryzyka dla obecnych RLS (enum nietknięty), najszybsze do wdrożenia.
+- Minusy: rola „moderator" jest tylko UI-owa — w bazie taka osoba dalej jest `user/partner`.
+
+### Opcja C — Współdzielony „delegowany admin" (najprostsza)
+- Tylko tabela `admin_delegates(user_id, modules text[])`.
+- Brak ról, brak enumu, brak granularnych flag — moderator dostaje listę modułów (np. `['news_hub','events']`) i w tych modułach ma pełne prawa admina.
+- Plusy: minimalna implementacja, łatwe do cofnięcia.
+- Minusy: brak rozróżnienia read/write.
+
+### Wspólne dla wszystkich opcji
+- Strona `Admin → Moderatorzy` (lista + checkboxy modułów + przycisk „Dodaj moderatora" wyszukujący po e-mailu).
+- Log w `admin_activity_log` przy każdej zmianie uprawnień.
+- Akcje krytyczne (kasowanie kont, zmiana ról, klucze API, zarządzanie adminami) — TYLKO admin, nigdy moderator.
+
+### Sugerowany zestaw modułów do delegacji
+News Hub · Eventy · CMS / Strony · Centrum Wiedzy · Szkolenia · Wsparcie/Support · Statystyki (read-only) · CRM (read-only)
+
+---
+
+## Kolejność wdrożenia
+1. Po akceptacji — najpierw **Część 1** (mała, niezależna zmiana UI).
+2. Następnie **Część 2** w wybranym wariancie (A/B/C) — osobna iteracja z migracją.
+
+Proszę o:
+- potwierdzenie Części 1,
+- wybór wariantu A / B / C dla Części 2 oraz wskazanie modułów, do których moderator ma mieć dostęp.

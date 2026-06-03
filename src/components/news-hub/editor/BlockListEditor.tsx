@@ -271,7 +271,13 @@ const BlockDataEditor: React.FC<{ block: NewsHubBlock; onChangeData: (p: Record<
     case 'video':
       return (
         <div className="space-y-2">
-          <Input placeholder="URL YouTube / Vimeo / mp4" value={d.url || ''} onChange={(e) => onChangeData({ url: e.target.value })} />
+          <FileUploadInput
+            value={d.url}
+            accept="video/*"
+            label="Wgraj wideo"
+            onChange={(url) => onChangeData({ url })}
+          />
+          <Input placeholder="...lub wklej URL YouTube / Vimeo / mp4" value={d.url || ''} onChange={(e) => onChangeData({ url: e.target.value })} />
           <Input placeholder="Podpis (opcjonalnie)" value={d.caption || ''} onChange={(e) => onChangeData({ caption: e.target.value })} />
         </div>
       );
@@ -545,7 +551,7 @@ const GalleryUpload: React.FC<{ images: string[]; onChange: (imgs: string[]) => 
   );
 };
 
-const FileUploadInput: React.FC<{ value?: string; fileName?: string; onChange: (url: string, name: string, size: number) => void }> = ({ value, onChange }) => {
+const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: string; label?: string; onChange: (url: string, name: string, size: number) => void }> = ({ value, accept, label, onChange }) => {
   const [uploading, setUploading] = useState(false);
   const handle = async (file: File) => {
     setUploading(true);
@@ -558,8 +564,8 @@ const FileUploadInput: React.FC<{ value?: string; fileName?: string; onChange: (
     <div className="flex gap-2">
       <Input placeholder="URL pliku" value={value || ''} readOnly className="text-xs" />
       <Label className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-border bg-card hover:bg-muted cursor-pointer text-xs whitespace-nowrap">
-        {uploading ? '...' : 'Wgraj plik'}
-        <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} />
+        {uploading ? '...' : (label || 'Wgraj plik')}
+        <input type="file" accept={accept} className="hidden" onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} />
       </Label>
     </div>
   );
