@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fromZonedTime } from 'date-fns-tz';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, User, Tag, CalendarClock, Bell, StickyNote, Sparkles } from 'lucide-react';
+import { Plus, Trash2, User, Tag, CalendarClock, Bell, StickyNote, Sparkles, MessagesSquare } from 'lucide-react';
 import { ContactEventHistory } from './ContactEventHistory';
 import { RatingElement } from '@/components/elements/RatingElement';
 import type { TeamContact } from './types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useContactConversations, makeEmptyConversation, type ContactConversation } from '@/hooks/useContactConversations';
+import { ConversationHistoryEditor } from './ConversationHistoryEditor';
 
 interface PrivateContactFormProps {
   contact?: TeamContact;
-  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => Promise<boolean> | void;
+  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => Promise<boolean | TeamContact | null> | void;
   onCancel: () => void;
 }
 
@@ -53,8 +57,24 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   onCancel,
 }) => {
   const { tf } = useLanguage();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { items: loadedConversations, persist: persistConversations } = useContactConversations(contact?.id);
+  const [conversations, setConversations] = useState<ContactConversation[]>([]);
+
+  useEffect(() => {
+    if (contact?.id) {
+      setConversations(loadedConversations);
+    }
+  }, [loadedConversations, contact?.id]);
+
+  // Detect legacy data on existing contact (so we can show archival info read-only)
+  const hasLegacyData = Boolean(
+    contact?.id &&
+      (contact.first_contact_result || contact.first_contact_annotation || contact.second_contact_date)
+  );
 
   const createdAtDisplay = contact?.created_at
     ? new Date(contact.created_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -128,16 +148,26 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     }
 
     const addedAt = formData.added_at;
-    if (formData.second_contact_date && addedAt && formData.second_contact_date < addedAt) {
-      setError('Data drugiego kontaktu nie może być wcześniejsza niż data pierwszego kontaktu.');
-      setLoading(false);
-      return;
-    }
-    if (formData.next_contact_date) {
-      const minDate = formData.second_contact_date || addedAt;
-      const minLabel = formData.second_contact_date ? 'drugiego' : 'pierwszego';
-      if (minDate && formData.next_contact_date < minDate) {
-        setError(`Data kolejnego kontaktu nie może być wcześniejsza niż data ${minLabel} kontaktu.`);
+    // Walidacja konwersacji
+    for (let i = 0; i < conversations.length; i++) {
+      const c = conversations[i];
+      if (!c.channel || !c.subchannel) {
+        setError(`Rozmowa #${i + 1}: wybierz kanał i sposób kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (!c.contact_date) {
+        setError(`Rozmowa #${i + 1}: podaj datę kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (addedAt && c.contact_date < addedAt) {
+        setError(`Rozmowa #${i + 1}: data nie może być wcześniejsza niż data utworzenia kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (c.next_contact_date && c.next_contact_date < c.contact_date) {
+        setError(`Rozmowa #${i + 1}: data kolejnego kontaktu nie może być wcześniejsza niż data tej rozmowy.`);
         setLoading(false);
         return;
       }
@@ -197,9 +227,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       products: formData.products || null,
       contact_source: formData.contact_source || null,
       contact_reason: formData.contact_reason || null,
-      second_contact_date: formData.second_contact_date || null,
-      first_contact_annotation: formData.first_contact_annotation || null,
-      first_contact_result: formData.first_contact_result || null,
       added_at: formData.added_at,
       priority_level: Object.values(formData.priority_traits).reduce((a, b) => a + (Number(b) || 0), 0),
       priority_traits: formData.priority_traits,
@@ -220,6 +247,20 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       const result = await onSubmit(data);
       if (result === false) {
         setError('Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+        return;
+      }
+      // Persist conversation history
+      const targetContactId = contact?.id || (typeof result === 'object' && result ? (result as TeamContact).id : null);
+      if (targetContactId && user?.id) {
+        try {
+          await persistConversations(targetContactId, user.id, conversations);
+        } catch (convErr: any) {
+          toast({
+            title: 'Częściowy zapis',
+            description: 'Kontakt zapisany, ale nie udało się zapisać historii rozmów: ' + (convErr?.message || ''),
+            variant: 'destructive',
+          });
+        }
       }
     } catch (err: any) {
       if (err?.message?.includes('timestamp') || err?.message?.includes('time zone')) {
@@ -433,10 +474,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             </div>
           </Section>
 
-          {/* Pierwszy / drugi kontakt */}
+          {/* Komunikacja / konwersacja z kontaktem */}
           <Section
-            title={tf('teamContacts.firstSecondContact', 'Pierwszy i drugi kontakt')}
-            icon={<CalendarClock className="h-4 w-4" />}
+            title={tf('teamContacts.conversationHistory', 'Komunikacja/konwersacja z kontaktem')}
+            icon={<MessagesSquare className="h-4 w-4" />}
             className="lg:col-span-6"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -453,43 +494,32 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
                   onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="first_contact_result">{tf('teamContacts.firstContactResult', 'Wynik pierwszego kontaktu')}</Label>
-                <Select
-                  value={formData.first_contact_result || ''}
-                  onValueChange={(value) => setFormData({ ...formData, first_contact_result: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wybierz wynik..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="answered">{tf('teamContacts.answered', 'Odebrał')}</SelectItem>
-                    <SelectItem value="no_answer">{tf('teamContacts.noAnswer', 'Nie odebrane')}</SelectItem>
-                    <SelectItem value="wrong_number">{tf('teamContacts.wrongNumber', 'Błędny numer')}</SelectItem>
-                    <SelectItem value="out_of_range">{tf('teamContacts.outOfRange', 'Poza zasięgiem')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="second_contact_date">{tf('teamContacts.secondContactDate', 'Data drugiego kontaktu')}</Label>
-                <Input
-                  id="second_contact_date"
-                  type="date"
-                  value={formData.second_contact_date}
-                  onChange={(e) => setFormData({ ...formData, second_contact_date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="first_contact_annotation">{tf('teamContacts.firstContactAnnotation', 'Adnotacja po pierwszym kontakcie')}</Label>
-                <Textarea
-                  id="first_contact_annotation"
-                  value={formData.first_contact_annotation}
-                  onChange={(e) => setFormData({ ...formData, first_contact_annotation: e.target.value })}
-                  placeholder="Co musisz zapamiętać po ustaleniach pierwszego kontaktu..."
-                  rows={2}
-                />
-              </div>
             </div>
+
+            {hasLegacyData && (
+              <div className="rounded-md border border-dashed border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                <div className="font-semibold text-foreground">Dane archiwalne (pierwszy/drugi kontakt)</div>
+                {contact?.first_contact_result && (
+                  <div>
+                    Wynik pierwszego kontaktu: <span className="text-foreground">
+                      {({ answered: 'Odebrał', no_answer: 'Nieodebrane', wrong_number: 'Błędny numer', out_of_range: 'Poza zasięgiem' } as Record<string, string>)[contact.first_contact_result] || contact.first_contact_result}
+                    </span>
+                  </div>
+                )}
+                {contact?.second_contact_date && (
+                  <div>Data drugiego kontaktu: <span className="text-foreground">{contact.second_contact_date}</span></div>
+                )}
+                {contact?.first_contact_annotation && (
+                  <div>Adnotacja: <span className="text-foreground whitespace-pre-wrap">{contact.first_contact_annotation}</span></div>
+                )}
+              </div>
+            )}
+
+            <ConversationHistoryEditor
+              items={conversations}
+              onChange={setConversations}
+              minDate={formData.added_at}
+            />
           </Section>
 
           {/* Przypomnienia */}

@@ -9199,6 +9199,59 @@ export type Database = {
         }
         Relationships: []
       }
+      team_contact_conversations: {
+        Row: {
+          channel: string | null
+          contact_date: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          next_contact_date: string | null
+          note: string | null
+          phone_result: string | null
+          sort_index: number
+          subchannel: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string | null
+          contact_date?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          next_contact_date?: string | null
+          note?: string | null
+          phone_result?: string | null
+          sort_index?: number
+          subchannel?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string | null
+          contact_date?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          next_contact_date?: string | null
+          note?: string | null
+          phone_result?: string | null
+          sort_index?: number
+          subchannel?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_contact_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "team_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_contacts: {
         Row: {
           added_at: string | null
