@@ -294,7 +294,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
 
         return (
           <div key={o.id} className={`text-xs space-y-1.5 border-l-2 pl-2 ${isInactive ? 'border-muted-foreground/30 opacity-60' : 'border-primary/40'}`}>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className={`font-medium ${isInactive ? 'line-through' : ''}`}>{o.ticket?.name || 'Bilet'}</span>
               <Badge variant="outline" className="text-[10px]">{qty} × bilet</Badge>
               <Badge variant="outline" className="text-[10px] gap-1">
@@ -305,17 +305,18 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
               {o.checked_in && (
                 <Badge className="bg-green-700 hover:bg-green-800 text-[10px]">Zameldowany</Badge>
               )}
-              {canShowQR && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="h-6 px-2 text-[10px] ml-auto"
-                  onClick={() => setQrDialogCode(qrCode)}
-                >
-                  <QrCode className="h-3 w-3 mr-1" /> Otwórz bilet (QR)
-                </Button>
-              )}
             </div>
+            {canShowQR && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-7 px-3 text-[11px] w-full sm:w-auto sm:ml-auto sm:flex"
+                onClick={() => setQrDialogCode(qrCode)}
+              >
+                <QrCode className="h-3.5 w-3.5 mr-1.5" /> Otwórz bilet (QR)
+              </Button>
+            )}
+
 
             {attendees.length > 0 ? (
               <ul className="space-y-1">
