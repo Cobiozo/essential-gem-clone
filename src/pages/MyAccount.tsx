@@ -28,6 +28,7 @@ import { SpecialistCorrespondence } from '@/components/specialist-correspondence
 import { PrivateChatWidget } from '@/components/private-chat';
 import { CommunicationCenterV2 } from '@/components/communication';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { useGuardianProfile } from '@/hooks/useGuardianProfile';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
@@ -99,6 +100,7 @@ const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> =
 
 const MyAccount = () => {
   const { user, profile, userRole, signOut, refreshProfile, isPartner, isSpecjalista, isClient } = useAuth();
+  const { data: guardianProfile } = useGuardianProfile((profile as any)?.upline_eq_id);
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -713,7 +715,7 @@ const MyAccount = () => {
                     <div>
                       <Label className="text-sm font-medium">Imię i nazwisko opiekuna</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
-                        {(profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                        {guardianProfile?.fullName || (profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">Może zmienić wyłącznie administrator</p>
                     </div>
