@@ -309,21 +309,29 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
 
           <Separator />
 
-          <div className="space-y-2">
-            <Label htmlFor="guardianName" className="flex items-center gap-2">
-              Imię i nazwisko opiekuna *
-              {getFieldStatus('guardian_name') === 'missing' && (
-                <Badge variant="destructive" className="text-xs">Wymagane</Badge>
-              )}
-            </Label>
-            <Input
-              id="guardianName"
-              value={guardianName}
-              onChange={(e) => setGuardianName(e.target.value)}
-              placeholder="Wprowadź imię i nazwisko opiekuna"
-              disabled={loading}
-            />
-            <p className="text-xs text-muted-foreground">Osoba, z którą można się skontaktować</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="guardianName">Imię i nazwisko opiekuna</Label>
+              <Input
+                id="guardianName"
+                value={guardianName}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">Może zmienić wyłącznie administrator</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="guardianEqId">Numer EQ ID opiekuna</Label>
+              <Input
+                id="guardianEqId"
+                value={(profile as any)?.upline_eq_id || ''}
+                disabled
+                className="bg-muted"
+                placeholder="—"
+              />
+              <p className="text-xs text-muted-foreground">Może zmienić wyłącznie administrator</p>
+            </div>
           </div>
         </CardContent>
       </Card>
