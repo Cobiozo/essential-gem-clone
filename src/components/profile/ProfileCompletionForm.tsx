@@ -33,6 +33,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
+  const { data: guardianProfile } = useGuardianProfile((profile as any)?.upline_eq_id);
   
   // Form state
   const [firstName, setFirstName] = useState('');
