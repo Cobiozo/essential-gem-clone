@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -7,75 +7,110 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Shield, Trash2, UserPlus, Plus } from 'lucide-react';
+import { Shield, Trash2, UserPlus, Plus, Search, Loader2, Check } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
+
+interface ProfileLite {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  eq_id: string | null;
+}
 
 interface ModeratorRow {
   user_id: string;
   email?: string | null;
   full_name?: string | null;
-  modules: Record<string, boolean>;
+  eq_id?: string | null;
+  modules: Record<string, any>;
   granted_at: string;
 }
 
-/**
- * Predefiniowana lista modułów panelu admina, do których można przyznać
- * dostęp moderatorowi. Klucze odpowiadają wartościom `value` zakładek
- * w AdminSidebar oraz kluczom stron zewnętrznych (np. `news_hub` →
- * /admin/news-hub).
- *
- * Admin może dodać dodatkowe (własne) klucze przez pole „Dodaj własny moduł".
- */
-const PREDEFINED_MODULES: { key: string; label: string; group: string }[] = [
-  { key: 'news_hub', label: 'Centrum Aktualności (/admin/news-hub)', group: 'Treści' },
-  { key: 'pages', label: 'Strony CMS', group: 'Treści' },
-  { key: 'html-pages', label: 'Strony HTML', group: 'Treści' },
-  { key: 'events', label: 'Wydarzenia', group: 'Eventy' },
-  { key: 'event-registrations', label: 'Rejestracje na wydarzenia', group: 'Eventy' },
-  { key: 'paid-events', label: 'Wydarzenia płatne / bilety', group: 'Eventy' },
-  { key: 'meeting-guests', label: 'Goście spotkań', group: 'Eventy' },
-  { key: 'partner-pages', label: 'Strony partnerskie', group: 'Eventy' },
-  { key: 'training', label: 'Szkolenia', group: 'Wiedza' },
-  { key: 'knowledge', label: 'Centrum Wiedzy', group: 'Wiedza' },
-  { key: 'healthy-knowledge', label: 'Zdrowa Wiedza', group: 'Wiedza' },
-  { key: 'media-library', label: 'Biblioteka mediów', group: 'Wiedza' },
-  { key: 'daily-signal', label: 'Sygnał dnia', group: 'Komunikacja' },
-  { key: 'important-info', label: 'Ważne informacje', group: 'Komunikacja' },
-  { key: 'news-ticker', label: 'Pasek aktualności', group: 'Komunikacja' },
-  { key: 'support', label: 'Wsparcie / Support', group: 'Komunikacja' },
-  { key: 'notifications', label: 'Powiadomienia', group: 'Komunikacja' },
+// Główne moduły (zakładki admina) + ich podakcje.
+// Klucz główny `module` = pełen dostęp (CRUD + publikacja).
+// Klucze `module:create|edit|delete|publish|visibility|categories|templates` =
+// granularne akcje. Specjalny klucz `module:ids` (tablica string[]) ogranicza
+// dostęp do konkretnych ID treści.
+interface ModuleDef {
+  key: string;
+  label: string;
+  group: string;
+  actions?: string[]; // dostępne pod-akcje (jeśli puste = tylko on/off)
+  supportsIds?: boolean;
+}
+
+const MODULES: ModuleDef[] = [
+  // Treści
+  { key: 'news_hub', label: 'Centrum Aktualności', group: 'Treści', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'pages', label: 'Strony CMS', group: 'Treści', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'html-pages', label: 'Strony HTML', group: 'Treści', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'media-library', label: 'Biblioteka mediów', group: 'Treści', actions: ['upload', 'delete'] },
+
+  // Eventy
+  { key: 'events', label: 'Wydarzenia (eventy)', group: 'Eventy', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'event-registrations', label: 'Rejestracje na wydarzenia', group: 'Eventy', actions: ['view', 'edit', 'delete'] },
+  { key: 'paid-events', label: 'Wydarzenia płatne / bilety', group: 'Eventy', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'meeting-guests', label: 'Goście spotkań', group: 'Eventy', actions: ['view', 'edit'] },
+  { key: 'partner-pages', label: 'Strony partnerskie', group: 'Eventy', actions: ['create', 'edit', 'delete'] },
+
+  // Wiedza
+  { key: 'training', label: 'Szkolenia / Akademia', group: 'Wiedza', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'knowledge', label: 'Centrum Wiedzy', group: 'Wiedza', actions: ['create', 'edit', 'delete'] },
+  { key: 'healthy-knowledge', label: 'Zdrowa Wiedza', group: 'Wiedza', actions: ['create', 'edit', 'delete'] },
+
+  // Komunikacja
+  { key: 'daily-signal', label: 'Sygnał dnia', group: 'Komunikacja', actions: ['edit'] },
+  { key: 'important-info', label: 'Ważne informacje', group: 'Komunikacja', actions: ['create', 'edit', 'delete'] },
+  { key: 'news-ticker', label: 'Pasek aktualności', group: 'Komunikacja', actions: ['edit'] },
+  { key: 'support', label: 'Wsparcie / Support', group: 'Komunikacja', actions: ['view', 'reply'] },
+  { key: 'notifications', label: 'Powiadomienia', group: 'Komunikacja', actions: ['send'] },
 ];
+
+const ACTION_LABELS: Record<string, string> = {
+  create: 'Tworzenie',
+  edit: 'Edycja',
+  delete: 'Usuwanie',
+  publish: 'Publikacja',
+  view: 'Podgląd',
+  upload: 'Wgrywanie',
+  reply: 'Odpowiadanie',
+  send: 'Wysyłanie',
+  visibility: 'Widoczność',
+  categories: 'Kategorie',
+  templates: 'Szablony',
+};
 
 export const ModeratorsManagement: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const [rows, setRows] = useState<ModeratorRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newEmail, setNewEmail] = useState('');
+
+  // search
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
+  const [searchResults, setSearchResults] = useState<ProfileLite[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // custom key per row
   const [customKey, setCustomKey] = useState<Record<string, string>>({});
+  // ids text per row+module
+  const [idsText, setIdsText] = useState<Record<string, string>>({});
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1) wszyscy z rolą moderator
       const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'moderator' as any);
+        .from('user_roles').select('user_id').eq('role', 'moderator' as any);
 
       const ids = (roles || []).map((r: any) => r.user_id);
       if (ids.length === 0) { setRows([]); setLoading(false); return; }
 
-      // 2) uprawnienia
-      const { data: perms } = await supabase
-        .from('moderator_permissions')
-        .select('user_id, modules, granted_at')
-        .in('user_id', ids);
-
-      // 3) profile (do wyświetlenia)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', ids);
+      const [{ data: perms }, { data: profiles }] = await Promise.all([
+        supabase.from('moderator_permissions').select('user_id, modules, granted_at').in('user_id', ids),
+        supabase.from('profiles').select('id, full_name, email, eq_id').in('id', ids),
+      ]);
 
       const permMap = new Map((perms || []).map((p: any) => [p.user_id, p]));
       const profMap = new Map((profiles || []).map((p: any) => [p.id, p]));
@@ -87,7 +122,8 @@ export const ModeratorsManagement: React.FC = () => {
           user_id: id,
           email: pr?.email || null,
           full_name: pr?.full_name || null,
-          modules: (p?.modules || {}) as Record<string, boolean>,
+          eq_id: pr?.eq_id || null,
+          modules: (p?.modules || {}) as Record<string, any>,
           granted_at: p?.granted_at || new Date().toISOString(),
         };
       });
@@ -102,34 +138,47 @@ export const ModeratorsManagement: React.FC = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const addModerator = async () => {
-    const email = newEmail.trim().toLowerCase();
-    if (!email) return;
-    try {
-      const { data: profile, error: pErr } = await supabase
+  // Live search
+  useEffect(() => {
+    const q = debouncedSearch.trim();
+    if (q.length < 2) { setSearchResults([]); return; }
+    let cancelled = false;
+    (async () => {
+      setSearching(true);
+      const like = `%${q}%`;
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, email')
-        .eq('email', email)
-        .maybeSingle();
-      if (pErr) throw pErr;
-      if (!profile) {
-        toast.error('Nie znaleziono użytkownika o tym e-mailu');
-        return;
+        .select('id, full_name, email, eq_id')
+        .or(`full_name.ilike.${like},email.ilike.${like},eq_id.ilike.${like}`)
+        .limit(20);
+      if (cancelled) return;
+      if (error) {
+        console.error(error);
+        setSearchResults([]);
+      } else {
+        const existingIds = new Set(rows.map((r) => r.user_id));
+        setSearchResults(((data as any[]) || []).filter((p) => !existingIds.has(p.id)));
       }
-      // dodaj rolę moderator (jeśli jeszcze nie ma)
-      await supabase.from('user_roles').insert({
-        user_id: profile.id,
-        role: 'moderator' as any,
-      } as any);
-      // utwórz pusty wiersz uprawnień
-      await supabase.from('moderator_permissions').upsert({
-        user_id: profile.id,
-        modules: {},
-        granted_by: user?.id || null,
-      } as any, { onConflict: 'user_id' });
+      setSearching(false);
+    })();
+    return () => { cancelled = true; };
+  }, [debouncedSearch, rows]);
 
-      toast.success('Moderator dodany. Włącz mu wybrane moduły poniżej.');
-      setNewEmail('');
+  const callEdge = async (action: 'add' | 'update_modules' | 'remove', payload: any) => {
+    const { data, error } = await supabase.functions.invoke('admin-set-moderator', {
+      body: { action, ...payload },
+    });
+    if (error) throw new Error(error.message || 'Edge function error');
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data;
+  };
+
+  const addModerator = async (profile: ProfileLite) => {
+    try {
+      await callEdge('add', { user_id: profile.id, modules: {} });
+      toast.success(`Dodano moderatora: ${profile.full_name || profile.email}`);
+      setSearchTerm('');
+      setSearchResults([]);
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -137,14 +186,11 @@ export const ModeratorsManagement: React.FC = () => {
     }
   };
 
-  const updateModules = async (userId: string, modules: Record<string, boolean>) => {
+  const updateModules = async (userId: string, modules: Record<string, any>) => {
+    // optimistic
+    setRows((r) => r.map((x) => x.user_id === userId ? { ...x, modules } : x));
     try {
-      await supabase.from('moderator_permissions').upsert({
-        user_id: userId,
-        modules,
-        granted_by: user?.id || null,
-      } as any, { onConflict: 'user_id' });
-      setRows((r) => r.map((x) => x.user_id === userId ? { ...x, modules } : x));
+      await callEdge('update_modules', { user_id: userId, modules });
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu uprawnień');
       fetchData();
@@ -154,8 +200,7 @@ export const ModeratorsManagement: React.FC = () => {
   const removeModerator = async (userId: string) => {
     if (!confirm('Na pewno odebrać uprawnienia moderatora?')) return;
     try {
-      await supabase.from('moderator_permissions').delete().eq('user_id', userId);
-      await supabase.from('user_roles').delete().eq('user_id', userId).eq('role', 'moderator' as any);
+      await callEdge('remove', { user_id: userId });
       toast.success('Usunięto moderatora');
       fetchData();
     } catch (err: any) {
@@ -163,87 +208,164 @@ export const ModeratorsManagement: React.FC = () => {
     }
   };
 
-  if (!isAdmin) {
-    return <div className="p-6 text-muted-foreground">Brak dostępu.</div>;
-  }
+  const grouped = useMemo(() => {
+    return MODULES.reduce((acc, m) => {
+      (acc[m.group] = acc[m.group] || []).push(m);
+      return acc;
+    }, {} as Record<string, ModuleDef[]>);
+  }, []);
 
-  const grouped = PREDEFINED_MODULES.reduce((acc, m) => {
-    (acc[m.group] = acc[m.group] || []).push(m);
-    return acc;
-  }, {} as Record<string, typeof PREDEFINED_MODULES>);
+  if (!isAdmin) {
+    return <div className="p-6 text-muted-foreground">Brak dostępu – tylko administrator.</div>;
+  }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center gap-3">
         <Shield className="h-6 w-6 text-primary" />
-        <h2 className="text-2xl font-bold">Moderatorzy panelu</h2>
+        <h2 className="text-2xl font-bold">Moderatorzy panelu CMS</h2>
       </div>
-      <p className="text-sm text-muted-foreground max-w-2xl">
-        Moderator otrzymuje dostęp do panelu admina, ale widzi tylko te moduły, które
-        zostały mu jawnie włączone. Akcje krytyczne (zarządzanie kontami, role, klucze
-        API, kasowanie danych) pozostają zawsze tylko po stronie administratora.
+      <p className="text-sm text-muted-foreground max-w-3xl">
+        Moderator otrzymuje przycisk „Panel CMS" w menu i przed wejściem musi podać to samo hasło,
+        co administrator. Widzi tylko te moduły (lub konkretne akcje / treści), które mu jawnie włączysz.
+        Akcje krytyczne (zarządzanie kontami, role, klucze API, kasowanie danych) pozostają zawsze tylko dla administratora.
       </p>
 
+      {/* SEARCH */}
       <Card className="p-4 space-y-3">
-        <Label className="font-semibold">Dodaj nowego moderatora (e-mail istniejącego użytkownika)</Label>
-        <div className="flex gap-2">
+        <Label className="font-semibold flex items-center gap-2">
+          <UserPlus className="h-4 w-4" /> Wyszukaj użytkownika (imię, nazwisko, EQ ID lub e-mail)
+        </Label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            type="email"
-            placeholder="email@example.com"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addModerator()}
+            placeholder="Wpisz min. 2 znaki..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
           />
-          <Button onClick={addModerator} className="gap-2">
-            <UserPlus className="h-4 w-4" />
-            Dodaj
-          </Button>
         </div>
+        {searching && (
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" /> Szukam...
+          </div>
+        )}
+        {!searching && debouncedSearch.length >= 2 && searchResults.length === 0 && (
+          <div className="text-xs text-muted-foreground">Brak wyników lub wszyscy znalezieni są już moderatorami.</div>
+        )}
+        {searchResults.length > 0 && (
+          <div className="border border-border rounded-lg divide-y divide-border max-h-80 overflow-y-auto">
+            {searchResults.map((p) => (
+              <div key={p.id} className="flex items-center justify-between p-3 hover:bg-muted/40">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{p.full_name || '(bez imienia)'}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {p.email} {p.eq_id ? ` · EQ ID: ${p.eq_id}` : ''}
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => addModerator(p)} className="gap-1 shrink-0">
+                  <Check className="h-3 w-3" /> Ustaw moderatorem
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {loading ? (
-        <div className="text-muted-foreground">Ładowanie...</div>
+        <div className="text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Ładowanie...</div>
       ) : rows.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground">
-          Brak moderatorów. Dodaj pierwszego powyżej.
+          Brak moderatorów. Wyszukaj użytkownika powyżej i nadaj rolę.
         </Card>
       ) : (
         <div className="space-y-4">
           {rows.map((r) => (
             <Card key={r.user_id} className="p-4 space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
+                <div className="min-w-0">
                   <div className="font-semibold">{r.full_name || '(bez imienia)'}</div>
-                  <div className="text-sm text-muted-foreground">{r.email || r.user_id}</div>
+                  <div className="text-sm text-muted-foreground truncate">
+                    {r.email || r.user_id} {r.eq_id ? `· EQ ID: ${r.eq_id}` : ''}
+                  </div>
                   <Badge variant="secondary" className="mt-1">Moderator</Badge>
                 </div>
                 <Button variant="destructive" size="sm" onClick={() => removeModerator(r.user_id)} className="gap-2">
                   <Trash2 className="h-4 w-4" />
-                  Usuń
+                  Usuń moderatora
                 </Button>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 {Object.entries(grouped).map(([group, items]) => (
-                  <div key={group} className="border border-border rounded-lg p-3">
-                    <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">{group}</div>
-                    <div className="space-y-2">
-                      {items.map((m) => {
-                        const enabled = !!r.modules[m.key];
-                        return (
-                          <div key={m.key} className="flex items-center justify-between gap-2">
-                            <Label htmlFor={`${r.user_id}-${m.key}`} className="text-sm font-normal cursor-pointer">
+                  <div key={group} className="border border-border rounded-lg p-3 space-y-3">
+                    <div className="text-xs font-semibold uppercase text-muted-foreground">{group}</div>
+                    {items.map((m) => {
+                      const enabled = r.modules[m.key] === true;
+                      const idsKey = `${m.key}:ids`;
+                      const currentIds: string[] = Array.isArray(r.modules[idsKey]) ? r.modules[idsKey] : [];
+                      const idsTextValue = idsText[`${r.user_id}-${m.key}`] ?? currentIds.join('\n');
+
+                      return (
+                        <div key={m.key} className="border-l-2 border-border pl-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <Label className="text-sm font-medium cursor-pointer">
                               {m.label}
                             </Label>
                             <Switch
-                              id={`${r.user_id}-${m.key}`}
                               checked={enabled}
                               onCheckedChange={(v) => updateModules(r.user_id, { ...r.modules, [m.key]: v })}
                             />
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          {/* Pod-akcje (widoczne nawet bez ogólnego dostępu) */}
+                          {m.actions && m.actions.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {m.actions.map((a) => {
+                                const subKey = `${m.key}:${a}`;
+                                const subEnabled = r.modules[subKey] === true;
+                                return (
+                                  <label key={subKey} className={`flex items-center gap-1 text-xs px-2 py-1 rounded border cursor-pointer ${subEnabled || enabled ? 'border-primary/60 bg-primary/10' : 'border-border'}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={subEnabled}
+                                      disabled={enabled}
+                                      onChange={(e) => updateModules(r.user_id, { ...r.modules, [subKey]: e.target.checked })}
+                                      className="h-3 w-3"
+                                    />
+                                    {ACTION_LABELS[a] || a}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Whitelist konkretnych ID */}
+                          {m.supportsIds && (enabled || (m.actions || []).some((a) => r.modules[`${m.key}:${a}`])) && (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">
+                                Konkretne treści (ID-y, po jednym w linii). Puste = wszystkie.
+                              </Label>
+                              <Textarea
+                                placeholder="np. 0a1b2c3d-..."
+                                value={idsTextValue}
+                                onChange={(e) => setIdsText({ ...idsText, [`${r.user_id}-${m.key}`]: e.target.value })}
+                                onBlur={() => {
+                                  const list = (idsText[`${r.user_id}-${m.key}`] ?? '')
+                                    .split('\n').map((s) => s.trim()).filter(Boolean);
+                                  const next = { ...r.modules };
+                                  if (list.length === 0) delete next[idsKey];
+                                  else next[idsKey] = list;
+                                  updateModules(r.user_id, next);
+                                }}
+                                className="text-xs font-mono"
+                                rows={2}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -253,7 +375,7 @@ export const ModeratorsManagement: React.FC = () => {
                 <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Dodatkowe moduły (klucz własny)</div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {Object.entries(r.modules)
-                    .filter(([k]) => !PREDEFINED_MODULES.some((p) => p.key === k))
+                    .filter(([k, v]) => !MODULES.some((p) => k === p.key || k.startsWith(`${p.key}:`)) && typeof v === 'boolean')
                     .map(([k, v]) => (
                       <div key={k} className="flex items-center gap-2 bg-muted px-2 py-1 rounded">
                         <span className="text-xs font-mono">{k}</span>

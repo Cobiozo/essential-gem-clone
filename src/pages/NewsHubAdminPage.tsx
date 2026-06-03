@@ -16,21 +16,33 @@ import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { format } from 'date-fns';
+import { AdminPasswordGate, isAdminGateUnlocked } from '@/components/admin/AdminPasswordGate';
 
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 
 const NewsHubAdminPage: React.FC = () => {
   const { isAdmin, loading: authLoading } = useAuth();
-  const { can, loading: modLoading } = useModeratorAccess();
-  const { posts, loading, refresh } = useNewsHubPosts({ adminMode: true });
+  const { can, canAction, allowedIds, loading: modLoading } = useModeratorAccess();
+  const { posts: allPosts, loading, refresh } = useNewsHubPosts({ adminMode: true });
   const [editing, setEditing] = useState<NewsHubPost | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
   const { adminLayout, saveAdminLayout } = useNewsHubSettings();
+  const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
 
   if (authLoading || modLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (!isAdmin && !can('news_hub')) return <Navigate to="/dashboard" replace />;
+  if (!gateUnlocked) return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
+
+  // Filtruj posty po allowedIds (jeśli moderator ma whitelist)
+  const idsScope = allowedIds('news_hub');
+  const posts = idsScope === 'all' ? allPosts : allPosts.filter((p) => idsScope.includes(p.id));
+
+  const canCreate = isAdmin || canAction('news_hub', 'create');
+  const canEdit = (p: NewsHubPost) => isAdmin || canAction('news_hub', 'edit');
+  const canDelete = (p: NewsHubPost) => isAdmin || canAction('news_hub', 'delete');
+  const canPublish = isAdmin || canAction('news_hub', 'publish');
 
   const togglePinned = async (p: NewsHubPost) => {
     await (supabase.from('news_hub_posts' as any) as any).update({ is_pinned: !p.is_pinned }).eq('id', p.id);
@@ -59,9 +71,11 @@ const NewsHubAdminPage: React.FC = () => {
             </Link>
             <h1 className="text-xl font-bold">Zarządzanie aktualnościami</h1>
           </div>
-          <Button onClick={() => { setEditing(null); setInitialBlocks(undefined); setShowTemplatePicker(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Nowy post
-          </Button>
+          {canCreate && (
+            <Button onClick={() => { setEditing(null); setInitialBlocks(undefined); setShowTemplatePicker(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Nowy post
+            </Button>
+          )}
         </div>
       </header>
 
@@ -110,18 +124,22 @@ const NewsHubAdminPage: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => togglePinned(p)} title="Przypnij/odepnij">
+                        <Button size="icon" variant="ghost" onClick={() => togglePinned(p)} title="Przypnij/odepnij" disabled={!canPublish}>
                           <Pin className={`h-4 w-4 ${p.is_pinned ? 'text-primary' : ''}`} />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => togglePublished(p)} title="Opublikuj/ukryj">
+                        <Button size="icon" variant="ghost" onClick={() => togglePublished(p)} title="Opublikuj/ukryj" disabled={!canPublish}>
                           {p.is_published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setShowForm(true); }} title="Edytuj">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(p)} title="Usuń" className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit(p) && (
+                          <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setShowForm(true); }} title="Edytuj">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete(p) && (
+                          <Button size="icon" variant="ghost" onClick={() => remove(p)} title="Usuń" className="text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

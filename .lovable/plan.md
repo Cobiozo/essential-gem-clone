@@ -1,72 +1,70 @@
+## 1. Moderatorzy – wybór spośród istniejących użytkowników
 
-## Część 1 — Wgrywanie wideo z komputera w bloku „Wideo"
+**Problem:** obecnie w `ModeratorsManagement.tsx` jest tylko wpisanie e-maila i `insert` do `user_roles`. Insert leci pod RLS jako zwykły user → wpis się nie zapisuje, a w UI pojawia się fałszywy „dodano". Dodatkowo trzeba wyszukiwać po imieniu / nazwisku / EQ ID / e-mailu.
 
-### Problem
-W edytorze postu News Hub blok „Wideo" pozwala tylko wkleić URL (YouTube/Vimeo/mp4). Brak przycisku „Wgraj plik z komputera" — stąd nie można dodać własnego nagrania.
+**Zmiany:**
+- Zamienić pole „email" na **wyszukiwarkę użytkowników** (Command/Combobox) z debouncem:
+  - zapytanie do `profiles` z `ilike` po `full_name`, `email`, `eq_id` (limit 20)
+  - lista wyników z imieniem, e-mailem, EQ ID i przyciskiem „Ustaw moderatorem"
+- Dodawanie moderatora i wszystkie operacje na `user_roles` przenieść do nowej Edge Function **`admin-set-moderator`** (działa jako admin, omija RLS, wymaga `verifyAdmin`):
+  - `action: 'add'` → upsert do `user_roles` (role=moderator) + upsert do `moderator_permissions`
+  - `action: 'remove'` → delete z obu tabel
+  - `action: 'update_modules'` → upsert `moderator_permissions.modules`
+  - wszystko logowane przez `admin_activity_log`
+- Aktualne polityki RLS na `user_roles` zostają nietknięte (bezpieczeństwo).
 
-`src/components/news-hub/editor/BlockListEditor.tsx` (case `'video'`, linia 271-277) renderuje wyłącznie dwa `<Input>`-y. Tymczasem w sąsiednim case `'file_download'` używany jest już `FileUploadInput`, który pod spodem korzysta z `useLocalStorage().uploadFile()` (ten sam mechanizm działa np. w `FileDownloadEditor.tsx`).
+## 2. Precyzyjne moduły / podmoduły / pojedyncze treści
 
-### Zmiana (czysto UI, bez ruszania logiki biznesowej)
-W `BlockListEditor.tsx` w case `'video'`:
-1. Dodać `FileUploadInput` z `accept="video/*"` i folderem `news-hub-videos` — wynikowy URL trafia do `d.url`.
-2. Pod nim zostawić istniejący `<Input>` z URL (dla YouTube/Vimeo) — etykieta: „...lub wklej link YouTube / Vimeo / mp4".
-3. Pasek postępu i komunikat (już są w `useLocalStorage`).
-4. Walidacja MIME (`video/mp4`, `video/webm`, `video/quicktime`) i limit 2 GB (już obsługiwane przez `storageConfig`).
+Rozszerzyć `PREDEFINED_MODULES` w `ModeratorsManagement.tsx` o pełną mapę zakładek Admin Sidebar + podmoduły dla:
+- News Hub: `news_hub`, `news_hub:create`, `news_hub:edit`, `news_hub:delete`, `news_hub:publish`, `news_hub:visibility`, `news_hub:categories`, `news_hub:templates`
+- Eventy: `events`, `events:create`, `events:edit`, `events:delete`, `paid-events`, `event-registrations`, `partner-pages`, `meeting-guests`, `event-forms`
+- Wiedza / Komunikacja: analogicznie z sufiksami `:create/:edit/:delete`
+- Pole **„Konkretne treści (ID-y)"** – JSON-lista per-moduł, np. `news_hub.allowed_post_ids: [uuid, uuid]`. Pusta lista = wszystko, lista = tylko te wpisy. Walidowane po stronie UI (komponenty Aktualności wczytują listę z `useModeratorAccess`).
 
-### Co NIE jest ruszane
-- `VideoPlayer` w `PostContent.tsx` — już teraz obsługuje YouTube/Vimeo/`<video src>`, więc wgrany plik zadziała bez zmian.
-- Typ `VideoBlockData` (pole `url`) — bez zmian.
-- RLS, bucket policy storage — wykorzystujemy istniejący bucket `local-uploads`.
+Hook `useModeratorAccess`:
+- dodać `canAction(module, action)` – sprawdza `modules['news_hub']` **oraz** `modules['news_hub:edit']` (jeśli admin zdefiniował granularnie)
+- dodać `allowedIds(module): string[] | 'all'`
+- użyć w `NewsHubAdminPage`, `PostFormDialog`, `EventsManagement`, etc. do warunkowego ukrywania przycisków Edytuj/Usuń/Publikuj i filtrowania listy.
 
-### Pliki do edycji
-- `src/components/news-hub/editor/BlockListEditor.tsx` (~6 linii w case `'video'`)
+## 3. Panel CMS + bramka hasłem dla moderatora
 
----
+- `src/components/Header.tsx` (linia 224): warunek `isAdmin ?` → `hasAnyAdminAccess ?` z `useModeratorAccess`, etykieta „Panel CMS" / `nav.admin`.
+- `src/pages/Admin.tsx` (linia 3045): warunek `isAdmin && !gateUnlocked` → `hasAnyAdminAccess && !gateUnlocked`. Moderator też musi przejść `AdminPasswordGate`.
+- `src/pages/NewsHubAdminPage.tsx`: dodać identyczny gate (jeśli moderator ma tylko `news_hub` i wchodzi prosto na `/admin/news-hub`).
+- `AdminPasswordGate` weryfikuje hasło przez Edge Function (już istnieje) – działa tak samo dla admin i moderator (oboje musieli wcześniej dostać hasło od admina).
 
-## Część 2 — Rola „Moderator" z ograniczonym dostępem do panelu admina
+## 4. Stabilność – żadnych regresji
 
-Aktualne role (`app_role` enum): `admin`, `partner`, `client`, `specjalista`, `user`. Cały panel admina sprawdza `isAdmin` z `AuthContext`. Dodanie roli wymaga rozważnego podejścia, żeby NIE rozbić istniejących RLS i sprawdzeń.
+- Wszystkie nowe sprawdzenia działają **dodatkowo** do `isAdmin` (admin zawsze ma pełny dostęp – `can()` zwraca true).
+- Brak zmian w istniejących RLS, edge funkcjach, hookach – tylko nowy edge function `admin-set-moderator` + nowe wpisy w `moderator_permissions.modules`.
+- Migracja: brak zmian schema, JSONB `modules` już obsługuje dowolne klucze.
+- Testy ręczne: admin loguje się jak dotychczas, moderator otrzymuje wybrane zakładki, próba wejścia w nieprzyznany moduł → redirect na `/dashboard`.
 
-Propozycje (proszę wybrać jedną — zaimplementuję dopiero po akceptacji):
+## 5. Upload wideo 180 MB w Aktualnościach (macOS)
 
-### Opcja A — Nowa rola `moderator` w enumie + flagi modułów (rekomendowana)
-- Dodaję `'moderator'` do enum `app_role` (migracja `ALTER TYPE ... ADD VALUE`).
-- Nowa tabela `moderator_permissions` (user_id + boolean flagi: `can_manage_news_hub`, `can_manage_events`, `can_manage_cms`, `can_manage_users_readonly`, `can_manage_training`, `can_manage_support` itd.).
-- W `AuthContext` dodaję `isModerator` i `moderatorPerms`.
-- W `App.tsx`/routach: ścieżki `/admin/...` dostępne dla `isAdmin || (isModerator && perms.<flag>)`.
-- W UI sidebara Admina pokazuję tylko sekcje na które moderator ma uprawnienia.
-- Wszystkie obecne `has_role(auth.uid(),'admin')` w RLS pozostają nietknięte — moderator widzi panel, ale operacje wrażliwe (usuwanie userów, zmiana ról, e-maile, klucze API) zostają wyłącznie dla admina.
-- Plusy: czyste, audytowalne, granularne.
-- Minusy: migracja DB + jedna tabela + UI do zarządzania uprawnieniami.
+**Problem:** `uploadNewsHubFile` ładuje plik bezpośrednio do bucketu `news-hub-media` przez Supabase Storage SDK. Plik 180 MB przekracza praktyczny limit dla single-PUT przeglądarki (timeout / 413) → „Błąd uploadu".
 
-### Opcja B — Bez zmian w enumie, tylko tabela `admin_panel_access`
-- Zostawiamy enum `app_role` bez ruchu.
-- Tabela `admin_panel_access(user_id, module text, can_read bool, can_write bool)`.
-- `AuthContext` ładuje uprawnienia i wystawia `hasAdminPanelAccess(module)`.
-- Routy/sidebar używają tej funkcji obok `isAdmin`.
-- Plusy: zero ryzyka dla obecnych RLS (enum nietknięty), najszybsze do wdrożenia.
-- Minusy: rola „moderator" jest tylko UI-owa — w bazie taka osoba dalej jest `user/partner`.
+**Rozwiązanie (zgodne z istniejącą polityką VPS uploads):**
+- Zmodyfikować `uploadNewsHubFile` w `src/hooks/useNewsHub.ts`:
+  - jeśli `file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES` (2 MB) → użyć XHR POST na `/upload` (Express VPS, ten sam endpoint co Akademia), folder `news-hub/<folder>`
+  - w przeciwnym razie zostawić dotychczasowy Supabase upload (małe okładki/obrazki)
+- W `PostFormDialog.tsx` dodać **realny pasek postępu** (XHR `progress` event) i komunikat „Wysyłanie ... %" zamiast samego spinnera.
+- Zwiększyć timeout XHR do 10 min dla plików > 50 MB.
+- Walidacja typu po stronie klienta: `STORAGE_CONFIG.ALLOWED_TYPES.video`.
 
-### Opcja C — Współdzielony „delegowany admin" (najprostsza)
-- Tylko tabela `admin_delegates(user_id, modules text[])`.
-- Brak ról, brak enumu, brak granularnych flag — moderator dostaje listę modułów (np. `['news_hub','events']`) i w tych modułach ma pełne prawa admina.
-- Plusy: minimalna implementacja, łatwe do cofnięcia.
-- Minusy: brak rozróżnienia read/write.
+**Uwaga produkcyjna:** zakładamy, że na produkcji (cyberfolks/PM2) endpoint `/upload` jest dostępny – tak samo używa go Akademia. Jeśli nie odpowiada, użytkownik dostanie czytelny komunikat „Serwer VPS niedostępny" (już obsłużone w `useLocalStorage.ts`).
 
-### Wspólne dla wszystkich opcji
-- Strona `Admin → Moderatorzy` (lista + checkboxy modułów + przycisk „Dodaj moderatora" wyszukujący po e-mailu).
-- Log w `admin_activity_log` przy każdej zmianie uprawnień.
-- Akcje krytyczne (kasowanie kont, zmiana ról, klucze API, zarządzanie adminami) — TYLKO admin, nigdy moderator.
+## Techniczne pliki do zmiany
 
-### Sugerowany zestaw modułów do delegacji
-News Hub · Eventy · CMS / Strony · Centrum Wiedzy · Szkolenia · Wsparcie/Support · Statystyki (read-only) · CRM (read-only)
+```text
+src/components/admin/ModeratorsManagement.tsx   (wyszukiwarka, granularne moduły, edge function calls)
+src/hooks/useModeratorAccess.ts                  (canAction, allowedIds)
+src/components/Header.tsx                        (Panel CMS dla moderatora)
+src/pages/Admin.tsx                              (gate dla hasAnyAdminAccess)
+src/pages/NewsHubAdminPage.tsx                   (gate hasłem)
+src/hooks/useNewsHub.ts                          (routing > 2 MB do VPS, progress)
+src/components/news-hub/PostFormDialog.tsx       (pasek postępu, komunikaty)
+supabase/functions/admin-set-moderator/index.ts  (NOWY – admin-only CRUD na rolach)
+```
 
----
-
-## Kolejność wdrożenia
-1. Po akceptacji — najpierw **Część 1** (mała, niezależna zmiana UI).
-2. Następnie **Część 2** w wybranym wariancie (A/B/C) — osobna iteracja z migracją.
-
-Proszę o:
-- potwierdzenie Części 1,
-- wybór wariantu A / B / C dla Części 2 oraz wskazanie modułów, do których moderator ma mieć dostęp.
+Brak migracji SQL – wszystko mieści się w istniejącym schemacie `moderator_permissions` (JSONB `modules`).

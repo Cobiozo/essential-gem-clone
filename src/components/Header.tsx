@@ -15,6 +15,7 @@ import {
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,6 +41,7 @@ interface Reflink {
 
 export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], hideLanguageSelector = false }) => {
   const { user, isAdmin, isPartner, isSpecjalista, isClient, signOut, userRole } = useAuth();
+  const { hasAnyAdminAccess } = useModeratorAccess();
   const { t } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const navigate = useNavigate();
@@ -221,10 +223,10 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-background border border-border">
                   {/* Moje konto / Panel CMS */}
-                  {isAdmin ? (
+                  {hasAnyAdminAccess ? (
                     <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
-                      {t('nav.admin')}
+                      {isAdmin ? t('nav.admin') : 'Panel CMS'}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem onClick={() => navigate('/my-account')} className="cursor-pointer">
