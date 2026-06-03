@@ -23,7 +23,7 @@ import { ConversationHistoryEditor } from './ConversationHistoryEditor';
 
 interface PrivateContactFormProps {
   contact?: TeamContact;
-  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => Promise<boolean> | void;
+  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => Promise<boolean | TeamContact | null> | void;
   onCancel: () => void;
 }
 
