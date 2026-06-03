@@ -168,7 +168,7 @@ export const TeamContactsTab: React.FC = () => {
     }
   }, [activeTab, setFilters]);
 
-  const handleAddContact = async (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+  const handleAddContact = async (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<TeamContact | false> => {
     // Set contact_type based on active tab
     const contactData = {
       ...data,
@@ -177,8 +177,9 @@ export const TeamContactsTab: React.FC = () => {
     const result = await addContact(contactData);
     if (result) {
       setShowForm(false);
+      return result;
     }
-    return !!result;
+    return false;
   };
 
   const handleEditContact = async (data: Partial<TeamContact>): Promise<boolean> => {
