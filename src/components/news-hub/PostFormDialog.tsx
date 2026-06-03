@@ -161,14 +161,24 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
       )}
       <label className="flex items-center gap-2 cursor-pointer rounded-md border border-dashed border-border px-3 py-2 text-sm hover:bg-muted">
         {uploading === field ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-        <span>Wgraj plik</span>
+        <span>
+          {uploading === field
+            ? (uploadPct > 0 ? `Wysyłanie ${uploadPct}%...` : 'Przygotowywanie...')
+            : 'Wgraj plik'}
+        </span>
         <input
           type="file"
           accept={accept}
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, field); }}
+          disabled={uploading !== null}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, field); e.currentTarget.value = ''; }}
         />
       </label>
+      {uploading === field && uploadPct > 0 && (
+        <div className="mt-1 h-1 w-full bg-muted rounded overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${uploadPct}%` }} />
+        </div>
+      )}
     </div>
   );
 
