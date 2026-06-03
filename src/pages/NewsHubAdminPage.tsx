@@ -16,21 +16,33 @@ import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { format } from 'date-fns';
+import { AdminPasswordGate, isAdminGateUnlocked } from '@/components/admin/AdminPasswordGate';
 
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 
 const NewsHubAdminPage: React.FC = () => {
   const { isAdmin, loading: authLoading } = useAuth();
-  const { can, loading: modLoading } = useModeratorAccess();
-  const { posts, loading, refresh } = useNewsHubPosts({ adminMode: true });
+  const { can, canAction, allowedIds, loading: modLoading } = useModeratorAccess();
+  const { posts: allPosts, loading, refresh } = useNewsHubPosts({ adminMode: true });
   const [editing, setEditing] = useState<NewsHubPost | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
   const { adminLayout, saveAdminLayout } = useNewsHubSettings();
+  const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
 
   if (authLoading || modLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (!isAdmin && !can('news_hub')) return <Navigate to="/dashboard" replace />;
+  if (!gateUnlocked) return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
+
+  // Filtruj posty po allowedIds (jeśli moderator ma whitelist)
+  const idsScope = allowedIds('news_hub');
+  const posts = idsScope === 'all' ? allPosts : allPosts.filter((p) => idsScope.includes(p.id));
+
+  const canCreate = isAdmin || canAction('news_hub', 'create');
+  const canEdit = (p: NewsHubPost) => isAdmin || canAction('news_hub', 'edit');
+  const canDelete = (p: NewsHubPost) => isAdmin || canAction('news_hub', 'delete');
+  const canPublish = isAdmin || canAction('news_hub', 'publish');
 
   const togglePinned = async (p: NewsHubPost) => {
     await (supabase.from('news_hub_posts' as any) as any).update({ is_pinned: !p.is_pinned }).eq('id', p.id);
