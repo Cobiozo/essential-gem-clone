@@ -84,8 +84,8 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
     if (!lastName.trim()) return 'Nazwisko jest wymagane';
     if (!email.trim()) return 'Adres e-mail jest wymagany';
     if (!phoneNumber.trim()) return 'Numer telefonu jest wymagany';
-    if (!guardianName.trim()) return 'Imię i nazwisko opiekuna jest wymagane';
-    
+    // guardian_name is admin-managed; user cannot edit it, so do not block save.
+
     if (isSpecialist) {
       if (!specialization.trim()) return 'Specjalizacje i dziedziny są wymagane dla roli Specjalista';
       if (!profileDescription.trim()) return 'Opis profilu jest wymagany dla roli Specjalista';
@@ -94,7 +94,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
     // Consent validation
     if (!acceptedTerms) return 'Akceptacja Regulaminu jest wymagana';
     if (!acceptedPrivacy) return 'Akceptacja Polityki Prywatności jest wymagana';
-    if (!acceptedRodo) return 'Wyrażenie zgody RODO jest wymagane';
+    if (!acceptedRodo) return 'Wyrażenie zgody RODO jest wymagana';
     
     return null;
   };
