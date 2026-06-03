@@ -56,106 +56,115 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
       }
     >
       <CardContent
-        className="p-4 cursor-pointer"
+        className="p-3 sm:p-4 cursor-pointer"
         onClick={() => navigate(`/events/${event.slug}`)}
       >
-        <div className="flex flex-col sm:flex-row gap-4">
+        {/* Banner — full width on mobile */}
+        {event.banner_url && (
+          <div className="mb-3 sm:hidden">
+            <img
+              src={event.banner_url}
+              alt={event.title}
+              loading="lazy"
+              className="w-full aspect-[16/7] object-cover rounded-lg bg-muted"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-3 sm:gap-4">
           {event.banner_url && (
-            <div className="flex-shrink-0">
+            <div className="hidden sm:block flex-shrink-0">
               <img
                 src={event.banner_url}
                 alt={event.title}
                 loading="lazy"
-                className="w-full sm:w-40 h-24 sm:h-20 object-cover rounded-lg bg-muted"
+                className="w-40 h-20 object-cover rounded-lg bg-muted"
               />
             </div>
           )}
 
           <div className="flex-shrink-0">
-            <div className="w-16 h-16 rounded-lg bg-primary/10 flex flex-col items-center justify-center text-primary">
-              <span className="text-2xl font-bold leading-none">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-primary/10 flex flex-col items-center justify-center text-primary">
+              <span className="text-xl sm:text-2xl font-bold leading-none">
                 {format(eventDate, 'd')}
               </span>
-              <span className="text-xs uppercase">
+              <span className="text-[10px] sm:text-xs uppercase">
                 {format(eventDate, 'MMM', { locale: dateLocale })}
               </span>
             </div>
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {isPast ? (
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {tf('events.endedBadge', 'Zakończone')}
-                    </Badge>
-                  ) : (
-                    <Badge className="text-[10px] uppercase tracking-wider bg-green-500/15 text-green-600 hover:bg-green-500/15 border-0">
-                      {tf('events.upcomingBadge', 'Nadchodzi')}
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                  {event.title}
-                </h3>
-              </div>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
+              {isPast ? (
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {tf('events.endedBadge', 'Zakończone')}
+                </Badge>
+              ) : (
+                <Badge className="text-[10px] uppercase tracking-wider bg-green-500/15 text-green-600 hover:bg-green-500/15 border-0">
+                  {tf('events.upcomingBadge', 'Nadchodzi')}
+                </Badge>
+              )}
               {!isPast && event.lowest_price && (
-                <Badge variant="secondary" className="flex-shrink-0 whitespace-nowrap">
+                <Badge variant="secondary" className="whitespace-nowrap text-[10px] sm:text-xs">
                   {tf('events.from', 'od')} {formatPrice(event.lowest_price)}
                 </Badge>
               )}
-            </div>
-
-            {event.short_description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                {event.short_description}
-              </p>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {format(eventDate, 'd MMM yyyy, HH:mm', { locale: dateLocale })}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {event.is_online ? (
-                  <>
-                    <Globe className="h-4 w-4 text-blue-500" />
-                    <span>{tf('events.online', 'Online')}</span>
-                  </>
-                ) : (
-                  <>
-                    <MapPin className="h-4 w-4" />
-                    <span>{event.location || tf('events.location', 'Lokalizacja')}</span>
-                  </>
-                )}
-              </div>
-
-              {!isPast && spotsLeft !== null && spotsLeft > 0 && spotsLeft <= 10 && (
-                <div className="flex items-center gap-1 text-amber-600">
-                  <Users className="h-4 w-4" />
-                  <span>{tf('events.spotsLeft', 'Zostało')} {spotsLeft} {tf('events.spots', 'miejsc')}</span>
-                </div>
-              )}
-
               {isSoldOut && !isPast && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-[10px] sm:text-xs">
                   {tf('events.soldOut', 'Wyprzedane')}
                 </Badge>
               )}
             </div>
+            <h3 className="font-semibold text-base sm:text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+              {event.title}
+            </h3>
+          </div>
+        </div>
+
+        <div className="mt-2.5 sm:mt-3 sm:pl-[72px]">
+          {event.short_description && (
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-2 sm:mb-3">
+              {event.short_description}
+            </p>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1.5 sm:gap-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span>
+                {format(eventDate, 'd MMM yyyy, HH:mm', { locale: dateLocale })}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 min-w-0">
+              {event.is_online ? (
+                <>
+                  <Globe className="h-4 w-4 text-blue-500 shrink-0" />
+                  <span>{tf('events.online', 'Online')}</span>
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{event.location || tf('events.location', 'Lokalizacja')}</span>
+                </>
+              )}
+            </div>
+
+            {!isPast && spotsLeft !== null && spotsLeft > 0 && spotsLeft <= 10 && (
+              <div className="flex items-center gap-1.5 text-amber-600">
+                <Users className="h-4 w-4 shrink-0" />
+                <span>{tf('events.spotsLeft', 'Zostało')} {spotsLeft} {tf('events.spots', 'miejsc')}</span>
+              </div>
+            )}
           </div>
 
           {!isPast && (
-            <div className="flex-shrink-0 self-center">
-              <Button 
-                variant="ghost" 
+            <div className="mt-3 flex sm:justify-end">
+              <Button
+                variant="default"
                 size="sm"
-                className="gap-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                className="w-full sm:w-auto gap-1"
               >
                 {tf('events.view', 'Zobacz')}
                 <ArrowRight className="h-4 w-4" />
