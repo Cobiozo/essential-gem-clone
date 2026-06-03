@@ -2145,14 +2145,18 @@ const Admin = () => {
     }
 
     if (!isAdmin) {
-      setLoading(false);
-      navigate('/dashboard');
-      return;
+      // Moderator z włączonym jakimkolwiek modułem ma dostęp do panelu
+      if (modLoading) return;
+      if (!hasAnyAdminAccess) {
+        setLoading(false);
+        navigate('/dashboard');
+        return;
+      }
     }
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, rolesReady, isAdmin, navigate]);
+  }, [user, authLoading, rolesReady, isAdmin, navigate, modLoading, hasAnyAdminAccess]);
 
   const fetchData = async () => {
     try {
