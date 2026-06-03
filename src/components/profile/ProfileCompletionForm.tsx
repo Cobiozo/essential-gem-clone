@@ -316,7 +316,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
               <Label htmlFor="guardianName">Imię i nazwisko opiekuna</Label>
               <Input
                 id="guardianName"
-                value={guardianName}
+                value={guardianProfile?.fullName || guardianName}
                 disabled
                 className="bg-muted"
               />
