@@ -155,6 +155,7 @@ const navCategories: NavCategory[] = [
       { value: 'account', labelKey: 'account', icon: UserCircle },
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
+      { value: 'moderators', labelKey: 'moderators', icon: Shield },
     ],
   },
   {
