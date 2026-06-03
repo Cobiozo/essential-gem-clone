@@ -508,53 +508,21 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             </div>
           </Section>
 
-          {/* Komunikacja / konwersacja z kontaktem */}
+          {/* Notatki z rozmów */}
           <Section
-            title={tf('teamContacts.conversationHistory', 'Komunikacja/konwersacja z kontaktem')}
-            icon={<MessagesSquare className="h-4 w-4" />}
+            title={tf('teamContacts.conversationNotes', 'Notatki z rozmów')}
+            icon={<StickyNote className="h-4 w-4" />}
             className="lg:col-span-6"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{tf('teamContacts.dateCreated', 'Data utworzenia kontaktu')}</Label>
-                <Input value={createdAtDisplay} readOnly disabled className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="added_at">{tf('teamContacts.firstContactDate', 'Data pierwszego kontaktu')}</Label>
-                <Input
-                  id="added_at"
-                  type="date"
-                  value={formData.added_at}
-                  onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {hasLegacyData && (
-              <div className="rounded-md border border-dashed border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
-                <div className="font-semibold text-foreground">Dane archiwalne (pierwszy/drugi kontakt)</div>
-                {contact?.first_contact_result && (
-                  <div>
-                    Wynik pierwszego kontaktu: <span className="text-foreground">
-                      {({ answered: 'Odebrał', no_answer: 'Nieodebrane', wrong_number: 'Błędny numer', out_of_range: 'Poza zasięgiem' } as Record<string, string>)[contact.first_contact_result] || contact.first_contact_result}
-                    </span>
-                  </div>
-                )}
-                {contact?.second_contact_date && (
-                  <div>Data drugiego kontaktu: <span className="text-foreground">{contact.second_contact_date}</span></div>
-                )}
-                {contact?.first_contact_annotation && (
-                  <div>Adnotacja: <span className="text-foreground whitespace-pre-wrap">{contact.first_contact_annotation}</span></div>
-                )}
-              </div>
-            )}
-
-            <ConversationHistoryEditor
-              items={conversations}
-              onChange={setConversations}
-              minDate={formData.added_at}
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Zapisz ważne informacje z rozmów, preferencje, pytania..."
+              rows={4}
             />
           </Section>
+
 
           {/* Przypomnienia */}
           <Section
