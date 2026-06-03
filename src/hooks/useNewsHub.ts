@@ -86,11 +86,82 @@ export function slugify(text: string): string {
     .substring(0, 80);
 }
 
-export async function uploadNewsHubFile(file: File, folder: 'covers' | 'media' | 'files' = 'media'): Promise<string | null> {
+// Próg powyżej którego plik leci na VPS (Express /upload) zamiast Supabase Storage.
+// Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
+const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
+
+export interface UploadOptions {
+  onProgress?: (pct: number) => void;
+}
+
+export async function uploadNewsHubFile(
+  file: File,
+  folder: 'covers' | 'media' | 'files' = 'media',
+  options: UploadOptions = {}
+): Promise<string | null> {
+  // Duże pliki – VPS (np. wideo 180MB)
+  if (file.size > VPS_THRESHOLD_BYTES) {
+    try {
+      const url = await uploadToVps(file, `news-hub/${folder}`, options.onProgress);
+      return url;
+    } catch (err) {
+      console.error('[useNewsHub] VPS upload failed:', err);
+      // Fallback do Supabase tylko jeśli plik jest poniżej hard-limitu (50MB)
+      if (file.size <= 50 * 1024 * 1024) {
+        return uploadToSupabase(file, folder);
+      }
+      throw err;
+    }
+  }
+  return uploadToSupabase(file, folder);
+}
+
+async function uploadToSupabase(file: File, folder: string): Promise<string | null> {
   const ext = file.name.split('.').pop() || 'bin';
   const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { data, error } = await supabase.storage.from('news-hub-media').upload(fileName, file, { upsert: false });
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('[useNewsHub] Supabase upload error:', error);
+    return null;
+  }
   const { data: pub } = supabase.storage.from('news-hub-media').getPublicUrl(data.path);
   return pub.publicUrl;
+}
+
+function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('folder', folder);
+
+    const xhr = new XMLHttpRequest();
+    // 10 minut dla dużych plików
+    xhr.timeout = 10 * 60 * 1000;
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      const ct = xhr.getResponseHeader('content-type') || '';
+      if (!ct.includes('application/json')) {
+        reject(new Error('Serwer VPS niedostępny (brak odpowiedzi JSON).'));
+        return;
+      }
+      let data: any;
+      try { data = JSON.parse(xhr.responseText); } catch { reject(new Error('Nieprawidłowa odpowiedź serwera')); return; }
+      if (xhr.status < 200 || xhr.status >= 300 || !data?.success || !data?.url) {
+        reject(new Error(data?.error || `Upload nieudany (status ${xhr.status})`));
+        return;
+      }
+      resolve(data.url as string);
+    };
+    xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem VPS.'));
+    xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (10 min). Spróbuj jeszcze raz.'));
+
+    xhr.open('POST', '/upload');
+    xhr.send(form);
+  });
 }
