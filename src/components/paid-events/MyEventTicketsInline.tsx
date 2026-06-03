@@ -197,11 +197,11 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
   };
 
   return (
-    <div className="rounded-md border bg-primary/5 p-3 space-y-3" data-testid="my-event-tickets-inline">
+    <div className="rounded-md border bg-primary/5 p-2.5 sm:p-3 space-y-3" data-testid="my-event-tickets-inline">
       {!isLoading && (
         activeOrdersCount > 0 ? (
           <div
-            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs"
             data-testid="my-event-registration-summary"
           >
             <div className="flex items-start gap-2 min-w-0">
@@ -224,13 +224,13 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                 </div>
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 sm:self-center self-start">
               {statusBadge(activeOrders[0].status)}
             </div>
           </div>
         ) : formSubmission ? (
           <div
-            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex items-center justify-between gap-2 text-xs"
+            className="rounded-md border border-primary/30 bg-primary/10 p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs"
             data-testid="my-event-registration-summary"
           >
             <div className="flex items-start gap-2 min-w-0">
@@ -242,7 +242,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
                 </div>
               </div>
             </div>
-            <div className="shrink-0">
+            <div className="shrink-0 sm:self-center self-start">
               {statusBadge(formSubmission.payment_status === 'paid' ? 'paid' : 'awaiting_transfer')}
             </div>
           </div>
@@ -256,6 +256,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
           </div>
         )
       )}
+
 
       <div className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center justify-between gap-2">
         <span className="flex items-center gap-1">
