@@ -227,9 +227,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       products: formData.products || null,
       contact_source: formData.contact_source || null,
       contact_reason: formData.contact_reason || null,
-      second_contact_date: formData.second_contact_date || null,
-      first_contact_annotation: formData.first_contact_annotation || null,
-      first_contact_result: formData.first_contact_result || null,
       added_at: formData.added_at,
       priority_level: Object.values(formData.priority_traits).reduce((a, b) => a + (Number(b) || 0), 0),
       priority_traits: formData.priority_traits,
@@ -250,6 +247,20 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       const result = await onSubmit(data);
       if (result === false) {
         setError('Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+        return;
+      }
+      // Persist conversation history
+      const targetContactId = contact?.id || (typeof result === 'object' && result ? (result as TeamContact).id : null);
+      if (targetContactId && user?.id) {
+        try {
+          await persistConversations(targetContactId, user.id, conversations);
+        } catch (convErr: any) {
+          toast({
+            title: 'Częściowy zapis',
+            description: 'Kontakt zapisany, ale nie udało się zapisać historii rozmów: ' + (convErr?.message || ''),
+            variant: 'destructive',
+          });
+        }
       }
     } catch (err: any) {
       if (err?.message?.includes('timestamp') || err?.message?.includes('time zone')) {
