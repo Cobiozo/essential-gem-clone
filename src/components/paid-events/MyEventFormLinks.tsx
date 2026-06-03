@@ -162,25 +162,27 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
           return (
             <Card key={form.id}>
               <CardContent className={compact ? 'pt-3 pb-3 space-y-2' : 'pt-5 space-y-3'}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-2 sm:gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <FileText className="h-4 w-4 text-primary shrink-0" />
                       <h3 className="font-medium truncate">{form.title}</h3>
                     </div>
                     {form.paid_events && (
-                      <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                        <Calendar className="h-3 w-3" />
-                        {form.paid_events.title}
+                      <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="flex items-center gap-1 min-w-0">
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{form.paid_events.title}</span>
+                        </span>
                         {form.paid_events.event_date && (
-                          <span>· {new Date(form.paid_events.event_date).toLocaleDateString('pl-PL')}</span>
+                          <span className="whitespace-nowrap">· {new Date(form.paid_events.event_date).toLocaleDateString('pl-PL')}</span>
                         )}
-                        {form.paid_events.location && <span>· {form.paid_events.location}</span>}
+                        {form.paid_events.location && <span className="truncate">· {form.paid_events.location}</span>}
                       </div>
                     )}
                   </div>
                   {link && (
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
                       <Badge variant="secondary" className="gap-1">
                         <MousePointer className="h-3 w-3" /> {link.click_count} kliknięć
                       </Badge>
@@ -193,11 +195,12 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
 
                 {url ? (
                   <div className="flex items-center gap-2">
-                    <Input value={url} readOnly className="font-mono text-xs" />
-                    <Button size="sm" variant="outline" onClick={() => copy(url, link.id)}>
+                    <Input value={url} readOnly className="font-mono text-[11px] sm:text-xs" />
+                    <Button size="sm" variant="outline" onClick={() => copy(url, link.id)} className="shrink-0">
                       {copiedId === link.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
+
                 ) : (
                   <Button
                     size="sm"
