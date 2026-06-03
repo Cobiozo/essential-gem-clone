@@ -28,6 +28,7 @@ import { SpecialistCorrespondence } from '@/components/specialist-correspondence
 import { PrivateChatWidget } from '@/components/private-chat';
 import { CommunicationCenterV2 } from '@/components/communication';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { useGuardianProfile } from '@/hooks/useGuardianProfile';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
