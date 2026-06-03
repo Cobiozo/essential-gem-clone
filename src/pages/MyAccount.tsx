@@ -713,7 +713,7 @@ const MyAccount = () => {
                     <div>
                       <Label className="text-sm font-medium">Imię i nazwisko opiekuna</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
-                        {(profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                        {guardianProfile?.fullName || (profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">Może zmienić wyłącznie administrator</p>
                     </div>
