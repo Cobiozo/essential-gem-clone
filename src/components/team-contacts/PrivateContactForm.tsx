@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fromZonedTime } from 'date-fns-tz';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, User, Tag, CalendarClock, Bell, StickyNote, Sparkles } from 'lucide-react';
+import { Plus, Trash2, User, Tag, CalendarClock, Bell, StickyNote, Sparkles, MessagesSquare } from 'lucide-react';
 import { ContactEventHistory } from './ContactEventHistory';
 import { RatingElement } from '@/components/elements/RatingElement';
 import type { TeamContact } from './types';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useContactConversations, makeEmptyConversation, type ContactConversation } from '@/hooks/useContactConversations';
+import { ConversationHistoryEditor } from './ConversationHistoryEditor';
 
 interface PrivateContactFormProps {
   contact?: TeamContact;
