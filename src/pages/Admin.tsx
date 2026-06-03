@@ -90,6 +90,7 @@ import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
 import { ApiIntegrationsPanel } from '@/components/admin/ApiIntegrationsPanel';
 import MobileBottomNavSettings from '@/components/admin/MobileBottomNavSettings';
 import { ModeratorsManagement } from '@/components/admin/ModeratorsManagement';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
