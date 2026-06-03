@@ -709,12 +709,20 @@ const MyAccount = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Imię i nazwisko opiekuna</Label>
                       <div className="mt-1 p-3 bg-muted rounded-md">
                         {(profile as any).guardian_name || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1">Może zmienić wyłącznie administrator</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">Numer EQ ID opiekuna</Label>
+                      <div className="mt-1 p-3 bg-muted rounded-md">
+                        {(profile as any).upline_eq_id || <span className="text-muted-foreground italic">{t('myAccount.notProvided')}</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Może zmienić wyłącznie administrator</p>
                     </div>
                   </div>
 
