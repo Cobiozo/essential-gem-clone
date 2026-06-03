@@ -71,9 +71,11 @@ const NewsHubAdminPage: React.FC = () => {
             </Link>
             <h1 className="text-xl font-bold">Zarządzanie aktualnościami</h1>
           </div>
-          <Button onClick={() => { setEditing(null); setInitialBlocks(undefined); setShowTemplatePicker(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Nowy post
-          </Button>
+          {canCreate && (
+            <Button onClick={() => { setEditing(null); setInitialBlocks(undefined); setShowTemplatePicker(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Nowy post
+            </Button>
+          )}
         </div>
       </header>
 
@@ -122,18 +124,22 @@ const NewsHubAdminPage: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => togglePinned(p)} title="Przypnij/odepnij">
+                        <Button size="icon" variant="ghost" onClick={() => togglePinned(p)} title="Przypnij/odepnij" disabled={!canPublish}>
                           <Pin className={`h-4 w-4 ${p.is_pinned ? 'text-primary' : ''}`} />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => togglePublished(p)} title="Opublikuj/ukryj">
+                        <Button size="icon" variant="ghost" onClick={() => togglePublished(p)} title="Opublikuj/ukryj" disabled={!canPublish}>
                           {p.is_published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setShowForm(true); }} title="Edytuj">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => remove(p)} title="Usuń" className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit(p) && (
+                          <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setShowForm(true); }} title="Edytuj">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete(p) && (
+                          <Button size="icon" variant="ghost" onClick={() => remove(p)} title="Usuń" className="text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
