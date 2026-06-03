@@ -84,8 +84,8 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
     if (!lastName.trim()) return 'Nazwisko jest wymagane';
     if (!email.trim()) return 'Adres e-mail jest wymagany';
     if (!phoneNumber.trim()) return 'Numer telefonu jest wymagany';
-    if (!guardianName.trim()) return 'Imię i nazwisko opiekuna jest wymagane';
-    
+    // guardian_name is admin-managed; user cannot edit it, so do not block save.
+
     if (isSpecialist) {
       if (!specialization.trim()) return 'Specjalizacje i dziedziny są wymagane dla roli Specjalista';
       if (!profileDescription.trim()) return 'Opis profilu jest wymagany dla roli Specjalista';
@@ -94,7 +94,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
     // Consent validation
     if (!acceptedTerms) return 'Akceptacja Regulaminu jest wymagana';
     if (!acceptedPrivacy) return 'Akceptacja Polityki Prywatności jest wymagana';
-    if (!acceptedRodo) return 'Wyrażenie zgody RODO jest wymagane';
+    if (!acceptedRodo) return 'Wyrażenie zgody RODO jest wymagana';
     
     return null;
   };
@@ -130,7 +130,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone_number: phoneNumber.trim(),
-        guardian_name: guardianName.trim(),
+        // guardian_name is admin-only; never overwritten from user-side save.
         // Address fields
         street_address: address.trim() || null,
         city: city.trim() || null,
@@ -309,21 +309,29 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
 
           <Separator />
 
-          <div className="space-y-2">
-            <Label htmlFor="guardianName" className="flex items-center gap-2">
-              Imię i nazwisko opiekuna *
-              {getFieldStatus('guardian_name') === 'missing' && (
-                <Badge variant="destructive" className="text-xs">Wymagane</Badge>
-              )}
-            </Label>
-            <Input
-              id="guardianName"
-              value={guardianName}
-              onChange={(e) => setGuardianName(e.target.value)}
-              placeholder="Wprowadź imię i nazwisko opiekuna"
-              disabled={loading}
-            />
-            <p className="text-xs text-muted-foreground">Osoba, z którą można się skontaktować</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="guardianName">Imię i nazwisko opiekuna</Label>
+              <Input
+                id="guardianName"
+                value={guardianName}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">Może zmienić wyłącznie administrator</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="guardianEqId">Numer EQ ID opiekuna</Label>
+              <Input
+                id="guardianEqId"
+                value={(profile as any)?.upline_eq_id || ''}
+                disabled
+                className="bg-muted"
+                placeholder="—"
+              />
+              <p className="text-xs text-muted-foreground">Może zmienić wyłącznie administrator</p>
+            </div>
           </div>
         </CardContent>
       </Card>
