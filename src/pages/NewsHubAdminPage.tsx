@@ -17,8 +17,11 @@ import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { format } from 'date-fns';
 
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
+
 const NewsHubAdminPage: React.FC = () => {
   const { isAdmin, loading: authLoading } = useAuth();
+  const { can, loading: modLoading } = useModeratorAccess();
   const { posts, loading, refresh } = useNewsHubPosts({ adminMode: true });
   const [editing, setEditing] = useState<NewsHubPost | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -26,8 +29,8 @@ const NewsHubAdminPage: React.FC = () => {
   const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
   const { adminLayout, saveAdminLayout } = useNewsHubSettings();
 
-  if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (authLoading || modLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  if (!isAdmin && !can('news_hub')) return <Navigate to="/dashboard" replace />;
 
   const togglePinned = async (p: NewsHubPost) => {
     await (supabase.from('news_hub_posts' as any) as any).update({ is_pinned: !p.is_pinned }).eq('id', p.id);
