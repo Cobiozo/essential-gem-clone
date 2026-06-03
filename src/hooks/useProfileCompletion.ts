@@ -30,9 +30,9 @@ export const useProfileCompletion = (): ProfileCompletionStatus => {
     if (!profile.email?.trim()) missingFields.push('email');
     if (!profile.phone_number?.trim()) missingFields.push('phone_number');
     
-    // Guardian name is stored in the profile now
+    // Guardian name is admin-managed; user cannot edit it, so it must not block
+    // profile completion. It's guaranteed by registration + admin can correct it.
     const profileAny = profile as any;
-    if (!profileAny.guardian_name?.trim()) missingFields.push('guardian_name');
     
     // For specialists, check specialization is mandatory
     if (isSpecialist) {
