@@ -1,28 +1,37 @@
-## Cel
-Pole „Imię i nazwisko opiekuna" (wraz z numerem EQ ID) w „Moje konto" ma być tylko do odczytu dla użytkownika — identycznie jak adres e-mail. Edycji może dokonać wyłącznie administrator (przez panel admina → edycja użytkownika, gdzie już istnieje `GuardianSearchInput`).
+## Problem
 
-Użytkownik może samodzielnie edytować tylko: imię, nazwisko, numer telefonu (oraz pola adresowe/specjalisty/zgody — bez zmian).
+Pole „Imię i nazwisko opiekuna" pokazuje wartość z `profiles.guardian_name` (zdenormalizowany tekst zapisany podczas rejestracji). Jedynym wiarygodnym źródłem prawdy jest `profiles.upline_eq_id`. Jeśli opiekun po rejestracji zmieni nazwisko, jeśli admin zmieni EQ ID opiekunowi, albo jeśli admin zmieni opiekuna bez aktualizacji denormalizowanych pól w innych miejscach — wartość `guardian_name` (i `upline_first_name`/`upline_last_name`) staje się nieaktualna. Stąd „121118185" pokazuje „Sebastian Snopek" zamiast faktycznego właściciela tego EQID („Dawid Kowalczyk").
 
-## Zakres zmian
+## Rozwiązanie — jedno źródło prawdy: `upline_eq_id`
 
-### 1. `src/components/profile/ProfileCompletionForm.tsx` (główna zmiana)
-- Pole „Imię i nazwisko opiekuna" — zamienić edytowalny `Input` na widok read-only (`disabled` Input z klasą `bg-muted`), analogicznie do pola e-mail.
-- Dodać obok numer EQ ID opiekuna (z `profile.upline_eq_id`) — również read-only.
-- Usunąć znacznik `Wymagane` przy tym polu (użytkownik nie ma jak go uzupełnić).
-- Dodać komunikat pod polem: „Może zmienić wyłącznie administrator".
-- W `validateForm()` — usunąć walidację `guardianName` (nie powinna blokować zapisu, skoro pole jest niedostępne dla użytkownika).
-- W `handleSave()` w `updateData` — usunąć `guardian_name` (użytkownik nie nadpisuje tej wartości).
+### 1. Backfill + trigger synchronizujący (migracja)
 
-### 2. `src/pages/MyAccount.tsx` (drobna zmiana w widoku read-only)
-- W sekcji „Imię i nazwisko opiekuna" (ok. linia 712-719) — obok nazwiska opiekuna pokazać też EQ ID opiekuna (`profile.upline_eq_id`), zachowując ten sam styl.
+- **Backfill jednorazowy:** zaktualizować w `profiles` wszystkie rekordy gdzie `upline_eq_id` jest ustawione — przepisać `upline_first_name`, `upline_last_name`, `guardian_name` ze świeżych danych opiekuna (JOIN po `eq_id`). Naprawi to istniejące rozbieżności.
+- **Trigger AFTER UPDATE na `profiles`:** gdy zmieni się `first_name`, `last_name` lub `eq_id` użytkownika, zaktualizować wszystkie rekordy w `profiles` mające `upline_eq_id = OLD.eq_id` (lub nowy `eq_id`) — przepisać `upline_first_name`, `upline_last_name`, `guardian_name`. Gwarantuje to spójność w przyszłości bez dotykania kodu front-end.
+- W `handle_new_user` zachować dotychczasowe pola, ale w `admin_change_user_guardian` już teraz są ustawiane poprawnie — bez zmian.
 
-### 3. `src/hooks/useProfileCompletion.ts`
-- Usunąć `guardian_name` z listy `missingFields` (nie blokujemy ukończenia profilu z powodu pola, którego użytkownik nie może edytować). Pole jest gwarantowane przez proces rejestracji + admin może je poprawić.
+### 2. Front-end — czytanie po `upline_eq_id` (defense in depth)
 
-### 4. Pamięć projektu
-- Zaktualizować `mem://features/admin/user-account-governance-v2` — rozszerzyć regułę: oprócz Email/EQ ID, również **opiekun (imię, nazwisko + EQ ID opiekuna)** może być zmieniany wyłącznie przez administratora.
+W miejscach pokazujących imię/nazwisko opiekuna pobierać świeże dane z `profiles` po `upline_eq_id`, zamiast polegać na `guardian_name`:
 
-## Czego NIE zmieniamy
-- Bazy danych, RLS, trigerów rejestracji — opiekun jest już ustawiany przy rejestracji.
-- `UserEditDialog.tsx` (admin) — już teraz pozwala adminowi zmieniać opiekuna przez `GuardianSearchInput` i RPC `admin_change_user_guardian`.
-- Innych pól w profilu użytkownika.
+- **`src/pages/MyAccount.tsx`** (linia 712-727) — dodać lekki fetch po `upline_eq_id` (lub użyć istniejącego `useUnifiedChat`-podobnego wzorca z `useOrganizationTree`), wyświetlić `${first_name} ${last_name}` ze świeżego rekordu opiekuna. Fallback: `guardian_name`.
+- **`src/components/profile/ProfileCompletionForm.tsx`** (read-only input opiekuna) — to samo źródło.
+- Stworzyć mały hook `useGuardianProfile(uplineEqId)` w `src/hooks/` zwracający `{ firstName, lastName, eqId }`, żeby nie duplikować logiki.
+
+### 3. Co NIE zmieniamy
+
+- Schemat tabeli `profiles` — kolumny `upline_first_name`, `upline_last_name`, `guardian_name` zostają (są używane w wielu listach, np. `useLeaderApprovals`, admin, `CompactUserCard`). Trigger zapewnia ich aktualność.
+- RLS, autoryzacja, rejestracja.
+- `admin_change_user_guardian` (już poprawnie aktualizuje wszystkie trzy pola).
+
+## Pliki do zmiany
+
+- `supabase/migrations/<nowa>.sql` — backfill + trigger `sync_downline_guardian_fields`.
+- `src/hooks/useGuardianProfile.ts` — nowy hook.
+- `src/pages/MyAccount.tsx` — użycie hooka w sekcji read-only.
+- `src/components/profile/ProfileCompletionForm.tsx` — użycie hooka w polu read-only opiekuna.
+- `mem://features/admin/user-account-governance-v2` — zapisać regułę: **`upline_eq_id` jest jedynym źródłem prawdy dla opiekuna; trigger automatycznie synchronizuje `upline_first_name`, `upline_last_name`, `guardian_name` w downline gdy opiekun zmienia imię/nazwisko/EQID**.
+
+## Efekt
+
+Wszędzie w aplikacji imię i nazwisko opiekuna będzie konsekwentnie odpowiadać aktualnym danym właściciela `upline_eq_id` — natychmiast po backfillu (istniejące rozbieżności) i automatycznie po każdej zmianie w przyszłości (trigger).
