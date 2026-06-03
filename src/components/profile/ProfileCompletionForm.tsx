@@ -130,7 +130,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone_number: phoneNumber.trim(),
-        guardian_name: guardianName.trim(),
+        // guardian_name is admin-only; never overwritten from user-side save.
         // Address fields
         street_address: address.trim() || null,
         city: city.trim() || null,
