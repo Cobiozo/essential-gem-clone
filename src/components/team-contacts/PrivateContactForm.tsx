@@ -148,16 +148,26 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     }
 
     const addedAt = formData.added_at;
-    if (formData.second_contact_date && addedAt && formData.second_contact_date < addedAt) {
-      setError('Data drugiego kontaktu nie może być wcześniejsza niż data pierwszego kontaktu.');
-      setLoading(false);
-      return;
-    }
-    if (formData.next_contact_date) {
-      const minDate = formData.second_contact_date || addedAt;
-      const minLabel = formData.second_contact_date ? 'drugiego' : 'pierwszego';
-      if (minDate && formData.next_contact_date < minDate) {
-        setError(`Data kolejnego kontaktu nie może być wcześniejsza niż data ${minLabel} kontaktu.`);
+    // Walidacja konwersacji
+    for (let i = 0; i < conversations.length; i++) {
+      const c = conversations[i];
+      if (!c.channel || !c.subchannel) {
+        setError(`Rozmowa #${i + 1}: wybierz kanał i sposób kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (!c.contact_date) {
+        setError(`Rozmowa #${i + 1}: podaj datę kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (addedAt && c.contact_date < addedAt) {
+        setError(`Rozmowa #${i + 1}: data nie może być wcześniejsza niż data utworzenia kontaktu.`);
+        setLoading(false);
+        return;
+      }
+      if (c.next_contact_date && c.next_contact_date < c.contact_date) {
+        setError(`Rozmowa #${i + 1}: data kolejnego kontaktu nie może być wcześniejsza niż data tej rozmowy.`);
         setLoading(false);
         return;
       }
