@@ -1,100 +1,49 @@
-# Plan: Audyt tłumaczeń i ostrzeżenie o tłumaczu przeglądarki
+# Mobilna karta wydarzenia — uporządkowanie układu
 
-## Kontekst
+Na zrzucie widać kartę wydarzenia (`PaidEventCard` + `MyEventTicketsInline` + `MyEventFormLinks`) na telefonie. Elementy są rozsypane: data, banner, tytuł, badge cena, przyciski, lista biletów i panel linku partnerskiego źle się wiążą, „Otwórz bilet (QR)" wypada poniżej ceny, przycisk „Zobacz" jest oddzielony od treści, a link partnerski ma 3 odrębne kolumny (ikona / treść / data), które na wąskim ekranie się rozjeżdżają.
 
-Skan wykazał ~903 plików .tsx/.ts w `src/`, ale tylko 69 z nich używa funkcji `t()` z `useLanguage`. Oznacza to, że duża część UI ma **zaszyte teksty po polsku** (np. `MyAccount.tsx`, panele admin, formularze, dialogi, toasty, etykiety pól, komunikaty błędów). Te teksty nie reagują na zmianę języka w przełączniku w górnej części pulpitu.
+Zmiany dotyczą tylko warstwy prezentacyjnej (Tailwind, kolejność elementów) — żadnej logiki biznesowej, zapytań, RLS ani danych nie ruszam.
 
-Dodatkowo: gdy użytkownik włączy tłumacza w przeglądarce (Google Translate, Edge, Safari), nadpisuje on DOM, co powoduje błędy React („NotFoundError: removeChild on Node”) i niespójność z wewnętrznym i18n PLC.
+## Zakres zmian
 
-## Część 1 — Audyt tłumaczeń (etapowo)
+### 1) `PaidEventCard.tsx` — nagłówek karty
+- Na mobile (`<sm`): zmieniam layout z `flex-col sm:flex-row` na bardziej zwarty układ:
+  - górny rząd: kafelek daty (16×16) + tytuł + cena „od 20 zł" w jednej linii treści (badge ceny obok tytułu lub nad nim, nie wypchnięty na bok)
+  - banner staje się pełnoszerokim obrazem nad treścią (`aspect-video rounded-lg`), bez dziwnego `h-24` obok daty
+  - badge „NADCHODZI / ZAKOŃCZONE" w jednym rzędzie z ceną
+  - meta-info (data, lokalizacja, miejsca) jako pionowa lista ikon na mobile zamiast `flex-wrap`, dzięki czemu nic się nie urywa
+- Przycisk „Zobacz →" na mobile: pełna szerokość pod treścią (`w-full sm:w-auto`), wyraźny CTA; na desktop bez zmian (po prawej, jak teraz)
+- Stała kolejność: banner → badge + tytuł → opis → meta → CTA „Zobacz"
 
-Przeprowadzę audyt automatyczny i etapową naprawę. Zakres obejmuje ~830 plików bez `t()` — zrobimy to **warstwami**, żeby nie wprowadzić regresji:
+### 2) `MyEventTicketsInline.tsx` — sekcja „Twoje bilety"
+- Pasek „Jesteś zarejestrowany / Opłacone": na mobile badge `Opłacone` przenoszony pod tekst (`flex-col sm:flex-row`), żeby tekst nie był ściśnięty
+- Nagłówek „TWOJE BILETY NA TO WYDARZENIE" + badge „1 BILET" — na mobile `flex-wrap` zostaje, ale zmniejszam padding i `gap`
+- Wiersz biletu (`Bilet Wejściowy · 1×bilet · 1 · 20,00 zł · Opłacone · QR`):
+  - Na mobile dzielę na 2 rzędy:
+    1. nazwa biletu + badge ilości + ikona osób + cena + status
+    2. przycisk „Otwórz bilet (QR)" jako **pełnoszerokie CTA** pod wierszem (`w-full sm:w-auto sm:ml-auto`), żeby nie zachodził na cenę
+- Lista uczestników: `flex-col` z mniejszym fontem, ikona „Ty" badge bez zmian
 
-### Krok 1. Skrypt audytu
-- Skrypt `scripts/i18n-audit.mjs`, który skanuje `src/` w poszukiwaniu:
-  - tekstów polskich w JSX (`>Tekst<`, `placeholder=""`, `title=""`, `aria-label=""`, `toast(...)`, `alert(...)`)
-  - plików bez importu `useLanguage`
-- Generuje raport `i18n-audit-report.md` z listą plików posortowaną wg liczby brakujących tłumaczeń.
+### 3) `MyEventFormLinks.tsx` — link partnerski (compact)
+- Header karty (`<FileText/> Rejestracja n... · 0 kliknięć · 1 zapisanych`): na mobile badge'y kliknięć/zapisanych przenoszę pod tytuł (`flex-col sm:flex-row`), żeby tytuł formularza nie był ucinany „Rejestracja n..."
+- Meta-info eventu (tytuł + data + lokalizacja): zamiast jednego rzędu z `·` separatorami stosuję `flex flex-wrap gap-x-2` z mniejszym fontem; obecny dziwny układ „3 kolumn" (data po prawej w tabeli) wynika z `flex` + długiego tytułu — naprawione przez `min-w-0 truncate` na meta items
+- Input z URL + kopiuj: zostaje `flex`, ale input dostaje `text-[11px]` na mobile, żeby cały URL był czytelny (zamiast `https://purelife.info.pl/event-form/rej` ucinanego)
+- Przycisk „Pokaż zapisanych przez mój link (1)": bez zmian funkcjonalnych, tylko `text-xs` i lewa padding-fix
 
-### Krok 2. Naprawa priorytetowych obszarów (warstwa 1)
-Najczęściej odwiedzane przez użytkowników:
-- `src/pages/MyAccount.tsx` (etykiety profilu, opiekun, komunikaty)
-- `src/pages/Dashboard.tsx` i widżety dashboardu
-- `src/components/profile/ProfileCompletionForm.tsx`
-- `src/components/layout/*` (Topbar, Sidebar, mobile bottom nav)
-- Toasty globalne (sonner)
+### 4) Drobne, globalne fixy mobile w tej karcie
+- Wszystkie wewnętrzne paneli (`.rounded-md border bg-primary/5 p-3`): na mobile `p-2.5` zamiast `p-3`, żeby zwolnić miejsce
+- `text-xs` w `MyEventTicketsInline` zostaje na mobile, ale linie z dużą liczbą badge'y dostają `gap-1.5` zamiast `gap-2`, żeby nie było rozjeżdżania
+- Wszystkie `flex items-center justify-between gap-2` z długim tekstem dostają `flex-wrap` lub mobilny break
 
-Wszystkie nowe klucze idą do `i18n_translations` (tabela DB) i są automatycznie tłumaczone przez `scheduled-translate-sync` na EN/DE/NO/IT/ES/FR/PT. Klucze stosują schemat `obszar.podobszar.nazwa` (np. `myaccount.guardian.name_label`).
+## Czego NIE zmieniam
+- Logiki RPC, query keys, RLS, treści tekstów (poza ewentualnym `truncate`)
+- Wyglądu desktop — wszystkie zmiany w klasach mobilnych mają warianty `sm:` przywracające obecny układ
+- Komponentów innych niż te 3 pliki
 
-### Krok 3. Naprawa warstwy 2
-- Panele administracyjne (`src/components/admin/*`, `src/pages/admin/*`)
-- CRM, eventy, leader panel, training, knowledge center
-- Dialogi potwierdzeń, AlertDialog, ConfirmDialog
+## Pliki edytowane
+- `src/components/paid-events/PaidEventCard.tsx`
+- `src/components/paid-events/MyEventTicketsInline.tsx`
+- `src/components/paid-events/MyEventFormLinks.tsx`
 
-### Krok 4. Naprawa warstwy 3
-- Komponenty rzadziej używane (PureBox, OmegaTests, NewsHub, partner pages)
-- Komunikaty błędów edge functions (zwracane do UI)
-
-### Krok 5. Walidacja
-- Re-run skryptu audytu — raport końcowy powinien pokazać 0 hardkodów w warstwach 1–3.
-- Test ręczny: przełączenie języka EN/DE/NO i weryfikacja kluczowych ekranów.
-
-> **Uwaga zakresu:** całość to bardzo duża praca. W tym podejściu zrealizujemy **Krok 1 (skrypt + raport) + Krok 2 (warstwa 1)** w pierwszej iteracji. Kolejne warstwy w następnych iteracjach, na bazie raportu. To pozwoli uniknąć ogromnego, ryzykownego PR-a.
-
-## Część 2 — Detekcja tłumacza przeglądarki
-
-### Mechanizm wykrywania
-Nowy hook `src/hooks/useBrowserTranslationDetector.ts`:
-- **Sygnał 1:** MutationObserver na `<html>` wykrywający atrybuty wstrzykiwane przez tłumacze:
-  - Google Translate: `class="translated-ltr"`, element `<font>` w DOM, `<html class="translated-*">`
-  - Microsoft Edge: atrybut `_msthash`, `_msttexthash`
-  - Safari: atrybut `data-translate` na elementach
-- **Sygnał 2:** sprawdzenie `document.documentElement.lang` różnego od wewnętrznego `language` z `LanguageContext` przy zmianie atrybutu.
-- **Sygnał 3:** porównanie tekstu kontrolnego (ukryty span z ASCII-checksum) — jeśli treść zmieniona, tłumacz aktywny.
-
-### UI ostrzeżenia
-- Komponent `src/components/i18n/BrowserTranslationWarning.tsx`:
-  - Sticky banner pod Topbarem (z-index niższy niż modale chat PiP, czyli `z-[150]`).
-  - Treść (przetłumaczona przez `t()`): „Wykryto tłumaczenie przeglądarki. Pure Life Center ma własny przełącznik języka (👆 w górnym pasku). Wyłącz tłumacza, aby uniknąć błędów wyświetlania.”
-  - Przycisk „Jak wyłączyć?” → modal z instrukcją per-browser (Chrome/Edge/Safari/Firefox).
-  - Przycisk „Rozumiem” → zapamiętane w `localStorage` (`plc-browser-translation-dismissed`) na 24h, ale banner wraca, jeśli tłumacz nadal aktywny po reload.
-- Mount w `App.tsx` (po `Topbar`, tylko dla zalogowanych użytkowników, ukryty na public/auth routes).
-
-### Zabezpieczenie React przed crashami tłumacza
-- Dodanie atrybutu `translate="no"` na głównych kontenerach dynamicznych (chat, formularze, dialogi) — sygnał dla przeglądarki, by nie tłumaczyć tych elementów.
-- W `index.html` na `<html>` dodać `<meta name="google" content="notranslate">` jako twarda blokada Google Translate (powszechna praktyka aplikacji SPA, np. Notion, Linear).
-
-## Część 3 — Dokumentacja
-
-Aktualizacja `mem://infrastructure/i18n-global-governance`:
-- Reguła: każdy nowy komponent UI używa `useLanguage().t()` zamiast hardkodu PL.
-- Reguła: `translate="no"` na kontenerach React zarządzających DOM dynamicznie (chat, listy z mutacjami).
-- Reguła: banner ostrzegawczy o tłumaczu przeglądarki + `<meta name="google" content="notranslate">` w `index.html`.
-
-## Pliki do utworzenia / zmodyfikowania (iteracja 1)
-
-**Nowe:**
-- `scripts/i18n-audit.mjs`
-- `src/hooks/useBrowserTranslationDetector.ts`
-- `src/components/i18n/BrowserTranslationWarning.tsx`
-- `src/components/i18n/HowToDisableTranslatorDialog.tsx`
-
-**Edycje:**
-- `index.html` — meta notranslate
-- `src/App.tsx` — mount bannera
-- `src/pages/MyAccount.tsx` — pełna migracja na `t()`
-- `src/pages/Dashboard.tsx` — pełna migracja na `t()`
-- `src/components/profile/ProfileCompletionForm.tsx`
-- `src/components/layout/Topbar.tsx`, Sidebar, MobileBottomNav
-- `mem://infrastructure/i18n-global-governance`
-
-**Migracja DB:**
-- INSERT nowych kluczy do `i18n_translations` (PL jako źródło) — pozostałe języki uzupełni `scheduled-translate-sync`.
-
-## Ryzyka
-
-- Pełen audyt 800+ plików w jednej iteracji to ryzyko regresji i duża paczka. Dlatego dzielę na warstwy.
-- `translate="no"` w kontenerach chat/realtime jest **konieczne** — bez tego tłumacz Google nadal crashuje React mimo banner.
-- Detekcja tłumacza nie jest 100% — różne przeglądarki wstrzykują różne klasy. Hook używa wielu sygnałów, ale fałszywie negatywne są możliwe (np. Brave, Vivaldi). Banner pojawi się tylko, gdy któryś sygnał zadziała.
-
-Czy zatwierdzasz plan i zaczynamy od iteracji 1 (skrypt audytu + warstwa 1 + detektor tłumacza)?
+## Walidacja
+Po implementacji sprawdzę kartę w preview 390×844 (iPhone), żeby potwierdzić: brak rozjazdów, czytelne CTA, QR-przycisk pod wierszem biletu, link partnerski bez ucinania URL/tytułu.
