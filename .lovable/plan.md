@@ -1,38 +1,83 @@
-## Problem
+# Plan: Sekcja „Komunikacja/konwersacja z kontaktem"
 
-Bilet `Y6JLN8NV8KBX` to **kod zamówienia** (`paid_event_orders.ticket_code`), ale powiązany uczestnik w `paid_event_order_attendees` ma **inny** kod (`ZQPYP3E9PWSU`) — dane historyczne sprzed migracji do per-attendee.
+## Cel
+Przekształcić obecny blok „Pierwszy i drugi kontakt" w formularzu kontaktu CRM (`PrivateContactForm`) w pełną, wielowpisową historię konwersacji. Istniejące kontakty w bazie pozostają nietknięte — dla nich pokażemy starą sekcję w trybie tylko-do-odczytu (legacy) i pozwolimy dopisywać nowe wpisy w nowym układzie.
 
-Przebieg błędu:
-1. Skan `Y6JLN8NV8KBX` → edge function `verify-event-ticket` nie znajduje uczestnika po tym kodzie → wpada w fallback "order-level" → ustawia `paid_event_orders.checked_in = true`.
-2. Frontend (`TicketVerificationPanel.displayRows`) gdy zamówienie ma uczestników, **ignoruje** `order.checked_in` i pokazuje wyłącznie status z `attendee.checked_in` (który nadal jest `false`).
-3. Efekt: górny baner mówi "Check-in wykonano", a lista uczestników pokazuje "0 po check-in" i przycisk "Check-in" przy tej osobie. To samo zachowanie na desktopie i mobile (nie jest to bug responsywny).
+## Struktura nowego wpisu (jedna rozmowa)
 
-## Rozwiązanie
+Każdy wpis na liście historii:
+- **Data kontaktu** (date) — kiedy odbyła się rozmowa
+- **Kanał** (channel):
+  - `offline` → podkanał: `face_to_face` (Spotkanie face to face)
+  - `online` → podkanał: `phone`, `zoom`, `whatsapp`, `messenger`, `other_messenger`, `social_media`
+- **Wynik** (result) — pokazywany tylko gdy podkanał = `phone`:
+  - `answered` (Odebrał), `no_answer` (Nieodebrane), `wrong_number` (Błędny numer), `out_of_range` (Poza zasięgiem)
+- **Data kolejnego kontaktu** (next_date) — opcjonalna
+- **Adnotacja** (note) — tekst
 
-Ujednolicić zapis check-in tak, żeby zawsze trafiał na właściwego uczestnika, nawet gdy skanowany jest legacy `order.ticket_code`.
+Pierwszy wpis odpowiada „pierwszemu kontaktowi". Kolejne dodaje przycisk „➕ Dodaj kolejną rozmowę" — wpisy układają się chronologicznie z możliwością zwijania/rozwijania (akordeon), edycji i usuwania.
 
-### Zmiana 1 — `supabase/functions/verify-event-ticket/index.ts`
+## Nad listą wpisów (read-only)
+- **Data utworzenia kontaktu** — `added_at`, niezmienne (jak dziś).
 
-W gałęzi fallback "order-level" (gdy kod pasuje do `paid_event_orders.ticket_code`, a nie do żadnego uczestnika), jeśli zamówienie posiada rekordy w `paid_event_order_attendees`:
+## Zmiany w bazie danych
 
-- Pobrać uczestników danego zamówienia.
-- Wybrać "głównego" uczestnika do aktualizacji w kolejności:
-  1. uczestnik z `email = order.email`,
-  2. uczestnik z najniższym `seat_index`,
-  3. pierwszy w kolejności.
-- Operacje check-in / check-out wykonywać na **tym** uczestniku (zamiast na `paid_event_orders`).
-- Stan zwracany w odpowiedzi (`checkedIn`, `checkedInAt`, `attendee`) brać z uaktualnionego uczestnika.
+Nowa tabela `team_contact_conversations` przechowująca historię (jedna tabela, wiele wierszy na kontakt):
 
-Dzięki temu lista uczestników zawsze odzwierciedla aktualny status — niezależnie czy skanowany był nowy kod uczestnika, czy stary kod zamówienia.
+```text
+team_contact_conversations
+- id (uuid, pk)
+- contact_id (uuid, fk → team_contacts.id, on delete cascade)
+- user_id (uuid)            -- właściciel kontaktu, dla RLS
+- contact_date (date)       -- data rozmowy
+- channel (text)            -- 'offline' | 'online'
+- subchannel (text)         -- 'face_to_face' | 'phone' | 'zoom' | 'whatsapp' | 'messenger' | 'other_messenger' | 'social_media'
+- phone_result (text|null)  -- gdy subchannel='phone'
+- next_contact_date (date|null)
+- note (text|null)
+- created_at, updated_at
+- sort_index (int)          -- kolejność wpisów (1,2,3…)
+```
 
-### Zmiana 2 — `src/components/ticket-verification/TicketVerificationPanel.tsx` (optymistyczne odświeżenie)
+- RLS: właściciel kontaktu (`user_id = auth.uid()`) ma pełny dostęp; admin pełny dostęp; index na `(contact_id, sort_index)`.
+- GRANT-y dla `authenticated` i `service_role`.
+- Pola legacy w `team_contacts` (`first_contact_result`, `first_contact_annotation`, `second_contact_date`, `next_contact_date`) **pozostają** w schemacie — używane tylko do wyświetlania starych kontaktów.
 
-Po check-in/out, gdy zeskanowany kod pasuje do `order.ticket_code` ale nie do żadnego `attendee.ticket_code`, w aktualizacji optymistycznej (`setOrders(...)`) zaktualizować również tego samego "głównego" uczestnika (email = order.email → najniższy seat_index → pierwszy). Logika `loadOrders(...)` zaraz po tym i tak pobierze prawdziwy stan z serwera, ale UI od razu pokaże poprawny check-in zanim odpowiedź wróci.
+## Logika frontu (`src/components/team-contacts/PrivateContactForm.tsx`)
 
-Żadnych zmian w bazie ani RLS — to wyłącznie poprawka logiki w edge function + spójna aktualizacja optymistyczna w UI.
+Nowa sekcja zastępuje aktualny blok (linie ~438–520):
 
-## Weryfikacja
+1. **Nagłówek**: „Komunikacja/konwersacja z kontaktem" (klucz tłumaczeń `teamContacts.conversationHistory`).
+2. **Tryb wyświetlania**:
+   - Nowy kontakt (`!contact?.id`) lub kontakt bez starych pól → tylko nowy układ (historia wpisów).
+   - Edycja kontaktu, który ma wypełnione legacy pola → pokaż mały kafelek „Dane archiwalne (pierwszy/drugi kontakt)" w trybie read-only + nowy układ poniżej z możliwością dopisywania konwersacji.
+3. **Komponent listy wpisów** (nowy plik `ConversationHistoryEditor.tsx`):
+   - Lokalny stan tablicy wpisów; przy edycji ładuje dane z `team_contact_conversations` przez hook `useContactConversations(contactId)`.
+   - Przycisk „Dodaj kolejną rozmowę" dokleja pusty wpis.
+   - Każdy wpis: pola Data, Kanał (Select offline/online), Podkanał (Select zależny od kanału), Wynik telefoniczny (Select widoczny tylko dla `phone`), Data kolejnego kontaktu, Adnotacja (Textarea), przycisk usuń.
+   - Walidacja: data kontaktu ≥ data utworzenia kontaktu; data kolejnego ≥ data tego wpisu.
+4. **Zapis**:
+   - Tworzenie kontaktu: po insert do `team_contacts`, batch-insert wpisów do `team_contact_conversations`.
+   - Edycja: upsert (po `id`) + delete usuniętych.
+   - Pola legacy w nowych kontaktach nigdy nie są zapisywane.
 
-- Cofnąć check-in dla testowego biletu i zeskanować ponownie — lista uczestników powinna natychmiast pokazać "1 po check-in" i zielony badge przy nazwisku.
-- Sprawdzić zarówno desktop, jak i mobile (logika identyczna).
-- Sprawdzić zamówienie z wieloma uczestnikami, gdzie skanowany jest indywidualny `attendee.ticket_code` — działanie bez zmian.
+## Wyświetlanie w akordeonie listy kontaktów (`TeamContactAccordion.tsx`)
+
+- Sekcja „Pierwszy i drugi kontakt" w widoku szczegółów staje się „Komunikacja/konwersacja z kontaktem".
+- Jeśli kontakt ma wpisy w `team_contact_conversations` → renderuj listę (data, kanał + podkanał, wynik, adnotacja, data kolejnego).
+- Jeśli nie ma wpisów ale ma legacy pola → renderuj jak dziś (kompatybilność wstecz).
+
+## Tłumaczenia
+Dodać klucze w PL/EN/innych językach: `conversationHistory`, `addConversation`, `channelOffline`, `channelOnline`, `subFaceToFace`, `subPhone`, `subZoom`, `subWhatsApp`, `subMessenger`, `subOtherMessenger`, `subSocialMedia`, `phoneAnswered`, `phoneNoAnswer`, `phoneWrongNumber`, `phoneOutOfRange`, `legacyContactData`.
+
+## Pliki do zmiany / utworzenia
+- **Migracja**: nowa tabela `team_contact_conversations` + RLS + GRANT + index.
+- **Nowy plik**: `src/components/team-contacts/ConversationHistoryEditor.tsx`
+- **Nowy hook**: `src/hooks/useContactConversations.ts` (load/save/delete).
+- **Edycja**: `src/components/team-contacts/PrivateContactForm.tsx` — zamiana sekcji + integracja zapisu.
+- **Edycja**: `src/components/team-contacts/TeamContactAccordion.tsx` — render historii w podglądzie.
+- **Edycja**: `src/components/team-contacts/types.ts` — typ `ContactConversation`.
+
+## Co NIE zmienia się
+- Schemat `team_contacts` (kolumny legacy zostają, nie kasujemy danych).
+- Logika filtrów, eksportu, przypomnień (`reminder_date`, `next_contact_date` na kontakcie). Ewentualne podpięcie przypomnień do najnowszego wpisu — w osobnym kroku, po akceptacji tego planu.
