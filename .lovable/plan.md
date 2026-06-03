@@ -1,83 +1,45 @@
-# Plan: Sekcja „Komunikacja/konwersacja z kontaktem"
+# Plan: zamiana sekcji + usunięcie błędnego automatycznego zapisu
 
-## Cel
-Przekształcić obecny blok „Pierwszy i drugi kontakt" w formularzu kontaktu CRM (`PrivateContactForm`) w pełną, wielowpisową historię konwersacji. Istniejące kontakty w bazie pozostają nietknięte — dla nich pokażemy starą sekcję w trybie tylko-do-odczytu (legacy) i pozwolimy dopisywać nowe wpisy w nowym układzie.
+## 1. Zamiana miejscami sekcji w formularzu „Dodaj/Edytuj kontakt prywatny"
 
-## Struktura nowego wpisu (jedna rozmowa)
+Plik: `src/components/team-contacts/PrivateContactForm.tsx`
 
-Każdy wpis na liście historii:
-- **Data kontaktu** (date) — kiedy odbyła się rozmowa
-- **Kanał** (channel):
-  - `offline` → podkanał: `face_to_face` (Spotkanie face to face)
-  - `online` → podkanał: `phone`, `zoom`, `whatsapp`, `messenger`, `other_messenger`, `social_media`
-- **Wynik** (result) — pokazywany tylko gdy podkanał = `phone`:
-  - `answered` (Odebrał), `no_answer` (Nieodebrane), `wrong_number` (Błędny numer), `out_of_range` (Poza zasięgiem)
-- **Data kolejnego kontaktu** (next_date) — opcjonalna
-- **Adnotacja** (note) — tekst
+Aktualnie w prawej kolumnie:
+- góra: **Notatki z rozmów**
+- dół: **Komunikacja/konwersacja z kontaktem**
 
-Pierwszy wpis odpowiada „pierwszemu kontaktowi". Kolejne dodaje przycisk „➕ Dodaj kolejną rozmowę" — wpisy układają się chronologicznie z możliwością zwijania/rozwijania (akordeon), edycji i usuwania.
+Po zmianie (proste przeniesienie bloków `<Section>` — bez zmiany logiki, walidacji, stanu, zapisu):
+- góra: **Komunikacja/konwersacja z kontaktem** (obok „Dane kontaktu")
+- dół: **Notatki z rozmów** (obok „Klasyfikacja / Priorytetyzacja")
 
-## Nad listą wpisów (read-only)
-- **Data utworzenia kontaktu** — `added_at`, niezmienne (jak dziś).
+Brak zmian w danych, hookach i funkcjach zapisu.
 
-## Zmiany w bazie danych
+## 2. Usunięcie błędnego komunikatu „Automatycznie dodany po rejestracji – oczekuje na zatwierdzenie"
 
-Nowa tabela `team_contact_conversations` przechowująca historię (jedna tabela, wiele wierszy na kontakt):
+### Skąd pochodzi
+Wartość jest wstawiana do `team_contacts.notes` przez funkcję triggera `handle_new_user` (ostatnio w migracji `20260220232157_...sql`). Wyświetlana jest w karcie członka zespołu w sekcji „Notatki" (`TeamContactAccordion`) — wprowadza w błąd, bo nie odzwierciedla faktycznego statusu konta (`Status konta: Aktywny`).
 
-```text
-team_contact_conversations
-- id (uuid, pk)
-- contact_id (uuid, fk → team_contacts.id, on delete cascade)
-- user_id (uuid)            -- właściciel kontaktu, dla RLS
-- contact_date (date)       -- data rozmowy
-- channel (text)            -- 'offline' | 'online'
-- subchannel (text)         -- 'face_to_face' | 'phone' | 'zoom' | 'whatsapp' | 'messenger' | 'other_messenger' | 'social_media'
-- phone_result (text|null)  -- gdy subchannel='phone'
-- next_contact_date (date|null)
-- note (text|null)
-- created_at, updated_at
-- sort_index (int)          -- kolejność wpisów (1,2,3…)
-```
+### Co zrobimy (jedna migracja)
+1. **CREATE OR REPLACE FUNCTION `public.handle_new_user`** — identyczna logika jak obecnie, ale w `INSERT INTO public.team_contacts (...)` pole `notes` ustawiamy na `NULL` zarówno dla głównej gałęzi (auto-dodanie do bazy opiekuna), jak i dla pozostałych miejsc, które wstawiały tę samą frazę (m.in. fallback „Automatycznie dodany - naprawiony wpis", jeżeli pojawia się w aktualnej wersji funkcji — po prostu nie zapisujemy żadnego komunikatu w `notes`).
+2. **Czyszczenie istniejących rekordów** — jednorazowy `UPDATE`:
+   ```sql
+   UPDATE public.team_contacts
+   SET notes = NULL
+   WHERE contact_type = 'team_member'
+     AND notes IN (
+       'Automatycznie dodany po rejestracji - oczekuje na zatwierdzenie',
+       'Automatycznie dodany po rejestracji',
+       'Automatycznie dodany - naprawiony wpis'
+     );
+   ```
+   Dzięki temu w UI pole „Notatki" po prostu zniknie/zostanie puste dla wszystkich obecnych kontaktów, których notatka była tylko automatycznym placeholderem. Notatki wpisane ręcznie przez użytkownika pozostają nietknięte.
 
-- RLS: właściciel kontaktu (`user_id = auth.uid()`) ma pełny dostęp; admin pełny dostęp; index na `(contact_id, sort_index)`.
-- GRANT-y dla `authenticated` i `service_role`.
-- Pola legacy w `team_contacts` (`first_contact_result`, `first_contact_annotation`, `second_contact_date`, `next_contact_date`) **pozostają** w schemacie — używane tylko do wyświetlania starych kontaktów.
+### Czego NIE ruszamy
+- Schemat tabeli `team_contacts`, RLS, GRANT-y, indeksy — bez zmian.
+- Logika zatwierdzeń (Guardian/Leader), powiadomienia, profile — bez zmian.
+- Frontend nie wymaga zmian dla tego punktu — sekcja „Notatki" w karcie sama zniknie, gdy `notes` jest puste.
 
-## Logika frontu (`src/components/team-contacts/PrivateContactForm.tsx`)
+## Pliki
 
-Nowa sekcja zastępuje aktualny blok (linie ~438–520):
-
-1. **Nagłówek**: „Komunikacja/konwersacja z kontaktem" (klucz tłumaczeń `teamContacts.conversationHistory`).
-2. **Tryb wyświetlania**:
-   - Nowy kontakt (`!contact?.id`) lub kontakt bez starych pól → tylko nowy układ (historia wpisów).
-   - Edycja kontaktu, który ma wypełnione legacy pola → pokaż mały kafelek „Dane archiwalne (pierwszy/drugi kontakt)" w trybie read-only + nowy układ poniżej z możliwością dopisywania konwersacji.
-3. **Komponent listy wpisów** (nowy plik `ConversationHistoryEditor.tsx`):
-   - Lokalny stan tablicy wpisów; przy edycji ładuje dane z `team_contact_conversations` przez hook `useContactConversations(contactId)`.
-   - Przycisk „Dodaj kolejną rozmowę" dokleja pusty wpis.
-   - Każdy wpis: pola Data, Kanał (Select offline/online), Podkanał (Select zależny od kanału), Wynik telefoniczny (Select widoczny tylko dla `phone`), Data kolejnego kontaktu, Adnotacja (Textarea), przycisk usuń.
-   - Walidacja: data kontaktu ≥ data utworzenia kontaktu; data kolejnego ≥ data tego wpisu.
-4. **Zapis**:
-   - Tworzenie kontaktu: po insert do `team_contacts`, batch-insert wpisów do `team_contact_conversations`.
-   - Edycja: upsert (po `id`) + delete usuniętych.
-   - Pola legacy w nowych kontaktach nigdy nie są zapisywane.
-
-## Wyświetlanie w akordeonie listy kontaktów (`TeamContactAccordion.tsx`)
-
-- Sekcja „Pierwszy i drugi kontakt" w widoku szczegółów staje się „Komunikacja/konwersacja z kontaktem".
-- Jeśli kontakt ma wpisy w `team_contact_conversations` → renderuj listę (data, kanał + podkanał, wynik, adnotacja, data kolejnego).
-- Jeśli nie ma wpisów ale ma legacy pola → renderuj jak dziś (kompatybilność wstecz).
-
-## Tłumaczenia
-Dodać klucze w PL/EN/innych językach: `conversationHistory`, `addConversation`, `channelOffline`, `channelOnline`, `subFaceToFace`, `subPhone`, `subZoom`, `subWhatsApp`, `subMessenger`, `subOtherMessenger`, `subSocialMedia`, `phoneAnswered`, `phoneNoAnswer`, `phoneWrongNumber`, `phoneOutOfRange`, `legacyContactData`.
-
-## Pliki do zmiany / utworzenia
-- **Migracja**: nowa tabela `team_contact_conversations` + RLS + GRANT + index.
-- **Nowy plik**: `src/components/team-contacts/ConversationHistoryEditor.tsx`
-- **Nowy hook**: `src/hooks/useContactConversations.ts` (load/save/delete).
-- **Edycja**: `src/components/team-contacts/PrivateContactForm.tsx` — zamiana sekcji + integracja zapisu.
-- **Edycja**: `src/components/team-contacts/TeamContactAccordion.tsx` — render historii w podglądzie.
-- **Edycja**: `src/components/team-contacts/types.ts` — typ `ContactConversation`.
-
-## Co NIE zmienia się
-- Schemat `team_contacts` (kolumny legacy zostają, nie kasujemy danych).
-- Logika filtrów, eksportu, przypomnień (`reminder_date`, `next_contact_date` na kontakcie). Ewentualne podpięcie przypomnień do najnowszego wpisu — w osobnym kroku, po akceptacji tego planu.
+- edytowany: `src/components/team-contacts/PrivateContactForm.tsx` (zamiana kolejności dwóch sekcji)
+- nowa migracja: `supabase/migrations/<timestamp>_remove_auto_team_contact_note.sql` (CREATE OR REPLACE `handle_new_user` + UPDATE czyszczący istniejące notatki)
