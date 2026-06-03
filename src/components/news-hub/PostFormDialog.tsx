@@ -56,6 +56,7 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
   const [form, setForm] = useState<Partial<NewsHubPost>>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState<number>(0);
   const [tagsText, setTagsText] = useState('');
   const [galleryText, setGalleryText] = useState('');
 
@@ -75,17 +76,24 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
 
   const handleUpload = async (file: File, field: 'cover_url' | 'media_url' | 'file_url') => {
     setUploading(field);
+    setUploadPct(0);
     const folder = field === 'cover_url' ? 'covers' : field === 'file_url' ? 'files' : 'media';
-    const url = await uploadNewsHubFile(file, folder);
-    if (url) {
-      const patch: any = { [field]: url };
-      if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
-      update(patch);
-      toast.success('Wgrano plik');
-    } else {
-      toast.error('Błąd uploadu');
+    try {
+      const url = await uploadNewsHubFile(file, folder, { onProgress: (p) => setUploadPct(p) });
+      if (url) {
+        const patch: any = { [field]: url };
+        if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
+        update(patch);
+        toast.success('Wgrano plik');
+      } else {
+        toast.error('Błąd uploadu');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Błąd uploadu');
+    } finally {
+      setUploading(null);
+      setUploadPct(0);
     }
-    setUploading(null);
   };
 
   const save = async () => {
