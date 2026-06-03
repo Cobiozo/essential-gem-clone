@@ -238,6 +238,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const navigate = useNavigate();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const { isAdmin, can } = useModeratorAccess();
 
   const [searchQuery, setSearchQuery] = useState('');
 
