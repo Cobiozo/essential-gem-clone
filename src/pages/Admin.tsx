@@ -3041,8 +3041,8 @@ const Admin = () => {
     );
   }
 
-  // Password gate – admin musi potwierdzić hasło przed wejściem do CMS
-  if (isAdmin && !gateUnlocked) {
+  // Password gate – admin oraz moderator muszą potwierdzić hasło przed wejściem do CMS
+  if (hasAnyAdminAccess && !gateUnlocked) {
     return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
   }
 

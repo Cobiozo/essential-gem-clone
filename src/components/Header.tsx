@@ -221,10 +221,10 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-background border border-border">
                   {/* Moje konto / Panel CMS */}
-                  {isAdmin ? (
+                  {hasAnyAdminAccess ? (
                     <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
-                      {t('nav.admin')}
+                      {isAdmin ? t('nav.admin') : 'Panel CMS'}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem onClick={() => navigate('/my-account')} className="cursor-pointer">
