@@ -187,10 +187,26 @@ export const ModeratorsManagement: React.FC = () => {
     const { data, error } = await supabase.functions.invoke('admin-set-moderator', {
       body: { action, ...payload },
     });
-    if (error) throw new Error(error.message || 'Edge function error');
+    if (error) {
+      // Funkcja invoke często zwraca generyczny "Failed to send a request to the Edge Function"
+      // — spróbuj wyciągnąć szczegół z odpowiedzi HTTP.
+      let detail = error.message || 'Błąd wywołania funkcji';
+      try {
+        const ctx: any = (error as any)?.context;
+        if (ctx?.json) {
+          const body = await ctx.json();
+          if (body?.error) detail = body.error;
+        } else if (ctx?.text) {
+          const txt = await ctx.text();
+          if (txt) detail = txt;
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail);
+    }
     if ((data as any)?.error) throw new Error((data as any).error);
     return data;
   };
+
 
   const addModerator = async (profile: ProfileLite) => {
     try {
