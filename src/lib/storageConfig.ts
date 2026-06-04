@@ -11,6 +11,14 @@ export const STORAGE_CONFIG = {
   // URL do API uploadu (Node.js Express)
   UPLOAD_API_URL: '/upload',
   LIST_API_URL: '/list-files',
+
+  // Foldery VPS dla News Hub (mapowane przez Express na /uploads/<folder>/<file>)
+  NEWS_HUB_FOLDERS: {
+    video: 'training-media',
+    image: 'training-media',
+    file: 'training-media',
+    cover: 'training-media',
+  } as const,
   
   // Dozwolone typy plików
   ALLOWED_TYPES: {
