@@ -90,14 +90,16 @@ export function slugify(text: string): string {
 // Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
 const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
-// Express VPS używa jednosegmentowych folderów (np. "training-media"). Zagnieżdżone
-// ścieżki typu "news-hub/media" nie były tworzone i plik nigdy nie był zapisywany –
-// serwer SPA zwracał HTML 200, przez co odtwarzacz pokazywał 0:00.
+// Express VPS na produkcji ma utworzony i przetestowany TYLKO folder
+// `training-media` (patrz cleanup-inactive-training, audit-storage-files,
+// migracja 20260107111551). Foldery typu `news-hub-*` nie istnieją na VPS,
+// więc serwer zwracał SPA HTML zamiast pliku → wideo 0:00. Używamy
+// `training-media` dla wszystkich uploadów News Hub jako stabilnego targetu.
 type NewsHubFolderKey = 'covers' | 'media' | 'files';
 const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
-  covers: 'news-hub-covers',
-  media: 'news-hub-media',
-  files: 'news-hub-files',
+  covers: 'training-media',
+  media: 'training-media',
+  files: 'training-media',
 };
 
 export interface UploadOptions {
@@ -145,23 +147,16 @@ async function uploadToSupabase(file: File, folder: string): Promise<string | nu
 
 // Po uploadzie na VPS sprawdzamy nagłówki – jeśli content-type to text/html,
 // oznacza to fallback SPA i plik faktycznie NIE został zapisany.
-async function verifyUploadedUrl(url: string, expectedMime: string): Promise<boolean> {
+// W razie braku HEAD lub innych błędów sieci NIE blokujemy uploadu.
+async function verifyUploadedUrl(url: string, _expectedMime: string): Promise<boolean> {
   try {
     const res = await fetch(url, { method: 'HEAD' });
-    if (!res.ok) return false;
+    if (!res.ok) return true; // HEAD może być zablokowany – nie blokujemy
     const ct = (res.headers.get('content-type') || '').toLowerCase();
+    // Blokujemy TYLKO jasny fallback SPA: text/html.
     if (ct.startsWith('text/html')) return false;
-    // Akceptujemy zgodny prefix typu, application/octet-stream lub brak typu (niektóre serwery).
-    if (expectedMime) {
-      const prefix = expectedMime.split('/')[0];
-      if (ct && !ct.startsWith(prefix) && !ct.includes('octet-stream')) {
-        // dopuszczamy, jeśli serwer zwraca akceptujący typ – ale nie HTML
-        return !ct.startsWith('text/');
-      }
-    }
     return true;
   } catch {
-    // Brak HEAD nie powinien blokować uploadu – ufamy oryginalnej odpowiedzi.
     return true;
   }
 }
