@@ -88,13 +88,12 @@ export async function verifyTicketVerifier(req: Request): Promise<any> {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) {
+  const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: claimsErr } = await (supabaseAdmin.auth as any).getClaims(token);
+  if (claimsErr || !claimsData?.claims?.sub) {
     return {
       ok: false,
       response: new Response(JSON.stringify({ error: "Invalid token" }), {
@@ -103,9 +102,8 @@ export async function verifyTicketVerifier(req: Request): Promise<any> {
       }),
     };
   }
-  const userId = userData.user.id;
+  const userId = claimsData.claims.sub as string;
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
   // 1) Try RPC
   let hasAccess = false;
