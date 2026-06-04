@@ -276,9 +276,9 @@ export const ModeratorsManagement: React.FC = () => {
         {searchResults.length > 0 && (
           <div className="border border-border rounded-lg divide-y divide-border max-h-80 overflow-y-auto">
             {searchResults.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 hover:bg-muted/40">
+              <div key={p.user_id} className="flex items-center justify-between p-3 hover:bg-muted/40">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{p.full_name || '(bez imienia)'}</div>
+                  <div className="font-medium truncate">{fullNameOf(p) || '(bez imienia)'}</div>
                   <div className="text-xs text-muted-foreground truncate">
                     {p.email} {p.eq_id ? ` · EQ ID: ${p.eq_id}` : ''}
                   </div>
