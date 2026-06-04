@@ -70,6 +70,7 @@ import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
@@ -129,6 +130,7 @@ export const DashboardSidebar: React.FC = () => {
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t, tf, language } = useLanguage();
   const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
+  const { hasAnyAdminAccess, isModerator } = useModeratorAccess();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
@@ -511,13 +513,12 @@ export const DashboardSidebar: React.FC = () => {
         },
       ],
     }] : []) as MenuItem[],
-    { 
-      id: 'admin', 
-      icon: Shield, 
-      labelKey: 'dashboard.menu.admin', 
+    ...(isAdmin || hasAnyAdminAccess ? [{
+      id: 'admin',
+      icon: Shield,
+      labelKey: isAdmin ? 'dashboard.menu.admin' : 'Panel CMS',
       path: '/admin',
-      visibleFor: ['admin']
-    },
+    }] : []) as MenuItem[],
   ];
 
   // Filter menu items based on visibility
