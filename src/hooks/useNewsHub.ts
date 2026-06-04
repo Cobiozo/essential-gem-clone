@@ -88,11 +88,12 @@ export function slugify(text: string): string {
 
 // Próg powyżej którego plik leci na VPS (Express /upload) zamiast Supabase Storage.
 // Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
+import { STORAGE_CONFIG } from '@/lib/storageConfig';
+
 const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
 // Express VPS na produkcji ma utworzony i przetestowany TYLKO folder
-// `training-media` (patrz cleanup-inactive-training, audit-storage-files,
-// migracja 20260107111551). Foldery typu `news-hub-*` nie istnieją na VPS,
+// `training-media`. Foldery typu `news-hub-*` nie istnieją na VPS,
 // więc serwer zwracał SPA HTML zamiast pliku → wideo 0:00. Używamy
 // `training-media` dla wszystkich uploadów News Hub jako stabilnego targetu.
 type NewsHubFolderKey = 'covers' | 'media' | 'files';
@@ -102,8 +103,34 @@ const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
   files: 'training-media',
 };
 
+// Co użytkownik wgrywa — używamy do walidacji client-side i weryfikacji
+// content-type po uploadzie. NIE musi się pokrywać z folderem na VPS.
+export type NewsHubUploadKind = 'video' | 'image' | 'file' | 'cover';
+
+function inferKind(folder: NewsHubFolderKey, file: File): NewsHubUploadKind {
+  if (folder === 'covers') return 'cover';
+  if (file.type.startsWith('video/')) return 'video';
+  if (file.type.startsWith('image/')) return 'image';
+  return 'file';
+}
+
+function validateClientMime(file: File, kind: NewsHubUploadKind): string | null {
+  const t = (file.type || '').toLowerCase();
+  if (kind === 'video') {
+    if (!t.startsWith('video/')) return 'To nie jest plik wideo. Wybierz plik MP4 / WebM / MOV.';
+  } else if (kind === 'image' || kind === 'cover') {
+    if (!t.startsWith('image/')) return 'To nie jest plik obrazu.';
+  }
+  if (file.size > STORAGE_CONFIG.MAX_FILE_SIZE_BYTES) {
+    return `Plik jest za duży (max ${STORAGE_CONFIG.MAX_FILE_SIZE_MB} MB).`;
+  }
+  return null;
+}
+
 export interface UploadOptions {
   onProgress?: (pct: number) => void;
+  /** Nadpisuje typ wykrywany z folderu/MIME — używaj gdy field to wideo niezależnie od MIME pliku. */
+  kind?: NewsHubUploadKind;
 }
 
 export async function uploadNewsHubFile(
@@ -111,22 +138,21 @@ export async function uploadNewsHubFile(
   folder: NewsHubFolderKey = 'media',
   options: UploadOptions = {}
 ): Promise<string | null> {
+  const kind = options.kind || inferKind(folder, file);
+
+  const mimeErr = validateClientMime(file, kind);
+  if (mimeErr) throw new Error(mimeErr);
+
   // Duże pliki – VPS (np. wideo 180MB)
   if (file.size > VPS_THRESHOLD_BYTES) {
     try {
       const url = await uploadToVps(file, VPS_FOLDERS[folder], options.onProgress);
       // Walidacja: serwer SPA zwraca HTML 200 dla brakujących ścieżek – wykryjmy to.
-      const ok = await verifyUploadedUrl(url, file.type);
-      if (!ok) {
-        throw new Error('Plik został przyjęty, ale serwer nie udostępnia go pod oczekiwanym adresem. Skontaktuj się z administratorem (konfiguracja VPS).');
-      }
+      const verr = await verifyUploadedUrl(url, kind);
+      if (verr) throw new Error(verr);
       return url;
     } catch (err) {
       console.error('[useNewsHub] VPS upload failed:', err);
-      // Fallback do Supabase tylko jeśli plik jest poniżej hard-limitu (50MB)
-      if (file.size <= 50 * 1024 * 1024) {
-        return uploadToSupabase(file, folder);
-      }
       throw err;
     }
   }
@@ -136,28 +162,54 @@ export async function uploadNewsHubFile(
 async function uploadToSupabase(file: File, folder: string): Promise<string | null> {
   const ext = file.name.split('.').pop() || 'bin';
   const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { data, error } = await supabase.storage.from('news-hub-media').upload(fileName, file, { upsert: false });
+  const { data, error } = await supabase.storage.from('news-hub-media').upload(fileName, file, { upsert: false, contentType: file.type || undefined });
   if (error || !data) {
     console.error('[useNewsHub] Supabase upload error:', error);
-    return null;
+    throw new Error(error?.message || 'Błąd uploadu do Supabase Storage.');
   }
   const { data: pub } = supabase.storage.from('news-hub-media').getPublicUrl(data.path);
   return pub.publicUrl;
 }
 
-// Po uploadzie na VPS sprawdzamy nagłówki – jeśli content-type to text/html,
+// Po uploadzie sprawdzamy nagłówki – jeśli content-type to text/html,
 // oznacza to fallback SPA i plik faktycznie NIE został zapisany.
-// W razie braku HEAD lub innych błędów sieci NIE blokujemy uploadu.
-async function verifyUploadedUrl(url: string, _expectedMime: string): Promise<boolean> {
+// Dla wideo dodatkowo wymagamy `video/*` lub `application/octet-stream` (poprawne mp4 czasem tak serwuje nginx).
+// Zwraca komunikat błędu (PL) lub null gdy OK.
+async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<string | null> {
+  const ct = await fetchContentType(url);
+  if (ct === null) {
+    // HEAD/range zablokowane — nie blokujemy.
+    return null;
+  }
+  const lower = ct.toLowerCase();
+  if (lower.startsWith('text/html')) {
+    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł (skontaktuj się z administratorem VPS).';
+  }
+  if (kind === 'video') {
+    if (lower.startsWith('video/')) return null;
+    if (lower.startsWith('application/octet-stream')) return null; // tolerujemy
+    return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
+  }
+  if (kind === 'image' || kind === 'cover') {
+    if (lower.startsWith('image/')) return null;
+    if (lower.startsWith('application/octet-stream')) return null;
+    return `Serwer nie zwraca obrazu (content-type: ${ct}).`;
+  }
+  return null;
+}
+
+async function fetchContentType(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, { method: 'HEAD' });
-    if (!res.ok) return true; // HEAD może być zablokowany – nie blokujemy
-    const ct = (res.headers.get('content-type') || '').toLowerCase();
-    // Blokujemy TYLKO jasny fallback SPA: text/html.
-    if (ct.startsWith('text/html')) return false;
-    return true;
+    if (res.ok) return res.headers.get('content-type') || '';
+    // 405/403 → spróbuj range GET
+    if (res.status === 405 || res.status === 403) {
+      const r2 = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+      if (r2.ok || r2.status === 206) return r2.headers.get('content-type') || '';
+    }
+    return null;
   } catch {
-    return true;
+    return null;
   }
 }
 
@@ -194,7 +246,7 @@ function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => v
     xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem VPS.'));
     xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (10 min). Spróbuj jeszcze raz.'));
 
-    xhr.open('POST', '/upload');
+    xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
     xhr.send(form);
   });
 }

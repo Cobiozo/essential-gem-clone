@@ -16,21 +16,43 @@ function vimeoId(url: string): string | null {
 
 const VideoFrame: React.FC<{ url: string }> = ({ url }) => {
   const [error, setError] = React.useState(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  const yt = !error ? youTubeId(url) : null;
+  const vm = !error ? vimeoId(url) : null;
+
+  React.useEffect(() => {
+    setError(false);
+    if (!url || yt || vm) return;
+    let cancelled = false;
+    fetch(url, { method: 'HEAD' }).then((res) => {
+      if (cancelled) return;
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('text/html')) setError(true);
+    }).catch(() => {});
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      const v = videoRef.current;
+      if (!v) return;
+      if (!isFinite(v.duration) || v.duration === 0) setError(true);
+    }, 6000);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [url, yt, vm]);
+
   if (!url) return <div className="aspect-video w-full rounded-xl bg-muted flex items-center justify-center text-xs text-muted-foreground">Brak URL wideo</div>;
-  const yt = youTubeId(url);
   if (yt) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube.com/embed/${yt}`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div>;
-  const v = vimeoId(url);
-  if (v) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://player.vimeo.com/video/${v}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen /></div>;
+  if (vm) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen /></div>;
   if (error) {
     return (
       <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-xs text-muted-foreground">
-        <span>Nie udało się odtworzyć wideo z tego adresu.</span>
+        <AlertTriangle className="h-5 w-5 text-amber-500" />
+        <span>Nie można odtworzyć tego pliku wideo.</span>
+        <span>Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź. Wgraj plik ponownie z poziomu edytora.</span>
         <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all">{url}</a>
-        <span>Wgraj plik ponownie – poprzedni upload mógł się nie zapisać na serwerze.</span>
       </div>
     );
   }
-  return <video controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)} />;
+  return <video ref={videoRef} controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {
