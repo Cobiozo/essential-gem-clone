@@ -46,30 +46,71 @@ interface ModuleDef {
 }
 
 const MODULES: ModuleDef[] = [
-  // Treści
-  { key: 'news_hub', label: 'Centrum Aktualności', group: 'Treści', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
-  { key: 'pages', label: 'Strony CMS', group: 'Treści', actions: ['create', 'edit', 'delete'], supportsIds: true },
-  { key: 'html-pages', label: 'Strony HTML', group: 'Treści', actions: ['create', 'edit', 'delete'], supportsIds: true },
-  { key: 'media-library', label: 'Biblioteka mediów', group: 'Treści', actions: ['upload', 'delete'] },
+  // ===== Strona i wygląd =====
+  { key: 'content', label: 'Treść główna', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'layout', label: 'Układ / Layout', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'pages', label: 'Strony CMS', group: 'Strona i wygląd', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'html-pages', label: 'Strony HTML', group: 'Strona i wygląd', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'colors', label: 'Kolory i motywy', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'settings', label: 'Ustawienia strony', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'dashboard-footer', label: 'Stopka dashboardu', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'sidebar-icons', label: 'Ikony paska bocznego', group: 'Strona i wygląd', actions: ['edit'] },
 
-  // Eventy
-  { key: 'events', label: 'Wydarzenia (eventy)', group: 'Eventy', actions: ['create', 'edit', 'delete'], supportsIds: true },
-  { key: 'event-registrations', label: 'Rejestracje na wydarzenia', group: 'Eventy', actions: ['view', 'edit', 'delete'] },
-  { key: 'paid-events', label: 'Wydarzenia płatne / bilety', group: 'Eventy', actions: ['create', 'edit', 'delete'], supportsIds: true },
-  { key: 'meeting-guests', label: 'Goście spotkań', group: 'Eventy', actions: ['view', 'edit'] },
-  { key: 'partner-pages', label: 'Strony partnerskie', group: 'Eventy', actions: ['create', 'edit', 'delete'] },
+  // ===== Użytkownicy ===== (moduł `moderators` celowo pominięty — tylko admin)
+  { key: 'users', label: 'Zarządzanie użytkownikami', group: 'Użytkownicy', actions: ['view', 'edit', 'export'] },
+  { key: 'user-stats', label: 'Statystyki użytkowników', group: 'Użytkownicy', actions: ['view', 'export'] },
+  { key: 'account', label: 'Konto / profil', group: 'Użytkownicy', actions: ['view', 'edit'] },
+  { key: 'leader-panel-management', label: 'Panel Lidera', group: 'Użytkownicy', actions: ['view', 'edit'] },
+  { key: 'platform-teams', label: 'Zespoły platformy', group: 'Użytkownicy', actions: ['create', 'edit', 'delete'] },
 
-  // Wiedza
-  { key: 'training', label: 'Szkolenia / Akademia', group: 'Wiedza', actions: ['create', 'edit', 'delete'], supportsIds: true },
-  { key: 'knowledge', label: 'Centrum Wiedzy', group: 'Wiedza', actions: ['create', 'edit', 'delete'] },
-  { key: 'healthy-knowledge', label: 'Zdrowa Wiedza', group: 'Wiedza', actions: ['create', 'edit', 'delete'] },
+  // ===== Szkolenia i wiedza =====
+  { key: 'training', label: 'Szkolenia / Akademia', group: 'Szkolenia i wiedza', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'certificates', label: 'Certyfikaty', group: 'Szkolenia i wiedza', actions: ['view', 'edit', 'delete'] },
+  { key: 'knowledge', label: 'Centrum Wiedzy / Biblioteka', group: 'Szkolenia i wiedza', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'healthy-knowledge', label: 'Baza wiedzy (Zdrowa wiedza)', group: 'Szkolenia i wiedza', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'media-library', label: 'Biblioteka mediów', group: 'Szkolenia i wiedza', actions: ['upload', 'delete'] },
 
-  // Komunikacja
-  { key: 'daily-signal', label: 'Sygnał dnia', group: 'Komunikacja', actions: ['edit'] },
-  { key: 'important-info', label: 'Ważne informacje', group: 'Komunikacja', actions: ['create', 'edit', 'delete'] },
-  { key: 'news-ticker', label: 'Pasek aktualności', group: 'Komunikacja', actions: ['edit'] },
+  // ===== Wydarzenia i narzędzia =====
+  { key: 'events', label: 'Wydarzenia (eventy)', group: 'Wydarzenia i narzędzia', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'event-registrations', label: 'Rejestracje na wydarzenia', group: 'Wydarzenia i narzędzia', actions: ['view', 'edit', 'delete', 'export'] },
+  { key: 'paid-events', label: 'Płatne wydarzenia / bilety', group: 'Wydarzenia i narzędzia', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+  { key: 'meeting-guests', label: 'Goście spotkań', group: 'Wydarzenia i narzędzia', actions: ['view', 'edit'] },
+  { key: 'daily-signal', label: 'Sygnał dnia', group: 'Wydarzenia i narzędzia', actions: ['edit'] },
+  { key: 'important-info', label: 'Ważne informacje', group: 'Wydarzenia i narzędzia', actions: ['create', 'edit', 'delete'] },
+  { key: 'news-ticker', label: 'Pasek informacyjny', group: 'Wydarzenia i narzędzia', actions: ['edit'] },
+  { key: 'calculator', label: 'Kalkulator Influencerów', group: 'Wydarzenia i narzędzia', actions: ['edit'] },
+  { key: 'specialist-calculator', label: 'Kalkulator Specjalistów', group: 'Wydarzenia i narzędzia', actions: ['edit'] },
+  { key: 'partner-pages', label: 'Strony partnerskie', group: 'Wydarzenia i narzędzia', actions: ['create', 'edit', 'delete'], supportsIds: true },
+  { key: 'organization-tree', label: 'Struktura organizacji', group: 'Wydarzenia i narzędzia', actions: ['view', 'edit'] },
+  { key: 'purebox', label: 'PureBox', group: 'Wydarzenia i narzędzia', actions: ['view', 'edit'] },
+
+  // ===== Treści dodatkowe (poza sidebarem admin) =====
+  { key: 'news_hub', label: 'Centrum Aktualności', group: 'Treści dodatkowe', actions: ['create', 'edit', 'delete', 'publish'], supportsIds: true },
+
+  // ===== Komunikacja =====
+  { key: 'translations', label: 'Tłumaczenia', group: 'Komunikacja', actions: ['edit'] },
+  { key: 'team-contacts', label: 'Kontakty zespołu', group: 'Komunikacja', actions: ['view', 'edit'] },
+  { key: 'chat-permissions', label: 'Zarządzanie czatem', group: 'Komunikacja', actions: ['edit'] },
+  { key: 'notifications', label: 'Powiadomienia systemowe', group: 'Komunikacja', actions: ['send', 'edit'] },
+  { key: 'push-notifications', label: 'Powiadomienia Push', group: 'Komunikacja', actions: ['send', 'edit'] },
+  { key: 'emails', label: 'Szablony e-mail', group: 'Komunikacja', actions: ['edit', 'send'] },
+  { key: 'email-delivery', label: 'Dostarczalność e-mail', group: 'Komunikacja', actions: ['view', 'export'] },
   { key: 'support', label: 'Wsparcie / Support', group: 'Komunikacja', actions: ['view', 'reply'] },
-  { key: 'notifications', label: 'Powiadomienia', group: 'Komunikacja', actions: ['send'] },
+  { key: 'cookies', label: 'Cookies / Zgody', group: 'Komunikacja', actions: ['edit'] },
+
+  // ===== System =====
+  { key: 'system-health', label: 'Alerty systemowe', group: 'System', actions: ['view'] },
+  { key: 'activity-log', label: 'Dziennik działań', group: 'System', actions: ['view', 'export'] },
+  { key: 'maintenance', label: 'Tryb konserwacji', group: 'System', actions: ['edit'] },
+  { key: 'cron-jobs', label: 'Zadania CRON', group: 'System', actions: ['view', 'edit'] },
+  { key: 'google-calendar', label: 'Google Calendar', group: 'System', actions: ['view', 'edit'] },
+  { key: 'ai-compass', label: 'AI Kompas', group: 'System', actions: ['edit'] },
+  { key: 'ai-provider', label: 'Dostawca AI', group: 'System', actions: ['edit'] },
+  { key: 'data-cleanup', label: 'Czyszczenie danych', group: 'System', actions: ['view'] },
+  { key: 'security', label: 'Bezpieczeństwo', group: 'System', actions: ['view'] },
+  { key: 'api-integrations', label: 'API / Integracje', group: 'System', actions: ['view'] },
+  { key: 'mobile-bottom-nav', label: 'Mobilny pasek nawigacji', group: 'System', actions: ['edit'] },
+  { key: 'intro-video', label: 'Intro wideo', group: 'System', actions: ['edit'] },
 ];
 
 const ACTION_LABELS: Record<string, string> = {
@@ -84,6 +125,8 @@ const ACTION_LABELS: Record<string, string> = {
   visibility: 'Widoczność',
   categories: 'Kategorie',
   templates: 'Szablony',
+  export: 'Eksport',
+  manage: 'Zarządzanie',
 };
 
 export const ModeratorsManagement: React.FC = () => {
