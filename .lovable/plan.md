@@ -1,14 +1,38 @@
-Problem jest już zidentyfikowany: dodanie roli `moderator` do `user_roles` uruchamia trigger `sync_user_role_to_profile`, który próbuje wpisać `moderator` do starej kolumny `profiles.role`. Ta kolumna ma constraint `valid_role_values`, który nie dopuszcza wartości `moderator`, więc zapis kończy się błędem widocznym na ekranie.
+## Problem
 
-Plan naprawy:
+Na liście „Zarządzanie użytkownikami" użytkownik, który dostał funkcję moderatora:
+- pojawia się wielokrotnie (po jednym wierszu na każdą rolę),
+- jego badge pokazuje „moderator" zamiast pierwotnej roli (np. „Partner").
 
-1. Zmienić logikę bazy, żeby rola `moderator` była przechowywana wyłącznie w `user_roles` i `moderator_permissions`, zgodnie z architekturą bezpieczeństwa projektu.
-2. Zaktualizować funkcję/trigger `sync_profile_role_from_user_roles`, aby pomijał rolę `moderator` i nie próbował synchronizować jej do `profiles.role`.
-3. Dodatkowo zabezpieczyć `admin-set-moderator`, żeby akcja `add` nie dotykała `profiles.role`, tylko:
-   - dopisywała rekord `user_roles(user_id, role='moderator')`,
-   - tworzyła/aktualizowała `moderator_permissions`,
-   - zwracała czytelny błąd, jeśli coś pójdzie nie tak.
-4. Wdrożyć ponownie funkcję `admin-set-moderator` i przetestować wywołanie przez Edge Function.
-5. Zweryfikować, że po kliknięciu „Ustaw moderatorem” użytkownik pojawia się na liście moderatorów, a przełączniki uprawnień są dostępne.
+Przyczyna leży w bazie, nie w UI. Funkcja RPC `public.get_user_profiles_with_confirmation` zwraca rolę z `user_roles` (JOIN po `user_id`):
 
-Zakres celowo ograniczony: nie dodaję `moderator` do `profiles.role`, bo projektowa zasada mówi, że role mają być w osobnej tabeli `user_roles`, a nie w `profiles`.
+```text
+LEFT JOIN public.user_roles ur ON p.user_id = ur.user_id
+SELECT ..., ur.role::text AS role, ...
+```
+
+Gdy w `user_roles` istnieją 2 wpisy (`partner` + `moderator`), RPC zwraca 2 wiersze, a kolumna `role` przyjmuje wartość `moderator` w jednym z nich. UI tylko wiernie wyświetla to, co dostał.
+
+## Cel
+
+Funkcja moderatora ma być wyłącznie dodatkową flagą uprawnień (widok wybranych modułów admina). Nie zmienia roli ani nie duplikuje wpisu na liście użytkowników. Partner zostaje Partnerem.
+
+## Plan zmian (tylko backend RPC)
+
+1. Migracja: `CREATE OR REPLACE FUNCTION public.get_user_profiles_with_confirmation` z dwoma poprawkami:
+   - źródłem roli wyświetlanej w panelu jest `profiles.role` (bazowa rola: admin/partner/specjalista/client/user), a nie `user_roles.role`,
+   - usuwamy `LEFT JOIN public.user_roles` — nie jest już potrzebny, więc znikają duplikaty wierszy.
+   - Sygnatura zwracana (kolumny) pozostaje identyczna, żeby nie ruszać kodu frontu/typów.
+
+2. Nie zmieniamy żadnego komponentu React. `ModeratorsManagement.tsx` dalej zarządza rolą `moderator` w `user_roles` + `moderator_permissions`. Hook `useModeratorAccess` dalej czyta uprawnienia z tych samych tabel.
+
+3. Weryfikacja po migracji:
+   - Sebastia Snopek (partner + moderator) pojawia się raz, z badge „Partner".
+   - Zakładka „Moderatorzy" nadal pokazuje go jako moderatora z modułami.
+   - Wejście tego użytkownika do panelu admina (tylko dozwolone moduły) działa jak dotąd.
+
+## Czego NIE zmieniamy
+
+- Tabel `user_roles`, `moderator_permissions`, triggera `sync_profile_role_from_user_roles` (już naprawiony — pomija `moderator`).
+- Edge function `admin-set-moderator`.
+- Widoków/komponentów listy użytkowników, badge'y, filtrów.
