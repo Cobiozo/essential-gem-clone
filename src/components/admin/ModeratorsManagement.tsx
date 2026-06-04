@@ -239,11 +239,15 @@ export const ModeratorsManagement: React.FC = () => {
         if (ctx?.json) {
           const body = await ctx.json();
           if (body?.error) detail = body.error;
+          if (body?.code === 'expired') detail = 'Sesja wygasła. Zaloguj się ponownie i spróbuj zapisać uprawnienia.';
         } else if (ctx?.text) {
           const txt = await ctx.text();
           if (txt) detail = txt;
         }
       } catch { /* ignore */ }
+      if (/invalid token/i.test(detail)) {
+        detail = 'Nie udało się zweryfikować sesji administratora. Odśwież stronę lub zaloguj się ponownie.';
+      }
       throw new Error(detail);
     }
     if ((data as any)?.error) throw new Error((data as any).error);
