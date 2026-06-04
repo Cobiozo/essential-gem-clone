@@ -98,9 +98,9 @@ const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
 // `training-media` dla wszystkich uploadów News Hub jako stabilnego targetu.
 type NewsHubFolderKey = 'covers' | 'media' | 'files';
 const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
-  covers: 'training-media',
-  media: 'training-media',
-  files: 'training-media',
+  covers: STORAGE_CONFIG.NEWS_HUB_FOLDERS.cover,
+  media: STORAGE_CONFIG.NEWS_HUB_FOLDERS.video,
+  files: STORAGE_CONFIG.NEWS_HUB_FOLDERS.file,
 };
 
 // Co użytkownik wgrywa — używamy do walidacji client-side i weryfikacji
@@ -145,16 +145,14 @@ export async function uploadNewsHubFile(
 
   // Duże pliki – VPS (np. wideo 180MB)
   if (file.size > VPS_THRESHOLD_BYTES) {
-    try {
-      const url = await uploadToVps(file, VPS_FOLDERS[folder], options.onProgress);
-      // Walidacja: serwer SPA zwraca HTML 200 dla brakujących ścieżek – wykryjmy to.
-      const verr = await verifyUploadedUrl(url, kind);
-      if (verr) throw new Error(verr);
-      return url;
-    } catch (err) {
-      console.error('[useNewsHub] VPS upload failed:', err);
-      throw err;
+    const url = await uploadToVps(file, VPS_FOLDERS[folder], options.onProgress);
+    // Walidacja: serwer SPA zwraca HTML 200/404 dla brakujących ścieżek – wykryjmy to.
+    const verr = await verifyUploadedUrl(url, kind);
+    if (verr) {
+      console.error('[useNewsHub] Verification failed:', verr, url);
+      throw new Error(verr);
     }
+    return url;
   }
   return uploadToSupabase(file, folder);
 }
@@ -171,46 +169,43 @@ async function uploadToSupabase(file: File, folder: string): Promise<string | nu
   return pub.publicUrl;
 }
 
-// Po uploadzie sprawdzamy nagłówki – jeśli content-type to text/html,
-// oznacza to fallback SPA i plik faktycznie NIE został zapisany.
-// Dla wideo dodatkowo wymagamy `video/*` lub `application/octet-stream` (poprawne mp4 czasem tak serwuje nginx).
-// Zwraca komunikat błędu (PL) lub null gdy OK.
+// Po uploadzie sprawdzamy realną dostępność pliku przez GET Range bytes=0-0.
+// HEAD bywa blokowane przez CORS preflight, GET z Range jest niezawodny.
+// Wymaga: status 200/206, content-type pasujący do typu uploadu, NIE text/html.
+// Dla wideo: każda inna odpowiedź = błąd (nie zapisujemy URL-a).
 async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<string | null> {
-  const ct = await fetchContentType(url);
-  if (ct === null) {
-    // HEAD/range zablokowane — nie blokujemy.
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+  } catch (e) {
+    // CORS / sieć — dla wideo nie ryzykujemy zapisania złego URL-a.
+    if (kind === 'video') {
+      return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu sieciowego do serwera plików). Spróbuj jeszcze raz.';
+    }
     return null;
   }
-  const lower = ct.toLowerCase();
-  if (lower.startsWith('text/html')) {
-    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł (skontaktuj się z administratorem VPS).';
+  if (res.status === 404) {
+    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany na dysku. Skontaktuj się z administratorem VPS.';
+  }
+  if (res.status !== 200 && res.status !== 206) {
+    return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
+  }
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (ct.startsWith('text/html')) {
+    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Skontaktuj się z administratorem VPS.';
   }
   if (kind === 'video') {
-    if (lower.startsWith('video/')) return null;
-    if (lower.startsWith('application/octet-stream')) return null; // tolerujemy
-    return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
+    if (ct.startsWith('video/') || ct.startsWith('application/octet-stream') || ct === '') {
+      // dopuszczamy gdy nginx/Express nie ustawi content-type, ale status jest OK
+      return null;
+    }
+    return `Serwer nie zwraca pliku wideo (content-type: ${ct || 'brak'}). Upload jest nieprawidłowy.`;
   }
   if (kind === 'image' || kind === 'cover') {
-    if (lower.startsWith('image/')) return null;
-    if (lower.startsWith('application/octet-stream')) return null;
+    if (ct.startsWith('image/') || ct.startsWith('application/octet-stream') || ct === '') return null;
     return `Serwer nie zwraca obrazu (content-type: ${ct}).`;
   }
   return null;
-}
-
-async function fetchContentType(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    if (res.ok) return res.headers.get('content-type') || '';
-    // 405/403 → spróbuj range GET
-    if (res.status === 405 || res.status === 403) {
-      const r2 = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
-      if (r2.ok || r2.status === 206) return r2.headers.get('content-type') || '';
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
