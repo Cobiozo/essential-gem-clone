@@ -266,10 +266,17 @@ export const ModeratorsManagement: React.FC = () => {
   };
 
   const updateModules = async (userId: string, modules: Record<string, any>) => {
+    // Normalize: remove keys with `false` / empty arrays so JSON stays clean.
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(modules)) {
+      if (v === true) cleaned[k] = true;
+      else if (Array.isArray(v) && v.length > 0) cleaned[k] = v;
+    }
     // optimistic
-    setRows((r) => r.map((x) => x.user_id === userId ? { ...x, modules } : x));
+    setRows((r) => r.map((x) => x.user_id === userId ? { ...x, modules: cleaned } : x));
     try {
-      await callEdge('update_modules', { user_id: userId, modules });
+      await callEdge('update_modules', { user_id: userId, modules: cleaned });
+      toast.success('Zapisano uprawnienia');
     } catch (err: any) {
       toast.error(err.message || 'Błąd zapisu uprawnień');
       fetchData();

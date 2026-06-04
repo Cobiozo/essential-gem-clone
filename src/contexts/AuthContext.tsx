@@ -146,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
       ]);
 
       // Hard fail-safe: expired token should immediately clear stale auth state
@@ -181,7 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (roleResult.error) {
         console.error('Error fetching user role:', roleResult.error);
       } else {
-        setUserRole(roleResult.data);
+        // Pick base role (skip 'moderator' — it's an additive CMS permission, not a real role).
+        const rows = (roleResult.data || []) as any[];
+        const baseRole = rows.find((r) => r.role !== 'moderator') || rows[0] || null;
+        setUserRole(baseRole);
       }
       
       // Check MFA enforcement BEFORE marking roles as ready
