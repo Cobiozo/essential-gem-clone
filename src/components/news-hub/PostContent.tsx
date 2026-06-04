@@ -19,7 +19,28 @@ function vimeoId(url: string): string | null {
 
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
   const [error, setError] = React.useState(false);
-  const yt = youTubeId(url);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const yt = !error ? youTubeId(url) : null;
+  const vm = !error ? vimeoId(url) : null;
+
+  React.useEffect(() => {
+    setError(false);
+    if (!url || yt || vm) return;
+    let cancelled = false;
+    fetch(url, { method: 'HEAD' }).then((res) => {
+      if (cancelled) return;
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('text/html')) setError(true);
+    }).catch(() => {});
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      const v = videoRef.current;
+      if (!v) return;
+      if (!isFinite(v.duration) || v.duration === 0) setError(true);
+    }, 6000);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [url, yt, vm]);
+
   if (yt) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
@@ -27,25 +48,24 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
       </div>
     );
   }
-  const v = vimeoId(url);
-  if (v) {
+  if (vm) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${v}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
       </div>
     );
   }
   if (error) {
     return (
       <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
-        <span>Nie udało się odtworzyć wideo z tego adresu.</span>
+        <span className="font-medium">Nie można odtworzyć tego pliku wideo.</span>
+        <span className="text-xs">Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź. Skontaktuj się z administratorem lub wgraj plik ponownie.</span>
         <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all text-xs">{url}</a>
-        <span className="text-xs">Wgraj plik ponownie – poprzedni upload mógł się nie zapisać na serwerze.</span>
       </div>
     );
   }
   return (
-    <video controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
+    <video ref={videoRef} controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
       Twoja przeglądarka nie wspiera wideo.
     </video>
   );
