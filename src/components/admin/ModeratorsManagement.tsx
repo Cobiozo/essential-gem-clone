@@ -130,7 +130,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export const ModeratorsManagement: React.FC = () => {
-  const { user, isAdmin } = useAuth();
+  const { session, isAdmin } = useAuth();
   const [rows, setRows] = useState<ModeratorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -227,8 +227,14 @@ export const ModeratorsManagement: React.FC = () => {
   }, [debouncedSearch, rows]);
 
   const callEdge = async (action: 'add' | 'update_modules' | 'remove', payload: any) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token || session?.access_token;
+    if (!accessToken) {
+      throw new Error('Brak aktywnej sesji administratora. Zaloguj się ponownie.');
+    }
     const { data, error } = await supabase.functions.invoke('admin-set-moderator', {
       body: { action, ...payload },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (error) {
       // Funkcja invoke często zwraca generyczny "Failed to send a request to the Edge Function"
@@ -239,11 +245,15 @@ export const ModeratorsManagement: React.FC = () => {
         if (ctx?.json) {
           const body = await ctx.json();
           if (body?.error) detail = body.error;
+          if (body?.code === 'expired') detail = 'Sesja wygasła. Zaloguj się ponownie i spróbuj zapisać uprawnienia.';
         } else if (ctx?.text) {
           const txt = await ctx.text();
           if (txt) detail = txt;
         }
       } catch { /* ignore */ }
+      if (/invalid token/i.test(detail)) {
+        detail = 'Nie udało się zweryfikować sesji administratora. Odśwież stronę lub zaloguj się ponownie.';
+      }
       throw new Error(detail);
     }
     if ((data as any)?.error) throw new Error((data as any).error);

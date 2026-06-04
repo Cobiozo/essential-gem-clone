@@ -1,45 +1,27 @@
-## Problem
+Plan naprawy:
 
-Po przełączeniu uprawnienia w panelu moderatorów wyskakuje "Invalid token". Edge function `admin-set-moderator` odrzuca request w `verifyAdmin()`.
+1. **Wymienię walidację tokenu w `supabase/functions/_shared/admin-auth.ts` na odporną funkcję pomocniczą**
+   - Najpierw spróbuje standardowego `getClaims()`.
+   - Jeśli Supabase zwróci błąd sesji / `Invalid token`, funkcja przejdzie na bezpieczny fallback lokalny:
+     - zweryfikuje podpis JWT przez `SUPABASE_JWT_SECRET` dla tokenów HS256, jeśli sekret jest dostępny,
+     - albo przez JWKS Supabase dla tokenów RS/ES, jeśli token używa nowych signing keys,
+     - sprawdzi `exp`, `sub`, `iss` i poprawność formatu tokenu.
+   - Dzięki temu funkcja nie będzie zależna od aktywnego rekordu sesji GoTrue, który obecnie powoduje 401 mimo zalogowanego admina.
 
-## Przyczyna
+2. **Dodam bezpieczne logi diagnostyczne bez ujawniania tokenów**
+   - Logi pokażą tylko metodę walidacji i typ błędu (`getClaims`, `hs256`, `jwks`, `expired`, `missing_sub`), bez prywatnych danych.
+   - To pozwoli odróżnić realnie wygasły token od błędu `session_not_found`.
 
-W logach auth (`/auth/v1/user`) widać powtarzające się odpowiedzi 403 z błędem:
-```
-"session id (d676ccf2-...) doesn't exist"
-```
+3. **Zostawię autoryzację admina po stronie serwera**
+   - Po wyciągnięciu `userId` z poprawnego JWT nadal będzie sprawdzana rola `admin` w `user_roles` przez service role.
+   - Nie będę przenosił uprawnień admina do frontendu ani localStorage.
 
-`supabase/functions/_shared/admin-auth.ts` weryfikuje token wołając `userClient.auth.getUser()`, które uderza do serwera GoTrue i sprawdza, czy **sesja** dla danego JWT nadal istnieje. Przy nowym systemie kluczy podpisujących Supabase (oraz po odświeżeniach/wielu kartach) sesja po stronie serwera potrafi zniknąć, mimo że JWT w localStorage zalogowanego admina jest wciąż kryptograficznie ważny. Skutek: `getUser()` zwraca błąd → funkcja oddaje 401 `Invalid token`, mimo że to ten sam zalogowany admin który właśnie wszedł do panelu.
+4. **Poprawię obsługę błędu w panelu moderatorów tylko minimalnie**
+   - Jeśli token faktycznie jest wygasły, komunikat będzie mówił o konieczności ponownego zalogowania, a nie tylko „Invalid token”.
+   - Sam zapis uprawnień nadal będzie szedł przez `admin-set-moderator`.
 
-To samo wytłumaczenie pasuje do faktu, że odczyty z tabel działają (idą przez PostgREST z anon-key + JWT i RLS, bez sprawdzania sesji), a tylko wywołania edge funkcji `admin-*` padają.
+5. **Wdrożę i sprawdzę funkcję `admin-set-moderator`**
+   - Po zmianie wdrożę Edge Function.
+   - Sprawdzę logi i wykonanie endpointu, żeby potwierdzić, że zapis uprawnień nie kończy się 401 „Invalid token”.
 
-## Rozwiązanie
-
-Zmienić weryfikację tożsamości w `_shared/admin-auth.ts` z `getUser()` (server session check) na **lokalną walidację JWT** przy pomocy `auth.getClaims(token)`, zgodnie z aktualnym standardem dla projektów z signing keys (patrz dyrektywa `disable-jwt-edge-functions` w systemie). Sprawdzenie roli admina dalej idzie przez `supabaseAdmin` (service role) na `user_roles`.
-
-### Zmiany
-
-**`supabase/functions/_shared/admin-auth.ts`** — w obu helperach (`verifyAdmin`, `verifyTicketVerifier`):
-
-1. Wyciągnąć surowy token: `const token = authHeader.replace('Bearer ', '')`.
-2. Zamiast tworzyć `userClient` i wołać `auth.getUser()`, użyć `supabaseAdmin.auth.getClaims(token)` (service-role client nadaje się do walidacji claims — nie wymaga sesji).
-3. `userId = data.claims.sub`.
-4. W razie błędu / braku `claims` — dalej zwracać 401 `Invalid token` z CORS.
-5. Reszta logiki (sprawdzenie roli `admin` w `user_roles`, fallbacki ticket-verifiera) bez zmian.
-
-Dzięki temu:
-- Nie ma już zapytania `GET /auth/v1/user`, więc znika zależność od istnienia rekordu sesji.
-- JWT jest walidowane lokalnie kluczem publicznym (asymetryczne signing keys), co jest szybsze i odporne na rotację sesji.
-- Wszystkie funkcje używające `verifyAdmin` (m.in. `admin-set-moderator`, plus pozostali konsumenci helpera) zyskują poprawkę bez dotykania ich kodu.
-
-### Brak innych zmian
-
-- Nie ruszam frontu (`ModeratorsManagement.tsx`) — wywołanie `supabase.functions.invoke('admin-set-moderator', ...)` jest poprawne, automatycznie dokleja aktualny JWT.
-- Nie ruszam migracji ani RLS — problem jest wyłącznie w warstwie auth edge funkcji.
-- Nie zmieniam `config.toml` / `verify_jwt` — walidacja zostaje w kodzie.
-
-## Test po wdrożeniu
-
-1. Zalogowany admin wchodzi w `/admin?tab=moderators`.
-2. Przełącza checkbox uprawnienia dla wybranego moderatora.
-3. Spodziewane: toast "Zapisano uprawnienia", brak "Invalid token", w logach `admin-set-moderator` widać 200.
+Efekt końcowy: administrator będzie mógł przełączać opcje dostępu moderatora, a przypisane moduły będą zapisywać się bez błędu „Invalid token”.
