@@ -27,8 +27,9 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
     setError(false);
     if (!url || yt || vm) return;
     let cancelled = false;
-    fetch(url, { method: 'HEAD' }).then((res) => {
+    fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' }).then((res) => {
       if (cancelled) return;
+      if (res.status === 404 || (res.status !== 200 && res.status !== 206)) { setError(true); return; }
       const ct = (res.headers.get('content-type') || '').toLowerCase();
       if (ct.startsWith('text/html')) setError(true);
     }).catch(() => {});

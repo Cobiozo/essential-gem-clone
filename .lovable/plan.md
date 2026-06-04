@@ -1,52 +1,38 @@
-# Naprawa uploadu i odtwarzania wideo w News Hub
+Zidentyfikowany problem: obecny link z ekranu (`https://purelife.info.pl/uploads/training-media/...mp4`) zwraca `404` oraz `content-type: text/html`, więc serwer nie ma fizycznego pliku pod zapisanym URL. Dodatkowo walidacja w przeglądarce opiera się na `HEAD` do zewnętrznej domeny, który w preview kończy się `Failed to fetch`, więc obecny mechanizm nie blokuje złych URL-i wystarczająco pewnie.
 
-## Cel
-Wyeliminować sytuację, w której do bazy trafiają URL-e wyglądające jak `.mp4`, ale serwer zwraca pod nimi HTML aplikacji (fallback SPA), przez co odtwarzacze pokazują 0:00 bez żadnego komunikatu.
+Plan naprawy:
 
-## Zakres zmian (frontend + konfiguracja)
+1. Ujednolicić konfigurację uploadu News Hub
+   - Dodać w `src/lib/storageConfig.ts` jawne foldery News Hub, w tym dedykowany folder dla wideo, np. `training-media/news-hub/videos`.
+   - Usunąć lokalne, ręcznie wpisane mapowanie folderów z `useNewsHub.ts` i oprzeć je o wspólną konfigurację.
+   - Wszystkie requesty uploadu dalej będą iść przez `STORAGE_CONFIG.UPLOAD_API_URL`, bez hardcodowania `/upload` w logice News Hub.
 
-### 1. `src/lib/storageConfig.ts`
-- Dodać dedykowane ścieżki folderów VPS dla News Hub, np.:
-  - `VPS_FOLDERS.NEWS_HUB_VIDEO = 'training-media/news-hub/video'`
-  - `VPS_FOLDERS.NEWS_HUB_IMAGE = 'training-media/news-hub/image'`
-  - `VPS_FOLDERS.NEWS_HUB_FILE  = 'training-media/news-hub/file'`
-- Zostawić `UPLOAD_API_URL = '/upload'` jako jedyne źródło prawdy o endpointzie.
+2. Naprawić upload wideo, żeby nie zapisywał nieistniejących URL-i
+   - W `useNewsHub.ts` po uploadzie VPS weryfikować nie tylko obecność `url`, ale też realną dostępność pliku.
+   - Dla wideo wymagać statusu `2xx/206` oraz `content-type` `video/*` albo bezpiecznie tolerowany `application/octet-stream`.
+   - Jawnie odrzucać `404`, `text/html`, puste `content-type` przy wideo oraz odpowiedzi, które wyglądają jak fallback SPA.
+   - Gdy weryfikacja z przeglądarki jest blokowana przez CORS (`Failed to fetch`), nie traktować tego jako sukcesu dla wideo — wyświetlić błąd i nie zapisywać URL-a.
 
-### 2. `src/hooks/useNewsHub.ts`
-- `uploadToVps` ma używać `STORAGE_CONFIG.UPLOAD_API_URL` (a nie zakodowanego `'/upload'`).
-- `VPS_FOLDERS` w hooku wymienić na powyższe wartości z `storageConfig` — bloki wideo lecą do folderu wideo, nie do `training-media` (wspólny worek z `files`).
-- Rozszerzyć `uploadNewsHubFile` o typ pliku oczekiwany na wyjściu (`'video' | 'image' | 'file' | 'cover'`) i wybierać folder na tej podstawie.
-- `verifyUploadedUrl` musi:
-  - Robić `HEAD` (i fallback `GET` z `Range: bytes=0-0`, jeśli HEAD zwróci 405/403).
-  - Odrzucać każdą odpowiedź `text/html` oraz brak `content-type`.
-  - Dla uploadów wideo dodatkowo wymagać `content-type` zaczynającego się od `video/`. Jeśli serwer zwraca `application/octet-stream`, sprawdzać po rozszerzeniu i logować ostrzeżenie.
-  - Zwracać szczegółowy powód błędu (do toasta), nie samo `false`.
-- W razie negatywnej walidacji: NIE zwracać URL-a do edytora — rzucać błąd z komunikatem PL.
+3. Poprawić miejsca uploadu w edytorach
+   - `PostFormDialog.tsx`: dla postów typu `video` przekazywać `kind: 'video'`, żeby walidacja była wymuszona również w klasycznym formularzu, nie tylko w edytorze blokowym.
+   - `MediaControls.tsx`: zachować wymuszone `kind: 'video'` dla uploadu MP4.
+   - `BlockListEditor.tsx`: upewnić się, że blok wideo używa folderu video/media i `kind: 'video'`, a pliki do pobrania zostają w folderze plików.
 
-### 3. Edytor (`MediaControls.tsx`, `BlockListEditor.tsx`)
-- Wywołania `uploadNewsHubFile(file, 'media')` dla bloków/postów typu `video` zamienić na warianty z jawnym typem (`'video'`), żeby trafiały do folderu wideo.
-- Po nieudanej walidacji pokazać toast PL: „Plik nie został poprawnie zapisany na serwerze (serwer zwraca HTML zamiast wideo). Skontaktuj się z administratorem.” i NIE zapisywać URL-a w bloku.
-- Dodać walidację MIME po stronie klienta przed wysyłką (`STORAGE_CONFIG.ALLOWED_TYPES.video`).
+4. Ulepszyć obsługę błędu w odtwarzaczach
+   - W `PostContent.tsx` i `BlockRenderer.tsx` odtwarzacz pokaże jasny komunikat błędu, jeśli URL zwróci HTML, 404 lub przeglądarka nie załaduje metadanych wideo.
+   - Nie będzie już cichego odtwarzacza `0:00` bez informacji.
 
-### 4. Odtwarzacze (`PostContent.tsx`, `BlockRenderer.tsx`)
-- Każdy `<video>` z URL-em ma:
-  - Stan `error` ustawiany na `onError` ORAZ jeśli `readyState === 0` i `duration === 0` po `loadedmetadata` w ciągu 5s.
-  - Dodatkowo na mount: lekki `fetch(url, { method: 'HEAD' })` — jeśli `content-type` to `text/html`, ustaw `error` od razu bez prób renderu `<video>`.
-  - W stanie błędu wyświetlać czytelny komunikat PL zamiast pustego playera 0:00:
-    „Nie można odtworzyć tego pliku wideo. Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź.”
-  - Zachować obecne fallbacki dla YouTube/Vimeo (bez zmian).
+5. Dodać minimalną odporność na stare błędne URL-e
+   - Stare, już zapisane URL-e, które zwracają HTML/404, pozostaną oznaczone jako błędne i wymagające ponownego uploadu.
+   - Nowy upload nie zapisze już takiego URL-a do posta/bloku.
 
-### 5. (Opcjonalnie / sanity) Migracja danych
-- Brak migracji danych. Istniejące wadliwe URL-e zostaną oznaczone jako błędne w UI dzięki nowemu komponentowi błędu (pkt 4).
-- Admin może podmienić plik ręcznie z edytora.
+Zakres techniczny zmian:
+- `src/lib/storageConfig.ts`
+- `src/hooks/useNewsHub.ts`
+- `src/components/news-hub/PostFormDialog.tsx`
+- `src/components/news-hub/editor/MediaControls.tsx`
+- `src/components/news-hub/editor/BlockListEditor.tsx`
+- `src/components/news-hub/PostContent.tsx`
+- `src/components/news-hub/BlockRenderer.tsx`
 
-## Co NIE jest zmieniane
-- Endpoint `/upload` na VPS (poza projektem).
-- Logika Supabase Storage dla małych plików (≤ 2MB) — pozostaje jako fallback.
-- Polityki RLS i bucket `news-hub-media`.
-
-## Weryfikacja
-1. Upload pliku `.mp4` > 2MB w bloku „video" → URL kończy się na `/training-media/news-hub/video/...`, `HEAD` zwraca `content-type: video/mp4`, player odtwarza.
-2. Symulacja awarii (ręcznie podany URL zwracający HTML) → player pokazuje komunikat błędu, nie 0:00.
-3. Próba uploadu pliku `.exe` jako wideo → odrzucone po stronie klienta z toastem.
-4. Upload pliku ≤ 2MB nadal idzie do Supabase Storage (bez regresji).
+Po wdrożeniu sprawdzę ponownie nagłówki przykładowego URL-a oraz logikę, która blokuje zapis URL-a, jeśli serwer zwraca HTML/404 zamiast MP4.
