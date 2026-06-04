@@ -185,19 +185,15 @@ export async function verifyAdmin(req: Request): Promise<any> {
 
   const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
-  // 1) Zweryfikuj token lokalnie (asymetryczne signing keys) — nie wymaga aktywnej sesji po stronie GoTrue
+  // 1) Zweryfikuj token bez zależności od aktywnego rekordu sesji GoTrue.
   const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsErr } = await (supabaseAdmin.auth as any).getClaims(token);
-  if (claimsErr || !claimsData?.claims?.sub) {
-    return {
-      ok: false,
-      response: new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }),
-    };
+  const jwt = await verifyJwtClaims(token, supabaseUrl);
+  if (!jwt.ok) {
+    console.warn("[verifyAdmin] JWT verification failed", { reason: jwt.reason, detail: jwt.detail });
+    return { ok: false, response: invalidTokenResponse(jwt.reason) };
   }
-  const userId = claimsData.claims.sub as string;
+  console.log("[verifyAdmin] JWT verified", { method: jwt.method });
+  const userId = jwt.claims.sub as string;
 
   const { data: roleRow, error: roleErr } = await supabaseAdmin
     .from("user_roles")
@@ -240,17 +236,13 @@ export async function verifyTicketVerifier(req: Request): Promise<any> {
   const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
   const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: claimsErr } = await (supabaseAdmin.auth as any).getClaims(token);
-  if (claimsErr || !claimsData?.claims?.sub) {
-    return {
-      ok: false,
-      response: new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }),
-    };
+  const jwt = await verifyJwtClaims(token, supabaseUrl);
+  if (!jwt.ok) {
+    console.warn("[verifyTicketVerifier] JWT verification failed", { reason: jwt.reason, detail: jwt.detail });
+    return { ok: false, response: invalidTokenResponse(jwt.reason) };
   }
-  const userId = claimsData.claims.sub as string;
+  console.log("[verifyTicketVerifier] JWT verified", { method: jwt.method });
+  const userId = jwt.claims.sub as string;
 
 
   // 1) Try RPC
