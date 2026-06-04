@@ -1,25 +1,40 @@
-Zdiagnozowałem problem: zapisany URL wideo wygląda jak MP4, ale serwer zwraca pod nim HTML aplikacji (`content-type: text/html`, rozmiar ok. 7 KB), więc odtwarzacz pokazuje 0:00. To oznacza, że upload zwrócił link, którego nie da się odtworzyć jako wideo albo plik nie trafił pod tę ścieżkę.
+## Plan naprawy
 
-Plan naprawy:
+### 1. Naprawię wyszukiwanie i wybór moderatorów
+- Obecny kod szuka kolumny `full_name`, której w tabeli `profiles` nie ma — są `first_name`, `last_name`, `email`, `eq_id`, `id`, `user_id`.
+- Zmienię wyszukiwarkę moderatorów tak, aby działała po:
+  - imieniu,
+  - nazwisku,
+  - pełnym imieniu i nazwisku złożonym z `first_name + last_name`,
+  - EQ ID,
+  - e-mailu.
+- Poprawię dodawanie moderatora tak, aby jako identyfikator roli używało `profiles.user_id`, a nie `profiles.id`, bo `user_roles` i `moderator_permissions` są powiązane z auth user ID.
+- Poprawię listę już nadanych moderatorów, żeby poprawnie pokazywała dane użytkownika.
 
-1. Ujednolicić upload News Hub z działającym mechanizmem VPS
-- W `useNewsHub.ts` użyć wspólnej konfiguracji `STORAGE_CONFIG.UPLOAD_API_URL` zamiast wpisanego na sztywno `/upload`.
-- Dla News Hub wysyłać duże pliki do folderów VPS zgodnych z tym, co serwer faktycznie obsługuje.
-- Walidować odpowiedź uploadu: po otrzymaniu URL sprawdzić nagłówki pliku i odrzucić link, jeśli nie jest prawdziwym wideo/obrazem/plikiem, tylko HTML aplikacji.
+### 2. Uszczelnię nadawanie uprawnień moderatora
+- Zostawię zapis uprawnień przez Edge Function `admin-set-moderator`, żeby frontend nie musiał bezpośrednio omijać RLS.
+- Dodam lepszy komunikat błędu, gdy funkcja nie jest dostępna albo administrator nie ma sesji.
+- Sprawdzę, czy po nadaniu uprawnień moderator będzie widział tylko dozwolone moduły w Panelu CMS.
 
-2. Naprawić wybór folderu dla bloków wideo
-- W `BlockListEditor.tsx` blok `video` obecnie wysyła przez folder `files`, co widać na screenie (`/news-hub/files/...`). Zmieniam to na folder wideo/media.
-- Dodać pasek postępu i czytelny komunikat błędu także w edytorze bloków, nie tylko w formularzu posta.
+### 3. Naprawię upload wideo w artykule „Podsumowanie miesiąca MAJ”
+- Błąd ze screena oznacza, że plik fizycznie trafia do endpointu uploadu, ale potem serwer nie udostępnia go pod zwróconym URL-em.
+- Zmienię upload News Hub tak, żeby dla dużych plików MP4 używał tego samego stabilnego folderu VPS co działające materiały wideo (`training-media`) zamiast nowych folderów `news-hub-media`, które nie są obsługiwane przez produkcyjny serwer.
+- Zachowam walidację po uploadzie, ale poprawię ją tak, żeby nie blokowała prawidłowych odpowiedzi, a blokowała tylko realny fallback HTML.
+- W edytorze bloku wideo zostawię automatyczne wpisanie URL do pola po uploadzie, żeby blok natychmiast pojawiał się w podglądzie.
 
-3. Poprawić renderowanie wideo w Aktualnościach
-- W `PostContent.tsx`, `BlockRenderer.tsx` i `PostDetailModal.tsx` dodać wspólny odtwarzacz, który pokazuje zrozumiały komunikat, jeśli URL nie jest odtwarzalnym plikiem MP4.
-- Dodać `preload="metadata"`, `playsInline` i obsługę `onError`, żeby błąd nie wyglądał jak puste wideo 0:00.
+### 4. Uporządkuję istniejący post
+- Post „Podsumowanie miesiąca MAJ” ma teraz `media_url = null`, a blok wideo nie ma URL — dlatego widać „Brak URL wideo”.
+- Po naprawie kodu trzeba będzie ponownie wgrać plik MP4 w tym poście. Aplikacja powinna wtedy zapisać poprawny adres i odtworzyć metadane zamiast 0:00.
 
-4. Zabezpieczyć przed zapisem błędnego URL
-- Po uploadzie MP4 sprawdzić, czy serwer zwraca typ `video/*` albo poprawny strumień z obsługą range requests.
-- Jeśli serwer zwróci HTML lub nieprawidłowy typ, aplikacja pokaże błąd: plik został wysłany pod nieobsługiwaną ścieżkę / konfiguracja VPS wymaga poprawy.
+### 5. Walidacja po zmianach
+- Sprawdzę zapytaniami bazę pod kątem kolumn profilu i aktualnego wpisu posta.
+- Zweryfikuję, że kod wyszukiwarki moderatorów używa poprawnych pól.
+- Zweryfikuję, że upload dla dużego MP4 generuje URL w ścieżce obsługiwanej przez VPS i że edytor nie zostawia pustego `url` w bloku wideo.
 
-5. Co z już dodanym postem
-- Obecny rekord w bazie ma URL, który nie wskazuje na prawdziwe MP4. Po wdrożeniu poprawki trzeba będzie wgrać to wideo ponownie, bo aktualny link prowadzi do HTML aplikacji, a nie do nagrania.
+## Pliki do zmiany
+- `src/components/admin/ModeratorsManagement.tsx`
+- `src/hooks/useNewsHub.ts`
+- ewentualnie `src/components/news-hub/editor/BlockListEditor.tsx`, jeśli trzeba doprecyzować obsługę pola URL po uploadzie
 
-Nie będę zmieniał bazy danych ani RLS — to problem uploadu/ścieżki/renderowania, nie struktury danych.
+## Bez zmian w bazie
+Nie planuję nowej migracji, bo problem moderatorów wynika głównie z błędnych nazw pól i użycia złego ID profilu, a problem wideo z nieobsługiwanego folderu na VPS.
