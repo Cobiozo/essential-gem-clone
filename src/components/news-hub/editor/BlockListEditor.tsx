@@ -276,6 +276,7 @@ const BlockDataEditor: React.FC<{ block: NewsHubBlock; onChangeData: (p: Record<
             accept="video/*"
             label="Wgraj wideo"
             folder="media"
+            kind="video"
             onChange={(url) => onChangeData({ url })}
           />
           <Input placeholder="...lub wklej URL YouTube / Vimeo / mp4" value={d.url || ''} onChange={(e) => onChangeData({ url: e.target.value })} />
