@@ -553,14 +553,14 @@ const GalleryUpload: React.FC<{ images: string[]; onChange: (imgs: string[]) => 
   );
 };
 
-const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: string; label?: string; folder?: 'covers' | 'media' | 'files'; onChange: (url: string, name: string, size: number) => void }> = ({ value, accept, label, folder = 'files', onChange }) => {
+const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: string; label?: string; folder?: 'covers' | 'media' | 'files'; kind?: 'video' | 'image' | 'file' | 'cover'; onChange: (url: string, name: string, size: number) => void }> = ({ value, accept, label, folder = 'files', kind, onChange }) => {
   const [uploading, setUploading] = useState(false);
   const [pct, setPct] = useState(0);
   const handle = async (file: File) => {
     setUploading(true);
     setPct(0);
     try {
-      const url = await uploadNewsHubFile(file, folder, { onProgress: setPct });
+      const url = await uploadNewsHubFile(file, folder, { onProgress: setPct, kind });
       if (url) onChange(url, file.name, file.size);
       else toast.error('Błąd uploadu');
     } catch (err: any) {
