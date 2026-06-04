@@ -78,8 +78,12 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
     setUploading(field);
     setUploadPct(0);
     const folder = field === 'cover_url' ? 'covers' : field === 'file_url' ? 'files' : 'media';
+    const kind = field === 'media_url' && form.type === 'video' ? 'video' as const : undefined;
     try {
-      const url = await uploadNewsHubFile(file, folder, { onProgress: (p) => setUploadPct(p) });
+      const url = await uploadNewsHubFile(file, folder, {
+        onProgress: (p) => setUploadPct(p),
+        ...(kind ? { kind } : {}),
+      });
       if (url) {
         const patch: any = { [field]: url };
         if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
