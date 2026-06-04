@@ -18,14 +18,22 @@ export const MediaControls: React.FC<Props> = ({ draft, update }) => {
 
   const upload = async (file: File, folder: 'covers' | 'media' | 'files', field: 'media_url' | 'file_url') => {
     setUploading(field);
-    const url = await uploadNewsHubFile(file, folder);
-    if (url) {
-      const patch: any = { [field]: url };
-      if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
-      update(patch);
-      toast.success('Wgrano');
-    } else toast.error('Błąd uploadu');
-    setUploading(null);
+    try {
+      const kind = field === 'media_url' && draft.type === 'video' ? 'video' as const : undefined;
+      const url = await uploadNewsHubFile(file, folder, kind ? { kind } : {});
+      if (url) {
+        const patch: any = { [field]: url };
+        if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
+        update(patch);
+        toast.success('Wgrano');
+      } else {
+        toast.error('Błąd uploadu');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Błąd uploadu');
+    } finally {
+      setUploading(null);
+    }
   };
 
   if (draft.type === 'video') {
