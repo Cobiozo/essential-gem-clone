@@ -227,9 +227,14 @@ export const ModeratorsManagement: React.FC = () => {
   }, [debouncedSearch, rows]);
 
   const callEdge = async (action: 'add' | 'update_modules' | 'remove', payload: any) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token || session?.access_token;
+    if (!accessToken) {
+      throw new Error('Brak aktywnej sesji administratora. Zaloguj się ponownie.');
+    }
     const { data, error } = await supabase.functions.invoke('admin-set-moderator', {
       body: { action, ...payload },
-      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (error) {
       // Funkcja invoke często zwraca generyczny "Failed to send a request to the Edge Function"
