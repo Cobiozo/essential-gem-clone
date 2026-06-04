@@ -392,6 +392,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
