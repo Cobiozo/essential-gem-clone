@@ -381,16 +381,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   <span>{getLabel('home')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => handleNavigate('/admin/news-hub')}
-                  tooltip="Centrum aktualności"
-                >
-                  <Newspaper className="w-4 h-4" />
-                  <span>Centrum aktualności</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
+              {(isAdmin || can('news_hub')) && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => handleNavigate('/admin/news-hub')}
+                    tooltip="Centrum aktualności"
+                  >
+                    <Newspaper className="w-4 h-4" />
+                    <span>Centrum aktualności</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
           </SidebarGroupContent>
         </SidebarGroup>
 
