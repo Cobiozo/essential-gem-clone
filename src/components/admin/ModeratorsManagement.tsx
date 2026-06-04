@@ -130,7 +130,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export const ModeratorsManagement: React.FC = () => {
-  const { user, session, isAdmin } = useAuth();
+  const { session, isAdmin } = useAuth();
   const [rows, setRows] = useState<ModeratorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
