@@ -130,7 +130,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export const ModeratorsManagement: React.FC = () => {
-  const { user, isAdmin } = useAuth();
+  const { user, session, isAdmin } = useAuth();
   const [rows, setRows] = useState<ModeratorRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -229,6 +229,7 @@ export const ModeratorsManagement: React.FC = () => {
   const callEdge = async (action: 'add' | 'update_modules' | 'remove', payload: any) => {
     const { data, error } = await supabase.functions.invoke('admin-set-moderator', {
       body: { action, ...payload },
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
     });
     if (error) {
       // Funkcja invoke często zwraca generyczny "Failed to send a request to the Edge Function"
