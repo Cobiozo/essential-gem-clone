@@ -552,22 +552,37 @@ const GalleryUpload: React.FC<{ images: string[]; onChange: (imgs: string[]) => 
   );
 };
 
-const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: string; label?: string; onChange: (url: string, name: string, size: number) => void }> = ({ value, accept, label, onChange }) => {
+const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: string; label?: string; folder?: 'covers' | 'media' | 'files'; onChange: (url: string, name: string, size: number) => void }> = ({ value, accept, label, folder = 'files', onChange }) => {
   const [uploading, setUploading] = useState(false);
+  const [pct, setPct] = useState(0);
   const handle = async (file: File) => {
     setUploading(true);
-    const url = await uploadNewsHubFile(file, 'files');
-    setUploading(false);
-    if (url) onChange(url, file.name, file.size);
-    else toast.error('Błąd uploadu');
+    setPct(0);
+    try {
+      const url = await uploadNewsHubFile(file, folder, { onProgress: setPct });
+      if (url) onChange(url, file.name, file.size);
+      else toast.error('Błąd uploadu');
+    } catch (err: any) {
+      toast.error(err?.message || 'Błąd uploadu');
+    } finally {
+      setUploading(false);
+      setPct(0);
+    }
   };
   return (
-    <div className="flex gap-2">
-      <Input placeholder="URL pliku" value={value || ''} readOnly className="text-xs" />
-      <Label className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-border bg-card hover:bg-muted cursor-pointer text-xs whitespace-nowrap">
-        {uploading ? '...' : (label || 'Wgraj plik')}
-        <input type="file" accept={accept} className="hidden" onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} />
-      </Label>
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <Input placeholder="URL pliku" value={value || ''} readOnly className="text-xs" />
+        <Label className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-border bg-card hover:bg-muted cursor-pointer text-xs whitespace-nowrap">
+          {uploading ? (pct > 0 ? `${pct}%` : '...') : (label || 'Wgraj plik')}
+          <input type="file" accept={accept} className="hidden" disabled={uploading} onChange={(e) => e.target.files?.[0] && handle(e.target.files[0])} />
+        </Label>
+      </div>
+      {uploading && pct > 0 && (
+        <div className="h-1 w-full bg-muted rounded overflow-hidden">
+          <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      )}
     </div>
   );
 };
