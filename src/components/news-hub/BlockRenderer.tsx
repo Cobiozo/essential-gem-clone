@@ -15,12 +15,22 @@ function vimeoId(url: string): string | null {
 }
 
 const VideoFrame: React.FC<{ url: string }> = ({ url }) => {
+  const [error, setError] = React.useState(false);
   if (!url) return <div className="aspect-video w-full rounded-xl bg-muted flex items-center justify-center text-xs text-muted-foreground">Brak URL wideo</div>;
   const yt = youTubeId(url);
   if (yt) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube.com/embed/${yt}`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div>;
   const v = vimeoId(url);
   if (v) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://player.vimeo.com/video/${v}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen /></div>;
-  return <video controls className="aspect-video w-full rounded-xl bg-black" src={url} />;
+  if (error) {
+    return (
+      <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-xs text-muted-foreground">
+        <span>Nie udało się odtworzyć wideo z tego adresu.</span>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all">{url}</a>
+        <span>Wgraj plik ponownie – poprzedni upload mógł się nie zapisać na serwerze.</span>
+      </div>
+    );
+  }
+  return <video controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {

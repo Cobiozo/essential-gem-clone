@@ -25,6 +25,7 @@ function vimeoId(url: string): string | null {
 }
 
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
+  const [error, setError] = React.useState(false);
   const yt = youTubeId(url);
   if (yt) {
     return (
@@ -41,8 +42,16 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
       </div>
     );
   }
+  if (error) {
+    return (
+      <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
+        <span>Nie udało się odtworzyć wideo z tego adresu.</span>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all text-xs">{url}</a>
+      </div>
+    );
+  }
   return (
-    <video controls className="aspect-video w-full rounded-xl bg-black" src={url}>
+    <video controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
       Twoja przeglądarka nie wspiera wideo.
     </video>
   );

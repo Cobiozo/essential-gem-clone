@@ -90,19 +90,34 @@ export function slugify(text: string): string {
 // Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
 const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
+// Express VPS używa jednosegmentowych folderów (np. "training-media"). Zagnieżdżone
+// ścieżki typu "news-hub/media" nie były tworzone i plik nigdy nie był zapisywany –
+// serwer SPA zwracał HTML 200, przez co odtwarzacz pokazywał 0:00.
+type NewsHubFolderKey = 'covers' | 'media' | 'files';
+const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
+  covers: 'news-hub-covers',
+  media: 'news-hub-media',
+  files: 'news-hub-files',
+};
+
 export interface UploadOptions {
   onProgress?: (pct: number) => void;
 }
 
 export async function uploadNewsHubFile(
   file: File,
-  folder: 'covers' | 'media' | 'files' = 'media',
+  folder: NewsHubFolderKey = 'media',
   options: UploadOptions = {}
 ): Promise<string | null> {
   // Duże pliki – VPS (np. wideo 180MB)
   if (file.size > VPS_THRESHOLD_BYTES) {
     try {
-      const url = await uploadToVps(file, `news-hub/${folder}`, options.onProgress);
+      const url = await uploadToVps(file, VPS_FOLDERS[folder], options.onProgress);
+      // Walidacja: serwer SPA zwraca HTML 200 dla brakujących ścieżek – wykryjmy to.
+      const ok = await verifyUploadedUrl(url, file.type);
+      if (!ok) {
+        throw new Error('Plik został przyjęty, ale serwer nie udostępnia go pod oczekiwanym adresem. Skontaktuj się z administratorem (konfiguracja VPS).');
+      }
       return url;
     } catch (err) {
       console.error('[useNewsHub] VPS upload failed:', err);
@@ -126,6 +141,29 @@ async function uploadToSupabase(file: File, folder: string): Promise<string | nu
   }
   const { data: pub } = supabase.storage.from('news-hub-media').getPublicUrl(data.path);
   return pub.publicUrl;
+}
+
+// Po uploadzie na VPS sprawdzamy nagłówki – jeśli content-type to text/html,
+// oznacza to fallback SPA i plik faktycznie NIE został zapisany.
+async function verifyUploadedUrl(url: string, expectedMime: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    if (!res.ok) return false;
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.startsWith('text/html')) return false;
+    // Akceptujemy zgodny prefix typu, application/octet-stream lub brak typu (niektóre serwery).
+    if (expectedMime) {
+      const prefix = expectedMime.split('/')[0];
+      if (ct && !ct.startsWith(prefix) && !ct.includes('octet-stream')) {
+        // dopuszczamy, jeśli serwer zwraca akceptujący typ – ale nie HTML
+        return !ct.startsWith('text/');
+      }
+    }
+    return true;
+  } catch {
+    // Brak HEAD nie powinien blokować uploadu – ufamy oryginalnej odpowiedzi.
+    return true;
+  }
 }
 
 function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
