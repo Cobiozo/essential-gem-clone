@@ -13,9 +13,10 @@ import { Shield, Trash2, UserPlus, Plus, Search, Loader2, Check } from 'lucide-r
 import { useDebounce } from '@/hooks/use-debounce';
 
 interface ProfileLite {
-  id: string;
+  user_id: string; // auth user id — KLUCZ używany w user_roles i moderator_permissions
   email: string | null;
-  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   eq_id: string | null;
 }
 
@@ -27,6 +28,9 @@ interface ModeratorRow {
   modules: Record<string, any>;
   granted_at: string;
 }
+
+const fullNameOf = (p: { first_name?: string | null; last_name?: string | null }) =>
+  [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
 
 // Główne moduły (zakładki admina) + ich podakcje.
 // Klucz główny `module` = pełen dostęp (CRUD + publikacja).
@@ -109,11 +113,12 @@ export const ModeratorsManagement: React.FC = () => {
 
       const [{ data: perms }, { data: profiles }] = await Promise.all([
         supabase.from('moderator_permissions').select('user_id, modules, granted_at').in('user_id', ids),
-        supabase.from('profiles').select('id, full_name, email, eq_id').in('id', ids),
+        // WAŻNE: w profiles auth user id jest w kolumnie `user_id`, nie `id`
+        supabase.from('profiles').select('user_id, first_name, last_name, email, eq_id').in('user_id', ids),
       ]);
 
       const permMap = new Map((perms || []).map((p: any) => [p.user_id, p]));
-      const profMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      const profMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
 
       const list: ModeratorRow[] = ids.map((id) => {
         const p = permMap.get(id) as any;
@@ -121,7 +126,7 @@ export const ModeratorsManagement: React.FC = () => {
         return {
           user_id: id,
           email: pr?.email || null,
-          full_name: pr?.full_name || null,
+          full_name: pr ? (fullNameOf(pr) || null) : null,
           eq_id: pr?.eq_id || null,
           modules: (p?.modules || {}) as Record<string, any>,
           granted_at: p?.granted_at || new Date().toISOString(),
@@ -138,26 +143,40 @@ export const ModeratorsManagement: React.FC = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Live search
+  // Live search — szuka po first_name, last_name, email i eq_id.
+  // Dodatkowo obsługujemy wpisanie "Imię Nazwisko" (rozbijając na słowa).
   useEffect(() => {
     const q = debouncedSearch.trim();
     if (q.length < 2) { setSearchResults([]); return; }
     let cancelled = false;
     (async () => {
       setSearching(true);
+      const tokens = q.split(/\s+/).filter((t) => t.length >= 2);
+      const orParts: string[] = [];
       const like = `%${q}%`;
+      orParts.push(`first_name.ilike.${like}`);
+      orParts.push(`last_name.ilike.${like}`);
+      orParts.push(`email.ilike.${like}`);
+      orParts.push(`eq_id.ilike.${like}`);
+      // Imię + nazwisko (lub odwrotnie)
+      if (tokens.length >= 2) {
+        const [a, b] = tokens;
+        orParts.push(`and(first_name.ilike.%${a}%,last_name.ilike.%${b}%)`);
+        orParts.push(`and(first_name.ilike.%${b}%,last_name.ilike.%${a}%)`);
+      }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, eq_id')
-        .or(`full_name.ilike.${like},email.ilike.${like},eq_id.ilike.${like}`)
+        .select('user_id, first_name, last_name, email, eq_id')
+        .or(orParts.join(','))
         .limit(20);
       if (cancelled) return;
       if (error) {
-        console.error(error);
+        console.error('[ModeratorsManagement] search error:', error);
+        toast.error('Błąd wyszukiwania: ' + error.message);
         setSearchResults([]);
       } else {
         const existingIds = new Set(rows.map((r) => r.user_id));
-        setSearchResults(((data as any[]) || []).filter((p) => !existingIds.has(p.id)));
+        setSearchResults(((data as any[]) || []).filter((p) => p.user_id && !existingIds.has(p.user_id)));
       }
       setSearching(false);
     })();
@@ -175,8 +194,9 @@ export const ModeratorsManagement: React.FC = () => {
 
   const addModerator = async (profile: ProfileLite) => {
     try {
-      await callEdge('add', { user_id: profile.id, modules: {} });
-      toast.success(`Dodano moderatora: ${profile.full_name || profile.email}`);
+      await callEdge('add', { user_id: profile.user_id, modules: {} });
+      const label = fullNameOf(profile) || profile.email || profile.eq_id || 'użytkownik';
+      toast.success(`Dodano moderatora: ${label}`);
       setSearchTerm('');
       setSearchResults([]);
       fetchData();
