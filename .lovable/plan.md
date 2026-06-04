@@ -1,42 +1,45 @@
-## Cel
-Moderator ma być wyłącznie dodatkową warstwą dostępu do CMS, bez zmiany podstawowej roli użytkownika. Partner-moderator nadal ma być widoczny jako „Partner”, a w menu ma dostać przycisk „Panel CMS” z przypisanymi modułami.
+## Problem
 
-## Plan naprawy
+Po przełączeniu uprawnienia w panelu moderatorów wyskakuje "Invalid token". Edge function `admin-set-moderator` odrzuca request w `verifyAdmin()`.
 
-1. **Rozdzielić rolę bazową od roli technicznej `moderator`**
-   - W `AuthContext` zmienić pobieranie `userRole`, żeby wybierało rolę bazową (`admin`, `partner`, `specjalista`, `client`, `user`) zamiast przypadkowego / najnowszego wpisu z `user_roles`.
-   - `moderator` pozostaje tylko wpisem pomocniczym w `user_roles`, używanym przez `useModeratorAccess`, ale nie jako rola wyświetlana w profilu i filtrach dashboardu.
-   - Dodać fallback: jeśli `profiles.role` jest ustawione na rolę bazową, użyć jej jako źródła prawdy dla UI.
+## Przyczyna
 
-2. **Naprawić etykietę roli w lewym panelu dashboardu**
-   - W `UserProfileCard` pokazywać bazową rolę z profilu / przefiltrowanego `userRole`, nigdy `moderator`.
-   - Dla użytkownika ze screenów powinno to dać badge „Partner”, nie „Klient”.
+W logach auth (`/auth/v1/user`) widać powtarzające się odpowiedzi 403 z błędem:
+```
+"session id (d676ccf2-...) doesn't exist"
+```
 
-3. **Pokazać „Panel CMS” w sidebarze użytkownika**
-   - W `DashboardSidebar` dodać `useModeratorAccess` i użyć `hasAnyAdminAccess`.
-   - Pozycja `admin` ma być widoczna dla admina oraz dla moderatora z co najmniej jednym nadanym modułem.
-   - Label dla nie-admina: „Panel CMS”; dla admina zostaje panel administracyjny.
+`supabase/functions/_shared/admin-auth.ts` weryfikuje token wołając `userClient.auth.getUser()`, które uderza do serwera GoTrue i sprawdza, czy **sesja** dla danego JWT nadal istnieje. Przy nowym systemie kluczy podpisujących Supabase (oraz po odświeżeniach/wielu kartach) sesja po stronie serwera potrafi zniknąć, mimo że JWT w localStorage zalogowanego admina jest wciąż kryptograficznie ważny. Skutek: `getUser()` zwraca błąd → funkcja oddaje 401 `Invalid token`, mimo że to ten sam zalogowany admin który właśnie wszedł do panelu.
 
-4. **Ustabilizować filtrowanie modułów w panelu admina**
-   - Wejście do `/admin` zostaje chronione przez `hasAnyAdminAccess`.
-   - `AdminSidebar` dalej pokaże tylko moduły, które admin włączył moderatorowi.
-   - Dla dodatkowej strony `Centrum aktualności` poprawić widoczność linku w admin sidebarze, żeby nie była dostępna moderatorowi bez `news_hub`.
+To samo wytłumaczenie pasuje do faktu, że odczyty z tabel działają (idą przez PostgREST z anon-key + JWT i RLS, bez sprawdzania sesji), a tylko wywołania edge funkcji `admin-*` padają.
 
-5. **Naprawić problem „nie mogę włączyć dostępu”**
-   - W `ModeratorsManagement` zmienić zapis przełączników tak, żeby po kliknięciu od razu zapisywał czysty JSON: `true` dodaje uprawnienie, `false` usuwa klucz zamiast zostawiać `false`.
-   - Dodać `toast.success` po udanym zapisie i lepszy komunikat błędu, żeby było widać czy zapis faktycznie przeszedł.
-   - Zostawić backend `admin-set-moderator` jako zapis przez edge function service role, bo to prawidłowo omija RLS i nie zmienia roli bazowej.
+## Rozwiązanie
 
-## Pliki do zmiany
-- `src/contexts/AuthContext.tsx`
-- `src/components/dashboard/UserProfileCard.tsx`
-- `src/components/dashboard/DashboardSidebar.tsx`
-- `src/components/admin/AdminSidebar.tsx`
-- `src/components/admin/ModeratorsManagement.tsx`
+Zmienić weryfikację tożsamości w `_shared/admin-auth.ts` z `getUser()` (server session check) na **lokalną walidację JWT** przy pomocy `auth.getClaims(token)`, zgodnie z aktualnym standardem dla projektów z signing keys (patrz dyrektywa `disable-jwt-edge-functions` w systemie). Sprawdzenie roli admina dalej idzie przez `supabaseAdmin` (service role) na `user_roles`.
+
+### Zmiany
+
+**`supabase/functions/_shared/admin-auth.ts`** — w obu helperach (`verifyAdmin`, `verifyTicketVerifier`):
+
+1. Wyciągnąć surowy token: `const token = authHeader.replace('Bearer ', '')`.
+2. Zamiast tworzyć `userClient` i wołać `auth.getUser()`, użyć `supabaseAdmin.auth.getClaims(token)` (service-role client nadaje się do walidacji claims — nie wymaga sesji).
+3. `userId = data.claims.sub`.
+4. W razie błędu / braku `claims` — dalej zwracać 401 `Invalid token` z CORS.
+5. Reszta logiki (sprawdzenie roli `admin` w `user_roles`, fallbacki ticket-verifiera) bez zmian.
+
+Dzięki temu:
+- Nie ma już zapytania `GET /auth/v1/user`, więc znika zależność od istnienia rekordu sesji.
+- JWT jest walidowane lokalnie kluczem publicznym (asymetryczne signing keys), co jest szybsze i odporne na rotację sesji.
+- Wszystkie funkcje używające `verifyAdmin` (m.in. `admin-set-moderator`, plus pozostali konsumenci helpera) zyskują poprawkę bez dotykania ich kodu.
+
+### Brak innych zmian
+
+- Nie ruszam frontu (`ModeratorsManagement.tsx`) — wywołanie `supabase.functions.invoke('admin-set-moderator', ...)` jest poprawne, automatycznie dokleja aktualny JWT.
+- Nie ruszam migracji ani RLS — problem jest wyłącznie w warstwie auth edge funkcji.
+- Nie zmieniam `config.toml` / `verify_jwt` — walidacja zostaje w kodzie.
 
 ## Test po wdrożeniu
-1. Admin nadaje użytkownikowi-partnerowi status moderatora i włącza np. `platform-teams`.
-2. Po odświeżeniu admin widzi, że przełącznik został zapisany.
-3. Partner-moderator po zalogowaniu widzi w profilu rolę „Partner”.
-4. W lewym menu dashboardu widzi „Panel CMS”.
-5. Po wejściu do CMS widzi tylko przypisane elementy sidebara, a nie cały panel admina.
+
+1. Zalogowany admin wchodzi w `/admin?tab=moderators`.
+2. Przełącza checkbox uprawnienia dla wybranego moderatora.
+3. Spodziewane: toast "Zapisano uprawnienia", brak "Invalid token", w logach `admin-set-moderator` widać 200.
