@@ -146,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
       ]);
 
       // Hard fail-safe: expired token should immediately clear stale auth state
