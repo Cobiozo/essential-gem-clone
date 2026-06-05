@@ -15,7 +15,7 @@ export const NewsHubBanner: React.FC<Props> = ({ config, fallback, embedded = fa
     embedded ? (
       <div className="w-full">{children}</div>
     ) : (
-      <section className={`container max-w-7xl mx-auto px-4 ${padding ?? 'pt-6 pb-6'}`}>{children}</section>
+      <section className={`container max-w-7xl mx-auto px-0 sm:px-4 ${padding ?? 'pt-6 pb-6'}`}>{children}</section>
     );
 
   if (!config.enabled || !config.image_url) {
