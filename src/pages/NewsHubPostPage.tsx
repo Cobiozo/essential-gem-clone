@@ -15,6 +15,7 @@ const NewsHubPostPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const { commentsEnabled } = useNewsHubSettings();
 
   const [post, setPost] = useState<NewsHubPost | null>(null);
   const [draft, setDraft] = useState<NewsHubPost | null>(null);
@@ -114,7 +115,7 @@ const NewsHubPostPage: React.FC = () => {
             Szkic — niewidoczny dla użytkowników.
           </div>
         )}
-        <PostContent post={renderPost} styleOverrides={renderPost.style_overrides} />
+        <PostContent post={renderPost} styleOverrides={renderPost.style_overrides} commentsEnabled={isCommentsEnabledForPost(renderPost, commentsEnabled)} />
       </main>
 
       {/* push content left so editor doesn't overlap on large screens */}
