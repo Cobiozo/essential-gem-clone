@@ -114,7 +114,7 @@ const NewsHubPostPage: React.FC = () => {
 
 
       <main
-        className="mx-auto px-4 py-8 transition-all"
+        className="mx-auto px-4 py-6 md:py-8 pb-28 md:pb-12 transition-all"
         style={{ maxWidth, paddingRight: editing ? 16 : undefined }}
       >
         {!renderPost.is_published && (
