@@ -503,7 +503,7 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
     }
     const folder = rawFolder;
 
-    const finalFilePath = folder
+    let finalFilePath = folder
       ? path.join(UPLOADS_DIR, folder, req.file.filename)
       : path.join(UPLOADS_DIR, req.file.filename);
 
@@ -541,6 +541,38 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
         error: 'File size mismatch',
         message: `Disk size ${onDiskSize} != uploaded size ${req.file.size}`
       });
+    }
+
+    if (isVideoUpload(req.file.path, req.file.mimetype)) {
+      const videoInfo = inspectVideo(req.file.path);
+      const ext = path.extname(req.file.path).toLowerCase();
+      const stream = videoInfo.stream || {};
+      const needsTranscode = videoInfo.available && (!isIphoneSafeVideo(stream) || ext !== '.mp4');
+
+      if (needsTranscode) {
+        console.log(`🎬 Transcoding video for iPhone/Safari compatibility: ${req.file.filename} (${stream.codec_name || 'unknown'} / ${stream.pix_fmt || 'unknown'})`);
+        const converted = transcodeToIphoneSafeMp4(req.file.path);
+
+        if (!converted.success) {
+          console.error('❌ Video transcode failed:', converted.error);
+          try { fs.unlinkSync(req.file.path); } catch {}
+          return res.status(422).json({
+            success: false,
+            error: 'Video conversion failed',
+            message: 'Nie udało się przekonwertować wideo do formatu zgodnego z iPhone/Safari. Wgraj MP4 H.264 + AAC.',
+          });
+        }
+
+        try { fs.unlinkSync(req.file.path); } catch {}
+        req.file.path = converted.outputPath;
+        req.file.filename = path.basename(converted.outputPath);
+        req.file.mimetype = 'video/mp4';
+        finalFilePath = converted.outputPath;
+        onDiskSize = fs.statSync(converted.outputPath).size;
+        console.log(`✅ Video converted to iPhone-safe MP4: ${req.file.filename} (${(onDiskSize / 1024 / 1024).toFixed(2)} MB)`);
+      } else if (!videoInfo.available) {
+        console.warn('⚠️ Could not inspect uploaded video codec; serving original file:', videoInfo.error);
+      }
     }
 
     const relativePath = folder
