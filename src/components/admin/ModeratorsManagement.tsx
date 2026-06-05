@@ -55,6 +55,7 @@ const MODULES: ModuleDef[] = [
   { key: 'settings', label: 'Ustawienia strony', group: 'Strona i wygląd', actions: ['edit'] },
   { key: 'dashboard-footer', label: 'Stopka dashboardu', group: 'Strona i wygląd', actions: ['edit'] },
   { key: 'sidebar-icons', label: 'Ikony paska bocznego', group: 'Strona i wygląd', actions: ['edit'] },
+  { key: 'sidebar-order', label: 'Kolejność menu bocznego', group: 'Strona i wygląd', actions: ['edit'] },
 
   // ===== Użytkownicy ===== (moduł `moderators` celowo pominięty — tylko admin)
   { key: 'users', label: 'Zarządzanie użytkownikami', group: 'Użytkownicy', actions: ['view', 'edit', 'export'] },
