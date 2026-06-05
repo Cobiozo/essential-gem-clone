@@ -228,9 +228,19 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           reject(new Error('Upload przekroczył limit czasu (5 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
         };
 
-        xhr.open('POST', '/upload');
+        xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
         xhr.send(formData);
       });
+
+      // Dla wideo: weryfikacja, że plik faktycznie został zapisany na VPS
+      // (Express SPA fallback potrafi zwrócić HTML/404 zamiast pliku)
+      if (isVideo) {
+        const verr = await verifyVideoUrl(result.url);
+        if (verr) {
+          throw new Error(verr);
+        }
+      }
+
 
       setUploadProgress(100);
       setIsUploading(false);
