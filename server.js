@@ -129,25 +129,49 @@ setInterval(checkDistStability, 3000);
 
 // Upload configuration
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_TMP_DIR = path.join(__dirname, '.upload-tmp');
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 
-// Ensure uploads directory exists
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// Ensure upload directories exist
+for (const dir of [UPLOADS_DIR, UPLOADS_TMP_DIR]) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function resolveTrainingMediaPath(filename) {
+  const safeFilename = path.basename(filename);
+  const targetPath = path.join(UPLOADS_DIR, 'training-media', safeFilename);
+  if (fs.existsSync(targetPath)) return targetPath;
+
+  // Backward compatibility for uploads saved before folder handling was fixed.
+  const legacyRootPath = path.join(UPLOADS_DIR, safeFilename);
+  if (!fs.existsSync(legacyRootPath)) return targetPath;
+
+  try {
+    ensureDir(path.dirname(targetPath));
+    fs.renameSync(legacyRootPath, targetPath);
+    console.log(`♻️ Recovered legacy upload path: ${legacyRootPath} -> ${targetPath}`);
+    return targetPath;
+  } catch (error) {
+    console.warn('Could not move legacy upload into training-media, serving from legacy path:', error.message);
+    return legacyRootPath;
+  }
 }
 
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const folder = req.body.folder || '';
-    const uploadPath = folder ? path.join(UPLOADS_DIR, folder) : UPLOADS_DIR;
-    
-    // Create folder if it doesn't exist
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    
-    cb(null, uploadPath);
+    // Do not rely on req.body.folder here: multipart field order is not guaranteed.
+    // Save to a private temp directory first, then move after multer parsed all fields.
+    ensureDir(UPLOADS_TMP_DIR);
+    cb(null, UPLOADS_TMP_DIR);
   },
   filename: (req, file, cb) => {
     // Generate unique filename: timestamp-randomstring-originalname
