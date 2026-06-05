@@ -1,33 +1,31 @@
-## 1) Archiwum miesięczne (prawa kolumna na /aktualnosci)
+## Problem
 
-- W `src/pages/NewsHubPage.tsx` zmiana layoutu listy na 2-kolumnowy grid: `lg:grid-cols-[1fr_260px]` (lista lewo, archiwum prawo). Mobile: archiwum pod listą.
-- Nowy komponent `src/components/news-hub/NewsHubArchive.tsx`:
-  - Z `posts` liczy `rok-miesiąc → liczba` po `created_at`.
-  - Renderuje nagłówek „Archiwum" + linki typu „Marzec 2023 · 4", sortowane malejąco.
-  - Klik ustawia filtr `monthKey` (`YYYY-MM`). Aktywny miesiąc wyróżniony kolorem `primary`. Przycisk „Wyczyść".
-  - Sticky `top-20`, styl spójny z dark theme aplikacji (akcent primary/żółty, BEZ fioletu — screen jest tylko inspiracją układu).
-- W `NewsHubPage.tsx` dodać `monthKey` state i filtr w `useMemo`. Gdy `monthKey` ustawiony, dropdown „Rok" auto-synchronizuje się do roku miesiąca.
+Obecny "Podgląd na żywo" renderuje `<NewsHubBanner embedded />` w wąskiej kolumnie (~640 px). Realna strona `/aktualnosci` renderuje baner w kontenerze `max-w-7xl` (do 1280 px) wraz z paskiem filtrów, listą bento i archiwum z prawej. Dlatego proporcje obrazu, kadr `background-position`, wysokość względem szerokości i otoczenie wyglądają inaczej — użytkownik widzi mocno "zoomowany" wycinek tła, którego nie zobaczy na produkcji.
 
-## 2) Podgląd banera = realny render strony
+## Rozwiązanie
 
-- W `src/components/admin/news-hub/NewsHubBannerEditor.tsx` lewa kolumna ma renderować podgląd bez sztucznego przycinania (obecnie obcina banner po prawej).
-- `NewsHubBanner` dostaje prop `embedded?: boolean`, który pomija wewnętrzny `container max-w-7xl mx-auto px-4 ...` — w podglądzie banner wypełnia całą szerokość kolumny i wygląda identycznie jak po wejściu na `/aktualnosci` (z zachowaniem proporcji, fit, position, overlay, animacji tekstu).
-- Wrapper podglądu: `w-full overflow-hidden rounded-xl border border-border bg-background`.
+Zamienić podgląd na 1:1 mock realnej strony `/aktualnosci`, renderowany w stałej szerokości referencyjnej **1280 px**, a następnie skalowany CSS-em (`transform: scale`) do szerokości lewej kolumny edytora. Dzięki temu kadr, proporcje i sąsiedztwo banera są identyczne jak na produkcji, niezależnie od szerokości panelu admina.
 
-## 3) Ukrycie panelu zarządzania ze strony /aktualnosci
+### Zakres zmian
 
-- Usunąć z `NewsHubPage.tsx`:
-  - `GridLayoutSwitcher` (ikonki układu na screenie #3).
-  - Hint dla admina: „Najedź na kafelek, aby zobaczyć szybkie akcje…".
-- `BentoGrid` dostaje prop `adminActions?: boolean` (default `false`). Quick-actions (pin/edit/hide/delete na hover) renderowane tylko gdy `true`. Na `/aktualnosci` przekazujemy `false`.
-- Wszystkie te narzędzia są nadal dostępne po wejściu w „Zarządzaj" (`/admin/news-hub`), gdzie `GridLayoutSwitcher` już istnieje w sekcji „Domyślny układ listy", a akcje są w tabeli postów.
+**1) `src/components/news-hub/NewsHubBanner.tsx`**
+- Usuwam tryb `embedded` (lub zostawiam jako alias) — komponent zawsze renderuje pełny `Wrapper` jak na realnej stronie.
 
-## Pliki
+**2) `src/components/admin/news-hub/NewsHubBannerEditor.tsx` (lewa kolumna)**
+- Nowy komponent podglądu: kontener o szerokości `1280px` (taki sam kontekst jak realna strona), zawierający:
+  - `<NewsHubBanner config={local} />` (bez `embedded`, czyli z `container max-w-7xl mx-auto px-4 pt-6 pb-6`),
+  - poniżej krótki, pasywny mock realnego układu: pasek filtrów (kategorie + wyszukiwarka + układ) oraz dwukolumnowa siatka `[1fr_280px]` z 3 placeholderami `BentoCard` po lewej i sekcją "Archiwum" po prawej — wszystko tylko do prezentacji proporcji.
+- Skalowanie: wrapper `style={{ width: 1280, transform: 'scale(var(--s))', transformOrigin: 'top left' }}` w kontenerze, który mierzy własną szerokość `ResizeObserver`-em i ustawia `--s = containerWidth / 1280`. Wysokość kontenera ustawiana proporcjonalnie (`scaledHeight = naturalHeight * s`), więc nie powstają puste przestrzenie.
+- Pasek nagłówka karty ("Podgląd na żywo") bez zmian; treść w `CardContent` zastąpiona skalowanym mockiem.
+- Sticky podglądu zostaje (`lg:sticky lg:top-4`).
 
-- Nowy: `src/components/news-hub/NewsHubArchive.tsx`
-- Edytowane: `src/pages/NewsHubPage.tsx`, `src/components/news-hub/NewsHubBanner.tsx`, `src/components/admin/news-hub/NewsHubBannerEditor.tsx`, `src/components/news-hub/BentoGrid.tsx`
+**3) Brak zmian** w `NewsHubPage.tsx`, hooku `useNewsHubBanner`, schemacie DB, ani w prawej kolumnie ustawień.
 
-## Bez zmian
+### Efekt
 
-- Schemat bazy (`news_hub_posts.created_at` wystarcza do grupowania).
-- Logika `useNewsHub.ts`, uploady, design samego banera.
+Podgląd po lewej wygląda dokładnie tak, jak `/aktualnosci`: ten sam `container max-w-7xl`, te same proporcje banera, ten sam kadr obrazu przy `cover/contain/position`, te same odstępy i sąsiedztwo (filtry + lista + archiwum). Zmiana wysokości / pozycji / dopasowania w prawej kolumnie odzwierciedla się 1:1.
+
+### Pliki
+
+- edited: `src/components/news-hub/NewsHubBanner.tsx`
+- edited: `src/components/admin/news-hub/NewsHubBannerEditor.tsx`
