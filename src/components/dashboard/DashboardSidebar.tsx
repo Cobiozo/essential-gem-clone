@@ -205,6 +205,7 @@ export const DashboardSidebar: React.FC = () => {
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
   const { isModuleVisible: isNewsHubVisible } = useNewsHubVisibility();
+  const { order: menuOrder } = useSidebarMenuOrder();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
