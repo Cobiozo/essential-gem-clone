@@ -100,14 +100,14 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   };
 
   const cover = s.cover || {};
-  const coverWrapClass = cover.height ? '' : 'max-h-[55vh] md:max-h-none aspect-[16/10] md:aspect-auto';
+  const hasCustomHeight = !!cover.height;
   const coverWrapStyle: React.CSSProperties = {
-    height: cover.height ? `${cover.height}px` : undefined,
+    height: hasCustomHeight ? `${cover.height}px` : undefined,
   };
   const coverImgStyle: React.CSSProperties = {
     objectFit: (cover.fit || 'cover') as React.CSSProperties['objectFit'],
     objectPosition: cover.position || 'center',
-    height: cover.height ? `${cover.height}px` : undefined,
+    height: hasCustomHeight ? `${cover.height}px` : undefined,
     width: '100%',
   };
 
@@ -122,12 +122,22 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   return (
     <article className="space-y-4">
       {showCover && post.cover_url && post.type !== 'video' && (
-        <div className={`relative overflow-hidden rounded-xl w-full bg-muted ${coverWrapClass}`} style={coverWrapStyle}>
-          <img src={post.cover_url} alt={post.title} style={coverImgStyle} className="block max-h-none" />
-          {cover.overlay && (cover.overlayOpacity ?? 0) > 0 && (
-            <div className="absolute inset-0 pointer-events-none" style={{ background: cover.overlay, opacity: cover.overlayOpacity }} />
-          )}
-        </div>
+        <>
+          {/* Mobile/tablet: full image, scaled to width */}
+          <div className="md:hidden relative overflow-hidden rounded-xl w-full bg-muted">
+            <img src={post.cover_url} alt={post.title} className="block w-full h-auto" />
+            {cover.overlay && (cover.overlayOpacity ?? 0) > 0 && (
+              <div className="absolute inset-0 pointer-events-none" style={{ background: cover.overlay, opacity: cover.overlayOpacity }} />
+            )}
+          </div>
+          {/* Desktop: respect cover style overrides */}
+          <div className="hidden md:block relative overflow-hidden rounded-xl w-full bg-muted" style={coverWrapStyle}>
+            <img src={post.cover_url} alt={post.title} style={coverImgStyle} className="block max-h-none" />
+            {cover.overlay && (cover.overlayOpacity ?? 0) > 0 && (
+              <div className="absolute inset-0 pointer-events-none" style={{ background: cover.overlay, opacity: cover.overlayOpacity }} />
+            )}
+          </div>
+        </>
       )}
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
