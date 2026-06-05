@@ -145,6 +145,7 @@ const navCategories: NavCategory[] = [
       { value: 'settings', labelKey: 'settings', icon: Settings2 },
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
       { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
+      { value: 'sidebar-order', labelKey: 'sidebarOrder', icon: ListOrdered },
     ],
   },
   {
