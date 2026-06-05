@@ -4768,6 +4768,10 @@ const Admin = () => {
             <SidebarFooterIconsManagement />
           </TabsContent>
 
+          <TabsContent value="sidebar-order">
+            <SidebarOrderEditor />
+          </TabsContent>
+
           <TabsContent value="html-pages">
             <HtmlPagesManagement />
           </TabsContent>
