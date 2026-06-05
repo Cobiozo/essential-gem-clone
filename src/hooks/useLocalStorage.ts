@@ -91,6 +91,31 @@ const uploadToSupabase = async (
   };
 };
 
+
+// Weryfikuje, czy wgrany URL faktycznie wskazuje na plik wideo (a nie HTML/404 z SPA fallback).
+async function verifyVideoUrl(url: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+  } catch {
+    return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików). Spróbuj jeszcze raz.';
+  }
+  if (res.status === 404) {
+    return 'Serwer zwrócił 404 dla wgranego pliku — plik nie został zapisany na VPS. Skontaktuj się z administratorem.';
+  }
+  if (res.status !== 200 && res.status !== 206) {
+    return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
+  }
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (ct.startsWith('text/html')) {
+    return 'Serwer zwraca HTML zamiast pliku wideo — upload się nie powiódł (sprawdź limit multer/nginx na VPS).';
+  }
+  if (ct && !ct.startsWith('video/') && !ct.startsWith('application/octet-stream')) {
+    return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
+  }
+  return null;
+}
+
 export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
