@@ -258,6 +258,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Zarządzanie czatem',
     sidebarIcons: 'Ikony paska bocznego',
+    sidebarOrder: 'Kolejność menu bocznego',
     resources: 'Biblioteka',
     healthyKnowledge: 'Baza wiedzy',
     systemHealth: 'Alerty systemowe',
