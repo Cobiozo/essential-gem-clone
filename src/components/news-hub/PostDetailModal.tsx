@@ -26,7 +26,23 @@ function vimeoId(url: string): string | null {
 
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
   const [error, setError] = React.useState(false);
-  const yt = youTubeId(url);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const yt = !error ? youTubeId(url) : null;
+  const vm = !error ? vimeoId(url) : null;
+
+  React.useEffect(() => {
+    setError(false);
+    if (!url || yt || vm) return;
+    let cancelled = false;
+    fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' }).then((res) => {
+      if (cancelled) return;
+      if (res.status === 404 || (res.status !== 200 && res.status !== 206)) { setError(true); return; }
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('text/html')) setError(true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [url, yt, vm]);
+
   if (yt) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
@@ -34,24 +50,24 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
       </div>
     );
   }
-  const v = vimeoId(url);
-  if (v) {
+  if (vm) {
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${v}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
       </div>
     );
   }
   if (error) {
     return (
       <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
-        <span>Nie udało się odtworzyć wideo z tego adresu.</span>
+        <span className="font-medium">Nie można odtworzyć tego pliku wideo.</span>
+        <span className="text-xs">Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź. Wgraj plik ponownie z poziomu edytora.</span>
         <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all text-xs">{url}</a>
       </div>
     );
   }
   return (
-    <video controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
+    <video ref={videoRef} controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
       Twoja przeglądarka nie wspiera wideo.
     </video>
   );
