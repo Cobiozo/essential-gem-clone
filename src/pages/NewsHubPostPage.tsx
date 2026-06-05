@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { incrementPostView } from '@/hooks/useNewsHub';
 import { PostContent } from '@/components/news-hub/PostContent';
 import { PostInlineEditor } from '@/components/news-hub/PostInlineEditor';
+import { useNewsHubSettings, isCommentsEnabledForPost } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPost } from '@/types/newsHub';
 
 const NewsHubPostPage: React.FC = () => {
