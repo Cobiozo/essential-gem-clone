@@ -24,6 +24,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import multer from 'multer';
 import cors from 'cors';
+import { spawnSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -174,6 +175,70 @@ function moveUploadedFile(sourcePath, targetPath) {
     fs.copyFileSync(sourcePath, targetPath);
     fs.unlinkSync(sourcePath);
   }
+}
+
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.m4v', '.mov', '.webm', '.avi', '.mkv', '.wmv', '.flv']);
+
+function isVideoUpload(filePath, mimetype = '') {
+  return mimetype.toLowerCase().startsWith('video/') || VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+function inspectVideo(filePath) {
+  const probe = spawnSync('ffprobe', [
+    '-v', 'error',
+    '-select_streams', 'v:0',
+    '-show_entries', 'stream=codec_name,profile,pix_fmt,codec_tag_string',
+    '-of', 'json',
+    filePath,
+  ], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+
+  if (probe.error || probe.status !== 0) {
+    return { available: false, error: probe.error?.message || probe.stderr || 'ffprobe failed' };
+  }
+
+  try {
+    const parsed = JSON.parse(probe.stdout || '{}');
+    const stream = parsed.streams?.[0] || {};
+    return { available: true, stream };
+  } catch (error) {
+    return { available: false, error: error.message };
+  }
+}
+
+function isIphoneSafeVideo(stream) {
+  const codec = String(stream.codec_name || '').toLowerCase();
+  const pixFmt = String(stream.pix_fmt || '').toLowerCase();
+  return codec === 'h264' && (!pixFmt || pixFmt === 'yuv420p');
+}
+
+function transcodeToIphoneSafeMp4(inputPath) {
+  const parsed = path.parse(inputPath);
+  const outputPath = path.join(parsed.dir, `${parsed.name}-ios-h264.mp4`);
+  const result = spawnSync('ffmpeg', [
+    '-y',
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-i', inputPath,
+    '-map', '0:v:0',
+    '-map', '0:a:0?',
+    '-c:v', 'libx264',
+    '-profile:v', 'baseline',
+    '-level', '3.1',
+    '-pix_fmt', 'yuv420p',
+    '-preset', 'veryfast',
+    '-crf', '23',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-movflags', '+faststart',
+    outputPath,
+  ], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+
+  if (result.error || result.status !== 0 || !fs.existsSync(outputPath)) {
+    try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+    return { success: false, error: result.error?.message || result.stderr || 'ffmpeg failed' };
+  }
+
+  return { success: true, outputPath };
 }
 
 // Multer storage configuration
@@ -438,7 +503,7 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
     }
     const folder = rawFolder;
 
-    const finalFilePath = folder
+    let finalFilePath = folder
       ? path.join(UPLOADS_DIR, folder, req.file.filename)
       : path.join(UPLOADS_DIR, req.file.filename);
 
@@ -476,6 +541,38 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
         error: 'File size mismatch',
         message: `Disk size ${onDiskSize} != uploaded size ${req.file.size}`
       });
+    }
+
+    if (isVideoUpload(req.file.path, req.file.mimetype)) {
+      const videoInfo = inspectVideo(req.file.path);
+      const ext = path.extname(req.file.path).toLowerCase();
+      const stream = videoInfo.stream || {};
+      const needsTranscode = videoInfo.available && (!isIphoneSafeVideo(stream) || ext !== '.mp4');
+
+      if (needsTranscode) {
+        console.log(`🎬 Transcoding video for iPhone/Safari compatibility: ${req.file.filename} (${stream.codec_name || 'unknown'} / ${stream.pix_fmt || 'unknown'})`);
+        const converted = transcodeToIphoneSafeMp4(req.file.path);
+
+        if (!converted.success) {
+          console.error('❌ Video transcode failed:', converted.error);
+          try { fs.unlinkSync(req.file.path); } catch {}
+          return res.status(422).json({
+            success: false,
+            error: 'Video conversion failed',
+            message: 'Nie udało się przekonwertować wideo do formatu zgodnego z iPhone/Safari. Wgraj MP4 H.264 + AAC.',
+          });
+        }
+
+        try { fs.unlinkSync(req.file.path); } catch {}
+        req.file.path = converted.outputPath;
+        req.file.filename = path.basename(converted.outputPath);
+        req.file.mimetype = 'video/mp4';
+        finalFilePath = converted.outputPath;
+        onDiskSize = fs.statSync(converted.outputPath).size;
+        console.log(`✅ Video converted to iPhone-safe MP4: ${req.file.filename} (${(onDiskSize / 1024 / 1024).toFixed(2)} MB)`);
+      } else if (!videoInfo.available) {
+        console.warn('⚠️ Could not inspect uploaded video codec; serving original file:', videoInfo.error);
+      }
     }
 
     const relativePath = folder

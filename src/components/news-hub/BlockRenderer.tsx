@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Download, ExternalLink, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommentsSection } from './CommentsSection';
+import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
 import type { NewsHubBlock, NewsHubBlockStyle } from '@/types/newsHubBlocks';
 
 // Context to pass postId to comment blocks rendered inside content
@@ -13,55 +14,8 @@ export const NewsHubPostContextProvider: React.FC<{ postId: string; children: Re
 );
 export function useNewsHubPostContext() { return React.useContext(PostContext); }
 
-function youTubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
-  return m ? m[1] : null;
-}
-function vimeoId(url: string): string | null {
-  const m = url.match(/vimeo\.com\/(\d+)/);
-  return m ? m[1] : null;
-}
-
 const VideoFrame: React.FC<{ url: string }> = ({ url }) => {
-  const [error, setError] = React.useState(false);
-  const videoRef = React.useRef<HTMLVideoElement | null>(null);
-
-  const yt = !error ? youTubeId(url) : null;
-  const vm = !error ? vimeoId(url) : null;
-
-  React.useEffect(() => {
-    setError(false);
-    if (!url || yt || vm) return;
-    let cancelled = false;
-    fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' }).then((res) => {
-      if (cancelled) return;
-      if (res.status === 404 || (res.status !== 200 && res.status !== 206)) { setError(true); return; }
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-      if (ct.startsWith('text/html')) setError(true);
-    }).catch(() => {});
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      const v = videoRef.current;
-      if (!v) return;
-      if (!isFinite(v.duration) || v.duration === 0) setError(true);
-    }, 6000);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [url, yt, vm]);
-
-  if (!url) return <div className="aspect-video w-full rounded-xl bg-muted flex items-center justify-center text-xs text-muted-foreground">Brak URL wideo</div>;
-  if (yt) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://www.youtube.com/embed/${yt}`} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen /></div>;
-  if (vm) return <div className="aspect-video w-full overflow-hidden rounded-xl bg-black"><iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen /></div>;
-  if (error) {
-    return (
-      <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-xs text-muted-foreground">
-        <AlertTriangle className="h-5 w-5 text-amber-500" />
-        <span>Nie można odtworzyć tego pliku wideo.</span>
-        <span>Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź. Wgraj plik ponownie z poziomu edytora.</span>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all">{url}</a>
-      </div>
-    );
-  }
-  return <video ref={videoRef} controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)} />;
+  return <NewsHubVideoPlayer url={url} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {
