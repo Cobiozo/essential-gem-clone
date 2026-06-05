@@ -13,6 +13,8 @@ import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import { NewsHubModuleVisibilityPanel } from '@/components/news-hub/NewsHubModuleVisibilityPanel';
 import { NewsHubBannerEditor } from '@/components/admin/news-hub/NewsHubBannerEditor';
+import { NewsHubCommentsModerationPanel } from '@/components/admin/news-hub/NewsHubCommentsModerationPanel';
+import { NewsHubBannedWordsPanel } from '@/components/admin/news-hub/NewsHubBannedWordsPanel';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
