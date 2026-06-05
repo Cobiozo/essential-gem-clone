@@ -392,23 +392,57 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
       });
     }
 
-    const folder = req.body.folder || '';
-    const relativePath = folder 
+    // Walidacja folderu: tylko alfanumeryczne, myślniki, podkreślenia
+    const rawFolder = (req.body.folder || '').toString();
+    if (rawFolder && !/^[a-zA-Z0-9_\-]+$/.test(rawFolder)) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid folder name'
+      });
+    }
+    const folder = rawFolder;
+
+    // POST-WRITE VERIFICATION: plik musi istnieć i mieć poprawny rozmiar
+    let onDiskSize = 0;
+    try {
+      const st = fs.statSync(req.file.path);
+      onDiskSize = st.size;
+    } catch (e) {
+      console.error('❌ Upload verify failed (stat):', req.file.path, e);
+      return res.status(500).json({
+        success: false,
+        error: 'File was not saved on disk',
+        message: 'multer reported success but file is missing on disk (check disk space / permissions)'
+      });
+    }
+    if (onDiskSize === 0 || onDiskSize !== req.file.size) {
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(500).json({
+        success: false,
+        error: 'File size mismatch',
+        message: `Disk size ${onDiskSize} != uploaded size ${req.file.size}`
+      });
+    }
+
+    const relativePath = folder
       ? `/uploads/${folder}/${req.file.filename}`
       : `/uploads/${req.file.filename}`;
-    
+
     // Return full URL with domain for accessibility from any environment
     const fullUrl = `${PRODUCTION_DOMAIN}${relativePath}`;
 
-    console.log(`📁 File uploaded: ${req.file.originalname} -> ${fullUrl} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📁 File uploaded: ${req.file.originalname} -> ${fullUrl} (${(onDiskSize / 1024 / 1024).toFixed(2)} MB, verified on disk)`);
 
     res.json({
       success: true,
       url: fullUrl,
+      relativePath,
       fileName: req.file.filename,
       originalName: req.file.originalname,
-      size: req.file.size,
-      mimeType: req.file.mimetype
+      size: onDiskSize,
+      mimeType: req.file.mimetype,
+      verified: true
     });
   } catch (error) {
     console.error('Upload error:', error);

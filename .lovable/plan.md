@@ -1,69 +1,41 @@
-## Cel
+## Plan naprawy
 
-Wgrywanie dużych plików MP4 (np. 142 MB) ma działać bezbłędnie. Wszystkie pliki powyżej progu mają iść przez VPS/multer (`/upload`), z pominięciem Supabase Storage — bo bucket `training-media` ma twardy limit 100 MB i Supabase server odrzuca takie pliki przed transferem.
-
-## Diagnoza
-
-1. Bucket Supabase `training-media` ma `file_size_limit = 104857600` (100 MB) — migracja `20250929184616_*`.
-2. `useLocalStorage.uploadFile` rutuje pliki ≤ 2 MB → Supabase, > 2 MB → VPS `/upload`. To w teorii powinno omijać Supabase dla 142 MB, ale:
-   - `MediaUpload` przekazuje `folder: 'training-media'`, sugerując bucket o tej nazwie; w praktyce Supabase wybiera bucket po rozszerzeniu (`cms-videos` dla mp4), co jest mylące i niespójne z polityką „wszystko duże → multer".
-   - Fallback z Supabase → VPS dla małych plików nie weryfikuje, czy VPS faktycznie zapisał plik (HTML/404 nie jest wychwytywane — analogiczny problem był w News Hub).
-3. `useNewsHub` ma już sensowne rozdzielenie (>2 MB → VPS z weryfikacją `verifyUploadedUrl`). `useLocalStorage` (używany przez `MediaUpload`, edytor CMS, BlockEditor maili) — nie ma weryfikacji.
-4. Limit bucketu w Supabase i tak blokuje zapis, więc dla MP4 należy **całkowicie wykluczyć Supabase** (niezależnie od rozmiaru) i kierować wszystkie wideo na VPS multer.
+Wdrożę upload wideo tak, żeby każdy plik wideo w News Hub szedł wyłącznie przez endpoint Node/Express z `multer`, bez próby zapisu do Supabase Storage i bez limitu bucketu `training-media`.
 
 ## Zakres zmian
 
-### 1. `src/hooks/useLocalStorage.ts` — twarda zasada „wideo zawsze na VPS"
-- Dodać `shouldUseVps(file)`:
-  - `true` jeśli `file.size > SUPABASE_MAX_SIZE_BYTES` **lub** rozszerzenie/MIME to wideo (`mp4|webm|mov|avi|mkv|m4v`) **lub** audio > 2 MB.
-- Wideo i pliki > 2 MB: **bez próby Supabase**, od razu XHR na `STORAGE_CONFIG.UPLOAD_API_URL` (zamiast hardkodowanego `/upload`).
-- Po uploadzie na VPS dla wideo: GET `Range: bytes=0-0` i walidacja jak w `useNewsHub.verifyUploadedUrl` (odrzucamy 404, `text/html`, akceptujemy `video/*` / `application/octet-stream` / brak `content-type` przy 200/206). W razie błędu — czytelny komunikat, brak zapisu URL-a.
-- Usunąć cichy fallback „mały plik → Supabase, error → VPS" dla typów wideo (dla obrazów zostaje bez zmian).
+1. **Tylko multer dla wideo**
+   - Każde `video/*` oraz pliki `.mp4`, `.mov`, `.webm`, `.m4v`, `.avi`, `.mkv` będą zawsze wysyłane na `/upload` obsługiwany przez `multer`.
+   - Dla wideo usunę jakikolwiek fallback do Supabase Storage.
+   - Dla News Hub wymuszę jeden folder docelowy: `training-media`.
 
-### 2. `src/lib/storageConfig.ts`
-- Dodać `VIDEO_EXTENSIONS` i `VIDEO_MIME_PREFIXES` jako jedno źródło prawdy.
-- Dodać `VPS_FORCE_KINDS: ['video']` — typy, które zawsze idą na VPS.
-- Limit `MAX_FILE_SIZE_MB` zostaje 2 GB (limit multer/VPS).
+2. **Poprawa backendu uploadu w `server.js`**
+   - Dopilnuję, żeby `multer` zapisywał duże pliki do `uploads/training-media` i zwracał sukces dopiero po potwierdzeniu, że plik istnieje na dysku i ma poprawny rozmiar.
+   - Dodam bezpieczną walidację folderu, żeby upload nie mógł wyjść poza katalog `uploads`.
+   - Dodam czytelne błędy dla limitu rozmiaru, typu MIME, braku miejsca/zapisu i pustego pliku.
+   - Utrzymam limit aplikacyjny 2 GB po stronie multer.
 
-### 3. `src/components/MediaUpload.tsx`
-- Przy wyborze pliku wideo komunikować jasno: „Wideo zostanie wgrane na serwer plików (VPS), max 2 GB" zamiast wprowadzającej w błąd informacji o bucketcie.
-- Komunikaty błędów z `useLocalStorage` mają być wyświetlane bez obcinania (pełen `error.message`).
+3. **Sprawne odtwarzanie dla każdego użytkownika**
+   - Serwer będzie serwował pliki wideo przez `/uploads/training-media/...` z obsługą `Range`, `206 Partial Content`, `Accept-Ranges`, `Content-Length` i właściwym `Content-Type`.
+   - To zapewni przewijanie, ładowanie metadanych i odtwarzanie MP4 w przeglądarkach.
+   - Dla MP4 ustawię `video/mp4`, dla WebM `video/webm`, dla MOV bezpieczny typ odtwarzania.
 
-### 4. Migracja Supabase — zaostrzyć politykę bucketu `training-media`
-- Dwa warianty (decyzja w technicznej części):
-  - **A (zalecane)**: pozostawić limit 100 MB (Supabase i tak nie jest naszą docelową ścieżką dla wideo). Brak migracji.
-  - **B**: podnieść `file_size_limit` do np. 2 GB tylko gdy chcemy zachować Supabase jako rezerwę. Większe ryzyko kosztów i timeoutów.
-- Plan zakłada wariant **A** — kod kieruje wideo wyłącznie na VPS, więc limit Supabase staje się nieistotny dla tego flow.
+4. **Weryfikacja po uploadzie**
+   - Po zakończeniu uploadu klient wykona `GET` z `Range: bytes=0-0` na zwrócony URL.
+   - Jeżeli serwer zwróci `404`, HTML, pustą odpowiedź albo nieprawidłowy `content-type`, aplikacja nie zapisze URL-a w poście.
+   - Sukces będzie oznaczał realnie zapisany i publicznie odtwarzalny plik.
 
-### 5. (Opcjonalnie, jeśli potrzebne) `uploads/.gitkeep` / dokumentacja VPS
-- Brak zmian po stronie aplikacji — multer na VPS już obsługuje `training-media` i limit 2 GB (zgodnie z istniejącą polityką „VPS Uploads"). Jeżeli serwer zwraca 413/404 dla 142 MB → problem jest po stronie konfiguracji multer (`limits.fileSize`) i nginx (`client_max_body_size`) na VPS — wymaga interwencji admina (poza kodem repo).
+5. **News Hub edytor i bloki wideo**
+   - Upload głównego wideo posta oraz bloku wideo będzie używał tej samej ścieżki multer.
+   - Nie będzie już sytuacji, w której wideo trafia do folderu `files` albo do bucketu Supabase.
+   - Komunikaty w edytorze będą pokazywać dokładny błąd zamiast ogólnego „Błąd uploadu”.
 
-## Sekcja techniczna
+6. **Odtwarzacze**
+   - Ujednolicę obsługę błędów w widoku posta, modalu i blokach treści.
+   - Jeśli ktoś trafi na stary/błędny URL, zamiast `0:00` pokaże się jasny komunikat, że plik nie jest dostępny.
 
-- Detekcja wideo:
-  ```ts
-  const isVideo = (f: File) =>
-    f.type.toLowerCase().startsWith('video/') ||
-    /\.(mp4|webm|mov|avi|mkv|m4v|wmv|flv)$/i.test(f.name);
-  ```
-- Weryfikacja po uploadzie (re-use wzorca z `useNewsHub`):
-  ```ts
-  const res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
-  // odrzuć 404, text/html; wymagaj video/* | application/octet-stream | '' przy 200/206
-  ```
-- Zamiana `xhr.open('POST', '/upload')` → `xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL)`.
-- Brak zmian w `useNewsHub.ts` (już zgodny) — tylko spójność `STORAGE_CONFIG`.
-- Jeśli serwer VPS nadal odrzuca 142 MB: sprawdzić `client_max_body_size` w nginx i `multer({ limits: { fileSize: 2 * 1024 * 1024 * 1024 } })` na Express — to zmiana operacyjna VPS, nie kodu Lovable.
+## Ważne technicznie
 
-## Plik(i) do zmiany
+`multer` działa po stronie serwera Node/Express. W tym projekcie tym serwerem jest `server.js`, a pliki są publicznie serwowane z `/uploads`. Nie będę używał Supabase Storage dla wideo.
 
-- `src/hooks/useLocalStorage.ts` — routing wideo na VPS + weryfikacja URL.
-- `src/lib/storageConfig.ts` — stałe `VIDEO_EXTENSIONS`, helper.
-- `src/components/MediaUpload.tsx` — komunikaty UX, pełne błędy.
-- (Bez migracji DB — wariant A.)
-
-## Efekt
-
-- 142 MB MP4 przez `MediaUpload` → multer VPS, weryfikacja URL → zapis w bazie tylko jeśli plik faktycznie istnieje.
-- Brak prób trafiania w Supabase 100 MB limit.
-- Spójne zachowanie z News Hub.
+Jeżeli po tej zmianie upload nadal zwróci błąd dla 142 MB, przyczyną będzie konfiguracja serwera przed Node, np. nginx/hosting blokujący request przed dojściem do `multer`. Kod aplikacji wtedy pokaże prawdziwy błąd zamiast zapisać fałszywy link.
