@@ -165,6 +165,17 @@ function resolveTrainingMediaPath(filename) {
   }
 }
 
+function moveUploadedFile(sourcePath, targetPath) {
+  ensureDir(path.dirname(targetPath));
+  try {
+    fs.renameSync(sourcePath, targetPath);
+  } catch (error) {
+    if (error.code !== 'EXDEV') throw error;
+    fs.copyFileSync(sourcePath, targetPath);
+    fs.unlinkSync(sourcePath);
+  }
+}
+
 // Multer storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -287,7 +298,7 @@ app.use((req, res, next) => {
 
 // Dedicated video streaming handler for training media
 app.get('/uploads/training-media/:filename', (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, 'training-media', req.params.filename);
+  const filePath = resolveTrainingMediaPath(req.params.filename);
   
   if (!fs.existsSync(filePath)) {
     return res.status(404).send('File not found');
