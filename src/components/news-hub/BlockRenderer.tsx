@@ -3,7 +3,15 @@ import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Download, ExternalLink, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CommentsSection } from './CommentsSection';
 import type { NewsHubBlock, NewsHubBlockStyle } from '@/types/newsHubBlocks';
+
+// Context to pass postId to comment blocks rendered inside content
+const PostContext = React.createContext<{ postId?: string } | null>(null);
+export const NewsHubPostContextProvider: React.FC<{ postId: string; children: React.ReactNode }> = ({ postId, children }) => (
+  <PostContext.Provider value={{ postId }}>{children}</PostContext.Provider>
+);
+export function useNewsHubPostContext() { return React.useContext(PostContext); }
 
 function youTubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
@@ -241,6 +249,15 @@ export const BlockView: React.FC<Props> = ({ block }) => {
       if (!d.html) return null;
       const clean = DOMPurify.sanitize(d.html, { ADD_TAGS: ['iframe'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'src', 'scrolling'] });
       return <div className={cn('overflow-hidden rounded-xl border border-border', wrapC)} style={wrapS} dangerouslySetInnerHTML={{ __html: clean }} />;
+    }
+    case 'comments': {
+      const ctx = useNewsHubPostContext();
+      if (!ctx?.postId) return null;
+      return (
+        <div className={cn(wrapC)} style={wrapS}>
+          <CommentsSection postId={ctx.postId} title={d.title || 'Komentarze'} inline />
+        </div>
+      );
     }
     case 'legacy_html': {
       const html = DOMPurify.sanitize(d.html || '', { USE_PROFILES: { html: true } });
