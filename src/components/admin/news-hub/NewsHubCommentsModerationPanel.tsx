@@ -12,11 +12,13 @@ interface PendingRow {
   id: string;
   post_id: string;
   user_id: string;
+  parent_id: string | null;
   content: string;
   flagged_words: string[];
   created_at: string;
   post?: { title: string; slug: string } | null;
   author?: { first_name: string | null; last_name: string | null } | null;
+  parent_excerpt?: string | null;
 }
 
 export const NewsHubCommentsModerationPanel: React.FC = () => {
@@ -26,24 +28,34 @@ export const NewsHubCommentsModerationPanel: React.FC = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const { data } = await (supabase.from('news_hub_comments' as any) as any)
-      .select('id, post_id, user_id, content, flagged_words, created_at')
+      .select('id, post_id, user_id, parent_id, content, flagged_words, created_at')
       .eq('is_pending_review', true)
       .order('created_at', { ascending: false });
     const list: PendingRow[] = (data || []) as any;
     if (list.length) {
       const postIds = Array.from(new Set(list.map((r) => r.post_id)));
       const userIds = Array.from(new Set(list.map((r) => r.user_id)));
-      const [{ data: posts }, { data: profs }] = await Promise.all([
+      const parentIds = Array.from(new Set(list.map((r) => r.parent_id).filter(Boolean) as string[]));
+      const [{ data: posts }, { data: profs }, parentsRes] = await Promise.all([
         (supabase.from('news_hub_posts' as any) as any).select('id, title, slug').in('id', postIds),
         (supabase.from('profiles' as any) as any).select('user_id, first_name, last_name').in('user_id', userIds),
+        parentIds.length
+          ? (supabase.from('news_hub_comments' as any) as any).select('id, content').in('id', parentIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
       const pmap = new Map<string, any>((posts || []).map((p: any) => [p.id, p]));
       const umap = new Map<string, any>((profs || []).map((p: any) => [p.user_id, p]));
-      list.forEach((r) => { r.post = pmap.get(r.post_id) || null; r.author = umap.get(r.user_id) || null; });
+      const parentMap = new Map<string, string>(((parentsRes as any).data || []).map((p: any) => [p.id, p.content]));
+      list.forEach((r) => {
+        r.post = pmap.get(r.post_id) || null;
+        r.author = umap.get(r.user_id) || null;
+        r.parent_excerpt = r.parent_id ? (parentMap.get(r.parent_id) || null) : null;
+      });
     }
     setRows(list);
     setLoading(false);
   }, []);
+
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -101,7 +113,13 @@ export const NewsHubCommentsModerationPanel: React.FC = () => {
                     </span>
                   )}
                 </div>
+                {r.parent_excerpt && (
+                  <div className="rounded border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/80">Odpowiedź na:</span> {r.parent_excerpt.length > 140 ? `${r.parent_excerpt.slice(0, 140)}…` : r.parent_excerpt}
+                  </div>
+                )}
                 <p className="text-sm whitespace-pre-wrap break-words">{r.content}</p>
+
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => approve(r.id)} className="gap-1.5">
                     <Check className="h-3.5 w-3.5" /> Zatwierdź

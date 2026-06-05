@@ -100,6 +100,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   };
 
   const cover = s.cover || {};
+  const coverWrapClass = cover.height ? '' : 'max-h-[55vh] md:max-h-none aspect-[16/10] md:aspect-auto';
   const coverWrapStyle: React.CSSProperties = {
     height: cover.height ? `${cover.height}px` : undefined,
   };
@@ -121,7 +122,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   return (
     <article className="space-y-4">
       {showCover && post.cover_url && post.type !== 'video' && (
-        <div className="relative overflow-hidden rounded-xl w-full bg-muted" style={coverWrapStyle}>
+        <div className={`relative overflow-hidden rounded-xl w-full bg-muted ${coverWrapClass}`} style={coverWrapStyle}>
           <img src={post.cover_url} alt={post.title} style={coverImgStyle} className="block max-h-none" />
           {cover.overlay && (cover.overlayOpacity ?? 0) > 0 && (
             <div className="absolute inset-0 pointer-events-none" style={{ background: cover.overlay, opacity: cover.overlayOpacity }} />
@@ -136,14 +137,16 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
           </span>
         )}
         <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">{POST_TYPE_LABELS[post.type]}</span>
-        <time className="text-muted-foreground">{format(new Date(post.published_at), "d MMMM yyyy 'o' HH:mm", { locale: pl })}</time>
+        <time className="text-muted-foreground whitespace-normal">{format(new Date(post.published_at), "d MMMM yyyy 'o' HH:mm", { locale: pl })}</time>
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold leading-tight" style={titleStyle}>{post.title}</h1>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight break-words" style={titleStyle}>{post.title}</h1>
 
       {post.short_description && (
-        <p className="text-lg text-muted-foreground" style={descStyle}>{post.short_description}</p>
+        <p className="text-base sm:text-lg text-muted-foreground" style={descStyle}>{post.short_description}</p>
       )}
+
+
 
       {post.type === 'video' && post.media_url && <VideoPlayer url={post.media_url} />}
 

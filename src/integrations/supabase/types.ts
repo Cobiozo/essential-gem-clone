@@ -5680,6 +5680,38 @@ export type Database = {
         }
         Relationships: []
       }
+      news_hub_comment_reactions: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_hub_comment_reactions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_hub_comments: {
         Row: {
           content: string
@@ -5689,6 +5721,7 @@ export type Database = {
           is_hidden: boolean
           is_pending_review: boolean
           is_pinned: boolean
+          parent_id: string | null
           post_id: string
           review_decision: string | null
           reviewed_at: string | null
@@ -5704,6 +5737,7 @@ export type Database = {
           is_hidden?: boolean
           is_pending_review?: boolean
           is_pinned?: boolean
+          parent_id?: string | null
           post_id: string
           review_decision?: string | null
           reviewed_at?: string | null
@@ -5719,6 +5753,7 @@ export type Database = {
           is_hidden?: boolean
           is_pending_review?: boolean
           is_pinned?: boolean
+          parent_id?: string | null
           post_id?: string
           review_decision?: string | null
           reviewed_at?: string | null
@@ -5727,6 +5762,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "news_hub_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_comments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "news_hub_comments_post_id_fkey"
             columns: ["post_id"]

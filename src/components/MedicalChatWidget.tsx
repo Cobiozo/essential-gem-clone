@@ -62,7 +62,7 @@ export const MedicalChatWidget: React.FC = () => {
   }, []);
 
   if (!hasAccess) return null;
-  if (location.pathname === '/omega-base') return null;
+  if (location.pathname !== '/dashboard') return null;
   if (chatSidebar?.isDocked) return null;
 
   const getTranslation = (key: string): string => {

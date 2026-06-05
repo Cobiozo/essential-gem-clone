@@ -82,23 +82,29 @@ const NewsHubPostPage: React.FC = () => {
     >
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
         <div
-          className="mx-auto px-4 py-3 flex items-center justify-between gap-3"
+          className="mx-auto px-4 py-3 flex items-center justify-between gap-1.5"
           style={{ maxWidth, paddingRight: editing ? undefined : 16 }}
         >
-          <Link to="/aktualnosci" className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary">
-            <ArrowLeft className="h-4 w-4" /> Centrum Aktualności
+          <Link to="/aktualnosci" className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary min-w-0">
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              <span className="hidden sm:inline">Centrum Aktualności</span>
+              <span className="sm:hidden">Aktualności</span>
+            </span>
           </Link>
           {isAdmin && !editing && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <Button size="sm" variant="outline" className="gap-2" onClick={() => {
                 searchParams.set('edit', '1');
                 setSearchParams(searchParams, { replace: true });
               }}>
-                <Pencil className="h-4 w-4" /> Edytuj
+                <Pencil className="h-4 w-4" />
+                <span className="hidden sm:inline">Edytuj</span>
               </Button>
               <Link to="/admin/news-hub">
                 <Button size="sm" variant="ghost" className="gap-2">
-                  <Settings className="h-4 w-4" /> Zarządzaj
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Zarządzaj</span>
                 </Button>
               </Link>
             </div>
@@ -106,8 +112,9 @@ const NewsHubPostPage: React.FC = () => {
         </div>
       </header>
 
+
       <main
-        className="mx-auto px-4 py-8 transition-all"
+        className="mx-auto px-4 py-6 md:py-8 pb-28 md:pb-12 transition-all"
         style={{ maxWidth, paddingRight: editing ? 16 : undefined }}
       >
         {!renderPost.is_published && (
