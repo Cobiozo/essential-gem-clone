@@ -14,9 +14,11 @@ interface Props {
   post: NewsHubPost;
   className?: string;
   onAdminChanged?: () => void;
+  /** When true, render admin hover quick-actions overlay. Default false. */
+  adminActions?: boolean;
 }
 
-export const PostCard: React.FC<Props> = ({ post, className, onAdminChanged }) => {
+export const PostCard: React.FC<Props> = ({ post, className, onAdminChanged, adminActions = false }) => {
   const { isAdmin } = useAuth();
   const TypeIcon = (LucideIcons as any)[POST_TYPE_ICONS[post.type]] || LucideIcons.FileText;
   const CategoryIcon = post.category?.icon ? (LucideIcons as any)[post.category.icon] : null;
