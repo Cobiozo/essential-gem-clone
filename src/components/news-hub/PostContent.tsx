@@ -158,7 +158,9 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
       )}
 
       {Array.isArray(post.content_blocks) && post.content_blocks.length > 0 ? (
-        <BlockListView blocks={post.content_blocks} />
+        <NewsHubPostContextProvider postId={post.id}>
+          <BlockListView blocks={post.content_blocks} />
+        </NewsHubPostContextProvider>
       ) : (
         <>
           {cleanHtml && (
@@ -203,6 +205,10 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
             <span key={t} className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">#{t}</span>
           ))}
         </div>
+      )}
+
+      {commentsEnabled && !(post.content_blocks || []).some((b) => b.type === 'comments') && (
+        <CommentsSection postId={post.id} className="mt-6" />
       )}
     </article>
   );
