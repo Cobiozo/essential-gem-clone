@@ -67,6 +67,7 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
+import { useSidebarMenuOrder } from '@/hooks/useSidebarMenuOrder';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
@@ -205,6 +206,7 @@ export const DashboardSidebar: React.FC = () => {
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
   const { isModuleVisible: isNewsHubVisible } = useNewsHubVisibility();
+  const { order: menuOrder } = useSidebarMenuOrder();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
@@ -567,6 +569,16 @@ export const DashboardSidebar: React.FC = () => {
 
     return true;
   });
+
+  // Apply admin-configured ordering
+  if (menuOrder && menuOrder.length > 0) {
+    const indexMap = new Map<string, number>(menuOrder.map((id, i) => [id, i] as [string, number]));
+    visibleMenuItems.sort((a, b) => {
+      const ai = indexMap.has(a.id) ? indexMap.get(a.id)! : Number.MAX_SAFE_INTEGER;
+      const bi = indexMap.has(b.id) ? indexMap.get(b.id)! : Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }
 
   const handleMenuClick = (item: MenuItem) => {
     if (item.action) {

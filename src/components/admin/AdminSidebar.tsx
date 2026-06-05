@@ -66,6 +66,7 @@ import {
   Activity,
   Smartphone,
   Video as VideoIcon,
+  ListOrdered,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -144,6 +145,7 @@ const navCategories: NavCategory[] = [
       { value: 'settings', labelKey: 'settings', icon: Settings2 },
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
       { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
+      { value: 'sidebar-order', labelKey: 'sidebarOrder', icon: ListOrdered },
     ],
   },
   {
@@ -256,6 +258,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Zarządzanie czatem',
     sidebarIcons: 'Ikony paska bocznego',
+    sidebarOrder: 'Kolejność menu bocznego',
     resources: 'Biblioteka',
     healthyKnowledge: 'Baza wiedzy',
     systemHealth: 'Alerty systemowe',

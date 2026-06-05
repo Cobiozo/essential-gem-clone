@@ -8842,6 +8842,24 @@ export type Database = {
         }
         Relationships: []
       }
+      sidebar_menu_order: {
+        Row: {
+          id: boolean
+          order: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          order?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          order?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smtp_settings: {
         Row: {
           created_at: string

@@ -54,19 +54,29 @@ export const NewsHubBannerEditor: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5 text-primary" /> Baner Centrum Aktualności</CardTitle>
-          <CardDescription>Konfigurowalny baner wyświetlany na górze strony /aktualnosci.</CardDescription>
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-4 items-start">
+      {/* LEFT — Live preview (sticky) */}
+      <Card className="lg:sticky lg:top-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ImageIcon className="h-4 w-4 text-primary" /> Podgląd na żywo
+          </CardTitle>
+          <CardDescription>Zmiany po prawej aktualizują podgląd na bieżąco.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Live preview */}
+        <CardContent className="p-2">
           <div className="rounded-md border border-border bg-muted/20 p-2">
-            <div className="text-xs text-muted-foreground mb-2 px-2 pt-1">Podgląd</div>
             <NewsHubBanner config={local} />
           </div>
+        </CardContent>
+      </Card>
 
+      {/* RIGHT — Options */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Ustawienia banera</CardTitle>
+          <CardDescription>Konfiguracja wyglądu strony /aktualnosci.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
           {/* Enabled */}
           <div className="flex items-center justify-between border rounded-md px-4 py-3">
             <div>
@@ -77,7 +87,7 @@ export const NewsHubBannerEditor: React.FC = () => {
           </div>
 
           {/* Treść */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div className="space-y-2">
               <Label>Tytuł</Label>
               <Input value={local.title || ''} onChange={(e) => set({ title: e.target.value })} maxLength={200} />
@@ -86,13 +96,15 @@ export const NewsHubBannerEditor: React.FC = () => {
               <Label>Podtytuł</Label>
               <Input value={local.subtitle || ''} onChange={(e) => set({ subtitle: e.target.value })} maxLength={300} />
             </div>
-            <div className="space-y-2">
-              <Label>Etykieta przycisku CTA (opcjonalnie)</Label>
-              <Input value={local.cta_label || ''} onChange={(e) => set({ cta_label: e.target.value || null as any })} placeholder="np. Zobacz więcej" />
-            </div>
-            <div className="space-y-2">
-              <Label>Link CTA</Label>
-              <Input value={local.cta_url || ''} onChange={(e) => set({ cta_url: e.target.value || null as any })} placeholder="https://... lub /dashboard" />
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label>Etykieta CTA</Label>
+                <Input value={local.cta_label || ''} onChange={(e) => set({ cta_label: e.target.value || null as any })} placeholder="np. Zobacz więcej" />
+              </div>
+              <div className="space-y-2">
+                <Label>Link CTA</Label>
+                <Input value={local.cta_url || ''} onChange={(e) => set({ cta_url: e.target.value || null as any })} placeholder="https://... lub /dashboard" />
+              </div>
             </div>
           </div>
 
@@ -208,10 +220,12 @@ export const NewsHubBannerEditor: React.FC = () => {
             </div>
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Zapisz baner
-          </Button>
+          <div className="sticky bottom-0 -mx-6 px-6 py-3 bg-card/95 backdrop-blur border-t border-border">
+            <Button onClick={handleSave} disabled={saving} className="gap-2 w-full">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Zapisz baner
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
