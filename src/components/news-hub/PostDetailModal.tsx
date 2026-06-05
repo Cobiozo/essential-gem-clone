@@ -8,71 +8,13 @@ import type { NewsHubPost } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { incrementPostView } from '@/hooks/useNewsHub';
 import { useAuth } from '@/contexts/AuthContext';
+import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
 
 interface Props {
   post: NewsHubPost | null;
   open: boolean;
   onClose: () => void;
 }
-
-function youTubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
-  return m ? m[1] : null;
-}
-function vimeoId(url: string): string | null {
-  const m = url.match(/vimeo\.com\/(\d+)/);
-  return m ? m[1] : null;
-}
-
-const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
-  const [error, setError] = React.useState(false);
-  const yt = !error ? youTubeId(url) : null;
-  const vm = !error ? vimeoId(url) : null;
-
-  React.useEffect(() => {
-    setError(false);
-  }, [url]);
-
-  if (yt) {
-    return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-        <iframe className="h-full w-full" src={`https://www.youtube.com/embed/${yt}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-      </div>
-    );
-  }
-  if (vm) {
-    return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="aspect-video w-full rounded-xl bg-muted flex flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
-        <span className="font-medium">Nie można odtworzyć tego pliku wideo.</span>
-        <span className="text-xs">Plik mógł zostać usunięty lub serwer zwraca nieprawidłową odpowiedź. Wgraj plik ponownie z poziomu edytora.</span>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all text-xs">{url}</a>
-      </div>
-    );
-  }
-  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
-  const mime = ext === 'webm' ? 'video/webm' : ext === 'ogv' || ext === 'ogg' ? 'video/ogg' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
-  return (
-    <video
-      key={url}
-      controls
-      preload="metadata"
-      playsInline
-      controlsList="nodownload"
-      className="aspect-video w-full rounded-xl bg-black"
-      onError={() => setError(true)}
-    >
-      <source src={url} type={mime} onError={() => setError(true)} />
-      Twoja przeglądarka nie wspiera wideo.
-    </video>
-  );
-};
 
 export const PostDetailModal: React.FC<Props> = ({ post, open, onClose }) => {
   const { user } = useAuth();
@@ -119,7 +61,7 @@ export const PostDetailModal: React.FC<Props> = ({ post, open, onClose }) => {
             <p className="text-lg text-muted-foreground">{post.short_description}</p>
           )}
 
-          {post.type === 'video' && post.media_url && <VideoPlayer url={post.media_url} />}
+          {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} />}
 
           {post.type === 'gallery' && gallery.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
