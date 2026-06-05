@@ -44,8 +44,42 @@ export const NewsHubBanner: React.FC<Props> = ({ config, fallback, embedded = fa
 
   return (
     <Wrapper>
+      {/* Mobile/tablet: full-width image, no cropping */}
+      <div className="md:hidden">
+        <img
+          src={config.image_url}
+          alt={config.title || 'Banner'}
+          className="block w-full h-auto rounded-none sm:rounded-2xl shadow-xl"
+        />
+        {(config.title || config.subtitle || (config.cta_label && config.cta_url)) && (
+          <div className={`flex flex-col gap-2 px-4 sm:px-0 py-4 ${alignClass}`}>
+            {config.title && (
+              <h1
+                className="font-bold tracking-tight leading-tight"
+                style={{ color: config.title_color, fontSize: `${Math.min(config.title_size, 32)}px` }}
+              >
+                {config.title}
+              </h1>
+            )}
+            {config.subtitle && (
+              <p className="text-sm" style={{ color: config.subtitle_color }}>
+                {config.subtitle}
+              </p>
+            )}
+            {config.cta_label && config.cta_url && (
+              <div className="mt-1">
+                <a href={config.cta_url} target={config.cta_url.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer">
+                  <Button size="lg">{config.cta_label}</Button>
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: original background-image layout */}
       <div
-        className="relative w-full overflow-hidden rounded-2xl shadow-xl"
+        className="relative w-full overflow-hidden rounded-2xl shadow-xl hidden md:block"
         style={{ height: `${config.height}px` }}
       >
         <div
