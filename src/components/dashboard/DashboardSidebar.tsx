@@ -568,6 +568,16 @@ export const DashboardSidebar: React.FC = () => {
     return true;
   });
 
+  // Apply admin-configured ordering
+  if (menuOrder && menuOrder.length > 0) {
+    const indexMap = new Map(menuOrder.map((id, i) => [id, i]));
+    visibleMenuItems.sort((a, b) => {
+      const ai = indexMap.has(a.id) ? indexMap.get(a.id)! : Number.MAX_SAFE_INTEGER;
+      const bi = indexMap.has(b.id) ? indexMap.get(b.id)! : Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }
+
   const handleMenuClick = (item: MenuItem) => {
     if (item.action) {
       item.action();
