@@ -198,14 +198,14 @@ async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<
     return null;
   }
   if (res.status === 404) {
-    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany na dysku. Skontaktuj się z administratorem VPS.';
+    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany w docelowym folderze. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (res.status !== 200 && res.status !== 206) {
     return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
   }
   const ct = (res.headers.get('content-type') || '').toLowerCase();
   if (ct.startsWith('text/html')) {
-    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Skontaktuj się z administratorem VPS.';
+    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (kind === 'video') {
     if (ct.startsWith('video/') || ct.startsWith('application/octet-stream') || ct === '') {
@@ -221,11 +221,11 @@ async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<
   return null;
 }
 
-function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
+function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.append('file', file);
     form.append('folder', folder);
+    form.append('file', file);
 
     const xhr = new XMLHttpRequest();
     // 10 minut dla dużych plików
@@ -240,7 +240,7 @@ function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => v
     xhr.onload = () => {
       const ct = xhr.getResponseHeader('content-type') || '';
       if (!ct.includes('application/json')) {
-        reject(new Error('Serwer VPS niedostępny (brak odpowiedzi JSON).'));
+        reject(new Error('Serwer uploadu niedostępny (brak odpowiedzi JSON).'));
         return;
       }
       let data: any;
@@ -251,7 +251,7 @@ function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => v
       }
       resolve(data.url as string);
     };
-    xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem VPS.'));
+    xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem uploadu.'));
     xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (10 min). Spróbuj jeszcze raz.'));
 
     xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
