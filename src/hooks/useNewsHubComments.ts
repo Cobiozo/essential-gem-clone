@@ -23,7 +23,7 @@ export interface NewsHubComment {
   } | null;
 }
 
-export const EDIT_WINDOW_MS = 5 * 60 * 1000;
+export const EDIT_WINDOW_MS = 60 * 1000;
 
 export function canAuthorEditNow(c: Pick<NewsHubComment, 'created_at' | 'is_pending_review'>) {
   if (c.is_pending_review) return false;

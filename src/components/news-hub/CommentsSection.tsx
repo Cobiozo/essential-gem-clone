@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye, ShieldAlert, Clock } from 'lucide-react';
+import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -29,23 +29,6 @@ const initials = (c?: NewsHubComment['author']) => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'U';
 };
 
-function useNow(intervalMs = 15000) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
-}
-
-function timeLeft(createdAt: string, now: number): string {
-  const left = EDIT_WINDOW_MS - (now - new Date(createdAt).getTime());
-  if (left <= 0) return '';
-  const m = Math.floor(left / 60000);
-  const s = Math.floor((left % 60000) / 1000);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
 export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze', inline = false, className }) => {
   const { user, isAdmin } = useAuth();
   const canModerate = isAdmin;
@@ -55,7 +38,6 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
   const [posting, setPosting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const now = useNow();
 
   const submit = async () => {
     if (!user) return;
@@ -103,7 +85,7 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
             maxLength={2000}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{text.length}/2000 · Edycja możliwa przez 5 minut</span>
+            <span className="text-xs text-muted-foreground">{text.length}/2000</span>
             <Button onClick={submit} disabled={posting || text.trim().length < 2} size="sm" className="gap-1.5">
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Opublikuj
@@ -144,11 +126,6 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
                       <span className="text-muted-foreground">{format(new Date(c.created_at), "d MMM yyyy 'o' HH:mm", { locale: pl })}</span>
                       {c.is_pinned && <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5"><Pin className="h-3 w-3" /> Przypięty</span>}
                       {c.is_hidden && !c.is_pending_review && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Ukryty</span>}
-                      {mine && !c.is_pending_review && withinWindow && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {timeLeft(c.created_at, now)}
-                        </span>
-                      )}
                     </div>
 
                     {showPendingBanner && (
