@@ -8,15 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNewsHubPosts, useNewsHubCategories } from '@/hooks/useNewsHub';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
-import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import { useNewsHubBanner } from '@/hooks/useNewsHubBanner';
 import { NewsHubBanner } from '@/components/news-hub/NewsHubBanner';
+import { NewsHubArchive } from '@/components/news-hub/NewsHubArchive';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
 type SortMode = 'pinned-first' | 'newest' | 'oldest';
-
 
 const TYPE_TABS: Array<{ value: NewsHubPostType | 'all'; label: string }> = [
   { value: 'all', label: 'Wszystko' },
@@ -35,28 +34,23 @@ const NewsHubPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('pinned-first');
-  const [year, setYear] = useState<string>('all');
+  const [monthKey, setMonthKey] = useState<string | null>(null);
 
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
-  const { adminLayout, saveAdminLayout } = useNewsHubSettings();
+  const { adminLayout } = useNewsHubSettings();
   const { config: bannerConfig } = useNewsHubBanner();
-
-  const availableYears = useMemo(() => {
-    const set = new Set<string>();
-    posts.forEach((p) => {
-      const d = p.created_at ? new Date(p.created_at) : null;
-      if (d && !isNaN(d.getTime())) set.add(String(d.getFullYear()));
-    });
-    return Array.from(set).sort((a, b) => Number(b) - Number(a));
-  }, [posts]);
 
   const { pinned, regular } = useMemo(() => {
     let filtered = posts;
-    if (year !== 'all') {
+    if (monthKey) {
       filtered = filtered.filter((p) => {
-        const d = p.created_at ? new Date(p.created_at) : null;
-        return d && !isNaN(d.getTime()) && String(d.getFullYear()) === year;
+        const src = p.published_at || p.created_at;
+        if (!src) return false;
+        const d = new Date(src);
+        if (isNaN(d.getTime())) return false;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return key === monthKey;
       });
     }
     const sorter = (a: typeof posts[number], b: typeof posts[number]) => {
@@ -71,7 +65,7 @@ const NewsHubPage: React.FC = () => {
       };
     }
     return { pinned: [] as typeof posts, regular: filtered.slice().sort(sorter) };
-  }, [posts, year, sortMode]);
+  }, [posts, monthKey, sortMode]);
 
   if (visLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -91,8 +85,6 @@ const NewsHubPage: React.FC = () => {
     );
   }
 
-
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
@@ -111,13 +103,6 @@ const NewsHubPage: React.FC = () => {
       </header>
 
       <NewsHubBanner config={bannerConfig} />
-      {isAdmin && (
-        <div className="container max-w-7xl mx-auto px-4">
-          <p className="text-xs text-muted-foreground mt-2">
-            Najedź na kafelek, aby zobaczyć szybkie akcje (przypnij / ukryj / edytuj / usuń). Kliknij kafelek, aby otworzyć post.
-          </p>
-        </div>
-      )}
 
       <section className="container max-w-7xl mx-auto px-4 pb-4">
         <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -137,16 +122,6 @@ const NewsHubPage: React.FC = () => {
               <SelectItem value="pinned-first">Najpierw przypięte</SelectItem>
               <SelectItem value="newest">Od najnowszych</SelectItem>
               <SelectItem value="oldest">Od najstarszych</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={year} onValueChange={setYear}>
-            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Rok" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Wszystkie lata</SelectItem>
-              {availableYears.map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
-              ))}
             </SelectContent>
           </Select>
 
@@ -176,45 +151,44 @@ const NewsHubPage: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
-
-          {isAdmin && (
-            <div className="ml-auto flex items-center gap-2">
-              <GridLayoutSwitcher value={adminLayout} onChange={saveAdminLayout} />
-            </div>
-          )}
         </div>
-
       </section>
 
-      <section className="container max-w-7xl mx-auto px-4 pb-16 space-y-8">
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!loading && pinned.length > 0 && (
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
-            <BentoGrid posts={pinned} onChanged={refresh} layout={adminLayout} />
-          </div>
-        )}
-
-        {!loading && regular.length > 0 && (
-          <div>
-            {pinned.length > 0 && (
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
+      <section className="container max-w-7xl mx-auto px-4 pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
+          <div className="space-y-8 min-w-0">
+            {loading && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
             )}
-            <BentoGrid posts={regular} onChanged={refresh} layout={adminLayout} />
-          </div>
-        )}
 
-        {!loading && posts.length === 0 && (
-          <div className="text-center py-20 text-muted-foreground">
-            <Newspaper className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Brak aktualności w tej kategorii.</p>
+            {!loading && pinned.length > 0 && (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Przypięte</h2>
+                <BentoGrid posts={pinned} onChanged={refresh} layout={adminLayout} adminActions={false} />
+              </div>
+            )}
+
+            {!loading && regular.length > 0 && (
+              <div>
+                {pinned.length > 0 && (
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Najnowsze</h2>
+                )}
+                <BentoGrid posts={regular} onChanged={refresh} layout={adminLayout} adminActions={false} />
+              </div>
+            )}
+
+            {!loading && pinned.length === 0 && regular.length === 0 && (
+              <div className="text-center py-20 text-muted-foreground">
+                <Newspaper className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>Brak aktualności{monthKey ? ' w wybranym miesiącu' : ''}.</p>
+              </div>
+            )}
           </div>
-        )}
+
+          <NewsHubArchive posts={posts} value={monthKey} onChange={setMonthKey} />
+        </div>
       </section>
     </div>
   );
