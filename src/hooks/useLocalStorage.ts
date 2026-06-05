@@ -320,7 +320,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     if (!url) return { success: false, error: 'No URL provided' };
     
     try {
-      // VPS files (purelife.info.pl)
+      // Files served by local upload server
       if (url.includes('purelife.info.pl/uploads/')) {
         const urlPath = new URL(url).pathname; // /uploads/training-media/filename.mp4
         const parts = urlPath.replace('/uploads/', '').split('/');
@@ -341,7 +341,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         const result = await response.json();
         
         if (result.success) {
-          console.log('🗑️ File deleted from VPS:', filename);
+          console.log('🗑️ File deleted from upload server:', filename);
           return { success: true };
         } else {
           throw new Error(result.error || 'Delete failed');
