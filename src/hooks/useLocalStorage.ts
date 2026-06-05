@@ -154,6 +154,8 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         // Fallback do VPS jeśli Supabase nie działa
         console.warn('Supabase upload failed, trying VPS fallback:', supabaseErr);
       }
+    } else if (isVideo) {
+      console.log(`🎬 Wideo ${file.name} (${formatFileSize(file.size)}) -> VPS Upload (multer, bypass Supabase 100MB limit)`);
     } else {
       console.log(`📁 Duży plik ${file.name} (${formatFileSize(file.size)}) -> VPS Upload`);
     }
