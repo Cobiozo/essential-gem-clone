@@ -77,12 +77,13 @@ interface Props {
   post: NewsHubPost;
   styleOverrides?: NewsHubStyleOverrides;
   showCover?: boolean;
+  commentsEnabled?: boolean;
 }
 
 // Detect HTML content vs plain text (legacy posts saved before WYSIWYG)
 const looksLikeHtml = (s: string) => /<\/?(p|div|h[1-6]|ul|ol|li|strong|em|u|s|a|br|img|hr|blockquote|span)\b/i.test(s);
 
-export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover = true }) => {
+export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover = true, commentsEnabled = false }) => {
   const s = styleOverrides || post.style_overrides || {};
   const gallery: string[] = Array.isArray(post.media_metadata?.gallery) ? post.media_metadata.gallery : [];
 
