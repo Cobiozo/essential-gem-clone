@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye } from 'lucide-react';
+import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye, ShieldAlert, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNewsHubComments, type NewsHubComment } from '@/hooks/useNewsHubComments';
+import { useNewsHubComments, canAuthorEditNow, EDIT_WINDOW_MS, type NewsHubComment } from '@/hooks/useNewsHubComments';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -29,9 +29,25 @@ const initials = (c?: NewsHubComment['author']) => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'U';
 };
 
+function useNow(intervalMs = 15000) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
+function timeLeft(createdAt: string, now: number): string {
+  const left = EDIT_WINDOW_MS - (now - new Date(createdAt).getTime());
+  if (left <= 0) return '';
+  const m = Math.floor(left / 60000);
+  const s = Math.floor((left % 60000) / 1000);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze', inline = false, className }) => {
   const { user, isAdmin } = useAuth();
-  // Moderation rights: admin can do everything; deeper module access is verified by RLS.
   const canModerate = isAdmin;
   const { comments, loading, addComment, updateComment, deleteComment } = useNewsHubComments(postId, !!postId);
 
@@ -39,13 +55,17 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
   const [posting, setPosting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const now = useNow();
 
   const submit = async () => {
     if (!user) return;
     setPosting(true);
     try {
-      await addComment(user.id, text);
+      const created = await addComment(user.id, text);
       setText('');
+      if (created?.is_pending_review) {
+        toast.warning('Komentarz zawiera słowa wymagające moderacji i czeka na zatwierdzenie przez administratora.');
+      }
     } catch (e: any) {
       toast.error(e.message || 'Nie udało się dodać komentarza');
     } finally { setPosting(false); }
@@ -83,7 +103,7 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
             maxLength={2000}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{text.length}/2000</span>
+            <span className="text-xs text-muted-foreground">{text.length}/2000 · Edycja możliwa przez 5 minut</span>
             <Button onClick={submit} disabled={posting || text.trim().length < 2} size="sm" className="gap-1.5">
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Opublikuj
@@ -105,11 +125,13 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
         <ul className="space-y-3">
           {comments.map((c) => {
             const mine = user?.id === c.user_id;
-            const canEdit = mine || canModerate;
-            const canDelete = mine || canModerate;
+            const withinWindow = canAuthorEditNow(c);
+            const canEdit = (mine && withinWindow) || canModerate;
+            const canDelete = (mine && withinWindow) || canModerate;
             const isEditing = editingId === c.id;
+            const showPendingBanner = c.is_pending_review && (mine || canModerate);
             return (
-              <li key={c.id} className={cn('rounded-lg border border-border bg-background p-3', c.is_pinned && 'border-primary/50 bg-primary/5', c.is_hidden && 'opacity-60')}>
+              <li key={c.id} className={cn('rounded-lg border border-border bg-background p-3 transition-opacity', c.is_pinned && 'border-primary/50 bg-primary/5', c.is_hidden && !c.is_pending_review && 'opacity-60', c.is_pending_review && 'border-amber-500/60 bg-amber-500/5')}>
                 <div className="flex items-start gap-3">
                   {c.author?.avatar_url ? (
                     <img src={c.author.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
@@ -121,8 +143,21 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
                       <span className="font-semibold text-sm text-foreground">{fullName(c.author)}</span>
                       <span className="text-muted-foreground">{format(new Date(c.created_at), "d MMM yyyy 'o' HH:mm", { locale: pl })}</span>
                       {c.is_pinned && <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5"><Pin className="h-3 w-3" /> Przypięty</span>}
-                      {c.is_hidden && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Ukryty</span>}
+                      {c.is_hidden && !c.is_pending_review && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Ukryty</span>}
+                      {mine && !c.is_pending_review && withinWindow && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                          <Clock className="h-3 w-3" /> {timeLeft(c.created_at, now)}
+                        </span>
+                      )}
                     </div>
+
+                    {showPendingBanner && (
+                      <div className="mt-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-300 inline-flex items-center gap-1.5">
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        Oczekuje na zatwierdzenie przez administratora{c.flagged_words?.length ? ` · wykryto: ${c.flagged_words.join(', ')}` : ''}.
+                      </div>
+                    )}
+
                     {isEditing ? (
                       <div className="mt-2 space-y-2">
                         <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={3} maxLength={2000} />
@@ -150,6 +185,11 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={() => updateComment(c.id, { is_hidden: !c.is_hidden })}>
                               {c.is_hidden ? <><Eye className="h-3 w-3" /> Pokaż</> : <><EyeOff className="h-3 w-3" /> Ukryj</>}
                             </Button>
+                            {c.is_pending_review && (
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 text-emerald-600" onClick={() => updateComment(c.id, { is_pending_review: false, is_hidden: false, review_decision: 'approved' })}>
+                                Zatwierdź
+                              </Button>
+                            )}
                           </>
                         )}
                         {canDelete && (
