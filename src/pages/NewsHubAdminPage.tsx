@@ -110,6 +110,13 @@ const NewsHubAdminPage: React.FC = () => {
           </label>
         </div>
 
+        {(isAdmin || can('news_hub')) && commentsEnabled && (
+          <>
+            <NewsHubCommentsModerationPanel />
+            <NewsHubBannedWordsPanel />
+          </>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>
         ) : posts.length === 0 ? (
