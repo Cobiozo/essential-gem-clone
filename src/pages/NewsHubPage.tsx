@@ -90,17 +90,21 @@ const NewsHubPage: React.FC = () => {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
         <div className="container max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium hover:text-primary">
-            <ArrowLeft className="h-4 w-4" /> Strona główna
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Strona główna</span>
+            <span className="sm:hidden">Pulpit</span>
           </Link>
           {isAdmin && (
             <Link to="/admin/news-hub">
               <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="h-4 w-4" /> Zarządzaj
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Zarządzaj</span>
               </Button>
             </Link>
           )}
         </div>
       </header>
+
 
       <NewsHubBanner config={bannerConfig} />
 
