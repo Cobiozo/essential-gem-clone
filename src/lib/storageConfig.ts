@@ -19,6 +19,9 @@ export const STORAGE_CONFIG = {
     file: 'training-media',
     cover: 'training-media',
   } as const,
+
+  // Typy plików, które ZAWSZE idą na VPS/multer (omijają Supabase Storage i jego limit 100MB bucketu)
+  VIDEO_EXTENSIONS: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v', 'wmv', 'flv'] as const,
   
   // Dozwolone typy plików
   ALLOWED_TYPES: {
