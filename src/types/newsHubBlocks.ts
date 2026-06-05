@@ -13,6 +13,7 @@ export type NewsHubBlockType =
   | 'columns'
   | 'table'
   | 'embed'
+  | 'comments'
   | 'legacy_html';
 
 export interface NewsHubBlockStyle {

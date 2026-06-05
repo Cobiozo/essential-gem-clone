@@ -49,6 +49,8 @@ export interface NewsHubPost {
   visible_to_partner?: boolean;
   visible_to_client?: boolean;
   visible_to_specjalista?: boolean;
+  // Comments
+  comments_mode?: 'inherit' | 'on' | 'off';
 }
 
 export interface NewsHubTextStyle {
