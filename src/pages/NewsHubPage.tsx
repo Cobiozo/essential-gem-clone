@@ -161,9 +161,9 @@ const NewsHubPage: React.FC = () => {
       </section>
 
 
-      <section className="container max-w-7xl mx-auto px-4 pb-16">
+      <section className="container max-w-7xl mx-auto px-4 pb-28 md:pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
-          <div className="space-y-8 min-w-0">
+          <div className="space-y-8 min-w-0 order-first">
             {loading && (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -194,9 +194,12 @@ const NewsHubPage: React.FC = () => {
             )}
           </div>
 
-          <NewsHubArchive posts={posts} value={monthKey} onChange={setMonthKey} />
+          <div className="order-last lg:order-none">
+            <NewsHubArchive posts={posts} value={monthKey} onChange={setMonthKey} />
+          </div>
         </div>
       </section>
+
     </div>
   );
 };
