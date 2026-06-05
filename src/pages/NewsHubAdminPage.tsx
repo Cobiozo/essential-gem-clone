@@ -13,6 +13,8 @@ import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import { NewsHubModuleVisibilityPanel } from '@/components/news-hub/NewsHubModuleVisibilityPanel';
 import { NewsHubBannerEditor } from '@/components/admin/news-hub/NewsHubBannerEditor';
+import { NewsHubCommentsModerationPanel } from '@/components/admin/news-hub/NewsHubCommentsModerationPanel';
+import { NewsHubBannedWordsPanel } from '@/components/admin/news-hub/NewsHubBannedWordsPanel';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
@@ -107,6 +109,13 @@ const NewsHubAdminPage: React.FC = () => {
             <span className="text-sm">{commentsEnabled ? 'Włączone' : 'Wyłączone'}</span>
           </label>
         </div>
+
+        {(isAdmin || can('news_hub')) && commentsEnabled && (
+          <>
+            <NewsHubCommentsModerationPanel />
+            <NewsHubBannedWordsPanel />
+          </>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>
