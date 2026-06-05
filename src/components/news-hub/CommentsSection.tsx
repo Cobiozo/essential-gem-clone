@@ -85,7 +85,7 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
             maxLength={2000}
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{text.length}/2000 · Edycja możliwa przez 5 minut</span>
+            <span className="text-xs text-muted-foreground">{text.length}/2000</span>
             <Button onClick={submit} disabled={posting || text.trim().length < 2} size="sm" className="gap-1.5">
               {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Opublikuj
