@@ -86,25 +86,21 @@ export function slugify(text: string): string {
     .substring(0, 80);
 }
 
-// Próg powyżej którego plik leci na VPS (Express /upload) zamiast Supabase Storage.
-// Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
+// Próg powyżej którego plik leci przez Express /upload (multer) zamiast Supabase Storage.
 import { STORAGE_CONFIG } from '@/lib/storageConfig';
 
-const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
+const SERVER_UPLOAD_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
-// Express VPS na produkcji ma utworzony i przetestowany TYLKO folder
-// `training-media`. Foldery typu `news-hub-*` nie istnieją na VPS,
-// więc serwer zwracał SPA HTML zamiast pliku → wideo 0:00. Używamy
-// `training-media` dla wszystkich uploadów News Hub jako stabilnego targetu.
+// `training-media` jest stabilnym folderem dla plików News Hub obsługiwanych przez multer.
 type NewsHubFolderKey = 'covers' | 'media' | 'files';
-const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
+const SERVER_UPLOAD_FOLDERS: Record<NewsHubFolderKey, string> = {
   covers: STORAGE_CONFIG.NEWS_HUB_FOLDERS.cover,
   media: STORAGE_CONFIG.NEWS_HUB_FOLDERS.video,
   files: STORAGE_CONFIG.NEWS_HUB_FOLDERS.file,
 };
 
 // Co użytkownik wgrywa — używamy do walidacji client-side i weryfikacji
-// content-type po uploadzie. NIE musi się pokrywać z folderem na VPS.
+// content-type po uploadzie. NIE musi się pokrywać z folderem zapisu.
 export type NewsHubUploadKind = 'video' | 'image' | 'file' | 'cover';
 
 function inferKind(folder: NewsHubFolderKey, file: File): NewsHubUploadKind {
@@ -143,16 +139,16 @@ export async function uploadNewsHubFile(
   const isVideoByMime = (file.type || '').toLowerCase().startsWith('video/');
   const isVideo = options.kind === 'video' || isVideoByExt || isVideoByMime;
 
-  // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media' na VPS)
+  // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media')
   const effectiveFolder: NewsHubFolderKey = isVideo ? 'media' : folder;
   const kind = isVideo ? 'video' : (options.kind || inferKind(effectiveFolder, file));
 
   const mimeErr = validateClientMime(file, kind);
   if (mimeErr) throw new Error(mimeErr);
 
-  // WIDEO: ZAWSZE multer/VPS (omijamy Supabase i jego limit bucketu)
+  // WIDEO: ZAWSZE multer przez /upload (omijamy Supabase i jego limit bucketu)
   if (isVideo) {
-    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
+    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
     const verr = await verifyUploadedUrl(url, 'video');
     if (verr) {
       console.error('[useNewsHub] Video verification failed:', verr, url);
@@ -161,9 +157,9 @@ export async function uploadNewsHubFile(
     return url;
   }
 
-  // NIE-WIDEO: duże pliki na VPS, małe na Supabase
-  if (file.size > VPS_THRESHOLD_BYTES) {
-    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
+  // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
+  if (file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
+    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
     const verr = await verifyUploadedUrl(url, kind);
     if (verr) {
       console.error('[useNewsHub] Verification failed:', verr, url);
