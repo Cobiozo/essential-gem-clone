@@ -100,6 +100,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   };
 
   const cover = s.cover || {};
+  const coverWrapClass = cover.height ? '' : 'max-h-[55vh] md:max-h-none aspect-[16/10] md:aspect-auto';
   const coverWrapStyle: React.CSSProperties = {
     height: cover.height ? `${cover.height}px` : undefined,
   };
