@@ -63,9 +63,9 @@ export const NewsHubBannerEditor: React.FC = () => {
           </CardTitle>
           <CardDescription>Zmiany po prawej aktualizują podgląd na bieżąco.</CardDescription>
         </CardHeader>
-        <CardContent className="p-2">
-          <div className="rounded-md border border-border bg-muted/20 p-2">
-            <NewsHubBanner config={local} />
+        <CardContent className="p-0">
+          <div className="w-full overflow-hidden rounded-b-xl border-t border-border bg-background p-4">
+            <NewsHubBanner config={local} embedded />
           </div>
         </CardContent>
       </Card>
