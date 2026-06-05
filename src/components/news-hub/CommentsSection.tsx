@@ -29,23 +29,6 @@ const initials = (c?: NewsHubComment['author']) => {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || 'U';
 };
 
-function useNow(intervalMs = 15000) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
-}
-
-function timeLeft(createdAt: string, now: number): string {
-  const left = EDIT_WINDOW_MS - (now - new Date(createdAt).getTime());
-  if (left <= 0) return '';
-  const m = Math.floor(left / 60000);
-  const s = Math.floor((left % 60000) / 1000);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
 export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze', inline = false, className }) => {
   const { user, isAdmin } = useAuth();
   const canModerate = isAdmin;
@@ -55,7 +38,6 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
   const [posting, setPosting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const now = useNow();
 
   const submit = async () => {
     if (!user) return;
