@@ -55,20 +55,22 @@ export const NewsHubBannerEditor: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-4 items-start">
-      {/* LEFT — Live preview (sticky) */}
+      {/* LEFT — Live preview (sticky), 1:1 mock of /aktualnosci scaled to fit */}
       <Card className="lg:sticky lg:top-4">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ImageIcon className="h-4 w-4 text-primary" /> Podgląd na żywo
           </CardTitle>
-          <CardDescription>Zmiany po prawej aktualizują podgląd na bieżąco.</CardDescription>
+          <CardDescription>Realny widok strony /aktualnosci (skalowany do szerokości panelu).</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="w-full overflow-hidden rounded-b-xl border-t border-border bg-background p-4">
-            <NewsHubBanner config={local} embedded />
-          </div>
+          <ScaledPagePreview>
+            <NewsHubBanner config={local} />
+            <NewsHubPageMock />
+          </ScaledPagePreview>
         </CardContent>
       </Card>
+
 
       {/* RIGHT — Options */}
       <Card>
