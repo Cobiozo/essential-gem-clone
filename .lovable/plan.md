@@ -1,137 +1,54 @@
-# Komentarze w artykułach Centrum Aktualności
+## Komentarze – moderacja, okno 5 minut i filtr wulgaryzmów
 
-## Cel
-Dodać sekcję komentarzy na stronie pojedynczego artykułu (`/aktualnosci/:slug`), z możliwością włączenia/wyłączenia przez admina — globalnie dla modułu oraz per-post. Komentarze mogą pojawić się:
-1. Automatycznie na samym dole artykułu (pod treścią), jeśli włączone.
-2. Jako blok `comments` wstawiany w dowolnym miejscu treści przez edytor blokowy.
+### 1. Natychmiastowe usuwanie (realtime)
+- `CommentsSection.tsx`: po kliknięciu **Usuń** od razu usuwamy komentarz z lokalnego stanu (optymistyczna aktualizacja), a dopiero potem wysyłamy `DELETE` do bazy. W razie błędu przywracamy wpis i pokazujemy toast.
+- `useNewsHubComments.ts`: dodajemy `removeLocal(id)` / `upsertLocal(c)` aby UI nie czekał na realtime.
+- Subskrypcja realtime nadal działa – usunięcie u jednego użytkownika znika u pozostałych w czasie rzeczywistym (już skonfigurowane).
 
-Tylko zalogowani użytkownicy mogą dodawać i widzieć komentarze. Admin/moderator z dostępem do News Hub może moderować (ukryć/usunąć dowolny komentarz, przypiąć).
+### 2. Okno 5 minut dla autora
+- Autor może **edytować i usuwać własny komentarz tylko przez 5 minut** od `created_at`.
+- Po upływie 5 minut: przyciski „Edytuj" i „Usuń" znikają dla autora.
+- **Admin** (oraz moderator z modułem `news_hub`) zawsze może edytować, ukrywać, przypinać i usuwać dowolny komentarz – bez limitu czasu.
+- Wymusimy to także na poziomie bazy (RLS), aby nie dało się obejść z frontu:
+  - `UPDATE`/`DELETE` dla zwykłego użytkownika: `user_id = auth.uid() AND created_at > now() - interval '5 minutes' AND is_pending_review = false`.
+  - Dla admina/moderatora: bez ograniczeń (przez `has_role` / `has_moderator_module`).
 
-## Zakres funkcjonalny
+### 3. Filtr wulgaryzmów + kolejka do zatwierdzenia
+- Nowa tabela słów: `news_hub_comment_banned_words` (lista słów/fraz, edytowalna przez admina).
+  - Pola: `word` (text, lowercase), `created_by`, `created_at`. Indeks unikalny na `lower(word)`.
+- Nowe kolumny w `news_hub_comments`:
+  - `is_pending_review boolean default false` – komentarz oczekuje na decyzję admina.
+  - `flagged_words text[]` – wykryte słowa (do podglądu admina).
+  - `reviewed_by uuid`, `reviewed_at timestamptz`, `review_decision text` (`approved` | `rejected`).
+- Funkcja `public.scan_comment_profanity(text) returns text[]` – zwraca trafione słowa (case-insensitive, granice słów).
+- Trigger `BEFORE INSERT/UPDATE OF content`:
+  - Jeśli znajdzie wulgaryzmy → ustawia `is_hidden = true`, `is_pending_review = true`, `flagged_words = <lista>`.
+  - Powiadamia admina: wpis do istniejącego systemu powiadomień / logu (do potwierdzenia – patrz pytanie 1).
+- RLS:
+  - Komentarz `is_pending_review = true` jest **widoczny tylko** dla autora (z banerem „Oczekuje na moderację") i moderatorów; niewidoczny dla innych.
+  - Autor **nie może edytować** komentarza w stanie `is_pending_review`.
+  - Tylko admin/moderator może go zatwierdzić (`approve` → `is_hidden=false, is_pending_review=false`) lub odrzucić (`reject` → usunięcie lub trwałe ukrycie).
 
-### Ustawienia (admin)
-- W `useNewsHubSettings` dodać dwa nowe flagi globalne:
-  - `comments_enabled` (bool, domyślnie `false`) — master switch dla modułu.
-  - `comments_require_login` (bool, domyślnie `true`) — zostaje `true` zgodnie z wymaganiem.
-- W panelu `/admin/news-hub` (zakładka "Ustawienia") nowa sekcja "Komentarze" z togglem włącz/wyłącz.
-- W edytorze pojedynczego posta (`PostInlineEditor`) dodać przełącznik `comments_enabled` per-post (override). Wartości: `inherit` / `on` / `off`. Domyślnie `inherit`.
+### 4. Panel moderacji w `/admin/news-hub`
+- Nowa zakładka „Komentarze do zatwierdzenia" pokazująca:
+  - listę komentarzy z `is_pending_review = true` (autor, treść, post, wykryte słowa, data),
+  - akcje: **Zatwierdź**, **Odrzuć (usuń)**, **Edytuj i zatwierdź**.
+- Sekcja „Lista zakazanych słów" – CRUD na `news_hub_comment_banned_words` z masowym dodawaniem (po przecinku / nowej linii). Wgramy startową listę polskich/angielskich wulgaryzmów (do potwierdzenia – pytanie 2).
 
-### Strona artykułu (`NewsHubPostPage` + `PostContent`)
-- Jeśli `effectiveCommentsEnabled(post, settings) === true`:
-  - Wyrenderuj `<CommentsSection postId={post.id} />` na końcu `<article>` (po tagach), o ile w treści nie ma już bloku `comments` (żeby nie dublować).
-- Blok `comments` w edytorze blokowym — nowy typ w `newsHubBlocks.ts`:
-  - `BLOCK_LABELS.comments = 'Komentarze'`
-  - `createBlock('comments')` → `{ data: { title?: 'Komentarze', limit?: number } }`
-  - `BlockRenderer` renderuje `<CommentsSection postId={post.id} inline title={...} />`
-  - Edytor bloków: prosty inspector (tytuł, opcjonalny limit wyświetlanych).
+### 5. Drobne UX
+- Przycisk **Usuń** dostaje natychmiastowe ukrycie wiersza + animacja (fade-out).
+- Pod komentarzem oczekującym na moderację (widocznym dla autora) plakietka „Oczekuje na zatwierdzenie przez administratora".
+- Dymek tooltipa przy „Edytuj" pokazuje pozostały czas (np. „Możliwe przez 4 min 12 s").
 
-### Komponent `CommentsSection`
-- Lista komentarzy (płaska, sortowanie od najnowszych; przypięte na górze).
-- Pole "Dodaj komentarz" (Textarea + przycisk) — tylko dla zalogowanych. Dla niezalogowanych: krótki komunikat "Zaloguj się, aby dodać komentarz" z linkiem do `/auth`.
-- Każdy komentarz: avatar + imię/nazwisko z `profiles`, data, treść (sanityzowana, plain text + linki autodetect), akcje:
-  - Autor komentarza: Edytuj / Usuń (soft).
-  - Admin / moderator z dostępem do news-hub: Ukryj / Usuń / Przypnij.
-- Realtime: subskrypcja `postgres_changes` na `news_hub_comments` filtrowana po `post_id`.
-- Walidacja: trim, min 2 / max 2000 znaków (zod).
-- Bezpieczeństwo: brak `dangerouslySetInnerHTML`; treść wyświetlana jako tekst z `whitespace-pre-wrap`.
+### Szczegóły techniczne
+- Migracja:
+  - `alter table news_hub_comments add column is_pending_review boolean not null default false, add column flagged_words text[] not null default '{}', add column reviewed_by uuid, add column reviewed_at timestamptz, add column review_decision text;`
+  - `create table news_hub_comment_banned_words(...)` + GRANT + RLS (admin/moderator zarządza, `authenticated` tylko `select` jeśli potrzebne – domyślnie brak).
+  - Funkcja `scan_comment_profanity` + trigger `trg_news_hub_comments_moderation`.
+  - Nowe policies UPDATE/DELETE z warunkiem 5 minut + `has_role('admin')`/`has_moderator_module(..., 'news_hub')`.
+- Realtime już obejmuje `news_hub_comments` – panel admina dostaje nowe zgłoszenia od razu.
 
-### Liczniki
-- Na karcie posta (`PostCard`/`BentoCard`) — bez zmian wizualnych w tym kroku (opcjonalnie później), żeby nie rozszerzać zakresu.
-
-## Zakres techniczny
-
-### Baza danych (migration)
-```sql
-create table public.news_hub_comments (
-  id uuid primary key default gen_random_uuid(),
-  post_id uuid not null references public.news_hub_posts(id) on delete cascade,
-  user_id uuid not null,
-  content text not null check (char_length(content) between 2 and 2000),
-  is_hidden boolean not null default false,
-  is_pinned boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index on public.news_hub_comments (post_id, created_at desc);
-
-grant select, insert, update, delete on public.news_hub_comments to authenticated;
-grant all on public.news_hub_comments to service_role;
-
-alter table public.news_hub_comments enable row level security;
-
--- SELECT: zalogowani widzą nieukryte; autor widzi swoje; admin/moderator z dostępem do news-hub widzi wszystko
-create policy "read visible comments" on public.news_hub_comments
-  for select to authenticated
-  using (
-    is_hidden = false
-    or user_id = auth.uid()
-    or public.has_role(auth.uid(), 'admin')
-    or public.has_moderator_module(auth.uid(), 'news-hub')  -- fallback do has_role jeśli funkcja nie istnieje
-  );
-
--- INSERT: tylko swoje, tylko gdy moduł komentarzy włączony globalnie
-create policy "insert own comment" on public.news_hub_comments
-  for insert to authenticated
-  with check (user_id = auth.uid());
-
--- UPDATE: autor (edycja treści w ciągu np. zawsze) lub admin/mod (moderacja flag)
-create policy "update own or moderate" on public.news_hub_comments
-  for update to authenticated
-  using (user_id = auth.uid() or public.has_role(auth.uid(), 'admin'))
-  with check (user_id = auth.uid() or public.has_role(auth.uid(), 'admin'));
-
--- DELETE: autor lub admin
-create policy "delete own or admin" on public.news_hub_comments
-  for delete to authenticated
-  using (user_id = auth.uid() or public.has_role(auth.uid(), 'admin'));
-
--- updated_at trigger (reużywając istniejącej funkcji)
-create trigger trg_news_hub_comments_updated_at
-before update on public.news_hub_comments
-for each row execute function public.update_updated_at_column();
-```
-
-Dodatkowo: kolumna na poście:
-```sql
-alter table public.news_hub_posts
-  add column if not exists comments_mode text not null default 'inherit'
-    check (comments_mode in ('inherit','on','off'));
-```
-
-Ustawienia globalne (jeśli `news_hub_settings` to tabela JSON/kv) — dopisać klucz `comments_enabled` (`true`/`false`) bez migracji schematu (insert/update przez UI).
-
-### Frontend — nowe / edytowane pliki
-- **Nowe:**
-  - `src/components/news-hub/CommentsSection.tsx` — lista + formularz + realtime.
-  - `src/components/news-hub/CommentItem.tsx` — pojedynczy komentarz + akcje.
-  - `src/hooks/useNewsHubComments.ts` — fetch, insert, update, delete, realtime, join z `profiles`.
-- **Edytowane:**
-  - `src/types/newsHubBlocks.ts` — dodać typ `comments`, label, factory.
-  - `src/components/news-hub/BlockRenderer.tsx` — render bloku `comments`.
-  - `src/components/news-hub/blocks/BlockInspector.tsx` (lub odpowiednik) — inspector dla `comments`.
-  - `src/components/news-hub/PostContent.tsx` — render `<CommentsSection>` na dole, jeśli włączone i brak bloku `comments` w treści.
-  - `src/pages/NewsHubPostPage.tsx` — przekazać `settings` / wyliczyć `commentsEnabled`.
-  - `src/hooks/useNewsHubSettings.ts` — dodać `comments_enabled` (+ helper `isCommentsEnabledForPost(post, settings)`).
-  - `src/pages/NewsHubAdminPage.tsx` (zakładka Ustawienia) — toggle "Włącz komentarze".
-  - `src/components/news-hub/PostInlineEditor.tsx` — select `comments_mode` (Dziedzicz / Włącz / Wyłącz).
-  - `src/types/newsHub.ts` — `comments_mode?: 'inherit' | 'on' | 'off'`.
-
-### Logika `effectiveCommentsEnabled`
-```ts
-function isOn(post, settings) {
-  if (post.comments_mode === 'on') return true;
-  if (post.comments_mode === 'off') return false;
-  return !!settings.comments_enabled; // inherit
-}
-```
-
-### Wpływ na inne obszary
-- `PostContent` używane także w podglądzie (`NewsHubPostPage` edit mode) — w trybie edycji renderujemy sekcję jako podgląd (read-only), bez subskrypcji realtime, aby nie generować ruchu.
-- Brak zmian RLS innych tabel, brak zmian innych ustawień.
-
-## Co NIE wchodzi w zakres
-- Komentarze gości (niezalogowanych) — wymóg loginu zgodnie z prośbą.
-- Zagnieżdżone odpowiedzi (threading) — wersja płaska na start; można dodać `parent_id` później.
-- Reakcje (lajki) — pomijamy.
-- Powiadomienia push/e-mail o nowych komentarzach — pomijamy.
-- Licznik komentarzy na kartach Bento — pomijamy w tej iteracji.
+### Pytania (przed implementacją)
+1. **Powiadomienie admina o nowym zgłoszeniu**: tylko czerwona plakietka w `/admin/news-hub` (licznik), czy dodatkowo wpis w `notifications` (dzwoneczek) i/lub email?
+2. **Lista zakazanych słów na start**: czy mam załadować standardową polską listę wulgaryzmów (≈100 słów) jako seed, czy zostawić pustą i pozwolić adminowi samemu uzupełnić?
+3. Czy okno **5 minut** dotyczy też **usunięcia własnego komentarza**, czy autor może go usunąć w dowolnym momencie (a tylko edycja ma limit 5 minut)?
