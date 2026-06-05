@@ -6,12 +6,22 @@ import type { NewsHubBannerConfig } from '@/hooks/useNewsHubBanner';
 interface Props {
   config: NewsHubBannerConfig;
   fallback?: React.ReactNode;
+  /** When true, banner renders without the outer page container (for embedding in previews/columns). */
+  embedded?: boolean;
 }
 
-export const NewsHubBanner: React.FC<Props> = ({ config, fallback }) => {
+export const NewsHubBanner: React.FC<Props> = ({ config, fallback, embedded = false }) => {
+  const Wrapper: React.FC<{ children: React.ReactNode; padding?: string }> = ({ children, padding }) =>
+    embedded ? (
+      <div className="w-full">{children}</div>
+    ) : (
+      <section className={`container max-w-7xl mx-auto px-4 ${padding ?? 'pt-6 pb-6'}`}>{children}</section>
+    );
+
   if (!config.enabled || !config.image_url) {
-    return fallback ? <>{fallback}</> : (
-      <section className="container max-w-7xl mx-auto px-4 pt-10 pb-6">
+    if (fallback) return <>{fallback}</>;
+    return (
+      <Wrapper padding="pt-10 pb-6">
         <div className="flex items-center gap-3 mb-3">
           <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/60 p-3 shadow-lg">
             <Newspaper className="h-7 w-7 text-primary-foreground" />
@@ -25,7 +35,7 @@ export const NewsHubBanner: React.FC<Props> = ({ config, fallback }) => {
             </p>
           </div>
         </div>
-      </section>
+      </Wrapper>
     );
   }
 
@@ -33,7 +43,7 @@ export const NewsHubBanner: React.FC<Props> = ({ config, fallback }) => {
   const alignClass = align === 'center' ? 'items-center text-center' : align === 'right' ? 'items-end text-right' : 'items-start text-left';
 
   return (
-    <section className="container max-w-7xl mx-auto px-4 pt-6 pb-6">
+    <Wrapper>
       <div
         className="relative w-full overflow-hidden rounded-2xl shadow-xl"
         style={{ height: `${config.height}px` }}
@@ -83,7 +93,7 @@ export const NewsHubBanner: React.FC<Props> = ({ config, fallback }) => {
           )}
         </div>
       </div>
-    </section>
+    </Wrapper>
   );
 };
 
