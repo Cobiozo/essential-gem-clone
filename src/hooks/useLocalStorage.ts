@@ -131,11 +131,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
     const folder = options?.folder || 'uploads';
 
-    // NOWA LOGIKA: Pliki <= 2MB do Supabase, > 2MB do VPS
-    if (file.size <= STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
-      // Małe pliki -> Supabase Storage (szybsze, CDN)
+    // Wideo zawsze idzie na VPS/multer (Supabase bucket training-media ma limit 100MB)
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const isVideo = (file.type || '').toLowerCase().startsWith('video/')
+      || (STORAGE_CONFIG.VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+
+    // Małe pliki (<=2MB) NIE-WIDEO -> Supabase Storage (szybsze, CDN)
+    if (!isVideo && file.size <= STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
       console.log(`📦 Mały plik ${file.name} (${formatFileSize(file.size)}) -> Supabase Storage`);
-      
+
       try {
         setUploadProgress(10);
         const result = await uploadToSupabase(file, folder, (progress) => {
@@ -143,6 +147,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           options?.onProgress?.(progress);
         });
         setIsUploading(false);
+
         uploadLockRef.current = false;
         return result;
       } catch (supabaseErr) {
