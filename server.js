@@ -216,6 +216,8 @@ function transcodeToIphoneSafeMp4(inputPath) {
   const outputPath = path.join(parsed.dir, `${parsed.name}-ios-h264.mp4`);
   const result = spawnSync('ffmpeg', [
     '-y',
+    '-hide_banner',
+    '-loglevel', 'error',
     '-i', inputPath,
     '-map', '0:v:0',
     '-map', '0:a:0?',
