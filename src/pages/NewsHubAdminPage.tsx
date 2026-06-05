@@ -29,7 +29,7 @@ const NewsHubAdminPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [initialBlocks, setInitialBlocks] = useState<NewsHubBlock[] | undefined>(undefined);
-  const { adminLayout, saveAdminLayout } = useNewsHubSettings();
+  const { adminLayout, saveAdminLayout, commentsEnabled, saveCommentsEnabled } = useNewsHubSettings();
   const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
 
   if (authLoading || modLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -90,6 +90,22 @@ const NewsHubAdminPage: React.FC = () => {
             <div className="text-xs text-muted-foreground">Użytkownicy mogą tymczasowo przełączyć układ, ale ten jest domyślny.</div>
           </div>
           <GridLayoutSwitcher value={adminLayout} onChange={(v) => { saveAdminLayout(v); toast.success('Zapisano układ'); }} />
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold">Komentarze pod artykułami</div>
+            <div className="text-xs text-muted-foreground">Globalny przełącznik. Każdy artykuł może nadpisać to ustawienie w zakładce Dostęp.</div>
+          </div>
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={commentsEnabled}
+              onChange={async (e) => { await saveCommentsEnabled(e.target.checked); toast.success(e.target.checked ? 'Komentarze włączone' : 'Komentarze wyłączone'); }}
+              className="h-4 w-4"
+            />
+            <span className="text-sm">{commentsEnabled ? 'Włączone' : 'Wyłączone'}</span>
+          </label>
         </div>
 
         {loading ? (
