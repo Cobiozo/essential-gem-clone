@@ -86,25 +86,21 @@ export function slugify(text: string): string {
     .substring(0, 80);
 }
 
-// Próg powyżej którego plik leci na VPS (Express /upload) zamiast Supabase Storage.
-// Zgodnie z polityką "VPS Uploads": pliki > 2MB idą XHR-em na lokalny VPS.
+// Próg powyżej którego plik leci przez Express /upload (multer) zamiast Supabase Storage.
 import { STORAGE_CONFIG } from '@/lib/storageConfig';
 
-const VPS_THRESHOLD_BYTES = 2 * 1024 * 1024;
+const SERVER_UPLOAD_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
-// Express VPS na produkcji ma utworzony i przetestowany TYLKO folder
-// `training-media`. Foldery typu `news-hub-*` nie istnieją na VPS,
-// więc serwer zwracał SPA HTML zamiast pliku → wideo 0:00. Używamy
-// `training-media` dla wszystkich uploadów News Hub jako stabilnego targetu.
+// `training-media` jest stabilnym folderem dla plików News Hub obsługiwanych przez multer.
 type NewsHubFolderKey = 'covers' | 'media' | 'files';
-const VPS_FOLDERS: Record<NewsHubFolderKey, string> = {
+const SERVER_UPLOAD_FOLDERS: Record<NewsHubFolderKey, string> = {
   covers: STORAGE_CONFIG.NEWS_HUB_FOLDERS.cover,
   media: STORAGE_CONFIG.NEWS_HUB_FOLDERS.video,
   files: STORAGE_CONFIG.NEWS_HUB_FOLDERS.file,
 };
 
 // Co użytkownik wgrywa — używamy do walidacji client-side i weryfikacji
-// content-type po uploadzie. NIE musi się pokrywać z folderem na VPS.
+// content-type po uploadzie. NIE musi się pokrywać z folderem zapisu.
 export type NewsHubUploadKind = 'video' | 'image' | 'file' | 'cover';
 
 function inferKind(folder: NewsHubFolderKey, file: File): NewsHubUploadKind {
@@ -143,16 +139,16 @@ export async function uploadNewsHubFile(
   const isVideoByMime = (file.type || '').toLowerCase().startsWith('video/');
   const isVideo = options.kind === 'video' || isVideoByExt || isVideoByMime;
 
-  // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media' na VPS)
+  // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media')
   const effectiveFolder: NewsHubFolderKey = isVideo ? 'media' : folder;
   const kind = isVideo ? 'video' : (options.kind || inferKind(effectiveFolder, file));
 
   const mimeErr = validateClientMime(file, kind);
   if (mimeErr) throw new Error(mimeErr);
 
-  // WIDEO: ZAWSZE multer/VPS (omijamy Supabase i jego limit bucketu)
+  // WIDEO: ZAWSZE multer przez /upload (omijamy Supabase i jego limit bucketu)
   if (isVideo) {
-    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
+    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
     const verr = await verifyUploadedUrl(url, 'video');
     if (verr) {
       console.error('[useNewsHub] Video verification failed:', verr, url);
@@ -161,9 +157,9 @@ export async function uploadNewsHubFile(
     return url;
   }
 
-  // NIE-WIDEO: duże pliki na VPS, małe na Supabase
-  if (file.size > VPS_THRESHOLD_BYTES) {
-    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
+  // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
+  if (file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
+    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
     const verr = await verifyUploadedUrl(url, kind);
     if (verr) {
       console.error('[useNewsHub] Verification failed:', verr, url);
@@ -202,14 +198,14 @@ async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<
     return null;
   }
   if (res.status === 404) {
-    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany na dysku. Skontaktuj się z administratorem VPS.';
+    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany w docelowym folderze. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (res.status !== 200 && res.status !== 206) {
     return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
   }
   const ct = (res.headers.get('content-type') || '').toLowerCase();
   if (ct.startsWith('text/html')) {
-    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Skontaktuj się z administratorem VPS.';
+    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (kind === 'video') {
     if (ct.startsWith('video/') || ct.startsWith('application/octet-stream') || ct === '') {
@@ -225,11 +221,11 @@ async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<
   return null;
 }
 
-function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
+function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.append('file', file);
     form.append('folder', folder);
+    form.append('file', file);
 
     const xhr = new XMLHttpRequest();
     // 10 minut dla dużych plików
@@ -244,7 +240,7 @@ function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => v
     xhr.onload = () => {
       const ct = xhr.getResponseHeader('content-type') || '';
       if (!ct.includes('application/json')) {
-        reject(new Error('Serwer VPS niedostępny (brak odpowiedzi JSON).'));
+        reject(new Error('Serwer uploadu niedostępny (brak odpowiedzi JSON).'));
         return;
       }
       let data: any;
@@ -255,7 +251,7 @@ function uploadToVps(file: File, folder: string, onProgress?: (pct: number) => v
       }
       resolve(data.url as string);
     };
-    xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem VPS.'));
+    xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem uploadu.'));
     xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (10 min). Spróbuj jeszcze raz.'));
 
     xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);

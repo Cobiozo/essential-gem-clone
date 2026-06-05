@@ -101,14 +101,14 @@ async function verifyVideoUrl(url: string): Promise<string | null> {
     return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików). Spróbuj jeszcze raz.';
   }
   if (res.status === 404) {
-    return 'Serwer zwrócił 404 dla wgranego pliku — plik nie został zapisany na VPS. Skontaktuj się z administratorem.';
+    return 'Serwer zwrócił 404 dla wgranego pliku — plik nie został zapisany w docelowym folderze. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (res.status !== 200 && res.status !== 206) {
     return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
   }
   const ct = (res.headers.get('content-type') || '').toLowerCase();
   if (ct.startsWith('text/html')) {
-    return 'Serwer zwraca HTML zamiast pliku wideo — upload się nie powiódł (sprawdź limit multer/nginx na VPS).';
+    return 'Serwer zwraca HTML zamiast pliku wideo — upload się nie powiódł. Spróbuj ponownie lub skontaktuj się z administratorem.';
   }
   if (ct && !ct.startsWith('video/') && !ct.startsWith('application/octet-stream')) {
     return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
@@ -156,7 +156,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
     const folder = options?.folder || 'uploads';
 
-    // Wideo zawsze idzie na VPS/multer (Supabase bucket training-media ma limit 100MB)
+    // Wideo zawsze idzie przez /upload (multer), z pominięciem limitów Supabase Storage.
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const isVideo = (file.type || '').toLowerCase().startsWith('video/')
       || (STORAGE_CONFIG.VIDEO_EXTENSIONS as readonly string[]).includes(ext);
@@ -176,16 +176,16 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         uploadLockRef.current = false;
         return result;
       } catch (supabaseErr) {
-        // Fallback do VPS jeśli Supabase nie działa
-        console.warn('Supabase upload failed, trying VPS fallback:', supabaseErr);
+        // Fallback do /upload jeśli Supabase nie działa
+        console.warn('Supabase upload failed, trying server upload fallback:', supabaseErr);
       }
     } else if (isVideo) {
-      console.log(`🎬 Wideo ${file.name} (${formatFileSize(file.size)}) -> VPS Upload (multer, bypass Supabase 100MB limit)`);
+      console.log(`🎬 Wideo ${file.name} (${formatFileSize(file.size)}) -> upload przez multer (bez Supabase Storage)`);
     } else {
-      console.log(`📁 Duży plik ${file.name} (${formatFileSize(file.size)}) -> VPS Upload`);
+      console.log(`📁 Duży plik ${file.name} (${formatFileSize(file.size)}) -> upload przez serwer`);
     }
 
-    // Duże pliki -> VPS lub fallback z małych plików gdy Supabase nie działa
+    // Duże pliki -> /upload lub fallback z małych plików gdy Supabase nie działa
     try {
       setUploadProgress(10);
       
@@ -193,10 +193,10 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       formData.append('folder', folder);
       formData.append('file', file);
 
-      // XMLHttpRequest z realnym progress tracking i 5-minutowym timeout
+      // XMLHttpRequest z realnym progress tracking i 10-minutowym timeout
       const result = await new Promise<{ success: boolean; url: string; fileName: string; fileSize: number; fileType: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        const TIMEOUT_MS = 5 * 60 * 1000; // 5 minut
+        const TIMEOUT_MS = 10 * 60 * 1000; // 10 minut
 
         xhr.timeout = TIMEOUT_MS;
 
@@ -215,7 +215,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           
           if (!contentType.includes('application/json')) {
             if (file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
-              reject(new Error('Serwer VPS niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.'));
+              reject(new Error('Serwer uploadu niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.'));
             } else {
               reject(new Error('Nie udało się przesłać pliku. Oba serwery niedostępne.'));
             }
@@ -246,18 +246,18 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         };
 
         xhr.onerror = () => {
-          reject(new Error('Błąd połączenia z serwerem VPS.'));
+          reject(new Error('Błąd połączenia z serwerem uploadu.'));
         };
 
         xhr.ontimeout = () => {
-          reject(new Error('Upload przekroczył limit czasu (5 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
+          reject(new Error('Upload przekroczył limit czasu (10 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
         };
 
         xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
         xhr.send(formData);
       });
 
-      // Dla wideo: weryfikacja, że plik faktycznie został zapisany na VPS
+      // Dla wideo: weryfikacja, że plik faktycznie został zapisany i jest odtwarzalny
       // (Express SPA fallback potrafi zwrócić HTML/404 zamiast pliku)
       if (isVideo) {
         const verr = await verifyVideoUrl(result.url);
@@ -276,7 +276,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     } catch (err) {
       let errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
       
-      if (errorMsg.includes('VPS niedostępny') || errorMsg.includes('serwery niedostępne')) {
+      if (errorMsg.includes('uploadu niedostępny') || errorMsg.includes('serwery niedostępne')) {
         errorMsg += '\n\nSpróbuj ponownie za chwilę lub skontaktuj się z administratorem systemu.';
       }
       
@@ -320,7 +320,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     if (!url) return { success: false, error: 'No URL provided' };
     
     try {
-      // VPS files (purelife.info.pl)
+      // Files served by local upload server
       if (url.includes('purelife.info.pl/uploads/')) {
         const urlPath = new URL(url).pathname; // /uploads/training-media/filename.mp4
         const parts = urlPath.replace('/uploads/', '').split('/');
@@ -341,7 +341,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         const result = await response.json();
         
         if (result.success) {
-          console.log('🗑️ File deleted from VPS:', filename);
+          console.log('🗑️ File deleted from upload server:', filename);
           return { success: true };
         } else {
           throw new Error(result.error || 'Delete failed');

@@ -1,4 +1,4 @@
-// Konfiguracja lokalnego storage na VPS
+// Konfiguracja lokalnego storage obsługiwanego przez Express/multer
 export const STORAGE_CONFIG = {
   // Limity
   MAX_FILE_SIZE_MB: 2048, // 2GB - maksymalny rozmiar ogólny
@@ -12,7 +12,7 @@ export const STORAGE_CONFIG = {
   UPLOAD_API_URL: '/upload',
   LIST_API_URL: '/list-files',
 
-  // Foldery VPS dla News Hub (mapowane przez Express na /uploads/<folder>/<file>)
+  // Foldery dla News Hub (mapowane przez Express na /uploads/<folder>/<file>)
   NEWS_HUB_FOLDERS: {
     video: 'training-media',
     image: 'training-media',
@@ -20,7 +20,7 @@ export const STORAGE_CONFIG = {
     cover: 'training-media',
   } as const,
 
-  // Typy plików, które ZAWSZE idą na VPS/multer (omijają Supabase Storage i jego limit 100MB bucketu)
+  // Typy plików, które ZAWSZE idą przez multer (omijają Supabase Storage i jego limity bucketów)
   VIDEO_EXTENSIONS: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v', 'wmv', 'flv'] as const,
   
   // Dozwolone typy plików
