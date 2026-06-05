@@ -6,7 +6,8 @@ import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
-import { BlockListView } from './BlockRenderer';
+import { BlockListView, NewsHubPostContextProvider } from './BlockRenderer';
+import { CommentsSection } from './CommentsSection';
 
 function youTubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([\w-]{11})/);
@@ -76,12 +77,13 @@ interface Props {
   post: NewsHubPost;
   styleOverrides?: NewsHubStyleOverrides;
   showCover?: boolean;
+  commentsEnabled?: boolean;
 }
 
 // Detect HTML content vs plain text (legacy posts saved before WYSIWYG)
 const looksLikeHtml = (s: string) => /<\/?(p|div|h[1-6]|ul|ol|li|strong|em|u|s|a|br|img|hr|blockquote|span)\b/i.test(s);
 
-export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover = true }) => {
+export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover = true, commentsEnabled = false }) => {
   const s = styleOverrides || post.style_overrides || {};
   const gallery: string[] = Array.isArray(post.media_metadata?.gallery) ? post.media_metadata.gallery : [];
 
@@ -156,7 +158,9 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
       )}
 
       {Array.isArray(post.content_blocks) && post.content_blocks.length > 0 ? (
-        <BlockListView blocks={post.content_blocks} />
+        <NewsHubPostContextProvider postId={post.id}>
+          <BlockListView blocks={post.content_blocks} />
+        </NewsHubPostContextProvider>
       ) : (
         <>
           {cleanHtml && (
@@ -201,6 +205,10 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
             <span key={t} className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">#{t}</span>
           ))}
         </div>
+      )}
+
+      {commentsEnabled && !(post.content_blocks || []).some((b) => b.type === 'comments') && (
+        <CommentsSection postId={post.id} className="mt-6" />
       )}
     </article>
   );

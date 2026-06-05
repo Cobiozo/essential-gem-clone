@@ -92,6 +92,7 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
       visible_to_partner: draft.visible_to_partner !== false,
       visible_to_client: draft.visible_to_client !== false,
       visible_to_specjalista: draft.visible_to_specjalista !== false,
+      comments_mode: draft.comments_mode || 'inherit',
     };
     const { error } = await (supabase.from('news_hub_posts' as any) as any).update(payload).eq('id', post.id);
     setSaving(false);
@@ -199,8 +200,21 @@ export const PostInlineEditor: React.FC<Props> = ({ post, draft, setDraft, onClo
             <PageStyleControls value={styles.page} onChange={(v) => updateStyle({ page: v })} />
           </TabsContent>
 
-          <TabsContent value="visibility" className="m-0">
+          <TabsContent value="visibility" className="m-0 space-y-4">
             <PostVisibilityEditor draft={draft} update={update} postId={post.id} />
+            <div className="rounded-md border border-border p-3 space-y-2">
+              <Label className="text-xs">Komentarze pod artykułem</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background h-9 px-2 text-sm"
+                value={draft.comments_mode || 'inherit'}
+                onChange={(e) => update({ comments_mode: e.target.value as 'inherit' | 'on' | 'off' })}
+              >
+                <option value="inherit">Dziedzicz ustawienie globalne</option>
+                <option value="on">Włącz dla tego postu</option>
+                <option value="off">Wyłącz dla tego postu</option>
+              </select>
+              <p className="text-[11px] text-muted-foreground">Sekcja komentarzy pojawia się automatycznie na dole artykułu. Jeśli wstawisz blok „Komentarze" w treści, sekcja na dole jest pomijana.</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="meta" className="m-0">

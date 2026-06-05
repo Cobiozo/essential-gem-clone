@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   GripVertical, ChevronDown, ChevronUp, Copy, Trash2, Plus,
   Heading as HeadingIcon, Type, Image as ImageIcon, Images, Video, FileDown,
-  MousePointerClick, AlertCircle, Minus, Columns as ColumnsIcon, Table as TableIcon, Code2, FileText,
+  MousePointerClick, AlertCircle, Minus, Columns as ColumnsIcon, Table as TableIcon, Code2, FileText, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,12 +38,13 @@ const BLOCK_ICONS: Record<NewsHubBlockType, React.ComponentType<{ className?: st
   columns: ColumnsIcon,
   table: TableIcon,
   embed: Code2,
+  comments: MessageSquare,
   legacy_html: FileText,
 };
 
 const ADDABLE_TYPES: NewsHubBlockType[] = [
   'heading', 'paragraph', 'image', 'gallery', 'video',
-  'file_download', 'button_cta', 'callout', 'divider', 'columns', 'table', 'embed',
+  'file_download', 'button_cta', 'callout', 'divider', 'columns', 'table', 'embed', 'comments',
 ];
 
 interface Props {
@@ -439,6 +440,15 @@ const BlockDataEditor: React.FC<{ block: NewsHubBlock; onChangeData: (p: Record<
     case 'embed':
       return (
         <Textarea placeholder="<iframe ...></iframe>" value={d.html || ''} onChange={(e) => onChangeData({ html: e.target.value })} rows={5} className="font-mono text-xs" />
+      );
+
+    case 'comments':
+      return (
+        <div className="space-y-2">
+          <Label className="text-xs">Tytuł sekcji</Label>
+          <Input value={d.title || ''} placeholder="Komentarze" onChange={(e) => onChangeData({ title: e.target.value })} />
+          <p className="text-xs text-muted-foreground">Sekcja komentarzy będzie widoczna w tym miejscu, o ile moduł komentarzy jest włączony globalnie lub dla tego postu.</p>
+        </div>
       );
 
     case 'legacy_html':

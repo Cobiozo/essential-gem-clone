@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { incrementPostView } from '@/hooks/useNewsHub';
 import { PostContent } from '@/components/news-hub/PostContent';
 import { PostInlineEditor } from '@/components/news-hub/PostInlineEditor';
+import { useNewsHubSettings, isCommentsEnabledForPost } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPost } from '@/types/newsHub';
 
 const NewsHubPostPage: React.FC = () => {
@@ -14,6 +15,7 @@ const NewsHubPostPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const { commentsEnabled } = useNewsHubSettings();
 
   const [post, setPost] = useState<NewsHubPost | null>(null);
   const [draft, setDraft] = useState<NewsHubPost | null>(null);
@@ -113,7 +115,7 @@ const NewsHubPostPage: React.FC = () => {
             Szkic — niewidoczny dla użytkowników.
           </div>
         )}
-        <PostContent post={renderPost} styleOverrides={renderPost.style_overrides} />
+        <PostContent post={renderPost} styleOverrides={renderPost.style_overrides} commentsEnabled={isCommentsEnabledForPost(renderPost, commentsEnabled)} />
       </main>
 
       {/* push content left so editor doesn't overlap on large screens */}
