@@ -126,11 +126,6 @@ export const CommentsSection: React.FC<Props> = ({ postId, title = 'Komentarze',
                       <span className="text-muted-foreground">{format(new Date(c.created_at), "d MMM yyyy 'o' HH:mm", { locale: pl })}</span>
                       {c.is_pinned && <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2 py-0.5"><Pin className="h-3 w-3" /> Przypięty</span>}
                       {c.is_hidden && !c.is_pending_review && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Ukryty</span>}
-                      {mine && !c.is_pending_review && withinWindow && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {timeLeft(c.created_at, now)}
-                        </span>
-                      )}
                     </div>
 
                     {showPendingBanner && (
