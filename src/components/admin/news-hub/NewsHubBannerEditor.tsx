@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Upload, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Loader2, X, Image as ImageIcon, Search, Newspaper } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useNewsHubBanner, type NewsHubBannerConfig } from '@/hooks/useNewsHubBanner';
@@ -55,20 +55,22 @@ export const NewsHubBannerEditor: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] gap-4 items-start">
-      {/* LEFT — Live preview (sticky) */}
+      {/* LEFT — Live preview (sticky), 1:1 mock of /aktualnosci scaled to fit */}
       <Card className="lg:sticky lg:top-4">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <ImageIcon className="h-4 w-4 text-primary" /> Podgląd na żywo
           </CardTitle>
-          <CardDescription>Zmiany po prawej aktualizują podgląd na bieżąco.</CardDescription>
+          <CardDescription>Realny widok strony /aktualnosci (skalowany do szerokości panelu).</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="w-full overflow-hidden rounded-b-xl border-t border-border bg-background p-4">
-            <NewsHubBanner config={local} embedded />
-          </div>
+          <ScaledPagePreview>
+            <NewsHubBanner config={local} />
+            <NewsHubPageMock />
+          </ScaledPagePreview>
         </CardContent>
       </Card>
+
 
       {/* RIGHT — Options */}
       <Card>
@@ -231,5 +233,90 @@ export const NewsHubBannerEditor: React.FC = () => {
     </div>
   );
 };
+
+const REF_WIDTH = 1280;
+
+const ScaledPagePreview: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState(400);
+
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const inner = innerRef.current;
+    if (!wrap || !inner) return;
+    const update = () => {
+      const w = wrap.clientWidth;
+      const s = Math.min(1, w / REF_WIDTH);
+      setScale(s);
+      setHeight(inner.scrollHeight * s);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrap);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [children]);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="w-full overflow-hidden rounded-b-xl border-t border-border bg-background"
+      style={{ height }}
+    >
+      <div
+        ref={innerRef}
+        style={{ width: REF_WIDTH, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const NewsHubPageMock: React.FC = () => (
+  <section className="container max-w-7xl mx-auto px-4 pb-6">
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 flex-1 min-w-[220px]">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Szukaj...</span>
+      </div>
+      {['Wszystkie', 'Ogłoszenia', 'Artykuły', 'Wideo'].map((c, i) => (
+        <span key={c} className={cn('rounded-full px-3 py-1.5 text-xs border', i === 0 ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground')}>
+          {c}
+        </span>
+      ))}
+    </div>
+
+    <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className={cn('rounded-xl border border-border bg-card overflow-hidden', i === 1 && 'col-span-2 row-span-2')}>
+            <div className="aspect-video bg-muted" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 w-2/3 rounded bg-muted" />
+              <div className="h-2 w-1/2 rounded bg-muted/60" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <aside className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Newspaper className="h-4 w-4 text-primary" />
+          <div className="text-sm font-semibold">Archiwum</div>
+        </div>
+        <ul className="space-y-2 text-sm">
+          {['Czerwiec 2026', 'Maj 2026', 'Kwiecień 2026', 'Marzec 2026'].map((m) => (
+            <li key={m} className="flex justify-between text-muted-foreground">
+              <span>{m}</span>
+              <span>·</span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+    </div>
+  </section>
+);
 
 export default NewsHubBannerEditor;
