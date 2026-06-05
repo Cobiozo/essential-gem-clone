@@ -64,6 +64,7 @@ export const BLOCK_LABELS: Record<NewsHubBlockType, string> = {
   columns: 'Kolumny',
   table: 'Tabela',
   embed: 'Embed / HTML',
+  comments: 'Komentarze',
   legacy_html: 'Treść (legacy)',
 };
 
@@ -87,6 +88,7 @@ export function createBlock(type: NewsHubBlockType): NewsHubBlock {
     case 'columns': return { id, type, data: { ratio: '1-1', columns: [[], []] } };
     case 'table': return { id, type, data: { headerRow: true, rows: [['Kolumna A', 'Kolumna B'], ['', '']] } };
     case 'embed': return { id, type, data: { html: '' } };
+    case 'comments': return { id, type, data: { title: 'Komentarze' } };
     case 'legacy_html': return { id, type, data: { html: '' } };
   }
 }
