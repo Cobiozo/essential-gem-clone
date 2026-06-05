@@ -138,15 +138,32 @@ export async function uploadNewsHubFile(
   folder: NewsHubFolderKey = 'media',
   options: UploadOptions = {}
 ): Promise<string | null> {
-  const kind = options.kind || inferKind(folder, file);
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const isVideoByExt = (STORAGE_CONFIG.VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+  const isVideoByMime = (file.type || '').toLowerCase().startsWith('video/');
+  const isVideo = options.kind === 'video' || isVideoByExt || isVideoByMime;
+
+  // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media' na VPS)
+  const effectiveFolder: NewsHubFolderKey = isVideo ? 'media' : folder;
+  const kind = isVideo ? 'video' : (options.kind || inferKind(effectiveFolder, file));
 
   const mimeErr = validateClientMime(file, kind);
   if (mimeErr) throw new Error(mimeErr);
 
-  // Duże pliki – VPS (np. wideo 180MB)
+  // WIDEO: ZAWSZE multer/VPS (omijamy Supabase i jego limit bucketu)
+  if (isVideo) {
+    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
+    const verr = await verifyUploadedUrl(url, 'video');
+    if (verr) {
+      console.error('[useNewsHub] Video verification failed:', verr, url);
+      throw new Error(verr);
+    }
+    return url;
+  }
+
+  // NIE-WIDEO: duże pliki na VPS, małe na Supabase
   if (file.size > VPS_THRESHOLD_BYTES) {
-    const url = await uploadToVps(file, VPS_FOLDERS[folder], options.onProgress);
-    // Walidacja: serwer SPA zwraca HTML 200/404 dla brakujących ścieżek – wykryjmy to.
+    const url = await uploadToVps(file, VPS_FOLDERS[effectiveFolder], options.onProgress);
     const verr = await verifyUploadedUrl(url, kind);
     if (verr) {
       console.error('[useNewsHub] Verification failed:', verr, url);
@@ -154,7 +171,7 @@ export async function uploadNewsHubFile(
     }
     return url;
   }
-  return uploadToSupabase(file, folder);
+  return uploadToSupabase(file, effectiveFolder);
 }
 
 async function uploadToSupabase(file: File, folder: string): Promise<string | null> {
