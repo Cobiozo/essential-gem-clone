@@ -100,14 +100,14 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   };
 
   const cover = s.cover || {};
-  const coverWrapClass = cover.height ? '' : 'max-h-[55vh] md:max-h-none aspect-[16/10] md:aspect-auto';
+  const hasCustomHeight = !!cover.height;
   const coverWrapStyle: React.CSSProperties = {
-    height: cover.height ? `${cover.height}px` : undefined,
+    height: hasCustomHeight ? `${cover.height}px` : undefined,
   };
   const coverImgStyle: React.CSSProperties = {
     objectFit: (cover.fit || 'cover') as React.CSSProperties['objectFit'],
     objectPosition: cover.position || 'center',
-    height: cover.height ? `${cover.height}px` : undefined,
+    height: hasCustomHeight ? `${cover.height}px` : undefined,
     width: '100%',
   };
 
