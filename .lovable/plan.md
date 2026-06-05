@@ -1,36 +1,38 @@
 ## Problem
 
-Na mobile i tablecie:
-1. **Baner Centrum Aktualności** (`NewsHubBanner.tsx`) — używa stałej `height` w px i `background-size: cover/contain/fill`, przez co grafika jest przycinana po bokach zamiast skalować się do szerokości ekranu.
-2. **Cover artykułu** (`PostContent.tsx`) — używa `object-fit: cover` z `aspect-[16/10]`, więc grafika 9:16 (pionowa) jest mocno przycinana po bokach.
+W zainstalowanej aplikacji (PWA standalone na telefonie) wideo w Aktualnościach pokazuje błąd „Nie można odtworzyć tego pliku wideo." mimo że plik istnieje i działa w zwykłej karcie przeglądarki.
 
-Użytkownik chce, aby na mobile/tablet **cała grafika była widoczna i dopasowana do szerokości ekranu** (bez przycinania), a wysokość dostosowywała się proporcjonalnie.
+## Przyczyna (zdiagnozowana w `src/components/news-hub/PostContent.tsx`, komponent `VideoPlayer`)
 
-## Rozwiązanie
+Komponent wykonuje 2 niezależne checki, które fałszywie ustawiają `error=true` w PWA:
 
-### 1. `src/components/news-hub/NewsHubBanner.tsx`
+1. **Probe `fetch(url, { headers: { Range: 'bytes=0-0' } })`** — niestandardowy nagłówek wymusza CORS preflight (OPTIONS) na `purelife.info.pl`. Serwer często zwraca dla probe **status 200** zamiast 206 (Partial Content). Warunek `res.status !== 200 && res.status !== 206` jest poprawny, ale gdy preflight zwraca błąd lub serwer odpowiada nietypowo (np. 200 + `content-type: video/mp4` OK — wtedy OK; ale jeśli zwraca 200 + tekst lub redirect → error). W standalone WebView (iOS/Android dodane do ekranu) ciasteczka i nagłówki różnią się od zwykłej karty, częściej kończy się to `text/html` lub statusem ≠ 200/206.
+2. **6-sekundowy timeout** sprawdzający `video.duration` — w PWA na słabszej sieci/cellularnej metadane MP4 mogą nie zdążyć się załadować w 6 s i error jest fałszywie ustawiany, nawet jeśli wideo by się dograło.
 
-- Poniżej breakpointu `md` (768px) renderować baner jako pojedynczy `<img>` z `w-full h-auto object-contain`, zamiast `div` z `background-image` i sztywną wysokością.
-- Tekst (title / subtitle / CTA) na mobile pozostaje pod obrazkiem (stack), nie jako overlay — żeby nic nie zasłaniało skalowanej grafiki.
-- Od `md` w górę zachować obecne zachowanie z `background-image`, overlayem i overlay-tekstem.
-- Usunąć poziomy padding kontenera na mobile (`px-0 sm:px-4`), żeby baner sięgał od krawędzi do krawędzi telefonu.
-- Zaokrąglenia: `rounded-none sm:rounded-2xl` na mobile (pełna szerokość), `rounded-2xl` od `sm` w górę.
+Dodatkowo: brak `crossOrigin` i brak rozróżnienia faktycznego błędu `<video>` od timeouta powoduje, że odtwarzacz nie ma szansy zadziałać.
 
-### 2. `src/components/news-hub/PostContent.tsx`
+## Fix
 
-- Dla cover image: na mobile użyć `object-contain` zamiast `object-cover`, bez wymuszonego `aspect-[16/10]` — `w-full h-auto`, max-height `max-h-[70vh]`.
-- Od `md` w górę zachować obecne ustawienia (z opcjonalnym `cover.height` / `cover.fit`).
-- Tło `bg-muted` zostaje, żeby pionowe grafiki nie wyglądały „goło".
+**Plik: `src/components/news-hub/PostContent.tsx` — komponent `VideoPlayer`**
 
-### Szczegóły techniczne
+1. **Usunąć probe `fetch(...)` z nagłówkiem `Range`** w całości. Niech `<video>` sam decyduje przez zdarzenia `onError` / `onLoadedMetadata` / `onCanPlay`. Eliminuje CORS preflight, fałszywe positives i niepotrzebny request.
+2. **Usunąć 6-sekundowy timer** sprawdzający `video.duration`. Zamiast tego polegać na natywnym `onError` elementu `<video>` oraz na zdarzeniu `stalled`/`error` z `<source>`.
+3. **Dodać `<source src={url} type="video/mp4">`** zamiast `src` na `<video>`, z `onError` na `<source>` — dokładniej raportuje błąd ładowania pliku.
+4. **Reset stanu `error`** tylko przy zmianie `url` (już jest, zachować).
+5. **`preload="metadata"`** zostawić; dodać `controlsList="nodownload"` (opcjonalnie, kosmetyka).
+6. Nie ustawiać `crossOrigin` (nie odczytujemy klatek do canvas; ustawienie crossOrigin bez CORS na VPS zepsułoby playback).
 
-- Breakpoint przełączenia: Tailwind `md` (≥768px) — odpowiada `useIsMobile` w projekcie.
-- Style overrides (`cover.height`, `cover.fit`, `cover.position`) nadal honorowane od `md` w górę; na mobile ignorowane na rzecz pełnego dopasowania do szerokości.
-- Banner `config.height` jest stosowane tylko od `md` w górę.
+## Audyt wycieków/pętli/obciążeń (krótki przegląd)
 
-## Pliki
+Przy okazji sprawdzić w `PostContent.tsx`:
+- `VideoPlayer` po fixie nie tworzy żadnego nasłuchu poza JSX-owym `onError` → brak wycieku.
+- Nie ma `URL.createObjectURL` w tej ścieżce → nic do `revokeObjectURL`.
+- `useEffect` z deps `[url, yt, vm]`: po usunięciu fetch+timer effect staje się zbędny — całość przeniesiona do JSX (jeden `useState` na error, reset przez `key={url}` na `<video>`).
+- Brak `setInterval` ani realtime subskrypcji w tym pliku.
 
-- `src/components/news-hub/NewsHubBanner.tsx`
-- `src/components/news-hub/PostContent.tsx`
+Nie ruszamy żadnej logiki biznesowej, edytora, ani innych komponentów. Zmiana ograniczona do ~30 linii w jednym pliku.
 
-Bez zmian w backendzie, bez migracji.
+## Akceptacja
+
+- Po fixie: w PWA standalone otwarcie postu typu „video" pokazuje natywny player z plikiem z `purelife.info.pl`, controls działają, brak fałszywego komunikatu o błędzie.
+- Gdy plik faktycznie nie istnieje (404) — `<video onError>` zadziała i pokaże fallback (zachowujemy ten sam UI błędu z linkiem do pliku).

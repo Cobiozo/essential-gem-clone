@@ -20,28 +20,12 @@ function vimeoId(url: string): string | null {
 
 const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
   const [error, setError] = React.useState(false);
-  const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const yt = !error ? youTubeId(url) : null;
   const vm = !error ? vimeoId(url) : null;
 
   React.useEffect(() => {
     setError(false);
-    if (!url || yt || vm) return;
-    let cancelled = false;
-    fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' }).then((res) => {
-      if (cancelled) return;
-      if (res.status === 404 || (res.status !== 200 && res.status !== 206)) { setError(true); return; }
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-      if (ct.startsWith('text/html')) setError(true);
-    }).catch(() => {});
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      const v = videoRef.current;
-      if (!v) return;
-      if (!isFinite(v.duration) || v.duration === 0) setError(true);
-    }, 6000);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [url, yt, vm]);
+  }, [url]);
 
   if (yt) {
     return (
@@ -66,8 +50,19 @@ const VideoPlayer: React.FC<{ url: string }> = ({ url }) => {
       </div>
     );
   }
+  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
+  const mime = ext === 'webm' ? 'video/webm' : ext === 'ogv' || ext === 'ogg' ? 'video/ogg' : ext === 'mov' ? 'video/quicktime' : 'video/mp4';
   return (
-    <video ref={videoRef} controls preload="metadata" playsInline className="aspect-video w-full rounded-xl bg-black" src={url} onError={() => setError(true)}>
+    <video
+      key={url}
+      controls
+      preload="metadata"
+      playsInline
+      controlsList="nodownload"
+      className="aspect-video w-full rounded-xl bg-black"
+      onError={() => setError(true)}
+    >
+      <source src={url} type={mime} onError={() => setError(true)} />
       Twoja przeglądarka nie wspiera wideo.
     </video>
   );
