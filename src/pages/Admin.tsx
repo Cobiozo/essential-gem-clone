@@ -68,6 +68,7 @@ import { AdminGuestDashboard } from '@/components/admin/AdminGuestDashboard';
 import { PartnerPagesManagement } from '@/components/admin/PartnerPagesManagement';
 import { SpecialistCalculatorManagement } from '@/components/admin/SpecialistCalculatorManagement';
 import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIconsManagement';
+import { SidebarOrderEditor } from '@/components/admin/SidebarOrderEditor';
 import { SystemHealthAlertsPanel } from '@/components/admin/SystemHealthAlertsPanel';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
