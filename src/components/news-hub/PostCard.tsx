@@ -39,7 +39,7 @@ export const PostCard: React.FC<Props> = ({ post, className, onAdminChanged, adm
         className,
       )}
     >
-      {isAdmin && <AdminCardOverlay post={post} onChanged={onAdminChanged} />}
+      {isAdmin && adminActions && <AdminCardOverlay post={post} onChanged={onAdminChanged} />}
 
       {post.is_pinned && (
         <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-primary/90 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur">
