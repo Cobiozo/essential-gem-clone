@@ -67,6 +67,7 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
+import { useSidebarMenuOrder } from '@/hooks/useSidebarMenuOrder';
 import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
