@@ -5659,34 +5659,70 @@ export type Database = {
         }
         Relationships: []
       }
+      news_hub_comment_banned_words: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          word?: string
+        }
+        Relationships: []
+      }
       news_hub_comments: {
         Row: {
           content: string
           created_at: string
+          flagged_words: string[]
           id: string
           is_hidden: boolean
+          is_pending_review: boolean
           is_pinned: boolean
           post_id: string
+          review_decision: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           content: string
           created_at?: string
+          flagged_words?: string[]
           id?: string
           is_hidden?: boolean
+          is_pending_review?: boolean
           is_pinned?: boolean
           post_id: string
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           content?: string
           created_at?: string
+          flagged_words?: string[]
           id?: string
           is_hidden?: boolean
+          is_pending_review?: boolean
           is_pinned?: boolean
           post_id?: string
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -11113,6 +11149,7 @@ export type Database = {
         Returns: Json
       }
       reset_all_active_reflinks: { Args: never; Returns: Json }
+      scan_comment_profanity: { Args: { _content: string }; Returns: string[] }
       search_guardians: {
         Args: { search_query: string }
         Returns: {
