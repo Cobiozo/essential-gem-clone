@@ -8,6 +8,8 @@ interface Props {
   posts: NewsHubPost[];
   onChanged?: () => void;
   layout?: NewsHubGridLayout;
+  /** Show admin hover quick-actions (pin/hide/edit/delete) on cards. Default false. */
+  adminActions?: boolean;
 }
 
 const sizeClasses = (size: string, pinned: boolean) => {
@@ -20,7 +22,7 @@ const sizeClasses = (size: string, pinned: boolean) => {
   }
 };
 
-export const BentoGrid: React.FC<Props> = ({ posts, onChanged, layout = 'bento' }) => {
+export const BentoGrid: React.FC<Props> = ({ posts, onChanged, layout = 'bento', adminActions = false }) => {
   if (posts.length === 0) return null;
 
   if (layout === 'bento') {
@@ -33,6 +35,7 @@ export const BentoGrid: React.FC<Props> = ({ posts, onChanged, layout = 'bento' 
           <PostCard
             key={p.id}
             post={p}
+            adminActions={adminActions}
             onAdminChanged={onChanged}
             className={cn(sizeClasses(p.bento_size, p.is_pinned))}
           />
@@ -45,7 +48,7 @@ export const BentoGrid: React.FC<Props> = ({ posts, onChanged, layout = 'bento' 
     return (
       <div className="flex flex-col items-center gap-4">
         {posts.map((p) => (
-          <PostCard key={p.id} post={p} onAdminChanged={onChanged} className="w-full max-w-3xl" />
+          <PostCard key={p.id} post={p} adminActions={adminActions} onAdminChanged={onChanged} className="w-full max-w-3xl" />
         ))}
       </div>
     );
@@ -59,7 +62,7 @@ export const BentoGrid: React.FC<Props> = ({ posts, onChanged, layout = 'bento' 
   return (
     <div className={cn('grid gap-4', colsClass)}>
       {posts.map((p) => (
-        <PostCard key={p.id} post={p} onAdminChanged={onChanged} />
+        <PostCard key={p.id} post={p} adminActions={adminActions} onAdminChanged={onChanged} />
       ))}
     </div>
   );

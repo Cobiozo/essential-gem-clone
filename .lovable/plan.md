@@ -1,50 +1,33 @@
-# Plan — 2 zmiany w panelu admina
+## 1) Archiwum miesięczne (prawa kolumna na /aktualnosci)
 
-## 1) Konfigurowalna kolejność pozycji menu bocznego (sidebar)
+- W `src/pages/NewsHubPage.tsx` zmiana layoutu listy na 2-kolumnowy grid: `lg:grid-cols-[1fr_260px]` (lista lewo, archiwum prawo). Mobile: archiwum pod listą.
+- Nowy komponent `src/components/news-hub/NewsHubArchive.tsx`:
+  - Z `posts` liczy `rok-miesiąc → liczba` po `created_at`.
+  - Renderuje nagłówek „Archiwum" + linki typu „Marzec 2023 · 4", sortowane malejąco.
+  - Klik ustawia filtr `monthKey` (`YYYY-MM`). Aktywny miesiąc wyróżniony kolorem `primary`. Przycisk „Wyczyść".
+  - Sticky `top-20`, styl spójny z dark theme aplikacji (akcent primary/żółty, BEZ fioletu — screen jest tylko inspiracją układu).
+- W `NewsHubPage.tsx` dodać `monthKey` state i filtr w `useMemo`. Gdy `monthKey` ustawiony, dropdown „Rok" auto-synchronizuje się do roku miesiąca.
 
-Admin w panelu CMS będzie mógł drag-and-drop ustawiać kolejność pozycji w `DashboardSidebar` (Pulpit, Akademia, Baza wiedzy, Biblioteka, PureBox, Pure-Kontakty, Aktualności, Wydarzenia, Eventy, Weryfikacja biletów, PureLinki, Moja Strona, Ustawienia, Wsparcie, Admin, itd.).
+## 2) Podgląd banera = realny render strony
 
-### Co powstanie
-- Nowa tabela `sidebar_menu_order` (single-row, `id boolean PK = true`):
-  - `order jsonb` — tablica ID pozycji w preferowanej kolejności (np. `["dashboard","academy","news",...]`)
-  - `updated_at timestamptz`
-  - RLS: SELECT dla `anon` + `authenticated`, UPDATE/INSERT tylko admin (przez `has_role`), ALL dla `service_role`. GRANT-y zgodne z polityką.
-- Hook `src/hooks/useSidebarMenuOrder.ts` — pobiera kolejność + realtime subscribe; eksportuje `order: string[]`, `save(order)`.
-- Komponent admin `src/components/admin/SidebarOrderEditor.tsx`:
-  - Lista pozycji z `@hello-pangea/dnd` (już używane w projekcie, np. mobileNav) — drag-and-drop sortable.
-  - Pokazuje wszystkie znane ID + ikonę + etykietę.
-  - Przycisk „Przywróć domyślną kolejność".
-  - Zapis do tabeli.
-- Wpięcie w `NewsHubAdminPage` / globalny panel admin — dodam nową zakładkę „Menu boczne" w istniejącej stronie admin (np. `/admin` → nowa karta „Menu boczne"), bez ruszania pozostałych modułów. Konkretne miejsce: nowa karta w `src/pages/AdminPage.tsx` (zweryfikuję dokładne miejsce przy implementacji).
-- Modyfikacja `src/components/dashboard/DashboardSidebar.tsx`:
-  - Pobiera `order` z hooka i sortuje `visibleMenuItems` wg. tej kolejności (pozycje spoza listy lądują na końcu w domyślnej kolejności — tak działają np. nowe dynamiczne strony HTML).
-  - Filtrowanie ról / widoczności pozostaje bez zmian — sortowanie nakłada się jedynie na finalną listę.
+- W `src/components/admin/news-hub/NewsHubBannerEditor.tsx` lewa kolumna ma renderować podgląd bez sztucznego przycinania (obecnie obcina banner po prawej).
+- `NewsHubBanner` dostaje prop `embedded?: boolean`, który pomija wewnętrzny `container max-w-7xl mx-auto px-4 ...` — w podglądzie banner wypełnia całą szerokość kolumny i wygląda identycznie jak po wejściu na `/aktualnosci` (z zachowaniem proporcji, fit, position, overlay, animacji tekstu).
+- Wrapper podglądu: `w-full overflow-hidden rounded-xl border border-border bg-background`.
 
-### Zakres
-- Dotyczy tylko sidebara desktop/mobile (`DashboardSidebar`).
-- Submenu (np. PureBox → „Ocena umiejętności") **nie** jest sortowalne w tej iteracji (można dodać później jeśli będzie potrzeba).
-- Ustawienie globalne dla wszystkich ról (jeden wspólny porządek). Per-rola — wykluczone w tej iteracji.
+## 3) Ukrycie panelu zarządzania ze strony /aktualnosci
 
-## 2) Nowy układ edytora banera Centrum Aktualności
-
-Obecnie podgląd banera w `NewsHubBannerEditor` jest na górze, a wszystkie opcje pod spodem (scroll). Zmiana:
-
-- Layout dwukolumnowy (`grid lg:grid-cols-[1fr_420px] gap-4`):
-  - **Lewa kolumna — Podgląd na żywo (sticky)**: `<NewsHubBanner config={local} />` zamknięty w karcie z `position: sticky; top: 80px` — pozostaje widoczny podczas scrollowania prawej kolumny.
-  - **Prawa kolumna — Opcje**: wszystkie sekcje (Włącz baner, Treść tytuł/podtytuł/CTA, Obraz tła + upload + fit + pozycja + wysokość, Nakładka kolor/krycie/gradient, Typografia kolory/wyrównanie/rozmiar) w jednym scrollowanym pionowym stacku.
-  - Przycisk „Zapisz baner" w prawej kolumnie — sticky na dole, zawsze dostępny.
-- Na ekranach `< lg` (mobile/tablet) — fallback do układu jednokolumnowego: podgląd nad opcjami (jak dziś), żeby zachować ergonomię.
-- Zero zmian w logice zapisu, schemacie tabeli `news_hub_banner_config` i komponencie `NewsHubBanner` — tylko reorganizacja `NewsHubBannerEditor.tsx`.
+- Usunąć z `NewsHubPage.tsx`:
+  - `GridLayoutSwitcher` (ikonki układu na screenie #3).
+  - Hint dla admina: „Najedź na kafelek, aby zobaczyć szybkie akcje…".
+- `BentoGrid` dostaje prop `adminActions?: boolean` (default `false`). Quick-actions (pin/edit/hide/delete na hover) renderowane tylko gdy `true`. Na `/aktualnosci` przekazujemy `false`.
+- Wszystkie te narzędzia są nadal dostępne po wejściu w „Zarządzaj" (`/admin/news-hub`), gdzie `GridLayoutSwitcher` już istnieje w sekcji „Domyślny układ listy", a akcje są w tabeli postów.
 
 ## Pliki
 
-**Nowe**
-- `supabase/migrations/<ts>_sidebar_menu_order.sql`
-- `src/hooks/useSidebarMenuOrder.ts`
-- `src/components/admin/SidebarOrderEditor.tsx`
+- Nowy: `src/components/news-hub/NewsHubArchive.tsx`
+- Edytowane: `src/pages/NewsHubPage.tsx`, `src/components/news-hub/NewsHubBanner.tsx`, `src/components/admin/news-hub/NewsHubBannerEditor.tsx`, `src/components/news-hub/BentoGrid.tsx`
 
-**Edytowane**
-- `src/components/dashboard/DashboardSidebar.tsx` — sortowanie pozycji wg. zapisanej kolejności.
-- `src/pages/AdminPage.tsx` (lub odpowiednia strona admina) — dodanie zakładki „Menu boczne".
-- `src/components/admin/news-hub/NewsHubBannerEditor.tsx` — nowy układ dwukolumnowy z sticky preview.
-- `src/integrations/supabase/types.ts` — typy nowej tabeli (regenerowane).
+## Bez zmian
+
+- Schemat bazy (`news_hub_posts.created_at` wystarcza do grupowania).
+- Logika `useNewsHub.ts`, uploady, design samego banera.
