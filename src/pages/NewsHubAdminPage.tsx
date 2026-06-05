@@ -12,6 +12,7 @@ import { TemplatePicker } from '@/components/news-hub/editor/TemplatePicker';
 import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
 import { NewsHubModuleVisibilityPanel } from '@/components/news-hub/NewsHubModuleVisibilityPanel';
+import { NewsHubBannerEditor } from '@/components/admin/news-hub/NewsHubBannerEditor';
 import type { NewsHubPost } from '@/types/newsHub';
 import type { NewsHubBlock } from '@/types/newsHubBlocks';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
@@ -81,6 +82,7 @@ const NewsHubAdminPage: React.FC = () => {
 
       <main className="container max-w-7xl mx-auto px-4 py-6 space-y-4">
         <NewsHubModuleVisibilityPanel />
+        {isAdmin && <NewsHubBannerEditor />}
 
         <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center justify-between gap-3">
           <div>

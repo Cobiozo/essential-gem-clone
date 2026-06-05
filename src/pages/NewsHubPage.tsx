@@ -10,6 +10,8 @@ import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { BentoGrid } from '@/components/news-hub/BentoGrid';
 import { GridLayoutSwitcher } from '@/components/news-hub/GridLayoutSwitcher';
 import { useNewsHubSettings } from '@/hooks/useNewsHubSettings';
+import { useNewsHubBanner } from '@/hooks/useNewsHubBanner';
+import { NewsHubBanner } from '@/components/news-hub/NewsHubBanner';
 import type { NewsHubPostType } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 
@@ -38,6 +40,7 @@ const NewsHubPage: React.FC = () => {
   const { categories } = useNewsHubCategories();
   const { posts, loading, refresh } = useNewsHubPosts({ type, categoryId, search, adminMode: isAdmin });
   const { adminLayout, saveAdminLayout } = useNewsHubSettings();
+  const { config: bannerConfig } = useNewsHubBanner();
 
   const availableYears = useMemo(() => {
     const set = new Set<string>();
@@ -107,22 +110,14 @@ const NewsHubPage: React.FC = () => {
         </div>
       </header>
 
-      <section className="container max-w-7xl mx-auto px-4 pt-10 pb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/60 p-3 shadow-lg">
-            <Newspaper className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Centrum Aktualności</h1>
-            <p className="text-muted-foreground text-sm md:text-base">Ogłoszenia, artykuły, wideo, pliki i wiele więcej.</p>
-          </div>
-        </div>
-        {isAdmin && (
+      <NewsHubBanner config={bannerConfig} />
+      {isAdmin && (
+        <div className="container max-w-7xl mx-auto px-4">
           <p className="text-xs text-muted-foreground mt-2">
             Najedź na kafelek, aby zobaczyć szybkie akcje (przypnij / ukryj / edytuj / usuń). Kliknij kafelek, aby otworzyć post.
           </p>
-        )}
-      </section>
+        </div>
+      )}
 
       <section className="container max-w-7xl mx-auto px-4 pb-4">
         <div className="flex flex-wrap items-center gap-2 mb-6">
