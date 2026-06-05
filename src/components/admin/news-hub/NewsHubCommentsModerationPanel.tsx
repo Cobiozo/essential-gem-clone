@@ -113,7 +113,13 @@ export const NewsHubCommentsModerationPanel: React.FC = () => {
                     </span>
                   )}
                 </div>
+                {r.parent_excerpt && (
+                  <div className="rounded border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/80">Odpowiedź na:</span> {r.parent_excerpt.length > 140 ? `${r.parent_excerpt.slice(0, 140)}…` : r.parent_excerpt}
+                  </div>
+                )}
                 <p className="text-sm whitespace-pre-wrap break-words">{r.content}</p>
+
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => approve(r.id)} className="gap-1.5">
                     <Check className="h-3.5 w-3.5" /> Zatwierdź
