@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye, ShieldAlert, Clock } from 'lucide-react';
+import { Loader2, MessageSquare, Pencil, Pin, PinOff, Send, Trash2, EyeOff, Eye, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
