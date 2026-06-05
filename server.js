@@ -438,6 +438,24 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
     }
     const folder = rawFolder;
 
+    const finalFilePath = folder
+      ? path.join(UPLOADS_DIR, folder, req.file.filename)
+      : path.join(UPLOADS_DIR, req.file.filename);
+
+    try {
+      moveUploadedFile(req.file.path, finalFilePath);
+      req.file.path = finalFilePath;
+      req.file.destination = path.dirname(finalFilePath);
+    } catch (moveError) {
+      console.error('❌ Upload move failed:', req.file.path, '->', finalFilePath, moveError);
+      try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(500).json({
+        success: false,
+        error: 'Upload save failed',
+        message: 'File was received by multer but could not be moved to the final uploads folder'
+      });
+    }
+
     // POST-WRITE VERIFICATION: plik musi istnieć i mieć poprawny rozmiar
     let onDiskSize = 0;
     try {
