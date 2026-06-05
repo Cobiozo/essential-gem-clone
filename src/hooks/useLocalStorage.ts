@@ -91,6 +91,31 @@ const uploadToSupabase = async (
   };
 };
 
+
+// Weryfikuje, czy wgrany URL faktycznie wskazuje na plik wideo (a nie HTML/404 z SPA fallback).
+async function verifyVideoUrl(url: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+  } catch {
+    return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików). Spróbuj jeszcze raz.';
+  }
+  if (res.status === 404) {
+    return 'Serwer zwrócił 404 dla wgranego pliku — plik nie został zapisany na VPS. Skontaktuj się z administratorem.';
+  }
+  if (res.status !== 200 && res.status !== 206) {
+    return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
+  }
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (ct.startsWith('text/html')) {
+    return 'Serwer zwraca HTML zamiast pliku wideo — upload się nie powiódł (sprawdź limit multer/nginx na VPS).';
+  }
+  if (ct && !ct.startsWith('video/') && !ct.startsWith('application/octet-stream')) {
+    return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
+  }
+  return null;
+}
+
 export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -131,11 +156,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
     const folder = options?.folder || 'uploads';
 
-    // NOWA LOGIKA: Pliki <= 2MB do Supabase, > 2MB do VPS
-    if (file.size <= STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
-      // Małe pliki -> Supabase Storage (szybsze, CDN)
+    // Wideo zawsze idzie na VPS/multer (Supabase bucket training-media ma limit 100MB)
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const isVideo = (file.type || '').toLowerCase().startsWith('video/')
+      || (STORAGE_CONFIG.VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+
+    // Małe pliki (<=2MB) NIE-WIDEO -> Supabase Storage (szybsze, CDN)
+    if (!isVideo && file.size <= STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
       console.log(`📦 Mały plik ${file.name} (${formatFileSize(file.size)}) -> Supabase Storage`);
-      
+
       try {
         setUploadProgress(10);
         const result = await uploadToSupabase(file, folder, (progress) => {
@@ -143,12 +172,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           options?.onProgress?.(progress);
         });
         setIsUploading(false);
+
         uploadLockRef.current = false;
         return result;
       } catch (supabaseErr) {
         // Fallback do VPS jeśli Supabase nie działa
         console.warn('Supabase upload failed, trying VPS fallback:', supabaseErr);
       }
+    } else if (isVideo) {
+      console.log(`🎬 Wideo ${file.name} (${formatFileSize(file.size)}) -> VPS Upload (multer, bypass Supabase 100MB limit)`);
     } else {
       console.log(`📁 Duży plik ${file.name} (${formatFileSize(file.size)}) -> VPS Upload`);
     }
@@ -221,9 +253,19 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           reject(new Error('Upload przekroczył limit czasu (5 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
         };
 
-        xhr.open('POST', '/upload');
+        xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
         xhr.send(formData);
       });
+
+      // Dla wideo: weryfikacja, że plik faktycznie został zapisany na VPS
+      // (Express SPA fallback potrafi zwrócić HTML/404 zamiast pliku)
+      if (isVideo) {
+        const verr = await verifyVideoUrl(result.url);
+        if (verr) {
+          throw new Error(verr);
+        }
+      }
+
 
       setUploadProgress(100);
       setIsUploading(false);
