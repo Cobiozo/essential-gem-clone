@@ -5659,6 +5659,47 @@ export type Database = {
         }
         Relationships: []
       }
+      news_hub_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_hidden: boolean
+          is_pinned: boolean
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_hidden?: boolean
+          is_pinned?: boolean
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_hub_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "news_hub_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_hub_post_user_access: {
         Row: {
           created_at: string
@@ -5693,6 +5734,7 @@ export type Database = {
           author_id: string | null
           bento_size: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id: string | null
+          comments_mode: string
           content: string | null
           content_blocks: Json
           cover_url: string | null
@@ -5727,6 +5769,7 @@ export type Database = {
           author_id?: string | null
           bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id?: string | null
+          comments_mode?: string
           content?: string | null
           content_blocks?: Json
           cover_url?: string | null
@@ -5761,6 +5804,7 @@ export type Database = {
           author_id?: string | null
           bento_size?: Database["public"]["Enums"]["news_hub_bento_size"]
           category_id?: string | null
+          comments_mode?: string
           content?: string | null
           content_blocks?: Json
           cover_url?: string | null
@@ -5803,6 +5847,7 @@ export type Database = {
       }
       news_hub_settings: {
         Row: {
+          comments_enabled: boolean
           grid_layout: string
           id: boolean
           is_active: boolean
@@ -5813,6 +5858,7 @@ export type Database = {
           visible_to_specjalista: boolean
         }
         Insert: {
+          comments_enabled?: boolean
           grid_layout?: string
           id?: boolean
           is_active?: boolean
@@ -5823,6 +5869,7 @@ export type Database = {
           visible_to_specjalista?: boolean
         }
         Update: {
+          comments_enabled?: boolean
           grid_layout?: string
           id?: boolean
           is_active?: boolean
