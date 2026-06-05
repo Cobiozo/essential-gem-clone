@@ -193,10 +193,10 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       formData.append('folder', folder);
       formData.append('file', file);
 
-      // XMLHttpRequest z realnym progress tracking i 5-minutowym timeout
+      // XMLHttpRequest z realnym progress tracking i 10-minutowym timeout
       const result = await new Promise<{ success: boolean; url: string; fileName: string; fileSize: number; fileType: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        const TIMEOUT_MS = 5 * 60 * 1000; // 5 minut
+        const TIMEOUT_MS = 10 * 60 * 1000; // 10 minut
 
         xhr.timeout = TIMEOUT_MS;
 
@@ -250,7 +250,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         };
 
         xhr.ontimeout = () => {
-          reject(new Error('Upload przekroczył limit czasu (5 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
+          reject(new Error('Upload przekroczył limit czasu (10 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
         };
 
         xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
