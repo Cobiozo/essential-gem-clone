@@ -146,20 +146,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
         <p className="text-base sm:text-lg text-muted-foreground" style={descStyle}>{post.short_description}</p>
       )}
 
-        {post.category && (
-          <span className="rounded-full px-2 py-1 font-medium" style={{ backgroundColor: `${post.category.color}22`, color: post.category.color || undefined }}>
-            {post.category.name}
-          </span>
-        )}
-        <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">{POST_TYPE_LABELS[post.type]}</span>
-        <time className="text-muted-foreground">{format(new Date(post.published_at), "d MMMM yyyy 'o' HH:mm", { locale: pl })}</time>
-      </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold leading-tight" style={titleStyle}>{post.title}</h1>
-
-      {post.short_description && (
-        <p className="text-lg text-muted-foreground" style={descStyle}>{post.short_description}</p>
-      )}
 
       {post.type === 'video' && post.media_url && <VideoPlayer url={post.media_url} />}
 
