@@ -234,21 +234,22 @@ const MyAccount = () => {
   
   // Check if user is admin
   const isUserAdmin = userRole?.role === 'admin';
+  const isGuestUser = userRole?.role === 'guest';
   
   // Visible tabs based on existing visibility settings
   const visibleTabs = useMemo(() => ({
     profile: true,
-    teamContacts: isUserAdmin || isPartner || isSpecjalista || (isClient && canSearchSpecialists),
+    teamContacts: !isGuestUser && (isUserAdmin || isPartner || isSpecjalista || (isClient && canSearchSpecialists)),
     communication: false, // Removed - chat is in sidebar
     privateChats: false, // Replaced by communication
     correspondence: false,
-    notifications: true,
-    preferences: dailySignalVisible,
-    aiCompass: aiCompassVisible,
-    hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
-    reflinks: canGenerateReflinks,
+    notifications: !isGuestUser,
+    preferences: !isGuestUser && dailySignalVisible,
+    aiCompass: !isGuestUser && aiCompassVisible,
+    hkCodes: !isGuestUser && (isPartner || isUserAdmin), // NEW: Healthy Knowledge codes history
+    reflinks: !isGuestUser && canGenerateReflinks,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin, isGuestUser]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
