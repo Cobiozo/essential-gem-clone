@@ -301,7 +301,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       .map((cat) => ({
         ...cat,
         items: cat.items.filter((item) => {
-          if (item.value === 'moderators') return isAdmin;
+          if (item.value === 'moderators' || item.value === 'guests') return isAdmin;
           if (isAdmin) return true;
           return can(item.value);
         }),
