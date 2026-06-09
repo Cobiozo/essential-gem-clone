@@ -541,15 +541,17 @@ const MyAccount = () => {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <NotificationBell />
+            {!isGuestUser && <NotificationBell />}
             <LanguageSelector />
             <ThemeSelector />
             {!mustCompleteProfile && (
               <>
-                <Button variant="outline" size="sm" onClick={() => navigate('/training')} aria-label={t('nav.training')} className="px-2 sm:px-3">
-                  <BookOpen className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">{t('nav.training')}</span>
-                </Button>
+                {!isGuestUser && (
+                  <Button variant="outline" size="sm" onClick={() => navigate('/training')} aria-label={t('nav.training')} className="px-2 sm:px-3">
+                    <BookOpen className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">{t('nav.training')}</span>
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => navigate(isModern ? '/dashboard' : '/')} aria-label={t('nav.home')} className="px-2 sm:px-3">
                   <Home className="w-4 h-4 sm:mr-2" />
                   <span className="hidden sm:inline">{t('nav.home')}</span>
