@@ -149,7 +149,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         </div>
 
         {/* Chat toggle - simple sidebar toggle */}
-        {isChatVisible && (
+        {isChatVisible && gv('topbar', 'chat') && (
           <div className="relative">
             <Button
               variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
@@ -169,18 +169,20 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         )}
 
         {/* Sound toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSound}
-          className="h-9 w-9"
-          title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
-        >
-          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-        </Button>
+        {gv('topbar', 'sound') && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSound}
+            className="h-9 w-9"
+            title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+          </Button>
+        )}
 
         {/* Notifications */}
-        <NotificationBell />
+        {gv('topbar', 'notifications') && <NotificationBell />}
 
         {/* Desktop-only actions */}
         <div className="hidden sm:flex items-center gap-1">
