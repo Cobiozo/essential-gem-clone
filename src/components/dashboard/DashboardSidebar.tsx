@@ -572,6 +572,27 @@ export const DashboardSidebar: React.FC = () => {
     return true;
   });
 
+  // GUEST WHITELIST: if user is a guest (or admin previewing as guest), keep only
+  // sidebar items explicitly enabled in the guest visibility config.
+  // Map between visibility config keys (sidebar.items.*) and menu item ids.
+  const GUEST_ID_TO_KEY: Record<string, string> = {
+    dashboard: 'dashboard',
+    news: 'news',
+    resources: 'knowledge',
+    'healthy-knowledge': 'knowledge',
+    settings: 'settings',
+    support: 'support',
+  };
+  const visibleMenuItemsForGuest = guestActive
+    ? visibleMenuItems.filter((item) => {
+        // Allow dynamic html pages always (they go through pages config — admin opt-in)
+        if (item.id.startsWith('html-')) return true;
+        const key = GUEST_ID_TO_KEY[item.id];
+        if (!key) return false;
+        return gv('sidebar', key);
+      })
+    : visibleMenuItems;
+
   // Apply admin-configured ordering
   if (menuOrder && menuOrder.length > 0) {
     const indexMap = new Map<string, number>(menuOrder.map((id, i) => [id, i] as [string, number]));
