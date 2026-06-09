@@ -3771,6 +3771,90 @@ export type Database = {
           },
         ]
       }
+      guest_invite_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          max_uses: number | null
+          token: string
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          token: string
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          token?: string
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
+      guest_visibility_global: {
+        Row: {
+          config: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      guest_visibility_overrides: {
+        Row: {
+          config: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       healthy_knowledge: {
         Row: {
           allow_comments: boolean | null
@@ -10765,6 +10849,10 @@ export type Database = {
       cleanup_old_meeting_chat: { Args: never; Returns: number }
       cleanup_stale_meeting_participants: { Args: never; Returns: number }
       confirm_event_form_email: { Args: { _token: string }; Returns: Json }
+      consume_guest_invite: {
+        Args: { _token: string; _user_id: string }
+        Returns: boolean
+      }
       debug_user_access: {
         Args: never
         Returns: {
@@ -11191,6 +11279,15 @@ export type Database = {
         Returns: Json
       }
       reset_all_active_reflinks: { Args: never; Returns: Json }
+      resolve_guest_invite: {
+        Args: { _token: string }
+        Returns: {
+          id: string
+          is_valid: boolean
+          label: string
+          reason: string
+        }[]
+      }
       scan_comment_profanity: { Args: { _content: string }; Returns: string[] }
       search_guardians: {
         Args: { search_query: string }
@@ -11233,6 +11330,7 @@ export type Database = {
         | "specjalista"
         | "user"
         | "moderator"
+        | "guest"
       news_hub_bento_size: "s" | "m" | "l"
       news_hub_post_type:
         | "announcement"
@@ -11378,6 +11476,7 @@ export const Constants = {
         "specjalista",
         "user",
         "moderator",
+        "guest",
       ],
       news_hub_bento_size: ["s", "m", "l"],
       news_hub_post_type: [
