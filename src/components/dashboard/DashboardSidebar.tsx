@@ -72,6 +72,7 @@ import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
@@ -128,10 +129,11 @@ const platformIcons: Record<string, React.ElementType> = {
 export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
+  const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth() as any;
   const { t, tf, language } = useLanguage();
   const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
   const { hasAnyAdminAccess, isModerator } = useModeratorAccess();
+  const { isGuest, isVisible: gv, active: guestActive } = useGuestVisibility();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
