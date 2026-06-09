@@ -9,6 +9,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -3937,9 +3938,8 @@ const Admin = () => {
                   <div className="space-y-4 max-w-md">
                     <div>
                       <Label htmlFor="current-password">{t('auth.password')} (aktualne)</Label>
-                      <Input
+                      <PasswordInput
                         id="current-password"
-                        type="password"
                         value={passwordData.currentPassword}
                         onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
                         placeholder="Wprowadź aktualne hasło"
@@ -3948,9 +3948,8 @@ const Admin = () => {
                     </div>
                     <div>
                       <Label htmlFor="new-password">{t('auth.password')} (nowe)</Label>
-                      <Input
+                      <PasswordInput
                         id="new-password"
-                        type="password"
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
                         placeholder="Wprowadź nowe hasło"
@@ -3959,9 +3958,8 @@ const Admin = () => {
                     </div>
                     <div>
                       <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
-                      <Input
+                      <PasswordInput
                         id="confirm-password"
-                        type="password"
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
                         placeholder="Potwierdź nowe hasło"
@@ -4540,9 +4538,8 @@ const Admin = () => {
                   </div>
                   <div>
                     <Label htmlFor="new-user-password">Hasło</Label>
-                    <Input
+                    <PasswordInput
                       id="new-user-password"
-                      type="password"
                       value={newUser.password}
                       onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                       placeholder="Minimum 6 znaków"
@@ -4593,9 +4590,8 @@ const Admin = () => {
                 <div className="space-y-4 py-4">
                   <div>
                     <Label htmlFor="reset-new-password">Nowe hasło</Label>
-                    <Input
+                    <PasswordInput
                       id="reset-new-password"
-                      type="password"
                       value={resetPasswordData.newPassword}
                       onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
                       placeholder="Wprowadź bezpieczne hasło (min. 8 znaków)"
