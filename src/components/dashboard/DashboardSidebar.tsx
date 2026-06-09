@@ -596,7 +596,7 @@ export const DashboardSidebar: React.FC = () => {
   // Apply admin-configured ordering
   if (menuOrder && menuOrder.length > 0) {
     const indexMap = new Map<string, number>(menuOrder.map((id, i) => [id, i] as [string, number]));
-    visibleMenuItems.sort((a, b) => {
+    visibleMenuItemsForGuest.sort((a, b) => {
       const ai = indexMap.has(a.id) ? indexMap.get(a.id)! : Number.MAX_SAFE_INTEGER;
       const bi = indexMap.has(b.id) ? indexMap.get(b.id)! : Number.MAX_SAFE_INTEGER;
       return ai - bi;
