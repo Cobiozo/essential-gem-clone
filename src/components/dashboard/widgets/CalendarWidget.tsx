@@ -21,6 +21,7 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { useMeetingRoomStatus } from '@/hooks/useMeetingRoomStatus';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 interface CalendarWidgetProps {
   events?: EventWithRegistration[];
