@@ -37,15 +37,23 @@ interface UseGuestVisibilityOptions {
 }
 
 export const useGuestVisibility = (opts: UseGuestVisibilityOptions = {}) => {
-  const { userRole, user } = useAuth();
+  const { userRole, user, isAdmin } = useAuth() as any;
   const isGuest = userRole?.role === 'guest';
-  const active = isGuest || opts.forceGuestMode === true;
+
+  // Admin preview via URL: ?preview=guest[&guestId=<uuid>]
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const previewMode = isAdmin && urlParams?.get('preview') === 'guest';
+  const previewGuestId = previewMode ? urlParams?.get('guestId') : null;
+
+  const active = isGuest || opts.forceGuestMode === true || previewMode;
 
   const [globalCfg, setGlobalCfg] = useState<GuestConfig | null>(null);
   const [overrideCfg, setOverrideCfg] = useState<GuestConfig | null>(null);
   const [loading, setLoading] = useState(active);
 
-  const targetUserId = opts.overrideUserId !== undefined ? opts.overrideUserId : (isGuest ? user?.id ?? null : null);
+  const targetUserId = opts.overrideUserId !== undefined
+    ? opts.overrideUserId
+    : (previewMode ? previewGuestId : (isGuest ? user?.id ?? null : null));
 
   useEffect(() => {
     if (!active) { setLoading(false); return; }
