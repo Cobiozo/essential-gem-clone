@@ -186,7 +186,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
         {/* Desktop-only actions */}
         <div className="hidden sm:flex items-center gap-1">
-          {isAdmin && (
+          {isAdmin && gv('topbar', 'switchClassic') && (
             <Button
               variant="ghost"
               size="icon"
@@ -197,18 +197,20 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               <LayoutGrid className="h-4 w-4" />
             </Button>
           )}
-          <LanguageSelector />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
-            className="h-9 w-9"
-            title={tf('nav.tutorial', 'Samouczek')}
-            data-tour="tutorial-button"
-          >
-            <HelpCircle className="h-4 w-4" />
-          </Button>
-          <ThemeSelector />
+          {gv('topbar', 'language') && <LanguageSelector />}
+          {gv('topbar', 'tutorial') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+              className="h-9 w-9"
+              title={tf('nav.tutorial', 'Samouczek')}
+              data-tour="tutorial-button"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {gv('topbar', 'theme') && <ThemeSelector />}
         </div>
 
         {/* User dropdown */}
