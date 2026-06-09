@@ -185,11 +185,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserRole(baseRole);
       }
       
+      // Determine if this is a guest user — guests bypass MFA entirely
+      const rolesList = (roleResult.data || []) as any[];
+      const isGuestUser = rolesList.some((r) => r.role === 'guest');
+
       // Check MFA enforcement BEFORE marking roles as ready
-      // Skip if already verified in this browser session
+      // Skip if already verified in this browser session OR user is a guest
       const mfaVerifiedKey = `mfa_verified_${userId}`;
       const alreadyVerified = sessionStorage.getItem(mfaVerifiedKey);
-      if (!alreadyVerified) {
+      if (!alreadyVerified && !isGuestUser) {
         try {
           const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
           if (!mfaError) {
@@ -204,6 +208,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (mfaErr) {
           console.error('[Auth] MFA enforcement check failed:', mfaErr);
         }
+      } else if (isGuestUser) {
+        console.log('[Auth] Guest user — skipping MFA enforcement');
       } else {
         console.log('[Auth] MFA already verified in this session, skipping');
       }
