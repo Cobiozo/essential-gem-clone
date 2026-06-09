@@ -81,7 +81,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
 
 // Separated component so auth hooks are only called for protected routes
 const ProtectedRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, profile, loading, rolesReady } = useAuth();
+  const { user, profile, loading, rolesReady, isGuest } = useAuth() as any;
   const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   const location = useLocation();
   
@@ -126,6 +126,11 @@ const ProtectedRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children
   // Prevent infinite spinner when session exists but profile cannot be loaded
   if (!profile) {
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  }
+
+  // Guests bypass approval & profile-completion entirely (admin-managed account)
+  if (isGuest) {
+    return <>{children}</>;
   }
   
   // Check approval status FIRST (before profile completion)

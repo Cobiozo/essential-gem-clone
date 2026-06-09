@@ -61,6 +61,7 @@ interface AuthContextType {
   isPartner: boolean;
   isClient: boolean;
   isSpecjalista: boolean;
+  isGuest: boolean;
   loginTrigger: number;
   isFreshLogin: boolean;
   loginComplete: boolean;
@@ -538,6 +539,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
   const isClient = userRole?.role === 'client' || profile?.role === 'client';
   const isSpecjalista = userRole?.role === 'specjalista' || profile?.role === 'specjalista';
+  const isGuest = userRole?.role === 'guest' || profile?.role === 'guest';
 
   const value: AuthContextType = {
     user,
@@ -550,6 +552,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isPartner,
     isClient,
     isSpecjalista,
+    isGuest,
     loginTrigger,
     isFreshLogin,
     loginComplete,
