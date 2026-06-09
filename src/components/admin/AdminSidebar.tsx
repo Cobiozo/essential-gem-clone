@@ -159,6 +159,7 @@ const navCategories: NavCategory[] = [
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
       { value: 'moderators', labelKey: 'moderators', icon: Shield },
+      { value: 'guests', labelKey: 'guests', icon: Users },
     ],
   },
   {
@@ -282,6 +283,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     apiIntegrations: 'API / Integracje',
     userStats: 'Statystyki użytkowników',
     moderators: 'Moderatorzy',
+    guests: 'Goście',
   };
 
   const getLabel = (key: string): string => {
