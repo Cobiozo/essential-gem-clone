@@ -454,6 +454,7 @@ const AppContent = () => {
                 <Route path="/checkout/:orderId" element={<CheckoutPage />} />
                 <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />
+                <Route path="/zaproszenie/:token" element={<GuestRegister />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
