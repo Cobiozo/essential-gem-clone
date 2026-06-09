@@ -484,6 +484,8 @@ ${labels.signUp}: ${inviteUrl}
             </button>
           ))}
         </div>
+        )}
+
 
         {/* Selected day events */}
         {selectedDate && (
