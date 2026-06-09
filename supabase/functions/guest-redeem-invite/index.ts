@@ -53,11 +53,11 @@ Deno.serve(async (req) => {
       return jsonResp(400, { error: inviteRow?.reason || 'invalid_token' });
     }
 
-    // 2. Create auth user (email auto-confirmed for guests)
+    // 2. Create auth user (email NOT confirmed — guest must click activation link)
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: false,
       user_metadata: { first_name, last_name, is_guest: true },
     });
     if (createErr || !created?.user) {
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     }
     const userId = created.user.id;
 
-    // 3. Upsert profile — guest is fully active, approved, and considered complete
+    // 3. Upsert profile — guest is approved/complete but email_activated stays false until they click the link
     const nowIso = new Date().toISOString();
     const { error: profErr } = await admin.from('profiles').upsert({
       id: userId,
@@ -86,8 +86,8 @@ Deno.serve(async (req) => {
       accepted_privacy: true,
       accepted_rodo: true,
       accepted_terms_at: nowIso,
-      email_activated: true,
-      email_activated_at: nowIso,
+      email_activated: false,
+      email_activated_at: null,
     }, { onConflict: 'id' });
     if (profErr) {
       console.error('profile upsert failed', profErr);
@@ -107,7 +107,22 @@ Deno.serve(async (req) => {
       return jsonResp(400, { error: 'token_consumed_or_invalid', detail: consumeErr?.message });
     }
 
-    return jsonResp(200, { ok: true, user_id: userId });
+    // 6. Send activation email (link confirms Supabase auth + sets email_activated via activate-email function)
+    try {
+      await admin.functions.invoke('send-activation-email', {
+        body: {
+          userId,
+          email,
+          firstName: first_name,
+          lastName: last_name,
+          role: 'guest',
+        },
+      });
+    } catch (mailErr) {
+      console.error('send-activation-email failed (non-fatal)', mailErr);
+    }
+
+    return jsonResp(200, { ok: true, user_id: userId, requires_email_confirmation: true });
   } catch (e) {
     console.error('guest-redeem-invite error', e);
     return jsonResp(500, { error: String((e as Error).message || e) });
