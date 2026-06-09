@@ -1,20 +1,38 @@
-Plan naprawy rejestracji gościa:
+Cel: po rejestracji gość nie loguje się od razu — musi najpierw kliknąć link potwierdzający w mailu, dopiero potem konto staje się aktywne i może się zalogować.
 
-1. Naprawić błąd bazy danych blokujący rolę `guest`
-   - Obecny błąd z logów: `profiles violates check constraint "valid_role_values"`.
-   - Constraint `valid_role_values` w tabeli `profiles` dopuszcza tylko: `user`, `client`, `admin`, `partner`, `specjalista`.
-   - Dodam `guest` do dozwolonych wartości albo zmienię synchronizację roli tak, żeby `guest` nie łamał legacy pola `profiles.role`.
+## Zmiany
 
-2. Poprawić synchronizację ról
-   - Funkcja `sync_profile_role_from_user_roles()` aktualnie pomija tylko `moderator`, ale próbuje przepisać `guest` do `profiles.role`.
-   - Zaktualizuję ją tak, żeby rola `guest` była obsłużona bez błędu i nadal pozwalała wykrywać gościa przez `user_roles`.
+### 1. Edge Function `guest-redeem-invite`
+- Tworzymy użytkownika z `email_confirm: false` (zamiast `true`) — Supabase wymusi kliknięcie linka aktywacyjnego.
+- W profilu ustawiamy `email_activated: false`, `is_active: false`.
+- Token zaproszenia rezerwujemy/konsumujemy dopiero po aktywacji (alternatywa: konsumujemy od razu — do potwierdzenia z użytkownikiem; rekomendacja: konsumujemy od razu, żeby ten sam link nie został wykorzystany ponownie do założenia kolejnego konta przed potwierdzeniem).
+- Wysyłamy własny mail aktywacyjny przez istniejący szablon (`auth-email-hook` typ `signup`) zawierający CTA „Potwierdzam adres e-mail" linkujący do `/auth/confirm?...` (Supabase auth confirmation URL).
+- Po sukcesie funkcja zwraca `{ ok: true, requires_email_confirmation: true }`.
 
-3. Utwardzić Edge Function `guest-redeem-invite`
-   - Po nieudanym utworzeniu profilu funkcja teraz kontynuuje, co kończy się kolejnym błędem przy konsumowaniu tokenu.
-   - Zmienimy to tak, aby przy błędzie profilu funkcja zwracała czytelny błąd i sprzątała utworzone konto, zamiast pozostawiać pół-utworzone rekordy.
+### 2. Strona `GuestRegister.tsx`
+- Po udanej rejestracji NIE wywołujemy `signInWithPassword`.
+- Zamiast tego pokazujemy ekran „Sprawdź skrzynkę pocztową" z instrukcją:
+  - „Wysłaliśmy link aktywacyjny na adres {email}."
+  - „Sprawdź skrzynkę odbiorczą oraz folder SPAM/Oferty."
+  - „Kliknij przycisk »Potwierdzam adres e-mail« w wiadomości."
+  - „Po potwierdzeniu zaloguj się tutaj." → przycisk do `/auth`.
 
-4. Zweryfikować przepływ po naprawie
-   - Sprawdzę logi funkcji `guest-redeem-invite` po wdrożeniu.
-   - Przetestuję wywołanie Edge Function na poprawnym tokenie lub wskażę, jeśli potrzebny będzie świeży link testowy z panelu admina.
+### 3. Szablon maila (`_shared/email-templates/signup.tsx`)
+- Sprawdzimy/dopasujemy treść dla gościa: nagłówek, CTA „Potwierdzam adres e-mail", krótki opis platformy. Branding zgodny z resztą maili PureLife.
 
-Efekt: gość będzie mógł utworzyć konto, zalogować się i wejść do dashboardu z dostępem ograniczonym przez konfigurację widoczności gościa.
+### 4. Aktywacja po kliknięciu w mailu
+- Supabase domyślnie kieruje na `Site URL` z tokenem — nasza aplikacja już obsługuje `detectSessionInUrl: true` w `client.ts`, więc po kliknięciu link otworzy aplikację i utworzy sesję.
+- Dodajemy trigger/funkcję `on_auth_user_confirmed`: po `email_confirmed_at IS NOT NULL` ustawiamy w `profiles`: `email_activated = true`, `email_activated_at = now()`, `is_active = true`.
+  - Alternatywa: zrobić to po stronie klienta przy pierwszym logowaniu — mniej pewne, więc wybieramy trigger DB.
+- Po przekierowaniu do aplikacji `AuthContext` wykryje sesję i `ProfileCompletionGuard` przepuści gościa (już ma `profile_completed=true`, `guardian/admin_approved=true`).
+
+### 5. Logowanie
+- Standardowe `/auth` z email + hasło — Supabase odrzuci logowanie dopóki email nie jest potwierdzony (komunikat „Email not confirmed"). Dodamy tłumaczenie tego błędu w `Auth.tsx`: „Potwierdź adres e-mail klikając link wysłany na Twoją skrzynkę."
+
+## Szczegóły techniczne
+
+- Migracja SQL: trigger `AFTER UPDATE OF email_confirmed_at ON auth.users` — w Supabase nie można dotykać schematu `auth`, więc zamiast triggera użyjemy webhooka `auth-email-hook` LUB synchronizacji w momencie pierwszego logowania (RPC `mark_guest_email_activated` wywołane z klienta po udanym `signInWithPassword`). Wybieram wariant RPC — bezpieczny, bez ingerencji w `auth`.
+- `guest-redeem-invite`: usuwamy `email_confirm: true`, ustawiamy `is_active=false`, `email_activated=false`.
+- Token gościa: konsumujemy od razu (zapobiega dublowaniu kont z jednego linka).
+
+Efekt: rejestracja → ekran „sprawdź email" → klik w mailu → sesja w aplikacji → trigger/RPC aktywuje konto → gość może też logować się hasłem.
