@@ -302,3 +302,6 @@ verify_jwt = true
 
 [functions.admin-set-moderator]
 verify_jwt = false
+
+[functions.guest-redeem-invite]
+verify_jwt = false
