@@ -23,6 +23,7 @@ const GuestRegister: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,14 +55,8 @@ const GuestRegister: React.FC = () => {
         setSubmitting(false);
         return;
       }
-      // Sign in
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signErr) {
-        toast({ title: 'Zaloguj się', description: 'Konto utworzone. Zaloguj się ręcznie.', });
-        navigate('/auth');
-        return;
-      }
-      navigate('/dashboard');
+      setRegistered(true);
+      setSubmitting(false);
     } catch (err: any) {
       toast({ title: 'Błąd', description: String(err?.message || err), variant: 'destructive' });
       setSubmitting(false);
