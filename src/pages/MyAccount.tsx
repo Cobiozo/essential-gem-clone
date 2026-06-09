@@ -28,6 +28,7 @@ import { SpecialistCorrespondence } from '@/components/specialist-correspondence
 import { PrivateChatWidget } from '@/components/private-chat';
 import { CommunicationCenterV2 } from '@/components/communication';
 import { useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useGuardianProfile } from '@/hooks/useGuardianProfile';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
@@ -1203,9 +1204,8 @@ const MyAccount = () => {
                <form onSubmit={handlePasswordChange} className="space-y-4">
                  <div className="space-y-2">
                    <Label htmlFor="current-password">{t('auth.password')}</Label>
-                  <Input
+                  <PasswordInput
                     id="current-password"
-                    type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Wprowadź aktualne hasło"
@@ -1216,9 +1216,8 @@ const MyAccount = () => {
 
                  <div className="space-y-2">
                    <Label htmlFor="new-password">{t('auth.password')}</Label>
-                  <Input
+                  <PasswordInput
                     id="new-password"
-                    type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Wprowadź nowe hasło"
@@ -1230,9 +1229,8 @@ const MyAccount = () => {
 
                  <div className="space-y-2">
                    <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
-                  <Input
+                  <PasswordInput
                     id="confirm-password"
-                    type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Powtórz nowe hasło"

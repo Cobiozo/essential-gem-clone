@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const GuestRegister: React.FC = () => {
   const { token = '' } = useParams();
@@ -120,7 +121,7 @@ const GuestRegister: React.FC = () => {
             </div>
             <div>
               <Label htmlFor="pw">Hasło * (min. 8 znaków)</Label>
-              <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+              <PasswordInput id="pw" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
             </div>
             <div className="flex items-start gap-2">
               <Checkbox id="cons" checked={consent} onCheckedChange={(v) => setConsent(Boolean(v))} />

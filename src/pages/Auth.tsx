@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import MaintenanceBanner from '@/components/MaintenanceBanner';
+import { PasswordInput } from '@/components/ui/password-input';
 
 // Password requirement indicator component
 const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => (
@@ -803,9 +804,8 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">{t('auth.password')}</Label>
-                    <Input
+                    <PasswordInput
                       id="password"
-                      type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -988,9 +988,8 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">{t('auth.password')}</Label>
-                    <Input
+                    <PasswordInput
                       id="signup-password"
-                      type="password"
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
@@ -1013,9 +1012,8 @@ const Auth = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
-                    <Input
+                    <PasswordInput
                       id="confirm-password"
-                      type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
