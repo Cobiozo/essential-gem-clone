@@ -460,7 +460,8 @@ ${labels.signUp}: ${inviteUrl}
           })}
         </div>
 
-        {/* Interactive Legend */}
+        {/* Interactive Legend - hidden for guests */}
+        {!guestActive && (
         <div className="flex flex-wrap gap-2 pt-2 border-t">
           {legendItems.map((item) => (
             <button
