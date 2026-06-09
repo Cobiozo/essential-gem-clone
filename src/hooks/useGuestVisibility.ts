@@ -6,10 +6,10 @@ export type GuestScope = 'sidebar' | 'topbar' | 'avatarMenu' | 'widgets' | 'bann
 export type GuestConfig = Record<string, any>;
 
 const DEFAULT_GLOBAL: GuestConfig = {
-  sidebar: { items: { dashboard: true, news: true, knowledge: false } },
-  topbar: { sound: true, notifications: true, language: true, theme: true, tutorial: false, chat: false, calendar: false, switchClassic: false },
+  sidebar: { items: { dashboard: true, support: true, news: false, knowledge: false, settings: false } },
+  topbar: { sound: false, notifications: false, language: true, theme: true, tutorial: false, chat: false, calendar: false, switchClassic: false, academy: false, notificationsBell: false },
   avatarMenu: { home: true, myAccount: true, settings: true, apiSync: false, toolPanel: false, logout: true },
-  widgets: { newsBanner: true, infoBanners: true, map: false, newsTicker: true, introVideo: false },
+  widgets: { newsBanner: false, infoBanners: false, map: false, newsTicker: false, introVideo: false, calendar: true, webinarInvite: false, myMeetings: false, trainingProgress: false, otpCodes: false, resources: false, teamContacts: false, reflinks: false, infoLinks: false, footer: false, calendarLegend: false, pwaInstall: false },
   banners: { allowAll: false, items: {} },
   pages: { html: {} },
   events: { showPublicList: false, items: {} },

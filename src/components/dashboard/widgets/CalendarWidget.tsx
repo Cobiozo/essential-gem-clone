@@ -21,6 +21,7 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { useMeetingRoomStatus } from '@/hooks/useMeetingRoomStatus';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 interface CalendarWidgetProps {
   events?: EventWithRegistration[];
@@ -46,6 +47,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [inviteLang, setInviteLang] = useState(language);
   const dateLocale = getAppDateLocale(language);
+  const { active: guestActive } = useGuestVisibility();
 
   // Collect meeting_room_ids from internal meeting events for overtime detection
   const internalMeetingRoomIds = useMemo(() => {
@@ -359,7 +361,7 @@ ${labels.signUp}: ${inviteUrl}
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-3">
           <Widget3DIcon icon={Calendar} variant="violet" size="md" />
-          {tf('events.title', 'Webinary i spotkania')}
+          {tf('events.title', 'Kalendarz wydarzeń')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -458,7 +460,8 @@ ${labels.signUp}: ${inviteUrl}
           })}
         </div>
 
-        {/* Interactive Legend */}
+        {/* Interactive Legend - hidden for guests */}
+        {!guestActive && (
         <div className="flex flex-wrap gap-2 pt-2 border-t">
           {legendItems.map((item) => (
             <button
@@ -481,6 +484,8 @@ ${labels.signUp}: ${inviteUrl}
             </button>
           ))}
         </div>
+        )}
+
 
         {/* Selected day events */}
         {selectedDate && (
