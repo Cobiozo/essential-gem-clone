@@ -110,6 +110,7 @@ import NotFound from "./pages/NotFound";
 
 // Lazy load - heavy pages with retry
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const GuestRegister = lazyWithRetry(() => import("./pages/GuestRegister"));
 const MyAccount = lazyWithRetry(() => import("./pages/MyAccount"));
 const Page = lazyWithRetry(() => import("./pages/Page"));
 const Training = lazyWithRetry(() => import("./pages/Training"));
@@ -454,6 +455,7 @@ const AppContent = () => {
                 <Route path="/checkout/:orderId" element={<CheckoutPage />} />
                 <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />
+                <Route path="/zaproszenie/:token" element={<GuestRegister />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

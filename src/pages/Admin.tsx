@@ -91,6 +91,7 @@ import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
 import { ApiIntegrationsPanel } from '@/components/admin/ApiIntegrationsPanel';
 import MobileBottomNavSettings from '@/components/admin/MobileBottomNavSettings';
 import { ModeratorsManagement } from '@/components/admin/ModeratorsManagement';
+import GuestsManagement from '@/components/admin/GuestsManagement';
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
@@ -4818,6 +4819,9 @@ const Admin = () => {
 
           <TabsContent value="moderators">
             <ModeratorsManagement />
+          </TabsContent>
+          <TabsContent value="guests">
+            <GuestsManagement />
           </TabsContent>
 
 

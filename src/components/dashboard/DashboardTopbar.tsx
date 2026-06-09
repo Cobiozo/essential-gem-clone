@@ -30,6 +30,7 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 interface DashboardTopbarProps {
   title?: string;
@@ -48,6 +49,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const { profile, signOut, isAdmin, userRole } = useAuth();
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
+  const { isVisible: gv, isGuest } = useGuestVisibility();
   const sessionTimer = useSessionTimer();
   const chatSidebar = useChatSidebar();
   const { data: chatVisibility } = useChatSidebarVisibility();
@@ -147,7 +149,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         </div>
 
         {/* Chat toggle - simple sidebar toggle */}
-        {isChatVisible && (
+        {isChatVisible && gv('topbar', 'chat') && (
           <div className="relative">
             <Button
               variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
@@ -167,22 +169,24 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         )}
 
         {/* Sound toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSound}
-          className="h-9 w-9"
-          title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
-        >
-          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-        </Button>
+        {gv('topbar', 'sound') && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSound}
+            className="h-9 w-9"
+            title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+          </Button>
+        )}
 
         {/* Notifications */}
-        <NotificationBell />
+        {gv('topbar', 'notifications') && <NotificationBell />}
 
         {/* Desktop-only actions */}
         <div className="hidden sm:flex items-center gap-1">
-          {isAdmin && (
+          {isAdmin && gv('topbar', 'switchClassic') && (
             <Button
               variant="ghost"
               size="icon"
@@ -193,18 +197,20 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               <LayoutGrid className="h-4 w-4" />
             </Button>
           )}
-          <LanguageSelector />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
-            className="h-9 w-9"
-            title={tf('nav.tutorial', 'Samouczek')}
-            data-tour="tutorial-button"
-          >
-            <HelpCircle className="h-4 w-4" />
-          </Button>
-          <ThemeSelector />
+          {gv('topbar', 'language') && <LanguageSelector />}
+          {gv('topbar', 'tutorial') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+              className="h-9 w-9"
+              title={tf('nav.tutorial', 'Samouczek')}
+              data-tour="tutorial-button"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {gv('topbar', 'theme') && <ThemeSelector />}
         </div>
 
         {/* User dropdown */}
@@ -227,42 +233,52 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               </div>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-              <Home className="mr-2 h-4 w-4" />
-              {tf('nav.home', 'Strona główna')}
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              data-tour="user-menu-account"
-              onClick={() => navigate('/my-account?tab=profile')}
-            >
-              <User className="mr-2 h-4 w-4" />
-              {t('nav.myAccount')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/my-account?tab=profile')}>
-              <Settings className="mr-2 h-4 w-4" />
-              {t('dashboard.menu.settings')}
-            </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Link2 className="mr-2 h-4 w-4" />
-                {tf('nav.apiSync', 'Synchronizacja API')}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
-                <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Google Calendar
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <CacheManagementDialog>
-              <DropdownMenuItem 
-                data-tour="user-menu-tools"
-                onSelect={(e) => e.preventDefault()}
-              >
-                <Wrench className="mr-2 h-4 w-4" />
-                {tf('nav.toolPanel', 'Panel narzędziowy')}
+            {gv('avatarMenu', 'home') && (
+              <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                <Home className="mr-2 h-4 w-4" />
+                {tf('nav.home', 'Strona główna')}
               </DropdownMenuItem>
-            </CacheManagementDialog>
+            )}
+            {gv('avatarMenu', 'myAccount') && (
+              <DropdownMenuItem
+                data-tour="user-menu-account"
+                onClick={() => navigate('/my-account?tab=profile')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                {t('nav.myAccount')}
+              </DropdownMenuItem>
+            )}
+            {gv('avatarMenu', 'settings') && (
+              <DropdownMenuItem onClick={() => navigate('/my-account?tab=profile')}>
+                <Settings className="mr-2 h-4 w-4" />
+                {t('dashboard.menu.settings')}
+              </DropdownMenuItem>
+            )}
+            {gv('avatarMenu', 'apiSync') && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {tf('nav.apiSync', 'Synchronizacja API')}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-48">
+                  <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Google Calendar
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {gv('avatarMenu', 'toolPanel') && (
+              <CacheManagementDialog>
+                <DropdownMenuItem
+                  data-tour="user-menu-tools"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Wrench className="mr-2 h-4 w-4" />
+                  {tf('nav.toolPanel', 'Panel narzędziowy')}
+                </DropdownMenuItem>
+              </CacheManagementDialog>
+            )}
             {/* Mobile-only: items hidden from topbar */}
             <div className="sm:hidden">
               <DropdownMenuSeparator />
