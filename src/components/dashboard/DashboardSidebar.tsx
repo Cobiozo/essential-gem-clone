@@ -746,7 +746,7 @@ export const DashboardSidebar: React.FC = () => {
       {/* Navigation Menu */}
       <SidebarContent className="px-2 py-4">
         <SidebarMenu>
-          {visibleMenuItems.map((item) => (
+          {visibleMenuItemsForGuest.map((item) => (
             <SidebarMenuItem key={item.id} data-tour={`menu-${item.id}`}>
               {item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0 ? (
                 <Collapsible
