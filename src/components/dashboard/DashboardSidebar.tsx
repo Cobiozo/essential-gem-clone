@@ -577,11 +577,11 @@ export const DashboardSidebar: React.FC = () => {
   // Map between visibility config keys (sidebar.items.*) and menu item ids.
   const GUEST_ID_TO_KEY: Record<string, string> = {
     dashboard: 'dashboard',
+    support: 'support',
     news: 'news',
     resources: 'knowledge',
     'healthy-knowledge': 'knowledge',
     settings: 'settings',
-    support: 'support',
   };
   const visibleMenuItemsForGuest = guestActive
     ? visibleMenuItems.filter((item) => {
