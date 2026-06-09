@@ -233,42 +233,52 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               </div>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-              <Home className="mr-2 h-4 w-4" />
-              {tf('nav.home', 'Strona główna')}
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              data-tour="user-menu-account"
-              onClick={() => navigate('/my-account?tab=profile')}
-            >
-              <User className="mr-2 h-4 w-4" />
-              {t('nav.myAccount')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/my-account?tab=profile')}>
-              <Settings className="mr-2 h-4 w-4" />
-              {t('dashboard.menu.settings')}
-            </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Link2 className="mr-2 h-4 w-4" />
-                {tf('nav.apiSync', 'Synchronizacja API')}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-48">
-                <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Google Calendar
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <CacheManagementDialog>
-              <DropdownMenuItem 
-                data-tour="user-menu-tools"
-                onSelect={(e) => e.preventDefault()}
-              >
-                <Wrench className="mr-2 h-4 w-4" />
-                {tf('nav.toolPanel', 'Panel narzędziowy')}
+            {gv('avatarMenu', 'home') && (
+              <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                <Home className="mr-2 h-4 w-4" />
+                {tf('nav.home', 'Strona główna')}
               </DropdownMenuItem>
-            </CacheManagementDialog>
+            )}
+            {gv('avatarMenu', 'myAccount') && (
+              <DropdownMenuItem
+                data-tour="user-menu-account"
+                onClick={() => navigate('/my-account?tab=profile')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                {t('nav.myAccount')}
+              </DropdownMenuItem>
+            )}
+            {gv('avatarMenu', 'settings') && (
+              <DropdownMenuItem onClick={() => navigate('/my-account?tab=profile')}>
+                <Settings className="mr-2 h-4 w-4" />
+                {t('dashboard.menu.settings')}
+              </DropdownMenuItem>
+            )}
+            {gv('avatarMenu', 'apiSync') && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {tf('nav.apiSync', 'Synchronizacja API')}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-48">
+                  <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Google Calendar
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {gv('avatarMenu', 'toolPanel') && (
+              <CacheManagementDialog>
+                <DropdownMenuItem
+                  data-tour="user-menu-tools"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Wrench className="mr-2 h-4 w-4" />
+                  {tf('nav.toolPanel', 'Panel narzędziowy')}
+                </DropdownMenuItem>
+              </CacheManagementDialog>
+            )}
             {/* Mobile-only: items hidden from topbar */}
             <div className="sm:hidden">
               <DropdownMenuSeparator />
