@@ -361,7 +361,7 @@ ${labels.signUp}: ${inviteUrl}
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-3">
           <Widget3DIcon icon={Calendar} variant="violet" size="md" />
-          {tf('events.title', 'Webinary i spotkania')}
+          {tf('events.title', 'Kalendarz wydarzeń')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
