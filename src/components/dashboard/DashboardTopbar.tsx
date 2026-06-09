@@ -49,6 +49,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const { profile, signOut, isAdmin, userRole } = useAuth();
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
+  const { isVisible: gv, isGuest } = useGuestVisibility();
   const sessionTimer = useSessionTimer();
   const chatSidebar = useChatSidebar();
   const { data: chatVisibility } = useChatSidebarVisibility();
