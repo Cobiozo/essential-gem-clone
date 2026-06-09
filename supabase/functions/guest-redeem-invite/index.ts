@@ -91,7 +91,8 @@ Deno.serve(async (req) => {
     }, { onConflict: 'id' });
     if (profErr) {
       console.error('profile upsert failed', profErr);
-      // continue — profile may be created by trigger; role/token still required
+      await admin.auth.admin.deleteUser(userId).catch(() => {});
+      return jsonResp(500, { error: 'profile_upsert_failed', detail: profErr.message });
     }
 
     // 4. Remove any default role auto-assigned by trigger (e.g. 'user') so guest is the only role
@@ -102,9 +103,8 @@ Deno.serve(async (req) => {
       .rpc('consume_guest_invite', { _token: token, _user_id: userId });
     if (consumeErr || consumed === false) {
       console.error('consume_guest_invite failed', consumeErr);
-      // Roll back user
       await admin.auth.admin.deleteUser(userId).catch(() => {});
-      return jsonResp(400, { error: 'token_consumed_or_invalid' });
+      return jsonResp(400, { error: 'token_consumed_or_invalid', detail: consumeErr?.message });
     }
 
     return jsonResp(200, { ok: true, user_id: userId });
