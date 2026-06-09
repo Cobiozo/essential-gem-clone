@@ -15,11 +15,18 @@ interface Body {
   last_name?: string;
 }
 
+const jsonResp = (status: number, payload: Record<string, unknown>) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return jsonResp(405, { error: 'method_not_allowed' });
 
   try {
-    const body = (await req.json()) as Body;
+    const body = (await req.json().catch(() => ({}))) as Body;
     const token = String(body.token || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
@@ -27,9 +34,7 @@ Deno.serve(async (req) => {
     const last_name = String(body.last_name || '').trim().slice(0, 60);
 
     if (!token || !email || !password || password.length < 8 || !first_name) {
-      return new Response(JSON.stringify({ error: 'invalid_input' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResp(400, { error: 'invalid_input' });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -39,12 +44,13 @@ Deno.serve(async (req) => {
     // 1. Validate token
     const { data: resolved, error: resolveErr } = await admin
       .rpc('resolve_guest_invite', { _token: token });
-    if (resolveErr) throw resolveErr;
+    if (resolveErr) {
+      console.error('resolve_guest_invite error', resolveErr);
+      return jsonResp(500, { error: 'resolve_failed', detail: resolveErr.message });
+    }
     const inviteRow = Array.isArray(resolved) ? resolved[0] : resolved;
     if (!inviteRow?.is_valid) {
-      return new Response(JSON.stringify({ error: inviteRow?.reason || 'invalid_token' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResp(400, { error: inviteRow?.reason || 'invalid_token' });
     }
 
     // 2. Create auth user (email auto-confirmed for guests)
@@ -54,40 +60,56 @@ Deno.serve(async (req) => {
       email_confirm: true,
       user_metadata: { first_name, last_name, is_guest: true },
     });
-    if (createErr || !created.user) {
-      return new Response(JSON.stringify({ error: createErr?.message || 'create_failed' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (createErr || !created?.user) {
+      const msg = createErr?.message || 'create_failed';
+      console.error('createUser failed', msg);
+      return jsonResp(400, { error: msg });
     }
     const userId = created.user.id;
 
-    // 3. Upsert profile (minimal)
-    await admin.from('profiles').upsert({
+    // 3. Upsert profile — guest is fully active, approved, and considered complete
+    const nowIso = new Date().toISOString();
+    const { error: profErr } = await admin.from('profiles').upsert({
       id: userId,
+      user_id: userId,
       email,
       first_name,
-      last_name,
+      last_name: last_name || null,
       role: 'guest',
+      is_active: true,
+      profile_completed: true,
+      guardian_approved: true,
+      guardian_approved_at: nowIso,
+      admin_approved: true,
+      admin_approved_at: nowIso,
+      accepted_terms: true,
+      accepted_privacy: true,
+      accepted_rodo: true,
+      accepted_terms_at: nowIso,
+      email_activated: true,
+      email_activated_at: nowIso,
     }, { onConflict: 'id' });
+    if (profErr) {
+      console.error('profile upsert failed', profErr);
+      // continue — profile may be created by trigger; role/token still required
+    }
 
-    // 4. Atomically consume token + assign role
+    // 4. Remove any default role auto-assigned by trigger (e.g. 'user') so guest is the only role
+    await admin.from('user_roles').delete().eq('user_id', userId);
+
+    // 5. Atomically consume token + assign role
     const { data: consumed, error: consumeErr } = await admin
       .rpc('consume_guest_invite', { _token: token, _user_id: userId });
     if (consumeErr || consumed === false) {
+      console.error('consume_guest_invite failed', consumeErr);
       // Roll back user
       await admin.auth.admin.deleteUser(userId).catch(() => {});
-      return new Response(JSON.stringify({ error: 'token_consumed_or_invalid' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResp(400, { error: 'token_consumed_or_invalid' });
     }
 
-    return new Response(JSON.stringify({ ok: true, user_id: userId }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResp(200, { ok: true, user_id: userId });
   } catch (e) {
     console.error('guest-redeem-invite error', e);
-    return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResp(500, { error: String((e as Error).message || e) });
   }
 });

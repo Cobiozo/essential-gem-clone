@@ -61,6 +61,7 @@ interface AuthContextType {
   isPartner: boolean;
   isClient: boolean;
   isSpecjalista: boolean;
+  isGuest: boolean;
   loginTrigger: number;
   isFreshLogin: boolean;
   loginComplete: boolean;
@@ -185,11 +186,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserRole(baseRole);
       }
       
+      // Determine if this is a guest user — guests bypass MFA entirely
+      const rolesList = (roleResult.data || []) as any[];
+      const isGuestUser = rolesList.some((r) => r.role === 'guest');
+
       // Check MFA enforcement BEFORE marking roles as ready
-      // Skip if already verified in this browser session
+      // Skip if already verified in this browser session OR user is a guest
       const mfaVerifiedKey = `mfa_verified_${userId}`;
       const alreadyVerified = sessionStorage.getItem(mfaVerifiedKey);
-      if (!alreadyVerified) {
+      if (!alreadyVerified && !isGuestUser) {
         try {
           const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
           if (!mfaError) {
@@ -204,6 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (mfaErr) {
           console.error('[Auth] MFA enforcement check failed:', mfaErr);
         }
+      } else if (isGuestUser) {
+        console.log('[Auth] Guest user — skipping MFA enforcement');
       } else {
         console.log('[Auth] MFA already verified in this session, skipping');
       }
@@ -532,6 +539,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
   const isClient = userRole?.role === 'client' || profile?.role === 'client';
   const isSpecjalista = userRole?.role === 'specjalista' || profile?.role === 'specjalista';
+  const isGuest = userRole?.role === 'guest' || profile?.role === 'guest';
 
   const value: AuthContextType = {
     user,
@@ -544,6 +552,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isPartner,
     isClient,
     isSpecjalista,
+    isGuest,
     loginTrigger,
     isFreshLogin,
     loginComplete,

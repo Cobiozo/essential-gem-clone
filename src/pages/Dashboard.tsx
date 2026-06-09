@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/hooks/useEvents';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 // Lazy load all widgets for better mobile performance
 const WelcomeWidget = lazy(() => import('@/components/dashboard/widgets/WelcomeWidget'));
@@ -58,6 +59,9 @@ const Dashboard: React.FC = () => {
   const location = useLocation();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { events, loading: eventsLoading, registerForEvent, cancelRegistration } = useEvents();
+  const { active: guestActive, isVisible: gv } = useGuestVisibility();
+  // Guest widget gate: outside guest mode → always true
+  const showWidget = (key: string) => !guestActive || gv('widgets', key);
 
   const handleDropdownToggle = useCallback((open: boolean) => {
     setIsUserMenuOpen(open);
@@ -92,63 +96,79 @@ const Dashboard: React.FC = () => {
         </Suspense>
 
         {/* Webinar Invite Widget - full width */}
-        <Suspense fallback={<WidgetSkeleton />}>
-          <WebinarInviteWidget />
-        </Suspense>
+        {showWidget('webinarInvite') && (
+          <Suspense fallback={<WidgetSkeleton />}>
+            <WebinarInviteWidget />
+          </Suspense>
+        )}
 
         {/* Three-column grid for remaining widgets */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Column 1: Calendar */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <CalendarWidget 
-              events={events}
-              loading={eventsLoading}
-              registerForEvent={registerForEvent}
-              cancelRegistration={cancelRegistration}
-            />
-          </Suspense>
+          {showWidget('calendar') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <CalendarWidget 
+                events={events}
+                loading={eventsLoading}
+                registerForEvent={registerForEvent}
+                cancelRegistration={cancelRegistration}
+              />
+            </Suspense>
+          )}
 
-          {/* Column 2: My Meetings - obok kalendarza */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <MyMeetingsWidget 
-              events={events}
-              eventsLoading={eventsLoading}
-            />
-          </Suspense>
+          {/* Column 2: My Meetings */}
+          {showWidget('myMeetings') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <MyMeetingsWidget 
+                events={events}
+                eventsLoading={eventsLoading}
+              />
+            </Suspense>
+          )}
 
           {/* Column 3: Training Progress */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <TrainingProgressWidget />
-          </Suspense>
+          {showWidget('trainingProgress') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <TrainingProgressWidget />
+            </Suspense>
+          )}
 
+          {/* Combined OTP Codes Widget */}
+          {showWidget('otpCodes') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <CombinedOtpCodesWidget />
+            </Suspense>
+          )}
 
-          {/* Combined OTP Codes Widget - for partners/admins */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <CombinedOtpCodesWidget />
-          </Suspense>
-
-          {/* Remaining widgets flow naturally */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <ResourcesWidget />
-          </Suspense>
-          <Suspense fallback={<WidgetSkeleton />}>
-            <TeamContactsWidget />
-          </Suspense>
-          <Suspense fallback={<WidgetSkeleton />}>
-            <ReflinksWidget />
-          </Suspense>
-          <Suspense fallback={<WidgetSkeleton />}>
-            <InfoLinksWidget />
-          </Suspense>
-          
-          
+          {showWidget('resources') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <ResourcesWidget />
+            </Suspense>
+          )}
+          {showWidget('teamContacts') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <TeamContactsWidget />
+            </Suspense>
+          )}
+          {showWidget('reflinks') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <ReflinksWidget />
+            </Suspense>
+          )}
+          {showWidget('infoLinks') && (
+            <Suspense fallback={<WidgetSkeleton />}>
+              <InfoLinksWidget />
+            </Suspense>
+          )}
         </div>
       </div>
 
       {/* Footer Section with quote, team features and contact */}
-      <Suspense fallback={<FooterSkeleton />}>
-        <DashboardFooterSection />
-      </Suspense>
+      {showWidget('footer') && (
+        <Suspense fallback={<FooterSkeleton />}>
+          <DashboardFooterSection />
+        </Suspense>
+      )}
 
       {/* Onboarding Tour */}
       <Suspense fallback={null}>

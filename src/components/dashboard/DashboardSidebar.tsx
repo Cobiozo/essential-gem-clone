@@ -72,6 +72,7 @@ import { useNewsHubVisibility } from '@/hooks/useNewsHubVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents, useIsPaidEventsVisible } from '@/hooks/usePaidEventsVisibility';
 import { useTicketVerifierAccess } from '@/hooks/useTicketVerifierAccess';
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
@@ -128,10 +129,11 @@ const platformIcons: Record<string, React.ElementType> = {
 export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
+  const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth() as any;
   const { t, tf, language } = useLanguage();
   const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
   const { hasAnyAdminAccess, isModerator } = useModeratorAccess();
+  const { isGuest, isVisible: gv, active: guestActive } = useGuestVisibility();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
@@ -570,10 +572,31 @@ export const DashboardSidebar: React.FC = () => {
     return true;
   });
 
+  // GUEST WHITELIST: if user is a guest (or admin previewing as guest), keep only
+  // sidebar items explicitly enabled in the guest visibility config.
+  // Map between visibility config keys (sidebar.items.*) and menu item ids.
+  const GUEST_ID_TO_KEY: Record<string, string> = {
+    dashboard: 'dashboard',
+    news: 'news',
+    resources: 'knowledge',
+    'healthy-knowledge': 'knowledge',
+    settings: 'settings',
+    support: 'support',
+  };
+  const visibleMenuItemsForGuest = guestActive
+    ? visibleMenuItems.filter((item) => {
+        // Allow dynamic html pages always (they go through pages config — admin opt-in)
+        if (item.id.startsWith('html-')) return true;
+        const key = GUEST_ID_TO_KEY[item.id];
+        if (!key) return false;
+        return gv('sidebar', key);
+      })
+    : visibleMenuItems;
+
   // Apply admin-configured ordering
   if (menuOrder && menuOrder.length > 0) {
     const indexMap = new Map<string, number>(menuOrder.map((id, i) => [id, i] as [string, number]));
-    visibleMenuItems.sort((a, b) => {
+    visibleMenuItemsForGuest.sort((a, b) => {
       const ai = indexMap.has(a.id) ? indexMap.get(a.id)! : Number.MAX_SAFE_INTEGER;
       const bi = indexMap.has(b.id) ? indexMap.get(b.id)! : Number.MAX_SAFE_INTEGER;
       return ai - bi;
@@ -723,7 +746,7 @@ export const DashboardSidebar: React.FC = () => {
       {/* Navigation Menu */}
       <SidebarContent className="px-2 py-4">
         <SidebarMenu>
-          {visibleMenuItems.map((item) => (
+          {visibleMenuItemsForGuest.map((item) => (
             <SidebarMenuItem key={item.id} data-tour={`menu-${item.id}`}>
               {item.hasSubmenu && item.submenuItems && item.submenuItems.length > 0 ? (
                 <Collapsible
