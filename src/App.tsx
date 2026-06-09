@@ -110,6 +110,7 @@ import NotFound from "./pages/NotFound";
 
 // Lazy load - heavy pages with retry
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const GuestRegister = lazyWithRetry(() => import("./pages/GuestRegister"));
 const MyAccount = lazyWithRetry(() => import("./pages/MyAccount"));
 const Page = lazyWithRetry(() => import("./pages/Page"));
 const Training = lazyWithRetry(() => import("./pages/Training"));
