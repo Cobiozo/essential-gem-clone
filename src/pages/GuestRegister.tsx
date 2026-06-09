@@ -23,6 +23,7 @@ const GuestRegister: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,14 +55,8 @@ const GuestRegister: React.FC = () => {
         setSubmitting(false);
         return;
       }
-      // Sign in
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (signErr) {
-        toast({ title: 'Zaloguj się', description: 'Konto utworzone. Zaloguj się ręcznie.', });
-        navigate('/auth');
-        return;
-      }
-      navigate('/dashboard');
+      setRegistered(true);
+      setSubmitting(false);
     } catch (err: any) {
       toast({ title: 'Błąd', description: String(err?.message || err), variant: 'destructive' });
       setSubmitting(false);
@@ -93,6 +88,34 @@ const GuestRegister: React.FC = () => {
       </div>
     );
   }
+
+  if (registered) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Sprawdź skrzynkę pocztową</CardTitle>
+            <CardDescription>
+              Wysłaliśmy link aktywacyjny na adres <strong>{email}</strong>.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>Aby dokończyć rejestrację:</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Otwórz skrzynkę pocztową.</li>
+              <li>Sprawdź również folder <strong>SPAM</strong> oraz <strong>Oferty / Powiadomienia</strong>.</li>
+              <li>Kliknij przycisk <strong>„Potwierdzam adres e-mail”</strong> w wiadomości.</li>
+              <li>Po potwierdzeniu wróć tutaj i zaloguj się.</li>
+            </ol>
+            <Button className="w-full mt-4" onClick={() => navigate('/auth')}>
+              Przejdź do logowania
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
