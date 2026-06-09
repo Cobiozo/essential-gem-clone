@@ -30,6 +30,7 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 interface DashboardTopbarProps {
   title?: string;
