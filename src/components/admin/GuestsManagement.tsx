@@ -11,6 +11,7 @@ import { Copy, Loader2, Plus, Trash2, RefreshCw, ExternalLink, Eye } from 'lucid
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import GuestRegistrationsPanel from './GuestRegistrationsPanel';
 
 // Available toggleable elements (whitelist of UI bits a guest may see)
 const SCHEMA: { scope: string; label: string; items: { key: string; label: string }[] }[] = [
