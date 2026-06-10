@@ -582,6 +582,7 @@ export const DashboardSidebar: React.FC = () => {
     resources: 'knowledge',
     'healthy-knowledge': 'knowledge',
     settings: 'settings',
+    'paid-events': 'paidEvents',
   };
   const visibleMenuItemsForGuest = guestActive
     ? visibleMenuItems.filter((item) => {

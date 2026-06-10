@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 interface PaidEvent {
   id: string;
@@ -27,8 +28,9 @@ interface PaidEvent {
 
 const PaidEventsListPage: React.FC = () => {
   const { tf } = useLanguage();
-  const { user, isPartner, isAdmin } = useAuth();
-  const canSeeForms = !!user && (isPartner || isAdmin);
+  const { user, isPartner, isAdmin, isGuest } = useAuth();
+  const { active: guestActive, isVisible: gv } = useGuestVisibility();
+  const canSeeForms = !!user && (isPartner || isAdmin || isGuest);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ['paid-events-list'],
@@ -85,8 +87,11 @@ const PaidEventsListPage: React.FC = () => {
   });
 
   const now = new Date();
-  const upcomingEvents = events?.filter(e => new Date(e.event_date) >= now) || [];
-  const pastEvents = events?.filter(e => new Date(e.event_date) < now) || [];
+  const visibleEvents = guestActive
+    ? (events || []).filter((e) => gv('events', e.id, false))
+    : (events || []);
+  const upcomingEvents = visibleEvents.filter(e => new Date(e.event_date) >= now);
+  const pastEvents = visibleEvents.filter(e => new Date(e.event_date) < now);
 
   if (isLoading) {
     return (

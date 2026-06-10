@@ -5,6 +5,7 @@ import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 const UserWorldMapWidget = lazy(() => import('./UserWorldMapWidget'));
 
@@ -39,6 +40,8 @@ const DynamicIcon = ({ name, className }: { name: string; className?: string }) 
 
 export const DashboardFooterSection: React.FC = () => {
   const { t, language } = useLanguage();
+  const { active: guestActive, isVisible: gv } = useGuestVisibility();
+  const show = (key: string) => !guestActive || gv('widgets', key);
   const [settings, setSettings] = useState<DashboardFooterSettings | null>(null);
 
   // Helper: for PL use DB settings (admin-editable), for other langs use i18n translations
@@ -96,107 +99,117 @@ export const DashboardFooterSection: React.FC = () => {
   return (
     <div data-tour="footer-section" className="mt-8 space-y-12">
       {/* Cytat - misja */}
-      <section className="text-center py-8">
-        <h2 className="text-3xl font-bold italic mb-4 text-foreground">
-          "{ft(settings?.quote_text, 'footer.quote')}"
-        </h2>
-        <p className="text-muted-foreground max-w-3xl mx-auto text-sm leading-relaxed">
-          "{ft(settings?.mission_statement, 'footer.missionStatement')}"
-        </p>
-      </section>
+      {show('footerQuote') && (
+        <section className="text-center py-8">
+          <h2 className="text-3xl font-bold italic mb-4 text-foreground">
+            "{ft(settings?.quote_text, 'footer.quote')}"
+          </h2>
+          <p className="text-muted-foreground max-w-3xl mx-auto text-sm leading-relaxed">
+            "{ft(settings?.mission_statement, 'footer.missionStatement')}"
+          </p>
+        </section>
+      )}
 
       {/* Mapa świata społeczności */}
-      <ErrorBoundary
-        fallback={
-          <div className="col-span-full rounded-lg border bg-card overflow-hidden">
-            <div className="h-[420px] w-full bg-[radial-gradient(ellipse_at_center,hsl(var(--muted)/0.6),hsl(var(--background)))] flex items-center justify-center text-xs text-muted-foreground">
-              Mapa świata
+      {show('footerMap') && (
+        <ErrorBoundary
+          fallback={
+            <div className="col-span-full rounded-lg border bg-card overflow-hidden">
+              <div className="h-[420px] w-full bg-[radial-gradient(ellipse_at_center,hsl(var(--muted)/0.6),hsl(var(--background)))] flex items-center justify-center text-xs text-muted-foreground">
+                Mapa świata
+              </div>
             </div>
-          </div>
-        }
-      >
-        <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
-          <UserWorldMapWidget />
-        </Suspense>
-      </ErrorBoundary>
+          }
+        >
+          <Suspense fallback={<div className="h-[420px] rounded-lg bg-muted animate-pulse" />}>
+            <UserWorldMapWidget />
+          </Suspense>
+        </ErrorBoundary>
+      )}
 
       {/* Zespół Pure Life */}
-      <section className="text-center py-8 bg-muted/30 rounded-lg">
-        <h3 className="text-2xl font-bold mb-2 text-foreground">
-          {ft(settings?.team_title, 'footer.teamTitle')}
-        </h3>
-        <p className="text-muted-foreground text-sm max-w-2xl mx-auto mb-8">
-          {ft(settings?.team_description, 'footer.teamDescription')}
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
-          {teamFeatures.map((feature, index) => (
-            <div key={index} className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-3">
-                <DynamicIcon name={feature.icon} className="w-8 h-8 text-primary-foreground" />
+      {show('footerTeam') && (
+        <section className="text-center py-8 bg-muted/30 rounded-lg">
+          <h3 className="text-2xl font-bold mb-2 text-foreground">
+            {ft(settings?.team_title, 'footer.teamTitle')}
+          </h3>
+          <p className="text-muted-foreground text-sm max-w-2xl mx-auto mb-8">
+            {ft(settings?.team_description, 'footer.teamDescription')}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
+            {teamFeatures.map((feature, index) => (
+              <div key={index} className="flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-3">
+                  <DynamicIcon name={feature.icon} className="w-8 h-8 text-primary-foreground" />
+                </div>
+                <h4 className="font-semibold mb-1 text-foreground">{feature.title}</h4>
+                <p className="text-xs text-muted-foreground max-w-[200px]">{feature.description}</p>
               </div>
-              <h4 className="font-semibold mb-1 text-foreground">{feature.title}</h4>
-              <p className="text-xs text-muted-foreground max-w-[200px]">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Kontakt */}
-      <section className="text-center py-8">
-        <h3 className="text-2xl font-bold uppercase tracking-wide mb-4 text-foreground">
-          {ft(settings?.contact_title, 'footer.contact')}
-        </h3>
-        <p className="text-muted-foreground text-sm mb-4">
-          {ft(settings?.contact_description, 'footer.contactDescription')}
-        </p>
-        <p className="text-xs text-muted-foreground mb-6 max-w-md mx-auto">
-          {ft(settings?.contact_reminder, 'footer.contactReminder')}
-        </p>
-        <div className="flex flex-col items-center">
-          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center mb-3">
-            <DynamicIcon name={settings?.contact_icon || 'Mail'} className="w-7 h-7 text-primary-foreground" />
+      {show('footerContact') && (
+        <section className="text-center py-8">
+          <h3 className="text-2xl font-bold uppercase tracking-wide mb-4 text-foreground">
+            {ft(settings?.contact_title, 'footer.contact')}
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            {ft(settings?.contact_description, 'footer.contactDescription')}
+          </p>
+          <p className="text-xs text-muted-foreground mb-6 max-w-md mx-auto">
+            {ft(settings?.contact_reminder, 'footer.contactReminder')}
+          </p>
+          <div className="flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center mb-3">
+              <DynamicIcon name={settings?.contact_icon || 'Mail'} className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-sm text-foreground">
+              {ft(settings?.contact_email_label, 'footer.emailSupport')}
+            </span>
+            <a 
+              href={`mailto:${settings?.contact_email_address || 'support@purelife.info.pl'}`}
+              className="text-primary hover:underline text-sm"
+            >
+              {settings?.contact_email_address || 'support@purelife.info.pl'}
+            </a>
           </div>
-          <span className="font-semibold text-sm text-foreground">
-            {ft(settings?.contact_email_label, 'footer.emailSupport')}
-          </span>
-          <a 
-            href={`mailto:${settings?.contact_email_address || 'support@purelife.info.pl'}`}
-            className="text-primary hover:underline text-sm"
-          >
-            {settings?.contact_email_address || 'support@purelife.info.pl'}
-          </a>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Footer */}
-      <footer className="border-t border-border pt-4 pb-2 flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
-        <div className="flex items-center gap-2">
-          <img src={pureLifeLogo} alt="Pure Life Center" className="h-6 object-contain" />
-          <span className="text-primary font-bold">PURE LIFE CENTER</span>
-        </div>
-        <span>© {new Date().getFullYear()} Pure Life Center. {t('footer.allRightsReserved')}</span>
-        <div className="flex gap-4">
-          <a href="/html/polityka-prywatnosci" className="hover:text-primary transition-colors">
-            {t('footer.privacyPolicy')}
-          </a>
-          <span>•</span>
-          <a href="/html/regulamin" className="hover:text-primary transition-colors">
-            {t('footer.terms')}
-          </a>
-          <span>•</span>
-           <button onClick={handleOpenCookieSettings} className="hover:text-primary transition-colors">
-            {t('footer.cookieSettings')}
-          </button>
-          {!isStandalone && (
-            <>
-              <span>•</span>
-              <button onClick={handleOpenInstallBanner} className="hover:text-primary transition-colors">
-                {t('footer.installApp') !== 'footer.installApp' ? t('footer.installApp') : 'Zainstaluj aplikację'}
-              </button>
-            </>
-          )}
-        </div>
-      </footer>
+      {show('footerBottom') && (
+        <footer className="border-t border-border pt-4 pb-2 flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
+          <div className="flex items-center gap-2">
+            <img src={pureLifeLogo} alt="Pure Life Center" className="h-6 object-contain" />
+            <span className="text-primary font-bold">PURE LIFE CENTER</span>
+          </div>
+          <span>© {new Date().getFullYear()} Pure Life Center. {t('footer.allRightsReserved')}</span>
+          <div className="flex gap-4">
+            <a href="/html/polityka-prywatnosci" className="hover:text-primary transition-colors">
+              {t('footer.privacyPolicy')}
+            </a>
+            <span>•</span>
+            <a href="/html/regulamin" className="hover:text-primary transition-colors">
+              {t('footer.terms')}
+            </a>
+            <span>•</span>
+             <button onClick={handleOpenCookieSettings} className="hover:text-primary transition-colors">
+              {t('footer.cookieSettings')}
+            </button>
+            {!isStandalone && show('pwaInstall') && (
+              <>
+                <span>•</span>
+                <button onClick={handleOpenInstallBanner} className="hover:text-primary transition-colors">
+                  {t('footer.installApp') !== 'footer.installApp' ? t('footer.installApp') : 'Zainstaluj aplikację'}
+                </button>
+              </>
+            )}
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
