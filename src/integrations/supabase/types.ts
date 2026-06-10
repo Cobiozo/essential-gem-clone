@@ -11232,6 +11232,7 @@ export type Database = {
         Returns: boolean
       }
       is_current_user_leader: { Args: never; Returns: boolean }
+      is_guest_user: { Args: { _user_id: string }; Returns: boolean }
       is_role_update: {
         Args: { new_role: string; user_id_param: string }
         Returns: boolean

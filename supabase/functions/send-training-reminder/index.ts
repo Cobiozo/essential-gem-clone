@@ -195,6 +195,26 @@ serve(async (req) => {
       throw new Error("Missing required parameters: userId, moduleId, assignmentId");
     }
 
+    // GUEST GATE: guests need an explicit admin assignment for this module
+    const { data: roleRow } = await supabase
+      .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    if (roleRow?.role === 'guest') {
+      const { data: assn } = await supabase
+        .from("training_assignments")
+        .select("assigned_by")
+        .eq("id", assignmentId)
+        .maybeSingle();
+      if (!assn?.assigned_by) {
+        await supabase.from("training_assignments")
+          .update({ notification_sent: true, last_reminder_sent_at: new Date().toISOString() })
+          .eq("id", assignmentId);
+        console.log(`[send-training-reminder] SKIP guest ${userId} module ${moduleId} — no admin assignment`);
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'guest_no_explicit_assignment' }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")

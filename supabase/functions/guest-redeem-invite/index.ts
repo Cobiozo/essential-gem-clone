@@ -22,6 +22,7 @@ const MESSAGES: Record<string, string> = {
   missing_first_name: 'Podaj swoje imię.',
   missing_token: 'Brak tokenu zaproszenia w linku.',
   email_exists: 'Konto z tym adresem e-mail już istnieje. Zaloguj się lub użyj innego adresu.',
+  email_exists_contact_admin: 'Ten adres e-mail jest już zarejestrowany w systemie (konto nieaktywne lub osierocone). Skontaktuj się z administratorem, aby odzyskać dostęp lub usunąć stare konto.',
   expired: 'Ten link zaproszenia wygasł. Poproś o nowy.',
   exhausted: 'Limit użyć tego linku zaproszenia został wyczerpany.',
   inactive: 'Ten link zaproszenia został wyłączony przez administratora.',
@@ -89,6 +90,19 @@ Deno.serve(async (req) => {
         ? reason
         : 'invalid_token';
       return fail(400, known);
+    }
+
+    // 1b. Pre-check email in profiles (catch orphan rows BEFORE Auth call)
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('user_id')
+      .ilike('email', email)
+      .maybeSingle();
+    if (existingProfile?.user_id) {
+      // Verify auth user still exists; either way, block and ask user to contact admin
+      const { data: authUserCheck } = await admin.auth.admin.getUserById(existingProfile.user_id).catch(() => ({ data: null } as any));
+      console.warn('guest-redeem-invite: email already in profiles', { email, hasAuth: !!authUserCheck?.user });
+      return fail(409, 'email_exists_contact_admin');
     }
 
     // 2. Create auth user (email NOT confirmed)

@@ -72,6 +72,7 @@ const GuestRegister: React.FC = () => {
       if (error || payload?.error) {
         const TITLES: Record<string, string> = {
           email_exists: 'Konto już istnieje',
+          email_exists_contact_admin: 'Adres e-mail już zarejestrowany',
           expired: 'Link wygasł',
           exhausted: 'Limit wykorzystany',
           inactive: 'Link wyłączony',
@@ -93,12 +94,18 @@ const GuestRegister: React.FC = () => {
           || 'Rejestracja nieudana. Spróbuj ponownie lub skontaktuj się z administratorem.';
         toast({
           title: TITLES[code] || 'Rejestracja nieudana',
-          description: code === 'email_exists' ? (
+          description: (code === 'email_exists' || code === 'email_exists_contact_admin') ? (
             <div className="space-y-3">
               <p>{message}</p>
-              <Button type="button" size="sm" variant="secondary" onClick={() => navigate('/auth')}>
-                Przejdź do logowania
-              </Button>
+              {code === 'email_exists' ? (
+                <Button type="button" size="sm" variant="secondary" onClick={() => navigate('/auth')}>
+                  Przejdź do logowania
+                </Button>
+              ) : (
+                <a href="mailto:kontakt@purelife.center" className="text-sm underline">
+                  Napisz do administratora
+                </a>
+              )}
             </div>
           ) : message,
           variant: 'destructive',
