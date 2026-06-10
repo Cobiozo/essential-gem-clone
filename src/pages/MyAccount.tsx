@@ -13,7 +13,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, ExternalLink, FileText } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, ExternalLink, FileText, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -1296,3 +1307,145 @@ const MyAccount = () => {
 };
 
 export default MyAccount;
+
+// ---------------------------------------------------------------------------
+// Self-service account deletion card
+// ---------------------------------------------------------------------------
+const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
+  isAdmin,
+  userEmail,
+}) => {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const expected = (userEmail || '').trim().toLowerCase();
+  const matches = !!expected && confirmEmail.trim().toLowerCase() === expected;
+
+  const handleDelete = async () => {
+    if (!matches || submitting) return;
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'self-delete-account',
+        { body: {} },
+      );
+      if (error || (data && (data as any).error)) {
+        const msg =
+          (data as any)?.error ||
+          error?.message ||
+          'Nie udało się usunąć konta. Spróbuj ponownie.';
+        toast({
+          title: 'Błąd',
+          description: msg,
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignore – we hard-redirect anyway
+      }
+      // Hard navigation: rebuilds React tree from scratch so no guard can
+      // trigger a navigate() loop on the now-missing profile.
+      window.location.replace('/konto-usuniete');
+    } catch (e: any) {
+      toast({
+        title: 'Błąd',
+        description: e?.message || 'Nie udało się usunąć konta.',
+        variant: 'destructive',
+      });
+      setSubmitting(false);
+    }
+  };
+
+  if (isAdmin) {
+    return (
+      <Card className="mt-6 border-destructive/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="w-5 h-5" />
+            Usuń konto
+          </CardTitle>
+          <CardDescription>
+            Konto administratora może usunąć wyłącznie inny administrator z poziomu panelu.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="mt-6 border-destructive/40">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-destructive">
+          <Trash2 className="w-5 h-5" />
+          Usuń konto
+        </CardTitle>
+        <CardDescription>
+          Trwałe usunięcie Twojego konta z platformy.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm leading-relaxed">
+            Po usunięciu konto i dane osobowe zostaną <strong>trwale</strong>{' '}
+            wykasowane. Historia rejestracji na wydarzenia oraz zamówień zostanie
+            zachowana w panelu administratora w formie zanonimizowanej (bez
+            powiązania z Twoim profilem). Operacja jest{' '}
+            <strong>nieodwracalna</strong>.
+          </AlertDescription>
+        </Alert>
+
+        <AlertDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmEmail(''); }}>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Usuń moje konto
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Potwierdź usunięcie konta</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <span className="block">
+                  Aby potwierdzić usunięcie, wpisz poniżej swój adres e-mail:
+                </span>
+                <span className="block font-medium text-foreground">
+                  {userEmail || '—'}
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-2">
+              <Input
+                type="email"
+                autoComplete="off"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                placeholder="Wpisz swój e-mail"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={submitting}>Anuluj</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete();
+                }}
+                disabled={!matches || submitting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {submitting ? 'Usuwanie...' : 'Usuń trwale'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </CardContent>
+    </Card>
+  );
+};
