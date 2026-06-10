@@ -88,7 +88,7 @@ interface InviteLink {
 }
 
 interface GuestRow {
-  id: string;
+  id: string; // auth user id (profiles.user_id)
   email: string;
   first_name: string | null;
   last_name: string | null;
@@ -403,10 +403,20 @@ const GuestUsersTab: React.FC = () => {
     if (ids.length === 0) { setGuests([]); setLoading(false); return; }
     const { data: profs } = await (supabase as any)
       .from('profiles')
-      .select('id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved')
-      .in('id', ids)
+      .select('user_id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved')
+      .in('user_id', ids)
       .order('created_at', { ascending: false });
-    setGuests((profs as GuestRow[]) || []);
+    const rows: GuestRow[] = (profs || []).map((p: any) => ({
+      id: p.user_id,
+      email: p.email,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      created_at: p.created_at,
+      is_active: p.is_active,
+      email_activated: p.email_activated,
+      admin_approved: p.admin_approved,
+    }));
+    setGuests(rows);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
