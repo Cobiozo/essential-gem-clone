@@ -1,38 +1,41 @@
-## Cel
 
-Komunikaty błędów przy rejestracji gościa (i podobnych miejscach) mają jasno mówić, co poszło nie tak — zamiast "Edge Function returned a non-2xx status code".
+## Diagnoza (dwa nakładające się problemy)
 
-## Zakres
+Sprawdziłem logi edge function i bazę:
+
+**Problem 1 — rejestracja faktycznie nie przechodzi**
+Trigger `prevent_role_escalation_trigger` na tabeli `profiles` blokuje każdy UPDATE, który zmienia kolumnę `role`, jeśli wywołujący nie jest adminem (`is_admin()` zwraca false dla service_role z edge function, bo `auth.uid()` jest NULL). Dodatkowo wartość `'guest'` nie jest na liście dozwolonych ról w tym triggerze (`user, client, admin, partner, specjalista`).
+
+Ścieżka:
+1. `admin.auth.admin.createUser(...)` → trigger `handle_new_user` tworzy wiersz w `profiles` (bez `role`) i wpis w `user_roles` z rolą `client`.
+2. Edge function robi `upsert` na `profiles` z `role: 'guest'` → trigger `prevent_role_escalation` rzuca: `Access denied: Only administrators can modify user roles` (potwierdzone w logach: `profile upsert failed { code: "P0001", message: "Access denied..." }`).
+3. Edge function kasuje usera, zwraca `profile_upsert_failed`.
+
+Rola `guest` i tak żyje wyłącznie w tabeli `user_roles` (przypisywana przez RPC `consume_guest_invite`). Kolumna `profiles.role` jest tu zbędna.
+
+**Problem 2 — komunikat jest mylący**
+Na drugiej próbie (`byk1023@wp.pl`) baza pokazuje, że ten e-mail już istnieje jako partner (`role=partner`). Auth zwraca `email_exists` i edge function poprawnie odsyła `{ code: "email_exists", message: "Konto z tym adresem e-mail już istnieje..." }`. Ale frontend tego nie pokazuje — pojawia się generyczne „Rejestracja nieudana. Spróbuj ponownie lub skontaktuj się z administratorem.".
+
+Przyczyna: w supabase-js v2 `FunctionsHttpError.context` jest bezpośrednio obiektem `Response`. Obecny kod czyta `error.context.response.clone().json()` — `error.context.response` jest `undefined`, więc parsowanie pada cicho i pokazuje fallback.
+
+## Zmiany
 
 ### 1. `supabase/functions/guest-redeem-invite/index.ts`
-Każda ścieżka błędu zwraca już kod (`invalid_input`, `expired`, `exhausted`, `inactive`, `email_exists`, `profile_upsert_failed`, `token_consumed_or_invalid`, itd.), ale niektóre błędy z `createUser` przepuszczają surowy komunikat Supabase. Dodam:
-- mapowanie `createErr.message` zawierającego "already been registered" / "User already registered" → kod `email_exists`,
-- zawsze zwracam pole `error` (kod) + `message` (czytelny opis PL).
+- Usunąć `role: 'guest'` z payloadu `admin.from('profiles').upsert(...)` — rola gościa jest nadawana wyłącznie przez `consume_guest_invite` w `user_roles`.
+- Zostawić resztę pól (`is_active`, `profile_completed`, `guardian_approved`, zgody itd.) bez zmian.
+- Dorzucić jasne logowanie kodu błędu na końcu (debug).
 
 ### 2. `src/pages/GuestRegister.tsx`
-W `handleSubmit` zamiast pokazywać `data?.error || error?.message`, zbuduję słownik kodów → komunikaty po polsku:
+- Naprawić parsowanie błędu z edge function — sprawdzać kolejno:
+  1. `error.context` jako `Response` (`typeof error.context?.json === 'function'`)
+  2. `error.context.response` (stary kształt, na wszelki wypadek)
+  3. `data?.error` (gdy serwer zwrócił 200 z polem error)
+- Po sparsowaniu pokazywać `TITLES[code]` + `message` z serwera. Dla `email_exists` dodatkowo przycisk „Przejdź do logowania" pod toastem (CTA w opisie).
+- Rozszerzyć słownik tytułów o `unknown` i nigdy nie pokazywać generycznego komunikatu, jeśli serwer przysłał `message`.
 
-```
-invalid_input            → "Uzupełnij wszystkie pola (imię, e-mail, hasło min. 8 znaków)."
-email_exists             → "Konto z tym adresem e-mail już istnieje. Zaloguj się lub użyj innego adresu."
-expired                  → "Ten link zaproszenia wygasł."
-exhausted                → "Limit użyć tego linku został wyczerpany."
-inactive                 → "Ten link został wyłączony przez administratora."
-not_found / invalid_token→ "Nieprawidłowy link zaproszenia."
-token_consumed_or_invalid→ "Link zaproszenia został już wykorzystany lub jest nieprawidłowy."
-profile_upsert_failed    → "Nie udało się utworzyć profilu gościa. Spróbuj ponownie za chwilę."
-resolve_failed           → "Nie można zweryfikować linku zaproszenia. Spróbuj ponownie."
-method_not_allowed       → "Nieprawidłowe żądanie."
-fallback                 → "Rejestracja nieudana. Spróbuj ponownie lub skontaktuj się z administratorem."
-```
+### 3. Weryfikacja
+Po wdrożeniu sprawdzić edge function logs dla `guest-redeem-invite` — nie powinno być już `profile upsert failed`. Test ręczny:
+- nowy e-mail → konto utworzone, mail aktywacyjny wysłany,
+- e-mail istniejący (np. `byk1023@wp.pl`) → czytelny komunikat „Konto z tym adresem e-mail już istnieje…".
 
-Toast: `title` = krótki tytuł („Konto już istnieje", „Link wygasł", „Brak danych", itd.), `description` = pełne zdanie ze słownika.
-
-### 3. Walidacja po stronie klienta przed wysłaniem
-Pokażę konkretne komunikaty zanim wywołamy edge function:
-- pusty e-mail / zły format → „Podaj prawidłowy adres e-mail."
-- imię puste → „Podaj imię."
-- (istniejące już) hasło < 8 znaków, brak zgody — zostawiam, ale doprecyzuję teksty.
-
-## Poza zakresem
-Inne formularze (logowanie, rejestracja partnera) nie są zmieniane w tym kroku — jeśli też chcesz, zrobię to w osobnym zadaniu.
+Nie ruszam triggera `prevent_role_escalation` ani schematu bazy — fix jest po stronie kodu, więc nie wymaga migracji ani aprobaty SQL.
