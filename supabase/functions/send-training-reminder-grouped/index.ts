@@ -185,6 +185,32 @@ serve(async (req) => {
       throw new Error("Missing required parameters: userId, modules");
     }
 
+    // GUEST GATE: guests only receive emails for modules explicitly assigned by an admin
+    const { data: roleRow } = await supabase
+      .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    if (roleRow?.role === 'guest') {
+      const moduleIds = modules.map(m => m.moduleId);
+      const { data: allowedAssignments } = await supabase
+        .from("training_assignments")
+        .select("module_id, assigned_by")
+        .eq("user_id", userId)
+        .in("module_id", moduleIds)
+        .not("assigned_by", "is", null);
+      const allowedIds = new Set((allowedAssignments || []).map((a: any) => a.module_id));
+      const filtered = modules.filter(m => allowedIds.has(m.moduleId));
+      if (filtered.length === 0) {
+        for (const m of modules) {
+          await supabase.from("training_assignments")
+            .update({ notification_sent: true, last_reminder_sent_at: new Date().toISOString() })
+            .eq("id", m.assignmentId);
+        }
+        console.log(`[send-training-reminder-grouped] SKIP guest ${userId} — no admin-assigned modules`);
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'guest_no_explicit_assignment' }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      modules = filtered;
+    }
+
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
