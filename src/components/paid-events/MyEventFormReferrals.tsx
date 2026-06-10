@@ -67,6 +67,12 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     return <Badge variant="secondary">Oczekuje płatności</Badge>;
   };
 
+  const freeBadge = (row: any) => {
+    if (row.status === 'cancelled') return <Badge variant="destructive">Anulowane</Badge>;
+    if (row.email_confirmed_at) return <Badge className="bg-green-600 hover:bg-green-700">Potwierdzony</Badge>;
+    return <Badge variant="secondary" className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30">Oczekuje potwierdzenia adresu e-mail</Badge>;
+  };
+
   return (
     <div className="overflow-x-auto -mx-2 px-2">
       <table className="w-full text-xs">
