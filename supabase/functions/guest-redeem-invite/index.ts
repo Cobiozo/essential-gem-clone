@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     }
     const userId = created.user.id;
 
-    // 3. Upsert profile (trigger may have already created a row keyed by user_id)
+    // 3. Upsert profile — BLOCKED state: must confirm email AND wait for admin approval
     const nowIso = new Date().toISOString();
     const { error: profErr } = await admin.from('profiles').upsert({
       id: userId,
@@ -116,17 +116,17 @@ Deno.serve(async (req) => {
       email,
       first_name,
       last_name: last_name || null,
-      is_active: true,
+      is_active: false,            // blocked until admin approves
       profile_completed: true,
-      guardian_approved: true,
+      guardian_approved: true,     // admin acts as guardian for guests
       guardian_approved_at: nowIso,
-      admin_approved: true,
-      admin_approved_at: nowIso,
+      admin_approved: false,       // requires explicit admin approval
+      admin_approved_at: null,
       accepted_terms: true,
       accepted_privacy: true,
       accepted_rodo: true,
       accepted_terms_at: nowIso,
-      email_activated: false,
+      email_activated: false,      // requires email confirmation via activate-email
       email_activated_at: null,
     }, { onConflict: 'user_id' });
     if (profErr) {

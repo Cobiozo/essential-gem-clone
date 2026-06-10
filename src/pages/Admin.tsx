@@ -1959,6 +1959,8 @@ const Admin = () => {
       case 'admin': return 'Administrator';
       case 'partner': return 'Partner';
       case 'specjalista': return 'Specjalista';
+      case 'guest': return 'Gość PLC';
+      case 'moderator': return 'Moderator';
       case 'user':
       case 'client':
       default: return 'Klient';

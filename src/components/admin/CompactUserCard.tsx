@@ -111,6 +111,8 @@ const getRoleDisplayName = (role: string): string => {
     case 'specjalista': return 'Specjalista';
     case 'client': return 'Klient';
     case 'user': return 'Użytkownik';
+    case 'guest': return 'Gość PLC';
+    case 'moderator': return 'Moderator';
     default: return role || 'Nieznana';
   }
 };
@@ -128,6 +130,10 @@ const getRoleBadgeClasses = (role: string): string => {
       return 'bg-purple-500 text-white hover:bg-purple-600 border-purple-500';
     case 'user': 
       return 'bg-gray-500 text-white hover:bg-gray-600 border-gray-500';
+    case 'guest':
+      return 'bg-amber-500 text-white hover:bg-amber-600 border-amber-500';
+    case 'moderator':
+      return 'bg-indigo-500 text-white hover:bg-indigo-600 border-indigo-500';
     default: 
       return 'bg-gray-400 text-white hover:bg-gray-500 border-gray-400';
   }
