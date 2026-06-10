@@ -178,7 +178,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { userId, modules }: GroupedReminderRequest = await req.json();
+    const reqBody: GroupedReminderRequest = await req.json();
+    const userId = reqBody.userId;
+    let modules = reqBody.modules;
     console.log("[send-training-reminder-grouped] Request:", { userId, moduleCount: modules?.length });
 
     if (!userId || !modules || modules.length === 0) {
