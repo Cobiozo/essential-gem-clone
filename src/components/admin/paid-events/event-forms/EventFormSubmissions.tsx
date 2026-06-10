@@ -843,7 +843,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
               {filtered.map(s => {
                 const ps = PAYMENT_LABELS[s.payment_status] || PAYMENT_LABELS.pending;
                 const PsIcon = ps.icon;
-                const isPartnerRow = isPartnerSubmission(s);
+                const rowAudience = getAudience(s);
+                const isPartnerRow = rowAudience === 'partner';
                 const partner = getInvitingPartner(s);
                 return (
                   <TableRow key={s.id}>
@@ -851,9 +852,13 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                     <TableCell>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{s.first_name} {s.last_name}</span>
-                        {isPartnerRow ? (
+                        {rowAudience === 'partner' ? (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">
                             <Shield className="w-2.5 h-2.5 mr-0.5" /> Partner
+                          </Badge>
+                        ) : rowAudience === 'platform_guest' ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-600 dark:text-amber-400">
+                            <UserCheck className="w-2.5 h-2.5 mr-0.5" /> Gość PLC
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/40 text-muted-foreground">
