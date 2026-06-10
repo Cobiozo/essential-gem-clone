@@ -1111,6 +1111,9 @@ const MyAccount = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Self-service account deletion — hidden for admins */}
+              <DeleteAccountCard isAdmin={isUserAdmin} userEmail={profile?.email || user?.email || ''} />
               </>
               )}
             </TabsContent>
