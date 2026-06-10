@@ -501,10 +501,12 @@ const GuestsManagement: React.FC = () => {
           <TabsTrigger value="invites">Linki zaproszeń</TabsTrigger>
           <TabsTrigger value="global">Konfiguracja globalna</TabsTrigger>
           <TabsTrigger value="users">Lista gości</TabsTrigger>
+          <TabsTrigger value="registrations">Rejestracje gości</TabsTrigger>
         </TabsList>
         <TabsContent value="invites"><InviteLinksTab /></TabsContent>
         <TabsContent value="global"><GlobalConfigTab /></TabsContent>
         <TabsContent value="users"><GuestUsersTab /></TabsContent>
+        <TabsContent value="registrations"><GuestRegistrationsPanel /></TabsContent>
       </Tabs>
     </div>
   );
