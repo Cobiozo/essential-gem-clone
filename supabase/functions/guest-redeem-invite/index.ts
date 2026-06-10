@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       accepted_terms_at: nowIso,
       email_activated: false,
       email_activated_at: null,
-    }, { onConflict: 'id' });
+    }, { onConflict: 'user_id' });
     if (profErr) {
       console.error('profile upsert failed', profErr);
       await admin.auth.admin.deleteUser(userId).catch(() => {});
