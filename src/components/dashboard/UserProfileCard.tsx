@@ -40,7 +40,7 @@ export const UserProfileCard: React.FC = () => {
       case 'admin': return t('role.administrator');
       case 'partner': return t('role.partner');
       case 'specjalista': return t('role.specialist');
-      case 'guest': return 'Gość';
+      case 'guest': return 'Gość PLC';
       default: return t('role.client');
     }
   };

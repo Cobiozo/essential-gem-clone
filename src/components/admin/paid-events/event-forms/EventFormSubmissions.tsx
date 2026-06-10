@@ -31,7 +31,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
-  const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
+  const [audience, setAudience] = useState<'all' | 'guests' | 'platform_guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
   const [editOrder, setEditOrder] = useState<any | null>(null);
 
@@ -229,10 +229,47 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
   const registeredEmails = new Set(Object.keys(submitterProfilesByEmail));
-  const isPartnerSubmission = (s: any) => {
-    if (s.__source === 'order' && s.__orderUserId) return true;
-    return registeredEmails.has((s.email || '').toLowerCase());
+
+  // Fetch roles for all submitters and orders' owners — used to distinguish
+  // platform guests (role = 'guest') from real partners.
+  const submitterUserIds = Array.from(new Set([
+    ...Object.values(submitterProfilesByEmail).map((p: any) => p?.user_id).filter(Boolean),
+    ...(rawOrders as any[]).map((o) => o.user_id).filter(Boolean),
+  ])) as string[];
+  const { data: rolesByUserId = {} as Record<string, string> } = useQuery({
+    queryKey: ['event-form-submission-roles', submitterUserIds.sort().join(',')],
+    enabled: submitterUserIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', submitterUserIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((r: any) => { map[r.user_id] = String(r.role || '').toLowerCase(); });
+      return map;
+    },
+  });
+
+  // Returns the audience category for a submission row:
+  //  - 'external_guest' — no profile in our DB
+  //  - 'platform_guest' — registered on the platform with role = 'guest' (Gość PLC)
+  //  - 'partner' — registered on the platform with any other role
+  const getAudience = (s: any): 'external_guest' | 'platform_guest' | 'partner' => {
+    let uid: string | null = null;
+    if (s.__source === 'order' && s.__orderUserId) {
+      uid = s.__orderUserId;
+    } else {
+      const prof = submitterProfilesByEmail[(s.email || '').toLowerCase()];
+      if (prof?.user_id) uid = prof.user_id;
+    }
+    if (!uid) return 'external_guest';
+    const role = rolesByUserId[uid];
+    if (role === 'guest') return 'platform_guest';
+    return 'partner';
   };
+  const isPartnerSubmission = (s: any) => getAudience(s) === 'partner';
+  const isPlatformGuest = (s: any) => getAudience(s) === 'platform_guest';
 
   // Resolve upline profiles by eq_id so we can render full name + email.
   const uplineEqIds = Array.from(new Set(
@@ -289,8 +326,9 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   // Audience counts (independent of payment/search filter so user always sees totals)
   const audienceCounts = {
     all: submissions.length,
-    partners: submissions.filter(isPartnerSubmission).length,
-    guests: submissions.filter(s => !isPartnerSubmission(s)).length,
+    partners: submissions.filter(s => getAudience(s) === 'partner').length,
+    platformGuests: submissions.filter(s => getAudience(s) === 'platform_guest').length,
+    guests: submissions.filter(s => getAudience(s) === 'external_guest').length,
   };
 
   const updatePayment = useMutation({
@@ -399,9 +437,10 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
     if (audience !== 'all') {
-      const isPartner = isPartnerSubmission(s);
-      if (audience === 'partners' && !isPartner) return false;
-      if (audience === 'guests' && isPartner) return false;
+      const a = getAudience(s);
+      if (audience === 'partners' && a !== 'partner') return false;
+      if (audience === 'platform_guests' && a !== 'platform_guest') return false;
+      if (audience === 'guests' && a !== 'external_guest') return false;
     }
     if (!search) return true;
     const q = search.toLowerCase();
@@ -743,7 +782,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         </div>
       </div>
 
-      <Tabs value={audience} onValueChange={(v) => setAudience(v as 'all' | 'guests' | 'partners')}>
+      <Tabs value={audience} onValueChange={(v) => setAudience(v as 'all' | 'guests' | 'platform_guests' | 'partners')}>
         <TabsList>
           <TabsTrigger value="all">
             Wszystkie <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.all})</span>
@@ -751,6 +790,10 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
           <TabsTrigger value="guests">
             <UserIcon className="w-3.5 h-3.5 mr-1" />
             Goście <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.guests})</span>
+          </TabsTrigger>
+          <TabsTrigger value="platform_guests">
+            <UserCheck className="w-3.5 h-3.5 mr-1" />
+            Goście PLC <span className="ml-1.5 text-xs text-muted-foreground">({audienceCounts.platformGuests})</span>
           </TabsTrigger>
           <TabsTrigger value="partners">
             <Shield className="w-3.5 h-3.5 mr-1" />
@@ -800,7 +843,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
               {filtered.map(s => {
                 const ps = PAYMENT_LABELS[s.payment_status] || PAYMENT_LABELS.pending;
                 const PsIcon = ps.icon;
-                const isPartnerRow = isPartnerSubmission(s);
+                const rowAudience = getAudience(s);
+                const isPartnerRow = rowAudience === 'partner';
                 const partner = getInvitingPartner(s);
                 return (
                   <TableRow key={s.id}>
@@ -808,9 +852,13 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                     <TableCell>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">{s.first_name} {s.last_name}</span>
-                        {isPartnerRow ? (
+                        {rowAudience === 'partner' ? (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600 dark:text-blue-400">
                             <Shield className="w-2.5 h-2.5 mr-0.5" /> Partner
+                          </Badge>
+                        ) : rowAudience === 'platform_guest' ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/40 text-amber-600 dark:text-amber-400">
+                            <UserCheck className="w-2.5 h-2.5 mr-0.5" /> Gość PLC
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/40 text-muted-foreground">
