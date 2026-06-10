@@ -189,6 +189,25 @@ serve(async (req) => {
     const { userId, moduleId, assignedBy }: NotificationRequest = await req.json();
     console.log("[send-training-notification] Request:", { userId, moduleId, assignedBy });
 
+    // GUEST GATE: guests only receive notifications for admin-assigned modules
+    const { data: roleRow } = await supabase
+      .from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    if (roleRow?.role === 'guest') {
+      const { data: assn } = await supabase
+        .from("training_assignments")
+        .select("assigned_by")
+        .eq("user_id", userId).eq("module_id", moduleId)
+        .maybeSingle();
+      if (!assn?.assigned_by) {
+        await supabase.from("training_assignments")
+          .update({ notification_sent: true })
+          .eq("user_id", userId).eq("module_id", moduleId);
+        console.log(`[send-training-notification] SKIP guest ${userId} module ${moduleId} — no admin assignment`);
+        return new Response(JSON.stringify({ success: true, skipped: true, reason: 'guest_no_explicit_assignment' }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
