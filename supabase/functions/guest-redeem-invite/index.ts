@@ -116,7 +116,6 @@ Deno.serve(async (req) => {
       email,
       first_name,
       last_name: last_name || null,
-      role: 'guest',
       is_active: true,
       profile_completed: true,
       guardian_approved: true,

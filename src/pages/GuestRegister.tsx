@@ -61,8 +61,12 @@ const GuestRegister: React.FC = () => {
 
       // Try to parse server-side message even on non-2xx
       let payload: any = data;
-      if (error && (error as any)?.context?.response) {
-        try { payload = await (error as any).context.response.clone().json(); } catch { /* ignore */ }
+      if (error) {
+        const context = (error as any)?.context;
+        const response = typeof context?.json === 'function' ? context : context?.response;
+        if (response && typeof response.clone === 'function') {
+          try { payload = await response.clone().json(); } catch { /* ignore */ }
+        }
       }
 
       if (error || payload?.error) {
@@ -81,6 +85,7 @@ const GuestRegister: React.FC = () => {
           profile_upsert_failed: 'Błąd zapisu profilu',
           create_failed: 'Nie udało się utworzyć konta',
           resolve_failed: 'Błąd weryfikacji',
+          unknown: 'Rejestracja nieudana',
         };
         const code = payload?.code || payload?.error || 'unknown';
         const message = payload?.message
@@ -88,7 +93,14 @@ const GuestRegister: React.FC = () => {
           || 'Rejestracja nieudana. Spróbuj ponownie lub skontaktuj się z administratorem.';
         toast({
           title: TITLES[code] || 'Rejestracja nieudana',
-          description: message,
+          description: code === 'email_exists' ? (
+            <div className="space-y-3">
+              <p>{message}</p>
+              <Button type="button" size="sm" variant="secondary" onClick={() => navigate('/auth')}>
+                Przejdź do logowania
+              </Button>
+            </div>
+          ) : message,
           variant: 'destructive',
         });
         setSubmitting(false);
