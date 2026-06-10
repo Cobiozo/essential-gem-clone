@@ -72,6 +72,7 @@ const GuestRegister: React.FC = () => {
       if (error || payload?.error) {
         const TITLES: Record<string, string> = {
           email_exists: 'Konto już istnieje',
+          email_exists_contact_admin: 'Adres e-mail już zarejestrowany',
           expired: 'Link wygasł',
           exhausted: 'Limit wykorzystany',
           inactive: 'Link wyłączony',
