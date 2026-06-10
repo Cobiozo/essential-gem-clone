@@ -31,7 +31,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
-  const [audience, setAudience] = useState<'all' | 'guests' | 'partners'>('all');
+  const [audience, setAudience] = useState<'all' | 'guests' | 'platform_guests' | 'partners'>('all');
   const [assignFor, setAssignFor] = useState<{ id: string; partnerUserId: string | null } | null>(null);
   const [editOrder, setEditOrder] = useState<any | null>(null);
 
