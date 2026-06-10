@@ -212,6 +212,8 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, skipped: true, reason: 'guest_no_explicit_assignment' }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+    }
+
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
