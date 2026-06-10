@@ -158,6 +158,73 @@ const VisibilityEditor: React.FC<{
           </div>
         </div>
       ))}
+      <PaidEventsToggles value={value} onChange={onChange} allowInherit={allowInherit} />
+    </div>
+  );
+};
+
+const PaidEventsToggles: React.FC<{
+  value: any;
+  onChange: (v: any) => void;
+  allowInherit?: boolean;
+}> = ({ value, onChange, allowInherit }) => {
+  const [events, setEvents] = useState<{ id: string; title: string; event_date: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('paid_events')
+        .select('id, title, event_date')
+        .eq('is_active', true)
+        .order('event_date', { ascending: false });
+      setEvents(data || []);
+      setLoading(false);
+    })();
+  }, []);
+  const items = value?.events?.items || {};
+  const setOne = (id: string, val: boolean | undefined) => {
+    const next = JSON.parse(JSON.stringify(value || {}));
+    next.events = next.events || { items: {} };
+    next.events.items = next.events.items || {};
+    if (val === undefined) delete next.events.items[id];
+    else next.events.items[id] = val;
+    onChange(next);
+  };
+  return (
+    <div>
+      <div className="text-sm font-semibold mb-2">Eventy (whitelist wydarzeń)</div>
+      <p className="text-xs text-muted-foreground mb-2">
+        Gość zobaczy w „Eventy" tylko zaznaczone tu wydarzenia. Każde wydarzenie należy włączyć osobno.
+      </p>
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+        <div className="space-y-2 max-h-72 overflow-auto pr-1">
+          {events.length === 0 && <p className="text-xs text-muted-foreground">Brak wydarzeń.</p>}
+          {events.map((e) => {
+            const cur = items[e.id];
+            return (
+              <div key={e.id} className="flex items-center justify-between gap-3 py-1 border-b last:border-0">
+                <div className="min-w-0">
+                  <div className="text-sm truncate">{e.title}</div>
+                  <div className="text-[11px] text-muted-foreground">{new Date(e.event_date).toLocaleString()}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {allowInherit && (
+                    <Button
+                      type="button"
+                      variant={cur === undefined ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setOne(e.id, undefined)}
+                    >
+                      Dziedzicz
+                    </Button>
+                  )}
+                  <Switch checked={Boolean(cur)} onCheckedChange={(c) => setOne(e.id, c)} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
