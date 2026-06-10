@@ -585,13 +585,17 @@ export const DashboardSidebar: React.FC = () => {
     'paid-events': 'paidEvents',
   };
   const visibleMenuItemsForGuest = guestActive
-    ? visibleMenuItems.filter((item) => {
-        // Allow dynamic html pages always (they go through pages config — admin opt-in)
-        if (item.id.startsWith('html-')) return true;
-        const key = GUEST_ID_TO_KEY[item.id];
-        if (!key) return false;
-        return gv('sidebar', key);
-      })
+    ? (guestLoading || !userRole
+        ? []
+        : visibleMenuItems.filter((item) => {
+            // Dashboard zawsze widoczny (strona główna)
+            if (item.id === 'dashboard') return true;
+            // Allow dynamic html pages always (they go through pages config — admin opt-in)
+            if (item.id.startsWith('html-')) return true;
+            const key = GUEST_ID_TO_KEY[item.id];
+            if (!key) return false;
+            return gv('sidebar', key);
+          }))
     : visibleMenuItems;
 
   // Apply admin-configured ordering
