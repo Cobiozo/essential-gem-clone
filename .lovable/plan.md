@@ -1,75 +1,62 @@
-## Cel
+## Problem
 
-1. Każdy zalogowany użytkownik może samodzielnie skasować swoje konto z poziomu „Moje konto".
-2. Po usunięciu (przez siebie lub przez admina) sesja zostaje czysto wygaszona, a użytkownik trafia na dedykowany ekran „Twoje konto zostało usunięte" z przyciskiem „Wróć do strony głównej" — bez pętli `history.replaceState` i bez ekranu ErrorBoundary.
-3. Administrator nadal widzi historię (rejestracje, zamówienia, reflinki) — bez zmian w polityce anonimizacji wprowadzonej wcześniej. Sam profil i rola znikają (CASCADE), tak samo jak przy usuwaniu przez admina.
+Po kliknięciu w linku aktywacyjnym z e-maila pojawia się toast „Konto aktywowane", ale przy próbie zalogowania Supabase zwraca błąd „Email nie został potwierdzony".
 
-## Zakres zmian
+**Root cause**: `activate-email` ustawia w tabeli `profiles` flagę `email_activated = true`, a następnie robi redirect na oryginalny link Supabase, który dopiero ma ustawić `auth.users.email_confirmed_at`. Ten link bywa zużywany przez prefetch poczty (Gmail/Outlook/skanery antyspamowe) zanim użytkownik kliknie — gdy faktycznie klika, token jest już skonsumowany i `auth.users.email_confirmed_at` pozostaje `NULL`. Toast się pokazuje (bo `activate-email` zawsze przekierowuje na `/auth?activated=true`), ale Supabase nadal blokuje login.
 
-### 1. Edge function: `self-delete-account` (nowa)
-- Autoryzacja: tylko zalogowany użytkownik (z `Authorization` Bearer), działa na własnym `user.id`.
-- Blokada bezpieczeństwa: jeżeli `user_roles.role = 'admin'` → 403 („administrator nie może usunąć własnego konta z tego ekranu"). Admina kasuje wyłącznie inny admin.
-- Wykonuje TĘ SAMĄ anonimizację co `admin-delete-user` (parametr: własne `user.id`):
-  - `team_contacts.linked_user_deleted_at = now()` dla `linked_user_id = self`,
-  - `event_form_submissions.partner_user_id → null`,
-  - `paid_event_orders.user_id → null`,
-  - `guest_event_registrations.invited_by_user_id → null`,
-  - `user_reflinks.creator_user_id → null`,
-  - `guest_invite_links.created_by → null`.
-- Loguje do `admin_activity_log` (typ `self_account_deletion`, actor = self) – żeby admin miał ślad.
-- Na końcu `supabase.auth.admin.deleteUser(self.id)` (service role).
-- Zwraca `{ success: true }`.
+## Fix Plan
 
-### 2. Sekcja w `src/pages/MyAccount.tsx`
-Dodaj nową kartę na samym dole, poniżej karty „Zgody i regulaminy" oraz (jeśli widoczna) karty „Specjalizacje":
+### 1. `supabase/functions/activate-email/index.ts` — potwierdzaj e-mail po stronie serwera
 
-- Tytuł: „Usuń konto" (czerwony akcent — `destructive`).
-- Opis ostrzegawczy w PL: konto zostanie trwale usunięte, dane osobowe wykasowane, historia rejestracji i zamówień zostanie zachowana w panelu administratora w formie zanonimizowanej. Operacja jest nieodwracalna.
-- Przycisk „Usuń moje konto" → otwiera `AlertDialog` z dodatkowym potwierdzeniem (input, w który trzeba wpisać własny e-mail, aby aktywować przycisk „Usuń trwale").
-- Po potwierdzeniu: wywołanie `supabase.functions.invoke('self-delete-account')`, następnie `await supabase.auth.signOut()` i `window.location.replace('/konto-usuniete')` (twarda nawigacja, żeby zresetować cały stan React/Auth — eliminuje ryzyko pętli `replaceState`).
-- Karta ukryta dla roli `admin` (informacja: „Konto administratora może usunąć tylko inny administrator").
+Zamiast polegać na linku Supabase, oznacz konto jako potwierdzone bezpośrednio przez Admin API:
 
-### 3. Nowa strona `/konto-usuniete` (`src/pages/AccountDeleted.tsx`)
-- Trasa publiczna, dodana do `PUBLIC_PATHS` i `KNOWN_APP_ROUTES` (zgodnie z memo `architecture/routing-governance`).
-- Karta: ikona ✓, tytuł „Twoje konto zostało usunięte", opis: „Sesja została zakończona. Wszystkie Twoje dane osobowe zostały trwale usunięte z systemu. Dziękujemy."
-- Przycisk podstawowy: „Wróć do strony głównej" → `navigate('/')` (lub `window.location.assign('/')`).
-- Drugi link tekstowy: „Zaloguj się ponownie" → `/auth`.
-- Brak żadnych zapytań do Supabase, brak guardów, brak `useAuth` na tej stronie (czysto statyczna), żeby ekran zadziałał nawet jeśli sesja jest niespójna.
+- `supabase.auth.admin.updateUserById(userId, { email_confirm: true })` — ustawia `email_confirmed_at` natychmiast i jest idempotentne (działa też przy ponownym kliknięciu).
+- Nadal aktualizuj `profiles.email_activated = true` (jak teraz).
+- Po sukcesie: bezwarunkowy redirect na `/auth?activated=true` — pomijamy `supabaseLink` w całości (nie jest już potrzebny, a to on powodował problem z prefetch).
+- Jeśli `updateUserById` zwróci błąd „user not found" → redirect na `/auth?error=invalid_link`.
 
-### 4. Obsługa „konto skasowane w trakcie aktywnej sesji" (przyczyna błędu z screena)
-Źródło problemu z `Attempt to use history.replaceState() more than 100 times per 10 seconds`: gdy admin skasuje gościa PLC, jego JWT nadal jest w `localStorage`, ale `auth.users` już go nie ma. `AuthContext` próbuje pobrać profil → brak → kolejne strażniki tras robią `navigate(..., { replace: true })` w pętli.
+To rozwiązuje problem: niezależnie od tego ile razy link zostanie odwiedzony (przez skaner, prefetch, samego użytkownika), efekt jest ten sam — konto potwierdzone w `auth.users` + `profiles`.
 
-Zmiana w `src/contexts/AuthContext.tsx`:
-- W ścieżce inicjalizacji po `supabase.auth.getUser()`/`onAuthStateChange`, jeżeli mamy `session.user.id`, ale `profiles` zwraca `null` ORAZ `user_roles` jest puste (czyli profil został skasowany CASCADE), traktujemy konto jako usunięte:
-  - `await supabase.auth.signOut()`,
-  - `window.location.replace('/konto-usuniete')` (jednorazowa twarda nawigacja, nie React-router replace — brak pętli),
-  - przerywamy dalszą inicjalizację (`return`), żeby żadne `useEffect` nie wystartowało drugiej fali redirectów.
-- Dodatkowo: jeśli jakikolwiek wywołanie Supabase zwróci błąd `JWT user not found` / `User from sub claim does not exist` (HTTP 401/403 z `code = 'user_not_found'`), `AuthContext` łapie to globalnie i robi to samo (signOut + hard redirect na `/konto-usuniete`).
+### 2. `src/pages/Auth.tsx` — toast tylko gdy faktycznie potwierdzono
 
-### 5. Routing
-- W `src/App.tsx`: dodać `Route path="/konto-usuniete"` jako trasę publiczną (poza `<ProtectedRoute>`), przed `*` fallbackiem.
-- Dopisać `/konto-usuniete` do listy `PUBLIC_PATHS` i `KNOWN_APP_ROUTES` (memo `architecture/routing-governance`).
+Drobna korekta: przy `?activated=true` pokazuj jeden toast z tytułem „Konto aktywowane" i opisem „Możesz się teraz zalogować" (a nie obecny `welcomeToPureLife`, który sugeruje że user jest już zalogowany). Klucz tłumaczenia: `auth.toast.canLoginNow`.
 
-### 6. Memoria
-Aktualizacja `mem://features/guest-plc/notification-isolation` (lub nowy plik `mem://features/account/self-deletion`):
-- self-delete tylko dla nie-adminów,
-- redirect na `/konto-usuniete` po self-delete oraz przy wykryciu „zalogowany, ale konto usunięte",
-- twardy `window.location.replace` zamiast `navigate(..., replace:true)` aby uniknąć pętli `history.replaceState`.
+### 3. Baner „oczekiwanie na zatwierdzenie administratora" po zalogowaniu
 
-## Pliki, które powstaną / zostaną zmienione
+`ApprovalStatusBanner` już to obsługuje (Case 3: `emailActivated && guardianApproved && !adminApproved` → niebieski baner „Oczekiwanie na zatwierdzenie Administratora") i jest renderowany przez `ProfileCompletionGuard`. Dla **gościa PLC** (`guardian_approved` jest ustawiane na `true` automatycznie w `guest-redeem-invite`), baner pokaże się od razu po zalogowaniu — działa bez zmian.
 
-- nowy: `supabase/functions/self-delete-account/index.ts`
-- nowy: `src/pages/AccountDeleted.tsx`
-- edycja: `src/pages/MyAccount.tsx` (sekcja „Usuń konto" + dialog)
-- edycja: `src/contexts/AuthContext.tsx` (wykrycie usuniętego konta + hard redirect)
-- edycja: `src/App.tsx` (trasa `/konto-usuniete`)
-- edycja: pliku z listą publicznych tras (`PUBLIC_PATHS` / `KNOWN_APP_ROUTES`)
-- aktualizacja memorii
+Sanity check: upewnić się, że dla roli `guest` po aktywacji emaila trafiamy do Case 3 (a nie Case 1/2). W `guest-redeem-invite` `guardian_approved=true` jest ustawiane, więc OK — zostawiamy.
 
-## Weryfikacja po wdrożeniu
+### 4. E-mail powitalny po zatwierdzeniu przez administratora
 
-1. Zalogowany użytkownik (nie-admin) wchodzi w „Moje konto" → na dole widzi czerwoną kartę „Usuń konto", potwierdza e-mailem, klika „Usuń trwale" → trafia na `/konto-usuniete` z przyciskiem „Wróć do strony głównej". W panelu admina jego rejestracje pozostają (zanonimizowane), auth user i profil zniknęły.
-2. Admin → karta „Usuń konto" jest ukryta / pokazuje komunikat „tylko inny administrator".
-3. Symulacja błędu z screena: admin kasuje gościa PLC, gość ma otwartą kartę → przy następnym żądaniu / odświeżeniu `AuthContext` wykrywa brak profilu → jeden `signOut` + `window.location.replace('/konto-usuniete')` → użytkownik widzi czysty ekran „Twoje konto zostało usunięte" z przyciskiem „Wróć do strony głównej", brak ErrorBoundary i brak pętli `history.replaceState`.
+`Admin.tsx` już wywołuje `supabase.functions.invoke('send-approval-email', { approvalType: 'admin' })` po zatwierdzeniu. Funkcja używa szablonu DB `admin_approval` ze zmienną `{{link_logowania}}` i przyciskiem.
 
-Plan nie zmienia logiki biznesowej zachowywania rejestracji ani polityki anonimizacji — wprowadzonej w poprzedniej iteracji. Dodaje wyłącznie self-service usuwania konta i stabilny ekran końcowy.
+Aktualizacja **treści szablonu w bazie** (migracja `UPDATE email_templates SET subject=..., body_html=... WHERE internal_name='admin_approval'`), aby pasowała do oczekiwań:
+
+- Subject: „Witamy w Pure Life Center — Twoje konto jest aktywne"
+- Body: nagłówek „Witamy w Pure Life!", treść „Co dalej? Zaloguj się do systemu i…", duży przycisk CTA „Zaloguj się" linkujący do `{{link_logowania}}`.
+
+### 5. Sprawdzenie e-maila Supabase Auth (informacyjnie)
+
+Domyślny szablon „Confirm signup" w Supabase nadal może być wysyłany przy `signUp` — dla gościa PLC używamy `auth.admin.createUser({ email_confirm: false })` + własny mail, więc OK. Dla zwykłej rejestracji warto zweryfikować, że nie wysyłamy dwóch maili (Supabase + nasz `send-activation-email`). Jeśli tak — wyłączyć Supabase confirm template lub nie robić u nas `generateLink type:'signup'` w ogóle (po zmianie #1 i tak nie używamy zwracanego linku).
+
+## Files Changed
+
+- `supabase/functions/activate-email/index.ts` — server-side `email_confirm: true`, usunąć redirect przez `supabaseLink`.
+- `src/pages/Auth.tsx` — poprawiony toast po `?activated=true`.
+- Migracja SQL — `UPDATE email_templates` dla `admin_approval` z nową treścią „Witamy w Pure Life / Zaloguj się".
+- (opcjonalnie) `supabase/functions/send-activation-email/index.ts` — uprościć, nie generować już Supabase action_link, tylko zbudować URL `…/activate-email?user_id=<uuid>` z podpisanym tokenem (np. HMAC z `SUPABASE_JWT_SECRET`), żeby nikt nie mógł aktywować cudzego konta zgadując UUID. **Bez tokenu obecny endpoint jest podatny na nadużycie** — to drugi problem do naprawienia w tym samym podejściu.
+
+## Bezpieczeństwo — krytyczna uwaga
+
+Obecne `activate-email?user_id=<uuid>` pozwala dowolnej osobie potwierdzić dowolne konto znając jego UUID. Po zmianie #1 ten endpoint zacznie również ustawiać `email_confirmed_at` po stronie auth — to znaczy, że ktoś mógłby zalogować się na cudze konto bez weryfikacji właściciela skrzynki. Dlatego razem ze zmianą #1 **musimy** dodać token jednorazowy:
+
+- W `send-activation-email` generujemy `activation_token` (random 32B), zapisujemy do `profiles.activation_token` + `activation_token_expires_at` (24h).
+- Link w mailu: `…/activate-email?user_id=<uuid>&token=<token>`.
+- `activate-email` weryfikuje token, czyści go po użyciu (jednorazowy, lub ważny dla wielokrotnych kliknięć przez 24h — idempotentny).
+
+To wymaga migracji: dodać kolumny `activation_token text`, `activation_token_expires_at timestamptz` w `profiles`.
+
+## Zakres potwierdzenia od użytkownika
+
+Czy zaakceptować dodanie kolumn `activation_token` + walidację po stronie `activate-email` (rekomendowane, bez tego endpoint będzie luką bezpieczeństwa po zmianie #1)? Plan zakłada że tak.
