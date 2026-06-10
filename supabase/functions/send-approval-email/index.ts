@@ -232,9 +232,24 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Determine template based on approval type
-    // leader uses the same template as admin (full account activation)
-    const templateName = approvalType === 'guardian' ? 'guardian_approval' : 'admin_approval';
+    // For admin/leader approvals, check user role — guest PLC uses a shorter welcome template
+    let isGuestRole = false;
+    if (approvalType === 'admin' || approvalType === 'leader') {
+      const { data: roleRows } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+      const roles = (roleRows || []).map((r: any) => r.role);
+      isGuestRole = roles.length > 0 && roles.every((r: string) => r === 'guest');
+    }
+
+    // Determine template based on approval type and role
+    // - guardian → guardian_approval
+    // - admin/leader on guest PLC → admin_approval_guest (short welcome, no training/tools mention)
+    // - admin/leader on other roles → admin_approval (full welcome with training modules)
+    const templateName = approvalType === 'guardian'
+      ? 'guardian_approval'
+      : (isGuestRole ? 'admin_approval_guest' : 'admin_approval');
 
     // Get email template
     const { data: templateData, error: templateError } = await supabase
@@ -267,8 +282,8 @@ serve(async (req) => {
 
     if (approvalType === 'guardian') {
       variables.guardian_name = guardianName || 'Twój opiekun';
-    } else if (approvalType === 'admin') {
-      // Get assigned training modules for admin approval email
+    } else if ((approvalType === 'admin' || approvalType === 'leader') && !isGuestRole) {
+      // Full admin approval email (non-guest) — include assigned training modules
       const { data: assignments } = await supabase
         .from("training_assignments")
         .select(`
