@@ -108,6 +108,10 @@ export const useIsPaidEventsVisible = (): boolean => {
 
   const role = (userRole as any)?.role as string | undefined;
   if (role?.toLowerCase() === 'admin') return true;
+  // Guests: paid-events module visibility is governed by guest_visibility_global/overrides
+  // (sidebar.items.paidEvents + per-event whitelist in events.items). Always allow the
+  // module here so the sidebar guest whitelist gets a chance to decide.
+  if (role?.toLowerCase() === 'guest') return true;
 
   return isRoleVisibleForPaidEvents(visibility, role);
 };
