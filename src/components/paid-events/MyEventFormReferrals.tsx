@@ -31,7 +31,7 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     queryFn: async () => {
       let q = supabase
         .from('event_form_submissions')
-        .select('id, first_name, last_name, email, phone, payment_status, status, email_confirmed_at, created_at, form_id, event_id')
+        .select('id, first_name, last_name, email, phone, payment_status, status, email_confirmed_at, created_at, form_id, event_id, paid_events:event_id ( is_free )')
         .eq('partner_user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50);
