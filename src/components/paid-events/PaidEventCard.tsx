@@ -185,7 +185,7 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
           <div className="flex items-center gap-2 mb-3">
             <Link2 className="h-4 w-4 text-primary" />
             <h4 className="text-sm font-semibold">
-              {tf('events.partnerLinkTitle', 'Twój link partnerski do tego wydarzenia')}
+              {tf('events.partnerLinkTitle', 'Twój link zapraszający na to wydarzenie')}
             </h4>
           </div>
           <div onClick={(e) => e.stopPropagation()}>
