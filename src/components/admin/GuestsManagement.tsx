@@ -463,7 +463,7 @@ const GuestUsersTab: React.FC = () => {
         )}
 
         <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Indywidualne ustawienia: {editingUser?.email}</DialogTitle>
             </DialogHeader>
@@ -475,6 +475,11 @@ const GuestUsersTab: React.FC = () => {
               <Button variant="outline" onClick={clearOverride}>Usuń nadpisania</Button>
               <Button onClick={saveOverride}>Zapisz</Button>
             </div>
+            {editingUser && (
+              <div className="mt-6">
+                <GuestRegistrationsPanel guestUserId={editingUser.id} />
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </CardContent>
