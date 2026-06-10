@@ -319,7 +319,7 @@ export const DashboardSidebar: React.FC = () => {
         const filteredIcons = (footerIconsData || []).filter(icon => {
           if (role === 'admin' && icon.visible_to_admin) return true;
           if (role === 'partner' && icon.visible_to_partner) return true;
-          if ((role === 'client' || role === 'user') && icon.visible_to_client) return true;
+          if ((role === 'client' || role === 'user' || role === 'guest') && icon.visible_to_client) return true;
           if (role === 'specjalista' && icon.visible_to_specjalista) return true;
           return false;
         });
