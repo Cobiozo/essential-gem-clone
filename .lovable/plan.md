@@ -1,48 +1,57 @@
 ## Cel
+Gość ma widzieć dodatkowo: sekcję „Zespół Pure Life" + „Kontakt" w stopce pulpitu, ikony przy pozycjach sidebara oraz pozycję „Eventy" w sidebarze. W /paid-events gość widzi tylko wydarzenia, które admin wyraźnie dla niego/grupy gości włączył (np. „Business Opportunity Meeting Łódź"). Po wejściu w wydarzenie widzi je tak jak partner — z możliwością wygenerowania własnego linku partnerskiego i podglądu własnego biletu.
 
-Doszlifować widok gościa (rola `guest`): ograniczyć zakładki w „Moje konto", uprościć topbar i sidebar, ukryć większość widgetów na Pulpicie i ukryć baner instalacji PWA. Zmiany dotyczą wyłącznie warstwy prezentacji — żadne RLS / edge functions / dane nie są ruszane.
+## Zmiany
 
-## Zakres zmian (UI only)
+### 1. Stopka pulpitu (Zespół + Kontakt) — widoczna dla gościa
+`src/hooks/useGuestVisibility.ts`
+- W `DEFAULT_GLOBAL.widgets` ustawić `footer: true` (zamiast `false`).
+- Dodać nowe podflagi: `footerQuote: false`, `footerMap: false`, `footerTeam: true`, `footerContact: true`, `footerBottom: true` (bottom = pasek z logo/copyright/privacy/regulamin/cookies, BEZ „Zainstaluj aplikację" — `pwaInstall` pozostaje false).
 
-### 1. `src/pages/MyAccount.tsx` — zakładki dla gościa
-W `visibleTabs` (linia ~239) dodać warunek roli `guest`:
-- `profile: true`
-- `security: true`
-- wszystkie pozostałe (`teamContacts`, `notifications`, `preferences`, `aiCompass`, `hkCodes`, `reflinks`) wymuszone na `false` dla gościa.
+`src/components/dashboard/widgets/DashboardFooterSection.tsx`
+- Dodać `useGuestVisibility()`; gdy `guestActive`, ukrywać sekcje wg flag:
+  - cytat/misja → `footerQuote`
+  - mapa świata → `footerMap`
+  - Zespół Pure Life → `footerTeam`
+  - Kontakt → `footerContact`
+  - dolny pasek → `footerBottom`, a w nim przycisk „Zainstaluj aplikację" gated `pwaInstall`.
 
-Efekt: gość widzi tylko „Profil" i „Bezpieczeństwo".
+### 2. Sidebar — ikony i pozycja „Eventy"
+`src/components/dashboard/DashboardSidebar.tsx`
+- Ikony już są renderowane dla wszystkich (gość je widzi). Brak zmiany kodu — potwierdzić podczas testu.
+- Dodać do `GUEST_ID_TO_KEY`: `'paid-events': 'paidEvents'`.
+- Dotychczasowe filtry (m.in. `isPaidEventsVisible`) muszą przepuścić gościa — patrz hook niżej.
 
-### 2. Topbar nad stroną „Moje konto" (ikona dzwonka + „Akademia")
-W `src/components/Header.tsx`:
-- Ukryć pozycję „Akademia" (linia 238–242) dla gościa.
-- Jeśli w nagłówku jest dzwonek powiadomień (zostanie zweryfikowany w build mode) — ukryć go dla gościa. Pozostawić: język, motyw, „Strona główna", „Wyloguj się".
+`src/hooks/useGuestVisibility.ts`
+- `sidebar.items`: dodać `paidEvents: true`.
 
-### 3. Sidebar — `src/components/dashboard/UserProfileCard.tsx` + `DashboardSidebar.tsx`
-- W `getRoleDisplayName` dodać case `'guest' → 'Gość'` (zamiast bieżącego fallbacku „Klient").
-- W sidebarze dla gościa zostawić tylko trzy pozycje z ikonami (w tej kolejności):
-  1. „Pulpit" → `/dashboard` (ikona `LayoutDashboard`)
-  2. „Wsparcie" → istniejąca ścieżka wsparcia / kontaktu (np. `/support`) (ikona `LifeBuoy`)
-  3. „Wyloguj się" przyklejone do dołu (ikona `LogOut`)
-- Ukryć dla gościa pozostałe sekcje menu (Akademia, Biblioteka, itd.).
+`src/hooks/usePaidEventsVisibility.ts` (jeśli ogranicza role)
+- Dodać obsługę roli `guest`: jeśli aktywny `guest` i flaga `sidebar.items.paidEvents` w guest config = true → moduł widoczny. (Implementacja: zwracać `true` gdy `userRole === 'guest'`; finalna gatekeeping per-event w punkcie 3.)
 
-### 4. Dashboard widgety — `src/pages/Dashboard.tsx` + `useGuestVisibility`
-Rozszerzyć `DEFAULT_GLOBAL.widgets` w `src/hooks/useGuestVisibility.ts` o klucze: `webinarInvite: false`, `calendar: true`, `myMeetings: false`, `trainingProgress: false`, `otpCodes: false`, `resources: false`, `teamContacts: false`, `reflinks: false`, `infoLinks: false`, `footer: false`, `searchSpecialist: false` (lupa PLC Omega Base / „search").
+### 3. /paid-events — whitelista wydarzeń per gość
+Wykorzystać istniejący `guest_visibility_overrides.config.events.items[eventId] = true` (oraz globalne `guest_visibility_global.config.events.items`).
 
-`Dashboard.tsx` już używa `showWidget(...)` — wystarczy upewnić się, że wszystkie te klucze są respektowane (są). Dodatkowo: jeśli lupa „PLC Omega Base" (pływający przycisk) jest renderowana poza Dashboard (FAB w layoucie), ukryć ją przez `useGuestVisibility` w komponencie FAB.
+`src/pages/PaidEventsListPage.tsx`
+- Pobrać `useGuestVisibility()`. Jeśli `guestActive`:
+  - Filtrować `upcomingEvents`/`pastEvents`: zachować tylko te, dla których `gv('events', event.id)` zwraca `true`.
+  - Ukryć sekcję „Zakończone" jeśli pusta (już jest taki guard).
+  - Nagłówek bez zmian.
 
-### 5. Nazwa widżetu kalendarza
-W `CalendarWidget` zmienić tytuł z „Webinary i spotkania" na „Kalendarz wydarzeń" dla wszystkich, zgodnie z prośbą użytkownika (jednolity tytuł).
-Pod kalendarzem: dla gościa ukryć legendę kolorowych kropek (Webinar / Spotkanie zespołu / Trójstronne / Konsultacje / EVENT) — gate przez `useGuestVisibility` (`active`).
+### 4. Strona pojedynczego wydarzenia — bez zmian funkcjonalnych
+- Gość po kliknięciu „Zobacz" widzi standardową stronę wydarzenia (`/paid-events/:slug`) — ten sam komponent co partner.
+- Generowanie linku partnerskiego: w `PaidEventCard` / podstronie wydarzenia mechanizm linku partnerskiego dla zalogowanych użytkowników działa po `user.id` — gość (rola `guest`) ma `auth.users` id, więc otrzyma działający ref-link. Weryfikuję istniejący komponent „Mój link partnerski" i — jeżeli jest gated rolą (`isPartner`/`isAdmin`) — rozszerzam warunek o `userRole === 'guest'`.
+- „Mój bilet": panel `MyEventTicketsInline` w `PaidEventCard` działa po `user.id`, więc gość zobaczy własne bilety automatycznie. Bez zmian.
 
-### 6. „Zainstaluj aplikację" (PWA banner na dole Pulpitu)
-Komponent banera (PWAInstall / InstallPage prompt renderowany w `DashboardFooterSection` lub osobno) — owinąć w `if (guestActive) return null`. Identyfikacja konkretnego pliku w build mode (najprawdopodobniej `src/components/.../PWAInstallBanner.tsx` lub w `DashboardFooterSection`).
+### 5. Panel admina — edytor widoczności gościa
+`src/components/admin/guest-visibility/*` (jeśli istnieje)
+- Dodać przełączniki dla nowych kluczy: `widgets.footerTeam`, `widgets.footerContact`, `widgets.footerQuote`, `widgets.footerMap`, `widgets.footerBottom`, `sidebar.items.paidEvents`.
+- W zakładce „Eventy" dla gościa zapewnić listę wydarzeń płatnych z togglami → zapisuje do `guest_visibility_global.config.events.items` (globalnie dla wszystkich gości) oraz w edytorze per-user do `guest_visibility_overrides.config.events.items` (np. konkretny gość widzi tylko BOM Łódź).
 
 ## Szczegóły techniczne
+- Brak migracji DB ani zmian RLS — używamy istniejących tabel `guest_visibility_global` i `guest_visibility_overrides` oraz scope `events` już zdefiniowanego w hooku.
+- Logika filtrowania w PaidEventsList korzysta z `isVisible('events', event.id, false)` — domyślnie ukryte; admin musi wprost włączyć każde wydarzenie dla gościa.
+- Ref-link partnerski opiera się o `?ref=<user_id>`/`?ref=<eq_id>` — sprawdzę istniejący helper i odblokuję dla roli `guest`.
 
-- Rola sprawdzana przez `useAuth().userRole?.role === 'guest'` (już używane w `useGuestVisibility`).
-- Wszystkie gate'y idą przez istniejący helper `useGuestVisibility` / `isVisible('widgets', key)` lub bezpośredni warunek `isGuest`.
-- Brak zmian w bazie danych, RLS, edge functions, i18n nie wymaga aktualizacji (etykiety istnieją lub dodajemy stałą polską „Gość").
-
-## Poza zakresem
-- Logika rejestracji / aktywacji e-maila (już zrobiona w poprzednich turach).
-- Zmiany backendowe / migracje.
+## Out of scope
+- Mechanika prowizji od linku partnerskiego gościa (oddzielne ustawienie biznesowe — wymagałoby decyzji, czy gość uczestniczy w prowizjach).
+- Zmiany w mailingach / bilecie.
