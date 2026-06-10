@@ -93,6 +93,9 @@ interface GuestRow {
   first_name: string | null;
   last_name: string | null;
   created_at: string;
+  is_active?: boolean;
+  email_activated?: boolean;
+  admin_approved?: boolean;
 }
 
 const guestRegisterUrl = (token: string) => `${window.location.origin}/zaproszenie/${token}`;
@@ -399,7 +402,10 @@ const GuestUsersTab: React.FC = () => {
     const ids = (roles || []).map((r: any) => r.user_id);
     if (ids.length === 0) { setGuests([]); setLoading(false); return; }
     const { data: profs } = await (supabase as any)
-      .from('profiles').select('id, email, first_name, last_name, created_at').in('id', ids);
+      .from('profiles')
+      .select('id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved')
+      .in('id', ids)
+      .order('created_at', { ascending: false });
     setGuests((profs as GuestRow[]) || []);
     setLoading(false);
   };
@@ -443,13 +449,29 @@ const GuestUsersTab: React.FC = () => {
         {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
           <div className="space-y-2">
             {guests.length === 0 && <p className="text-sm text-muted-foreground">Brak gości.</p>}
-            {guests.map((g) => (
+            {guests.map((g) => {
+              let statusLabel = 'Aktywny';
+              let statusCls = 'bg-green-500/15 text-green-600 border-green-500/30';
+              if (g.email_activated === false) {
+                statusLabel = 'Czeka na potwierdzenie e-mail';
+                statusCls = 'bg-amber-500/15 text-amber-600 border-amber-500/30';
+              } else if (g.admin_approved === false || g.is_active === false) {
+                statusLabel = 'Czeka na zatwierdzenie admina';
+                statusCls = 'bg-blue-500/15 text-blue-600 border-blue-500/30';
+              }
+              return (
               <div key={g.id} className="flex items-center justify-between p-2 border rounded-md">
-                <div>
-                  <div className="font-medium text-sm">{g.first_name} {g.last_name}</div>
-                  <div className="text-xs text-muted-foreground">{g.email}</div>
+                <div className="min-w-0">
+                  <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+                    {g.first_name} {g.last_name}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusCls}`}>{statusLabel}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">{g.email}</div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={`/admin?tab=users&search=${encodeURIComponent(g.email)}`}>Zarządzaj</a>
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Widoczność</Button>
                   <Button variant="ghost" size="sm" asChild>
                     <a href={`/dashboard?preview=guest&guestId=${g.id}`} target="_blank" rel="noreferrer">
@@ -458,7 +480,8 @@ const GuestUsersTab: React.FC = () => {
                   </Button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

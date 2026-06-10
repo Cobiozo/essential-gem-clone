@@ -116,7 +116,8 @@ Deno.serve(async (req) => {
       email,
       first_name,
       last_name: last_name || null,
-      is_active: false,            // blocked until admin approves
+      is_active: true,             // technically active, but blocked by admin_approved/email_activated gate
+
       profile_completed: true,
       guardian_approved: true,     // admin acts as guardian for guests
       guardian_approved_at: nowIso,

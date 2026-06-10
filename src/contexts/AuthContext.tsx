@@ -578,6 +578,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
+  // Guard: guest pending email confirmation
+  if (user && profile && isGuest && !isAdmin && profile.email_activated === false) {
+    return (
+      <AuthContext.Provider value={value}>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Potwierdź swój adres e-mail</h2>
+            <p className="text-muted-foreground mb-6">
+              Wysłaliśmy link aktywacyjny na <span className="font-medium text-foreground">{profile.email}</span>.
+              Kliknij w niego, aby potwierdzić adres. Po potwierdzeniu Twoje konto będzie czekać na zatwierdzenie przez administratora.
+            </p>
+            <button
+              onClick={signOut}
+              className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+            >
+              Wyloguj się
+            </button>
+          </div>
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
+  // Guard: guest awaiting admin approval (email confirmed, but admin_approved/is_active still false)
+  if (
+    user && profile && isGuest && !isAdmin &&
+    profile.email_activated === true &&
+    (profile.admin_approved === false || profile.is_active === false)
+  ) {
+    return (
+      <AuthContext.Provider value={value}>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Konto oczekuje na zatwierdzenie</h2>
+            <p className="text-muted-foreground mb-6">
+              Dziękujemy za potwierdzenie adresu e-mail. Twoje konto Gościa PLC zostało przekazane administratorowi do akceptacji.
+              Otrzymasz wiadomość e-mail, gdy tylko konto zostanie zatwierdzone.
+            </p>
+            <button
+              onClick={signOut}
+              className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+            >
+              Wyloguj się
+            </button>
+          </div>
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
   // Guard: blocked user screen (is_active === false and not admin)
   if (user && profile && !profile.is_active && !isAdmin) {
     return (
