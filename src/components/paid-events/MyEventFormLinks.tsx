@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 import MyEventFormReferrals from './MyEventFormReferrals';
 
 interface MyEventFormLinksProps {
