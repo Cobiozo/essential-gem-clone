@@ -26,15 +26,18 @@ interface MyEventFormLinksProps {
  * Each partner can generate their own ref link tracking clicks + submissions per form.
  */
 export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, compact }) => {
-  const { user, isPartner, isAdmin } = useAuth();
+  const { user, isPartner, isAdmin, isGuest } = useAuth() as any;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { active: guestActive, isVisible: gvIsVisible } = useGuestVisibility();
+
+  const canUse = !!user && (isPartner || isAdmin || isGuest);
 
   // List of active forms with embedded paid_event data
-  const { data: forms = [] } = useQuery({
+  const { data: formsRaw = [] } = useQuery({
     queryKey: ['active-event-forms-public', eventId ?? 'all'],
-    enabled: !!user && (isPartner || isAdmin),
+    enabled: canUse,
     queryFn: async () => {
       let q = supabase
         .from('event_registration_forms')
@@ -47,6 +50,11 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
       return (data || []).filter((f: any) => f.paid_events?.is_published);
     },
   });
+
+  // For guests: restrict to events explicitly whitelisted via guest visibility
+  const forms = guestActive
+    ? formsRaw.filter((f: any) => gvIsVisible('events', f.event_id, false))
+    : formsRaw;
 
   // Existing partner links for current user
   const { data: myLinks = {} } = useQuery({
