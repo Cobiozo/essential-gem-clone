@@ -229,10 +229,47 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
   const registeredEmails = new Set(Object.keys(submitterProfilesByEmail));
-  const isPartnerSubmission = (s: any) => {
-    if (s.__source === 'order' && s.__orderUserId) return true;
-    return registeredEmails.has((s.email || '').toLowerCase());
+
+  // Fetch roles for all submitters and orders' owners — used to distinguish
+  // platform guests (role = 'guest') from real partners.
+  const submitterUserIds = Array.from(new Set([
+    ...Object.values(submitterProfilesByEmail).map((p: any) => p?.user_id).filter(Boolean),
+    ...(rawOrders as any[]).map((o) => o.user_id).filter(Boolean),
+  ])) as string[];
+  const { data: rolesByUserId = {} as Record<string, string> } = useQuery({
+    queryKey: ['event-form-submission-roles', submitterUserIds.sort().join(',')],
+    enabled: submitterUserIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', submitterUserIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((r: any) => { map[r.user_id] = String(r.role || '').toLowerCase(); });
+      return map;
+    },
+  });
+
+  // Returns the audience category for a submission row:
+  //  - 'external_guest' — no profile in our DB
+  //  - 'platform_guest' — registered on the platform with role = 'guest' (Gość PLC)
+  //  - 'partner' — registered on the platform with any other role
+  const getAudience = (s: any): 'external_guest' | 'platform_guest' | 'partner' => {
+    let uid: string | null = null;
+    if (s.__source === 'order' && s.__orderUserId) {
+      uid = s.__orderUserId;
+    } else {
+      const prof = submitterProfilesByEmail[(s.email || '').toLowerCase()];
+      if (prof?.user_id) uid = prof.user_id;
+    }
+    if (!uid) return 'external_guest';
+    const role = rolesByUserId[uid];
+    if (role === 'guest') return 'platform_guest';
+    return 'partner';
   };
+  const isPartnerSubmission = (s: any) => getAudience(s) === 'partner';
+  const isPlatformGuest = (s: any) => getAudience(s) === 'platform_guest';
 
   // Resolve upline profiles by eq_id so we can render full name + email.
   const uplineEqIds = Array.from(new Set(
