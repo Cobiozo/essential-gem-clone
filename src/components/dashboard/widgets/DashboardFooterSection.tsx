@@ -5,6 +5,7 @@ import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 
 const UserWorldMapWidget = lazy(() => import('./UserWorldMapWidget'));
 
