@@ -282,46 +282,31 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Szablon e-mail aktywacyjnego nie został znaleziony");
     }
 
-    // Generate activation token using Supabase Auth
-    let activationLink = '';
-    const baseOrigin = "https://purelife.info.pl";
-    
-    // The redirect URL will go through our activate-email function first to set email_activated=true
-    // Then Supabase will redirect to /auth?activated=true
-    const finalRedirectUrl = `${baseOrigin}/auth?activated=true`;
+    // Generate single-use activation token (24h expiry) and persist on profile.
+    // activate-email verifies this token, calls auth.admin.updateUserById to set
+    // email_confirmed_at, then clears the token. This avoids relying on Supabase
+    // action_links which get consumed by email prefetch/scanners.
+    const tokenBytes = new Uint8Array(32);
+    crypto.getRandomValues(tokenBytes);
+    const activationToken = Array.from(tokenBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "signup",
-      email: requestData.email,
-      options: {
-        redirectTo: finalRedirectUrl,
-      },
-    } as any);
+    const { error: tokenSaveErr } = await supabase
+      .from("profiles")
+      .update({
+        activation_token: activationToken,
+        activation_token_expires_at: expiresAt,
+      })
+      .eq("user_id", requestData.userId);
 
-    if (linkError) {
-      console.error("[send-activation-email] Error generating activation link:", linkError);
-      // If user already exists, generate magic link instead
-      const { data: magicLinkData, error: magicLinkError } = await supabase.auth.admin.generateLink({
-        type: "magiclink",
-        email: requestData.email,
-        options: {
-          redirectTo: finalRedirectUrl,
-        },
-      });
-
-      if (magicLinkError) {
-        throw new Error(`Nie można wygenerować linku aktywacyjnego: ${magicLinkError.message}`);
-      }
-
-      activationLink = magicLinkData.properties?.action_link || "";
-    } else {
-      activationLink = linkData.properties?.action_link || "";
+    if (tokenSaveErr) {
+      console.error("[send-activation-email] Failed to save activation token:", tokenSaveErr);
+      throw new Error("Nie można zapisać tokenu aktywacyjnego");
     }
-    
-    // Wrap the Supabase activation link in our custom activate-email function
-    // This ensures email_activated is set to true when user clicks the link
-    const activateEmailUrl = `${supabaseUrl}/functions/v1/activate-email?user_id=${requestData.userId}&supabase_link=${encodeURIComponent(activationLink)}`;
-    activationLink = activateEmailUrl;
+
+    const activationLink = `${supabaseUrl}/functions/v1/activate-email?user_id=${requestData.userId}&token=${activationToken}`;
 
     // Replace template variables
     let htmlBody = template.body_html

@@ -8278,6 +8278,8 @@ export type Database = {
           accepted_rodo: boolean | null
           accepted_terms: boolean | null
           accepted_terms_at: string | null
+          activation_token: string | null
+          activation_token_expires_at: string | null
           admin_approved: boolean | null
           admin_approved_at: string | null
           avatar_url: string | null
@@ -8331,6 +8333,8 @@ export type Database = {
           accepted_rodo?: boolean | null
           accepted_terms?: boolean | null
           accepted_terms_at?: string | null
+          activation_token?: string | null
+          activation_token_expires_at?: string | null
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
@@ -8384,6 +8388,8 @@ export type Database = {
           accepted_rodo?: boolean | null
           accepted_terms?: boolean | null
           accepted_terms_at?: string | null
+          activation_token?: string | null
+          activation_token_expires_at?: string | null
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
