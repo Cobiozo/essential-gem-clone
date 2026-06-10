@@ -268,7 +268,7 @@ const Auth = () => {
     if (isActivated) {
       toast({
         title: t('auth.toast.accountActivated'),
-        description: t('auth.toast.welcomeToPureLife'),
+        description: tf('auth.toast.canLoginNow', 'Twój e-mail został potwierdzony. Możesz się teraz zalogować.'),
       });
       // Clear the URL parameter but keep returnTo if present
       const newUrl = returnTo 
