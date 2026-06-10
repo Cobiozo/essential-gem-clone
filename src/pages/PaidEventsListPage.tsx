@@ -113,9 +113,6 @@ const PaidEventsListPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold">{tf('events.eventsTitle', 'Eventy')}</h1>
-            <p className="text-muted-foreground">
-              {tf('events.paidTrainings', 'Płatne szkolenia i wydarzenia')}
-            </p>
           </div>
         </div>
 
