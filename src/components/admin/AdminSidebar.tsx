@@ -283,7 +283,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     apiIntegrations: 'API / Integracje',
     userStats: 'Statystyki użytkowników',
     moderators: 'Moderatorzy',
-    guests: 'Goście',
+    guests: 'Goście PLC',
   };
 
   const getLabel = (key: string): string => {
