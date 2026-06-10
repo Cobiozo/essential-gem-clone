@@ -1,79 +1,98 @@
-## Cel
+## Problem
 
-Po rejestracji gościa PLC:
-1. Konto MUSI być potwierdzone mailowo (kliknięcie linku aktywacyjnego).
-2. Po aktywacji konto MUSI czekać na zatwierdzenie przez administratora (opiekuna).
-3. Gość pojawia się w **Zarządzaniu użytkownikami** (z osobnym znacznikiem „Gość PLC") oraz w **Panel administratora → Goście → Lista gości**.
-4. Admin może go edytować jak każdego innego użytkownika (rola, dane, zatwierdzenie, blokada, reset hasła itp.).
+1. **Gość PLC `sebastiansnopek87+002@gmail.com` dostał grupowe przypomnienie o 3 modułach szkoleniowych z Akademii**, mimo że nie został jeszcze zatwierdzony przez admina i nie ma dostępu do Akademii. Powód: trigger `assign_training_modules_on_role_insert` przypisuje gościowi WSZYSTKIE moduły z flagą `visible_to_everyone = true`. Cron `process-pending-notifications` widzi te przypisania i wysyła e-mail przez `send-training-reminder-grouped` — nie sprawdzając roli odbiorcy.
 
-## Co jest nie tak teraz
+2. **Brak globalnej zasady izolacji powiadomień dla roli `guest`** — żadna funkcja wysyłkowa (training, knowledge, banners itd.) nie weryfikuje, czy odbiorca jest gościem i czy ma dostęp do danego modułu.
 
-- `guest-redeem-invite` ustawia `is_active: true`, `admin_approved: true`, `guardian_approved: true` — gość od razu „wchodzi". Powinno być odwrotnie: czeka na e-mail + decyzję admina.
-- W „Zarządzaniu użytkownikami" goście są niewidoczni jako goście — `profiles.role` jest puste, więc wyświetlają się jako „Klient" bez sposobu odróżnienia.
-- „Lista gości" w panelu admina pokazuje 0, bo dla istniejącego gościa nie powstał wpis w `user_roles` (RPC `consume_guest_invite` zwróciło błąd przy poprzedniej próbie, użytkownik osierocony).
-- Brak ścieżki w UI: oczekuje na e-mail → oczekuje na zatwierdzenie admina → aktywny.
+3. **Brak czytelnego komunikatu przy próbie rejestracji na e-mail, który już istnieje** (np. niezatwierdzony stary rekord). `guest-redeem-invite` zwraca `email_exists` tylko gdy Supabase Auth ma wpis — ale jeśli istnieje sierota w `profiles` bez `auth.users` (lub odwrotnie), komunikat nie kieruje użytkownika do administratora.
 
-## Plan zmian
+## Plan naprawy
 
-### 1. Edge function `guest-redeem-invite` — twarda blokada dostępu
+### 1. Migracja DB — wykluczenie gości z auto-przypisywania szkoleń
 
-W `upsert` na `profiles` ustawić wartości startowe blokujące logowanie:
-- `is_active: false`
-- `email_activated: false`
-- `admin_approved: false`, `admin_approved_at: null`
-- `guardian_approved: true` (opiekuna nie ma — admin pełni tę rolę)
-- `profile_completed: true`, zgody = `true`
+Zaktualizować dwa triggery z `20260121101247`:
 
-`auth.admin.createUser` zostaje z `email_confirm: false` (mail aktywacyjny dalej idzie przez `send-activation-email`).
+- `assign_training_modules_on_role_insert` — dodać warunek `NEW.role <> 'guest'` zanim cokolwiek przypisze. Gość dostaje moduły **wyłącznie** przez ręczne przypisanie przez admina (z poziomu panelu `TrainingManagement`).
+- `assign_training_module_to_users` — w klauzuli SELECT pominąć `ur.role = 'guest'`, by nowy moduł z `visible_to_everyone` nigdy nie był auto-przypisany gościom.
 
-### 2. Aktywacja konta gościa po kliknięciu w e-mail
+Jednorazowy cleanup:
 
-Zmodyfikować istniejącą funkcję aktywacji (`activate-account` / handler linku aktywacyjnego — sprawdzę i użyję tej samej, której używają zwykli użytkownicy), tak by dla roli `guest`:
-- ustawiała `email_activated: true`, `email_activated_at: now()`,
-- **nie odblokowywała** `is_active` / `admin_approved` (te muszą zostać dla admina),
-- pokazywała gościowi komunikat: „E-mail potwierdzony. Twoje konto czeka na zatwierdzenie przez administratora."
-
-### 3. Logika logowania / dostępu
-
-W warstwie auth (kontekst `useAuth` + `RequireAuth` / redirect), dla użytkownika z rolą `guest`:
-- jeśli `email_activated = false` → ekran „Potwierdź e-mail" (z przyciskiem „Wyślij ponownie").
-- jeśli `email_activated = true` AND (`admin_approved = false` OR `is_active = false`) → ekran „Konto oczekuje na zatwierdzenie przez administratora".
-- dopiero gdy oba `true` → normalny dashboard gościa.
-
-### 4. Zarządzanie użytkownikami — wyświetlanie gościa
-
-W `src/pages/Admin.tsx`:
-- Pobierać dodatkowo wpisy z `user_roles` (rola `guest`) i merge'ować do `users` jako pole `is_guest`.
-- W komponencie wiersza użytkownika dodać badge **„Gość PLC"** (zamiast „Klient") gdy `is_guest === true`.
-- `getRoleDisplayName` zwraca „Gość PLC" dla rola guest.
-- Filtry zakładek (Oczekujący / Aktywni / Zablokowani / Wszyscy) działają bez zmian — gość niezatwierdzony trafi do „Oczekujący", po zatwierdzeniu do „Aktywni".
-- W edytorze użytkownika dropdown ról rozszerzony o `guest` (z etykietą „Gość PLC"); `admin_update_user_role` musi to zaakceptować (sprawdzę i rozszerzę typ jeśli trzeba).
-- Przyciski „Zatwierdź" / „Wyślij e-mail aktywacyjny" / „Zablokuj" / edycja danych — działają dla gościa identycznie.
-
-### 5. Panel admina → Goście → Lista gości
-
-Działa automatycznie po przywróceniu `user_roles.role = 'guest'` (już robi to `consume_guest_invite`). Dodatkowo:
-- Pokazywać status: „Czeka na e-mail" / „Czeka na zatwierdzenie" / „Aktywny" / „Zablokowany".
-- Skrót: „Otwórz w Zarządzaniu użytkownikami" → przeniesienie do `/admin?tab=users&edit={userId}`.
-
-### 6. Sprzątanie istniejącego, uszkodzonego konta `byk1023@wp.pl`
-
-Jednorazowy SQL: usunąć rekord (brak roli, `is_active=false`, nieużywany) lub dopisać rolę `guest` i ustawić `email_activated=false`, `admin_approved=false`, żeby admin mógł go zatwierdzić. **Pytanie do potwierdzenia poniżej.**
-
-## Pliki do zmiany
-
-```text
-supabase/functions/guest-redeem-invite/index.ts   # zablokuj is_active/admin_approved
-supabase/functions/<activation>/index.ts          # obsłuż gościa po aktywacji maila
-src/pages/Admin.tsx                                # is_guest, badge „Gość PLC", role w dropdownie
-src/components/admin/GuestsManagement.tsx          # status w „Lista gości" + link do edycji
-src/contexts/AuthContext.tsx (lub odpowiednik)     # bramka: email + admin approval dla guest
-src/components/auth/<PendingScreen>                # ekrany „Potwierdź e-mail" / „Czeka na admina"
+```sql
+DELETE FROM training_assignments ta
+USING user_roles ur
+WHERE ta.user_id = ur.user_id
+  AND ur.role = 'guest'
+  AND ta.assigned_by IS NULL;          -- tylko auto-przypisane
 ```
 
-Bez migracji schematu — wystarczą istniejące kolumny `is_active`, `email_activated`, `admin_approved` w `profiles` i rola `guest` w `user_roles`.
+Analogicznie dla innych globalnych mechanizmów wysyłających powiadomienia/emaile masowe:
+- `user_dismissed_banners` / `app_banners` — gość ignorowany w cronach przypomnień (filtr po roli w cronie).
+- `news_hub` — już jest izolacja per-rola, tylko zweryfikować.
 
-## Pytania zanim zacznę
+### 2. Edge functions — bramka roli `guest` w wysyłkach
 
-1. Konto `byk1023@wp.pl` — **usunąć** (martwy rekord po starym błędzie) czy **naprawić** (dopisać rolę guest + ustawić jako „oczekujący na zatwierdzenie", żeby przejść pełny flow)?
-2. Czy admin po zatwierdzeniu gościa ma móc też zmienić mu rolę na np. `client`/`partner` (jednym kliknięciem „awansuj"), czy guest pozostaje guest i koniec?
+Dodać w każdym z poniższych jednolitą funkcję `canSendToUser(userId, module)`:
+
+- `send-training-reminder-grouped`
+- `send-training-reminder`
+- `send-training-notification`
+
+Logika:
+```
+1. pobierz rolę z user_roles
+2. jeśli rola = 'guest':
+     - sprawdź czy istnieje wpis w training_assignments z assigned_by IS NOT NULL
+       (czyli admin ręcznie przypisał)
+     - jeśli nie → przerwij wysyłkę, oznacz notification_sent=true (żeby cron nie próbował ponownie), zwróć skip
+```
+
+W `process-pending-notifications`:
+- przy iteracji `trainingsWithoutNotification` i `remindersDue` — filtrować po roli `guest` po stronie SQL (zaktualizować funkcje RPC `get_training_assignments_without_notification` i `get_training_reminders_due`, by JOIN-owały `user_roles` i wykluczały gości bez explicit `assigned_by`).
+
+### 3. Generalna zasada izolacji gościa
+
+W `process-pending-notifications` na początku każdej sekcji (webinar reminders, training, knowledge, daily signals) dodać helper `isGuestRestricted(userId)`. Gość PLC otrzymuje wyłącznie maile:
+- aktywacja konta (`activate-email`)
+- zatwierdzenie przez admina (`send-approval-email` typu `admin`)
+- powiadomienia o modułach przypisanych mu ręcznie przez admina
+
+Wszystkie inne kanały (newsletter, banery, signals, webinary, knowledge, training z auto-przypisania) — pomijają rolę `guest`.
+
+### 4. Komunikat o sierocym e-mailu w `guest-redeem-invite`
+
+Przed `auth.admin.createUser`:
+
+1. Sprawdzić `auth.users` przez `admin.auth.admin.listUsers({ filter: email })` — jeśli istnieje → zwrócić nowy kod `email_exists_contact_admin` z komunikatem:
+   > „Adres e-mail jest już zarejestrowany w systemie. Skontaktuj się z administratorem, aby odzyskać dostęp lub usunąć stare konto."
+2. Sprawdzić `profiles` po `email` — jeśli istnieje wpis bez odpowiadającego `auth.users` (sierota) → ten sam komunikat.
+
+Zaktualizować mapę `MESSAGES` i `GuestRegister.tsx`, by ten kod renderował wyraźny banner z linkiem mailto do administratora (z `page_settings.support_email` jeśli dostępny).
+
+Dodatkowy cleanup: jednorazowe zapytanie identyfikujące sieroty (raport tylko do logów):
+
+```sql
+SELECT email FROM profiles
+WHERE user_id NOT IN (SELECT id FROM auth.users);
+-- oraz
+SELECT email FROM auth.users
+WHERE id NOT IN (SELECT user_id FROM profiles);
+```
+
+(W obecnej bazie sierot nie ma — sprawdzone.)
+
+### 5. Cleanup obecnego gościa
+
+Usunąć 3 błędnie auto-przypisane wpisy `training_assignments` dla `8d8af012-1fe6-463f-be9f-af6f71c108b5` (sebastiansnopek87+002@gmail.com), aby nie dostawał kolejnych przypomnień.
+
+## Szczegóły techniczne
+
+**Pliki do edycji:**
+- nowa migracja: triggery + cleanup + zaktualizowane RPC `get_training_assignments_without_notification`, `get_training_reminders_due`
+- `supabase/functions/send-training-reminder-grouped/index.ts` — guard roli
+- `supabase/functions/send-training-reminder/index.ts` — guard roli
+- `supabase/functions/send-training-notification/index.ts` — guard roli
+- `supabase/functions/process-pending-notifications/index.ts` — filtr `guest` per-sekcja
+- `supabase/functions/guest-redeem-invite/index.ts` — pre-check e-maila + nowy kod błędu
+- `src/pages/GuestRegister.tsx` — render komunikatu `email_exists_contact_admin`
+
+**Memory do dodania (po akceptacji):** `mem://features/guest-plc/notification-isolation` — gość PLC nigdy nie otrzymuje powiadomień/maili o modułach, do których nie ma jawnie przyznanego dostępu przez admina.
