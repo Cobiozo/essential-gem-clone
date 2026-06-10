@@ -40,6 +40,8 @@ const DynamicIcon = ({ name, className }: { name: string; className?: string }) 
 
 export const DashboardFooterSection: React.FC = () => {
   const { t, language } = useLanguage();
+  const { active: guestActive, isVisible: gv } = useGuestVisibility();
+  const show = (key: string) => !guestActive || gv('widgets', key);
   const [settings, setSettings] = useState<DashboardFooterSettings | null>(null);
 
   // Helper: for PL use DB settings (admin-editable), for other langs use i18n translations
