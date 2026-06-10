@@ -326,8 +326,9 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   // Audience counts (independent of payment/search filter so user always sees totals)
   const audienceCounts = {
     all: submissions.length,
-    partners: submissions.filter(isPartnerSubmission).length,
-    guests: submissions.filter(s => !isPartnerSubmission(s)).length,
+    partners: submissions.filter(s => getAudience(s) === 'partner').length,
+    platformGuests: submissions.filter(s => getAudience(s) === 'platform_guest').length,
+    guests: submissions.filter(s => getAudience(s) === 'external_guest').length,
   };
 
   const updatePayment = useMutation({
