@@ -34,6 +34,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/ticket/',           // Public ticket status/download page
     '/free-event/confirm/', // Free event email confirmation landing
     '/zaproszenie/',        // Guest invitation registration
+    '/konto-usuniete',      // Account deleted landing
   ];
   
   const isPublicPath = PUBLIC_PATHS.some(path => {
@@ -62,7 +63,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
     '/events', '/e', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
-    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview', '/auto-webinar', '/a-w', '/skills-assessment', '/moja-strona', '/moje-testy', '/aktualnosci', '/checkout', '/ticket', '/zaproszenie'
+    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview', '/auto-webinar', '/a-w', '/skills-assessment', '/moja-strona', '/moje-testy', '/aktualnosci', '/checkout', '/ticket', '/zaproszenie', '/konto-usuniete'
   ];
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
   const isKnownRoute = KNOWN_APP_ROUTES.some(r =>
