@@ -133,7 +133,7 @@ export const DashboardSidebar: React.FC = () => {
   const { t, tf, language } = useLanguage();
   const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
   const { hasAnyAdminAccess, isModerator } = useModeratorAccess();
-  const { isGuest, isVisible: gv, active: guestActive } = useGuestVisibility();
+  const { isGuest, isVisible: gv, active: guestActive, loading: guestLoading } = useGuestVisibility();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
@@ -319,7 +319,7 @@ export const DashboardSidebar: React.FC = () => {
         const filteredIcons = (footerIconsData || []).filter(icon => {
           if (role === 'admin' && icon.visible_to_admin) return true;
           if (role === 'partner' && icon.visible_to_partner) return true;
-          if ((role === 'client' || role === 'user') && icon.visible_to_client) return true;
+          if ((role === 'client' || role === 'user' || role === 'guest') && icon.visible_to_client) return true;
           if (role === 'specjalista' && icon.visible_to_specjalista) return true;
           return false;
         });
@@ -585,13 +585,17 @@ export const DashboardSidebar: React.FC = () => {
     'paid-events': 'paidEvents',
   };
   const visibleMenuItemsForGuest = guestActive
-    ? visibleMenuItems.filter((item) => {
-        // Allow dynamic html pages always (they go through pages config — admin opt-in)
-        if (item.id.startsWith('html-')) return true;
-        const key = GUEST_ID_TO_KEY[item.id];
-        if (!key) return false;
-        return gv('sidebar', key);
-      })
+    ? (guestLoading || !userRole
+        ? []
+        : visibleMenuItems.filter((item) => {
+            // Dashboard zawsze widoczny (strona główna)
+            if (item.id === 'dashboard') return true;
+            // Allow dynamic html pages always (they go through pages config — admin opt-in)
+            if (item.id.startsWith('html-')) return true;
+            const key = GUEST_ID_TO_KEY[item.id];
+            if (!key) return false;
+            return gv('sidebar', key);
+          }))
     : visibleMenuItems;
 
   // Apply admin-configured ordering

@@ -22,7 +22,7 @@ import {
 import { useMedicalChatStream } from '@/hooks/useMedicalChatStream';
 
 export const MedicalChatWidget: React.FC = () => {
-  const { user, isAdmin, isPartner, isClient, isSpecjalista } = useAuth();
+  const { user, isAdmin, isPartner, isClient, isSpecjalista, isGuest } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +37,7 @@ export const MedicalChatWidget: React.FC = () => {
   } = useMedicalChatStream();
 
   const [isSpinning, setIsSpinning] = useState(false);
-  const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
+  const hasAccess = user && !isGuest && (isAdmin || isPartner || isClient || isSpecjalista);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
