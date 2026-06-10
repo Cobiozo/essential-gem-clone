@@ -22,6 +22,7 @@ const MESSAGES: Record<string, string> = {
   missing_first_name: 'Podaj swoje imię.',
   missing_token: 'Brak tokenu zaproszenia w linku.',
   email_exists: 'Konto z tym adresem e-mail już istnieje. Zaloguj się lub użyj innego adresu.',
+  email_exists_contact_admin: 'Ten adres e-mail jest już zarejestrowany w systemie (konto nieaktywne lub osierocone). Skontaktuj się z administratorem, aby odzyskać dostęp lub usunąć stare konto.',
   expired: 'Ten link zaproszenia wygasł. Poproś o nowy.',
   exhausted: 'Limit użyć tego linku zaproszenia został wyczerpany.',
   inactive: 'Ten link zaproszenia został wyłączony przez administratora.',
