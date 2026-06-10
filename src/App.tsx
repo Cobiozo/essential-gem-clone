@@ -112,6 +112,7 @@ import NotFound from "./pages/NotFound";
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
 const GuestRegister = lazyWithRetry(() => import("./pages/GuestRegister"));
 const MyAccount = lazyWithRetry(() => import("./pages/MyAccount"));
+const AccountDeleted = lazyWithRetry(() => import("./pages/AccountDeleted"));
 const Page = lazyWithRetry(() => import("./pages/Page"));
 const Training = lazyWithRetry(() => import("./pages/Training"));
 const TrainingModule = lazyWithRetry(() => import("./pages/TrainingModule"));
@@ -456,6 +457,7 @@ const AppContent = () => {
                 <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />
                 <Route path="/zaproszenie/:token" element={<GuestRegister />} />
+                <Route path="/konto-usuniete" element={<AccountDeleted />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 <Route path="/:alias" element={<PartnerPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

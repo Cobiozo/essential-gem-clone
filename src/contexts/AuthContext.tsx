@@ -162,6 +162,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Account-deleted fail-safe: the user has a valid JWT but the underlying
+      // auth.users row is gone (admin or self-delete cascaded the profile and
+      // user_roles). Without this guard, downstream guards loop on
+      // `navigate(..., { replace: true })` and the browser eventually throws
+      // "Attempt to use history.replaceState() more than 100 times per 10 seconds".
+      const profileMissing =
+        !profileResult.data && profileResult.error?.code === 'PGRST116';
+      const rolesMissing = !((roleResult.data || []).length);
+      if (profileMissing && rolesMissing) {
+        console.warn('[Auth] Authenticated user has no profile/roles – treating account as deleted');
+        userInitiatedSignOutRef.current = true;
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.warn('[Auth] signOut after deleted-account detection failed', e);
+        }
+        if (typeof window !== 'undefined' &&
+            window.location.pathname !== '/konto-usuniete') {
+          window.location.replace('/konto-usuniete');
+        }
+        return;
+      }
+
+
       if (profileResult.error) {
         console.error('Error fetching profile:', profileResult.error);
       } else {
