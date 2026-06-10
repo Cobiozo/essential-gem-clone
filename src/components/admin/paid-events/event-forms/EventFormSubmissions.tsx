@@ -437,9 +437,10 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const filtered = submissions.filter(s => {
     if (filter !== 'all' && s.payment_status !== filter) return false;
     if (audience !== 'all') {
-      const isPartner = isPartnerSubmission(s);
-      if (audience === 'partners' && !isPartner) return false;
-      if (audience === 'guests' && isPartner) return false;
+      const a = getAudience(s);
+      if (audience === 'partners' && a !== 'partner') return false;
+      if (audience === 'platform_guests' && a !== 'platform_guest') return false;
+      if (audience === 'guests' && a !== 'external_guest') return false;
     }
     if (!search) return true;
     const q = search.toLowerCase();
