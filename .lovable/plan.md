@@ -1,31 +1,31 @@
-## Problem
-Na liście „zapisanych przez mój link" gość z darmowym wydarzeniem widzi status **„Oczekuje płatności"**, mimo że bilet jest bezpłatny. Powinno być:
-- przed potwierdzeniem maila → **„Oczekuje potwierdzenia adresu e-mail"** (żółty)
-- po potwierdzeniu maila → **„Potwierdzony"** (zielony)
+## Cel
+1. W `Panel admin → Płatne wydarzenia → Formularze → Zgłoszenia` osoba zarejestrowana na platformie z rolą `guest` (np. Romanek Romanowski) jest dziś klasyfikowana jako "Partner". Trzeba ją rozpoznać jako **Gość PLC**.
+2. Dodać trzecią zakładkę obok `Wszystkie / Goście / Partnerzy` — **Goście PLC**.
+3. Na pasku bocznym pulpitu pod imieniem użytkownika z rolą `guest` zamienić etykietę "Gość" na **"Gość PLC"** (odróżnienie od gościa zewnętrznego z formularza).
 
-Dla wydarzeń płatnych logika `payment_status` zostaje bez zmian.
+## Zmiany w kodzie (tylko frontend)
 
-## Zmiany
+### 1. `src/components/dashboard/UserProfileCard.tsx`
+- W `getRoleDisplayName`: `case 'guest': return 'Gość PLC';`
 
-### `src/components/paid-events/MyEventFormReferrals.tsx`
-1. Rozszerzyć `select` o join z wydarzeniem, żeby pobrać `is_free`:
-   - `paid_events!event_form_submissions_event_id_fkey ( is_free )`
-   - (alternatywnie pobrać oddzielnie listę event_id → is_free; jedno zapytanie na karcie wystarczy)
-2. Dodać helper `isFreeForRow(row)` — `true`, gdy `row.paid_events?.is_free === true`.
-3. Zmienić logikę renderowania ostatniej kolumny:
-   - jeśli `status === 'cancelled'` → `Anulowane` (bez zmian)
-   - jeśli wydarzenie darmowe:
-     - `email_confirmed_at` ustawione → zielony badge **„Potwierdzony"**
-     - w przeciwnym razie → żółty badge **„Oczekuje potwierdzenia adresu e-mail"**
-     - kolumna „Email potw." pozostaje (informacja zduplikowana, ale spójna z resztą tabeli)
-   - jeśli wydarzenie płatne → istniejąca logika `paymentBadge(payment_status, status)`.
+### 2. `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`
+- Dociągnąć role z `user_roles` dla `submitterProfilesByEmail` (po `user_id`). Zbudować mapę `emailLower → role`.
+- Wprowadzić trzy kategorie zamiast dwóch:
+  - `external_guest` — email nie istnieje w `profiles`
+  - `platform_guest` — email istnieje + rola = `guest` (lub `client`/`user` jeśli to też ma być traktowane jako "Gość PLC"; domyślnie tylko `guest`)
+  - `partner` — email istnieje + rola ≠ `guest` (partner/specjalista/admin/itd.); zamówienia w `paid_event_orders` z `user_id` traktujemy jako partner tylko jeśli rola właściciela ≠ guest, inaczej jako platform_guest
+- Zamienić stan `audience: 'all' | 'guests' | 'partners'` na `'all' | 'guests' | 'platform_guests' | 'partners'`.
+- Dodać `audienceCounts.platformGuests`.
+- W `TabsList` dodać czwartą zakładkę **"Goście PLC (n)"** między `Goście` a `Partnerzy`, z ikoną (np. `ShieldCheck` lub `UserCog`).
+- W filtrowaniu `filtered` rozdzielić warunki dla trzech kategorii.
+- W kolumnie `Osoba` zmienić badge — obecnie wyświetla się "Partner" dla każdego zarejestrowanego; dla `platform_guest` pokazać badge **"Gość PLC"** (np. wariant `outline` w innym kolorze), dla `partner` zostawić "Partner", dla `external_guest` — bez badge lub "Gość".
 
-Żadnych zmian w bazie ani RPC — pole `is_free` już istnieje w `paid_events` i jest publicznie odczytywalne.
+### 3. (Opcjonalnie) `src/components/admin/PaidEventsOrders.tsx`
+- Dla spójności możemy też dodać badge "Gość PLC" obok obecnych "Zalogowany / Gość" — wymagałoby pobrania roli z `user_roles` po `user_id`. **Pomijam w tym planie** chyba że potwierdzisz, że chcesz to też tam.
 
-### Panel admina (opcjonalnie, dla spójności)
-`src/components/admin/GuestRegistrationsPanel.tsx` aktualnie pokazuje surowe `payment_status`. Jeśli chcesz, zastosuję tę samą logikę (darmowe → „Oczekuje potwierdzenia e-mail" / „Potwierdzony"). Potwierdź, czy uwzględnić również ten panel — w przeciwnym razie zmienię tylko widok użytkownika (gościa/partnera).
+## Bez zmian
+- Brak migracji DB, brak zmian RLS, brak zmian edge functions.
+- Klasyfikacja oparta o istniejące tabele `profiles` + `user_roles` (RLS już pozwala adminowi czytać role).
 
-## Zakres techniczny
-- Brak migracji.
-- Brak zmian RLS.
-- Pojedynczy plik frontendowy (+ ewentualnie panel admina).
+## Pytanie do potwierdzenia
+- Czy do "Gość PLC" zaliczamy WYŁĄCZNIE rolę `guest`, czy także `client`/`user` (jeśli takie istnieją w systemie)? Domyślnie zakładam tylko `guest`.
