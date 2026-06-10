@@ -37,12 +37,20 @@ const GuestRegister: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!consent) {
-      toast({ title: 'Wymagana zgoda', description: 'Zaakceptuj regulamin i politykę prywatności.', variant: 'destructive' });
+    if (!firstName.trim()) {
+      toast({ title: 'Brak imienia', description: 'Podaj swoje imię.', variant: 'destructive' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast({ title: 'Nieprawidłowy e-mail', description: 'Podaj prawidłowy adres e-mail.', variant: 'destructive' });
       return;
     }
     if (password.length < 8) {
-      toast({ title: 'Hasło za krótkie', description: 'Minimum 8 znaków.', variant: 'destructive' });
+      toast({ title: 'Hasło za krótkie', description: 'Hasło musi mieć co najmniej 8 znaków.', variant: 'destructive' });
+      return;
+    }
+    if (!consent) {
+      toast({ title: 'Wymagana zgoda', description: 'Zaakceptuj regulamin oraz politykę prywatności (RODO).', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
@@ -50,15 +58,46 @@ const GuestRegister: React.FC = () => {
       const { data, error } = await (supabase as any).functions.invoke('guest-redeem-invite', {
         body: { token, email, password, first_name: firstName, last_name: lastName },
       });
-      if (error || data?.error) {
-        toast({ title: 'Rejestracja nieudana', description: data?.error || error?.message || 'Spróbuj ponownie.', variant: 'destructive' });
+
+      // Try to parse server-side message even on non-2xx
+      let payload: any = data;
+      if (error && (error as any)?.context?.response) {
+        try { payload = await (error as any).context.response.clone().json(); } catch { /* ignore */ }
+      }
+
+      if (error || payload?.error) {
+        const TITLES: Record<string, string> = {
+          email_exists: 'Konto już istnieje',
+          expired: 'Link wygasł',
+          exhausted: 'Limit wykorzystany',
+          inactive: 'Link wyłączony',
+          not_found: 'Link nie istnieje',
+          invalid_token: 'Nieprawidłowy link',
+          token_consumed_or_invalid: 'Link już wykorzystany',
+          invalid_email: 'Nieprawidłowy e-mail',
+          password_too_short: 'Hasło za krótkie',
+          missing_first_name: 'Brak imienia',
+          missing_token: 'Brak tokenu',
+          profile_upsert_failed: 'Błąd zapisu profilu',
+          create_failed: 'Nie udało się utworzyć konta',
+          resolve_failed: 'Błąd weryfikacji',
+        };
+        const code = payload?.code || payload?.error || 'unknown';
+        const message = payload?.message
+          || (typeof payload?.error === 'string' && payload.error.includes(' ') ? payload.error : null)
+          || 'Rejestracja nieudana. Spróbuj ponownie lub skontaktuj się z administratorem.';
+        toast({
+          title: TITLES[code] || 'Rejestracja nieudana',
+          description: message,
+          variant: 'destructive',
+        });
         setSubmitting(false);
         return;
       }
       setRegistered(true);
       setSubmitting(false);
     } catch (err: any) {
-      toast({ title: 'Błąd', description: String(err?.message || err), variant: 'destructive' });
+      toast({ title: 'Błąd połączenia', description: 'Nie udało się połączyć z serwerem. Sprawdź internet i spróbuj ponownie.', variant: 'destructive' });
       setSubmitting(false);
     }
   };
