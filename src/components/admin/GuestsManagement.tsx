@@ -11,6 +11,7 @@ import { Copy, Loader2, Plus, Trash2, RefreshCw, ExternalLink, Eye } from 'lucid
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import GuestRegistrationsPanel from './GuestRegistrationsPanel';
 
 // Available toggleable elements (whitelist of UI bits a guest may see)
 const SCHEMA: { scope: string; label: string; items: { key: string; label: string }[] }[] = [
@@ -462,7 +463,7 @@ const GuestUsersTab: React.FC = () => {
         )}
 
         <Dialog open={!!editingUser} onOpenChange={(o) => !o && setEditingUser(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Indywidualne ustawienia: {editingUser?.email}</DialogTitle>
             </DialogHeader>
@@ -474,6 +475,11 @@ const GuestUsersTab: React.FC = () => {
               <Button variant="outline" onClick={clearOverride}>Usuń nadpisania</Button>
               <Button onClick={saveOverride}>Zapisz</Button>
             </div>
+            {editingUser && (
+              <div className="mt-6">
+                <GuestRegistrationsPanel guestUserId={editingUser.id} />
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </CardContent>
@@ -495,10 +501,12 @@ const GuestsManagement: React.FC = () => {
           <TabsTrigger value="invites">Linki zaproszeń</TabsTrigger>
           <TabsTrigger value="global">Konfiguracja globalna</TabsTrigger>
           <TabsTrigger value="users">Lista gości</TabsTrigger>
+          <TabsTrigger value="registrations">Rejestracje gości</TabsTrigger>
         </TabsList>
         <TabsContent value="invites"><InviteLinksTab /></TabsContent>
         <TabsContent value="global"><GlobalConfigTab /></TabsContent>
         <TabsContent value="users"><GuestUsersTab /></TabsContent>
+        <TabsContent value="registrations"><GuestRegistrationsPanel /></TabsContent>
       </Tabs>
     </div>
   );

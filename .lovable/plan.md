@@ -1,57 +1,55 @@
 ## Cel
-Gość ma widzieć dodatkowo: sekcję „Zespół Pure Life" + „Kontakt" w stopce pulpitu, ikony przy pozycjach sidebara oraz pozycję „Eventy" w sidebarze. W /paid-events gość widzi tylko wydarzenia, które admin wyraźnie dla niego/grupy gości włączył (np. „Business Opportunity Meeting Łódź"). Po wejściu w wydarzenie widzi je tak jak partner — z możliwością wygenerowania własnego linku partnerskiego i podglądu własnego biletu.
+Gość (rola `guest`) generuje własny link partnerski do wydarzenia tak samo jak partner, widzi zapisanych przez ten link, a administrator widzi to w zakładce „Goście" w panelu admina.
+
+## Stan obecny
+- Tabela `paid_event_partner_links` (kolumny: `partner_user_id`, `form_id`, `event_id`, `ref_code`, `click_count`, `submission_count`) — już istnieje.
+- Tabela `event_form_submissions` (`partner_user_id`, `partner_link_id`, `form_id`, `event_id`, dane gościa, statusy) — już istnieje.
+- RLS pozwala każdemu zalogowanemu użytkownikowi tworzyć własny link (`auth.uid() = partner_user_id`) i czytać własne rejestracje — działa dla gościa bez zmian.
+- Komponent `MyEventFormLinks.tsx` i lista w `PaidEventsListPage.tsx` są zagatekowane na `isPartner || isAdmin` — gość jest blokowany.
+- W `GuestsManagement.tsx` brak widoku linków/rejestracji gościa.
+
+Brak migracji DB — wykorzystujemy istniejące tabele i polityki.
 
 ## Zmiany
 
-### 1. Stopka pulpitu (Zespół + Kontakt) — widoczna dla gościa
-`src/hooks/useGuestVisibility.ts`
-- W `DEFAULT_GLOBAL.widgets` ustawić `footer: true` (zamiast `false`).
-- Dodać nowe podflagi: `footerQuote: false`, `footerMap: false`, `footerTeam: true`, `footerContact: true`, `footerBottom: true` (bottom = pasek z logo/copyright/privacy/regulamin/cookies, BEZ „Zainstaluj aplikację" — `pwaInstall` pozostaje false).
-
-`src/components/dashboard/widgets/DashboardFooterSection.tsx`
-- Dodać `useGuestVisibility()`; gdy `guestActive`, ukrywać sekcje wg flag:
-  - cytat/misja → `footerQuote`
-  - mapa świata → `footerMap`
-  - Zespół Pure Life → `footerTeam`
-  - Kontakt → `footerContact`
-  - dolny pasek → `footerBottom`, a w nim przycisk „Zainstaluj aplikację" gated `pwaInstall`.
-
-### 2. Sidebar — ikony i pozycja „Eventy"
-`src/components/dashboard/DashboardSidebar.tsx`
-- Ikony już są renderowane dla wszystkich (gość je widzi). Brak zmiany kodu — potwierdzić podczas testu.
-- Dodać do `GUEST_ID_TO_KEY`: `'paid-events': 'paidEvents'`.
-- Dotychczasowe filtry (m.in. `isPaidEventsVisible`) muszą przepuścić gościa — patrz hook niżej.
-
-`src/hooks/useGuestVisibility.ts`
-- `sidebar.items`: dodać `paidEvents: true`.
-
-`src/hooks/usePaidEventsVisibility.ts` (jeśli ogranicza role)
-- Dodać obsługę roli `guest`: jeśli aktywny `guest` i flaga `sidebar.items.paidEvents` w guest config = true → moduł widoczny. (Implementacja: zwracać `true` gdy `userRole === 'guest'`; finalna gatekeeping per-event w punkcie 3.)
-
-### 3. /paid-events — whitelista wydarzeń per gość
-Wykorzystać istniejący `guest_visibility_overrides.config.events.items[eventId] = true` (oraz globalne `guest_visibility_global.config.events.items`).
+### 1. Odblokowanie linku partnerskiego dla gościa
+`src/components/paid-events/MyEventFormLinks.tsx`
+- `useAuth()` rozszerzyć o `isGuest`.
+- `enabled` w query → `!!user && (isPartner || isAdmin || isGuest)`.
+- Końcowy guard `if (!user || (!isPartner && !isAdmin && !isGuest) || forms.length === 0) return null;`.
+- Wymóg EQID: gość nie ma EQID — zmienić ref_code: jeśli brak `eq_id`, użyć stabilnego `g-<8-znaków-z-user.id>` (prefix `g-` jednoznacznie identyfikuje gościa-promotora). Walidacja unikalności — `upsert` po `(partner_user_id, form_id)` już zapewnia jeden link na formularz.
+- Tekst nagłówka pozostaje, ale w `headerDesc` dla gościa pokazać krótką notkę „Twój link rejestruje zaproszonych pod Tobą".
 
 `src/pages/PaidEventsListPage.tsx`
-- Pobrać `useGuestVisibility()`. Jeśli `guestActive`:
-  - Filtrować `upcomingEvents`/`pastEvents`: zachować tylko te, dla których `gv('events', event.id)` zwraca `true`.
-  - Ukryć sekcję „Zakończone" jeśli pusta (już jest taki guard).
-  - Nagłówek bez zmian.
+- `canSeeForms` już zawiera `isGuest` — bez zmian; weryfikacja, że sekcja `MyEventFormLinks` jest pokazywana również gościowi (po zmianach w pkt 1 będzie).
 
-### 4. Strona pojedynczego wydarzenia — bez zmian funkcjonalnych
-- Gość po kliknięciu „Zobacz" widzi standardową stronę wydarzenia (`/paid-events/:slug`) — ten sam komponent co partner.
-- Generowanie linku partnerskiego: w `PaidEventCard` / podstronie wydarzenia mechanizm linku partnerskiego dla zalogowanych użytkowników działa po `user.id` — gość (rola `guest`) ma `auth.users` id, więc otrzyma działający ref-link. Weryfikuję istniejący komponent „Mój link partnerski" i — jeżeli jest gated rolą (`isPartner`/`isAdmin`) — rozszerzam warunek o `userRole === 'guest'`.
-- „Mój bilet": panel `MyEventTicketsInline` w `PaidEventCard` działa po `user.id`, więc gość zobaczy własne bilety automatycznie. Bez zmian.
+### 2. Filtrowanie listy formularzy dla gościa
+`src/components/paid-events/MyEventFormLinks.tsx`
+- Pobrać `useGuestVisibility()`; jeśli `guestActive`, odfiltrować `forms` do tych, których `event_id` jest dozwolone przez `gv('events', form.event_id)` (spójne z istniejącym filtrem listy wydarzeń).
 
-### 5. Panel admina — edytor widoczności gościa
-`src/components/admin/guest-visibility/*` (jeśli istnieje)
-- Dodać przełączniki dla nowych kluczy: `widgets.footerTeam`, `widgets.footerContact`, `widgets.footerQuote`, `widgets.footerMap`, `widgets.footerBottom`, `sidebar.items.paidEvents`.
-- W zakładce „Eventy" dla gościa zapewnić listę wydarzeń płatnych z togglami → zapisuje do `guest_visibility_global.config.events.items` (globalnie dla wszystkich gości) oraz w edytorze per-user do `guest_visibility_overrides.config.events.items` (np. konkretny gość widzi tylko BOM Łódź).
+### 3. Widok rejestracji w panelu wydarzenia gościa
+Komponent `MyEventFormReferrals.tsx` już renderuje listę osób zapisanych przez link aktualnie zalogowanego użytkownika i działa generycznie po `auth.uid()`. Bez zmian.
+
+### 4. Panel administratora — zakładka „Goście"
+`src/components/admin/GuestsManagement.tsx`
+- W liście `guests` (`GuestsList`) dla każdego gościa dodać sekcję rozwijaną „Linki partnerskie i rejestracje" (Collapsible):
+  - Query A: `paid_event_partner_links` po `partner_user_id = guest.id` z joinem do `paid_events!event_id (title, event_date, location)` i `event_registration_forms!form_id (title, slug)`.
+  - Query B per link: `event_form_submissions` po `partner_link_id = link.id` (lub `partner_user_id = guest.id` zgrupowane po `form_id`) — pola: `first_name`, `last_name`, `email`, `phone`, `status`, `payment_status`, `created_at`.
+  - Renderować tabelkę: wydarzenie → tytuł formularza → URL linku (z przyciskiem „Kopiuj"), licznik kliknięć, licznik zapisanych, rozwijana lista zapisanych osób.
+  - Eksport XLSX rejestracji per gość (wzorzec z `LeaderEventRegistrationsView.tsx`).
+- Nowa pod-zakładka u góry zakładki „Goście" (jeśli są już zakładki) lub samodzielna karta na dole listy: „Podsumowanie rejestracji gości" — agregat wszystkich linków gości i ich rejestracji w jednej tabeli filtrowanej po wydarzeniu.
+
+### 5. Drobne porządki
+- W `useGuestVisibility.ts` upewnić się, że `sidebar.items.paidEvents = true` i schema admina pozwala administratorowi włączać konkretne wydarzenia per gość — to już zrobione w poprzedniej iteracji, tutaj tylko weryfikacja.
+- W `PaidEventsListPage` upewnić się, że gość po wejściu w wydarzenie widzi sekcję „Mój link partnerski" (komponent `MyEventFormLinks` z propem `eventId`) — wynika z pkt 1.
 
 ## Szczegóły techniczne
-- Brak migracji DB ani zmian RLS — używamy istniejących tabel `guest_visibility_global` i `guest_visibility_overrides` oraz scope `events` już zdefiniowanego w hooku.
-- Logika filtrowania w PaidEventsList korzysta z `isVisible('events', event.id, false)` — domyślnie ukryte; admin musi wprost włączyć każde wydarzenie dla gościa.
-- Ref-link partnerski opiera się o `?ref=<user_id>`/`?ref=<eq_id>` — sprawdzę istniejący helper i odblokuję dla roli `guest`.
+- Brak migracji DB i brak nowych edge functions.
+- Ref-code gościa: prefix `g-` + skrót `user.id` (deterministyczny, stabilny). Nie koliduje z EQID partnerów (te są numeryczne/alfanumeryczne bez prefiksu `g-`).
+- Statystyki (`click_count`, `submission_count`) inkrementują się istniejącym mechanizmem śledzenia kliknięć/submitów.
+- Powiązanie rejestracji z gościem-promotorem: zapisywane w `event_form_submissions.partner_user_id` przez istniejącą logikę formularza (zaczytuje ref z URL → `paid_event_partner_links` → `partner_user_id`).
 
 ## Out of scope
-- Mechanika prowizji od linku partnerskiego gościa (oddzielne ustawienie biznesowe — wymagałoby decyzji, czy gość uczestniczy w prowizjach).
-- Zmiany w mailingach / bilecie.
+- Prowizje finansowe od rejestracji gościa.
+- Zmiany szablonów maili.
+- Generowanie linku partnerskiego do form innych niż „event registration form" (np. webinarów).

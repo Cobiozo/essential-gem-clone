@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link2, Copy, Check, Users, MousePointer, FileText, Calendar, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useGuestVisibility } from '@/hooks/useGuestVisibility';
 import MyEventFormReferrals from './MyEventFormReferrals';
 
 interface MyEventFormLinksProps {
@@ -26,15 +27,18 @@ interface MyEventFormLinksProps {
  * Each partner can generate their own ref link tracking clicks + submissions per form.
  */
 export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, compact }) => {
-  const { user, isPartner, isAdmin } = useAuth();
+  const { user, isPartner, isAdmin, isGuest } = useAuth() as any;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { active: guestActive, isVisible: gvIsVisible } = useGuestVisibility();
+
+  const canUse = !!user && (isPartner || isAdmin || isGuest);
 
   // List of active forms with embedded paid_event data
-  const { data: forms = [] } = useQuery({
+  const { data: formsRaw = [] } = useQuery({
     queryKey: ['active-event-forms-public', eventId ?? 'all'],
-    enabled: !!user && (isPartner || isAdmin),
+    enabled: canUse,
     queryFn: async () => {
       let q = supabase
         .from('event_registration_forms')
@@ -47,6 +51,11 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
       return (data || []).filter((f: any) => f.paid_events?.is_published);
     },
   });
+
+  // For guests: restrict to events explicitly whitelisted via guest visibility
+  const forms = guestActive
+    ? formsRaw.filter((f: any) => gvIsVisible('events', f.event_id, false))
+    : formsRaw;
 
   // Existing partner links for current user
   const { data: myLinks = {} } = useQuery({
@@ -87,7 +96,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
   const generateLink = useMutation({
     mutationFn: async (form: any) => {
       if (!user?.id) throw new Error('Musisz być zalogowany');
-      // ref_code = EQID partnera, dzięki czemu z linku wprost wynika do kogo przypisać gościa
+      // ref_code: partner → EQID; gość (brak EQID) → deterministyczny prefiks "g-<8>" z user.id
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('eq_id')
@@ -95,10 +104,15 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
         .maybeSingle();
       if (profileErr) throw profileErr;
       const eqId = (profile?.eq_id || '').trim();
-      if (!eqId) {
-        throw new Error('Uzupełnij EQID w swoim profilu, aby wygenerować link partnerski.');
+      let refCode = eqId;
+      if (!refCode) {
+        if (isGuest) {
+          refCode = `g-${user.id.replace(/-/g, '').slice(0, 8)}`;
+        } else {
+          throw new Error('Uzupełnij EQID w swoim profilu, aby wygenerować link partnerski.');
+        }
       }
-      // Upsert po (partner_user_id, form_id) — jeden link na partnera/formularz, ref_code zawsze równy aktualnemu EQID
+      // Upsert po (partner_user_id, form_id) — jeden link na partnera/formularz
       const { data, error } = await supabase
         .from('paid_event_partner_links')
         .upsert(
@@ -106,7 +120,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
             partner_user_id: user.id,
             form_id: form.id,
             event_id: form.event_id,
-            ref_code: eqId,
+            ref_code: refCode,
           },
           { onConflict: 'partner_user_id,form_id' }
         )
@@ -133,7 +147,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
     }
   };
 
-  if (!user || (!isPartner && !isAdmin) || forms.length === 0) return null;
+  if (!canUse || forms.length === 0) return null;
 
   const headerTitle = eventId
     ? 'Twój link partnerski do formularza rejestracyjnego'
