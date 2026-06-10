@@ -18,6 +18,8 @@ const SCHEMA: { scope: string; label: string; items: { key: string; label: strin
     scope: 'sidebar', label: 'Pasek boczny',
     items: [
       { key: 'dashboard', label: 'Pulpit główny' },
+      { key: 'support', label: 'Wsparcie' },
+      { key: 'paidEvents', label: 'Eventy (lista wydarzeń)' },
       { key: 'news', label: 'Aktualności (News Hub)' },
       { key: 'knowledge', label: 'Baza wiedzy publiczna' },
     ],
@@ -49,11 +51,20 @@ const SCHEMA: { scope: string; label: string; items: { key: string; label: strin
   {
     scope: 'widgets', label: 'Widgety pulpitu',
     items: [
+      { key: 'calendar', label: 'Kalendarz wydarzeń' },
+      { key: 'calendarLegend', label: '↳ Legenda kolorów pod kalendarzem' },
       { key: 'newsBanner', label: 'Baner aktualności' },
       { key: 'infoBanners', label: 'Banery informacyjne' },
       { key: 'map', label: 'Mapa' },
       { key: 'newsTicker', label: 'Pasek wiadomości (ticker)' },
       { key: 'introVideo', label: 'Wideo powitalne' },
+      { key: 'footer', label: 'Sekcja stopki pulpitu (cała)' },
+      { key: 'footerQuote', label: '↳ Cytat / misja' },
+      { key: 'footerMap', label: '↳ Mapa świata społeczności' },
+      { key: 'footerTeam', label: '↳ Zespół Pure Life' },
+      { key: 'footerContact', label: '↳ Kontakt' },
+      { key: 'footerBottom', label: '↳ Pasek dolny (logo + linki)' },
+      { key: 'pwaInstall', label: '↳ Przycisk „Zainstaluj aplikację"' },
     ],
   },
 ];
