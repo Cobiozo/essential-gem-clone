@@ -119,10 +119,11 @@ Deno.serve(async (req) => {
     // Best-effort audit log
     try {
       await supabaseAdmin.from('admin_activity_log').insert({
-        actor_user_id: userId,
-        target_user_id: userId,
+        admin_user_id: userId,
         action_type: 'self_account_deletion',
-        action_details: `User ${user.email ?? userId} self-deleted their account.`,
+        action_description: `User ${user.email ?? userId} self-deleted their account.`,
+        target_table: 'auth.users',
+        target_id: userId,
       } as any);
     } catch (e) {
       console.warn('[self-delete-account] activity log insert failed', e);
