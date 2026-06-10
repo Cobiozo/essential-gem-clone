@@ -28,8 +28,9 @@ interface PaidEvent {
 
 const PaidEventsListPage: React.FC = () => {
   const { tf } = useLanguage();
-  const { user, isPartner, isAdmin } = useAuth();
-  const canSeeForms = !!user && (isPartner || isAdmin);
+  const { user, isPartner, isAdmin, isGuest } = useAuth();
+  const { active: guestActive, isVisible: gv } = useGuestVisibility();
+  const canSeeForms = !!user && (isPartner || isAdmin || isGuest);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ['paid-events-list'],
