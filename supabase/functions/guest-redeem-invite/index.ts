@@ -92,6 +92,19 @@ Deno.serve(async (req) => {
       return fail(400, known);
     }
 
+    // 1b. Pre-check email in profiles (catch orphan rows BEFORE Auth call)
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('user_id')
+      .ilike('email', email)
+      .maybeSingle();
+    if (existingProfile?.user_id) {
+      // Verify auth user still exists; either way, block and ask user to contact admin
+      const { data: authUserCheck } = await admin.auth.admin.getUserById(existingProfile.user_id).catch(() => ({ data: null } as any));
+      console.warn('guest-redeem-invite: email already in profiles', { email, hasAuth: !!authUserCheck?.user });
+      return fail(409, 'email_exists_contact_admin');
+    }
+
     // 2. Create auth user (email NOT confirmed)
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
