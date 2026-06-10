@@ -31,7 +31,7 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     queryFn: async () => {
       let q = supabase
         .from('event_form_submissions')
-        .select('id, first_name, last_name, email, phone, payment_status, status, email_confirmed_at, created_at, form_id, event_id')
+        .select('id, first_name, last_name, email, phone, payment_status, status, email_confirmed_at, created_at, form_id, event_id, paid_events:event_id ( is_free )')
         .eq('partner_user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -67,6 +67,12 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
     return <Badge variant="secondary">Oczekuje płatności</Badge>;
   };
 
+  const freeBadge = (row: any) => {
+    if (row.status === 'cancelled') return <Badge variant="destructive">Anulowane</Badge>;
+    if (row.email_confirmed_at) return <Badge className="bg-green-600 hover:bg-green-700">Potwierdzony</Badge>;
+    return <Badge variant="secondary" className="bg-yellow-500/15 text-yellow-700 border-yellow-500/30">Oczekuje potwierdzenia adresu e-mail</Badge>;
+  };
+
   return (
     <div className="overflow-x-auto -mx-2 px-2">
       <table className="w-full text-xs">
@@ -98,7 +104,7 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
                   <Badge variant="outline">Czeka</Badge>
                 )}
               </td>
-              <td className="py-2 pr-2">{paymentBadge(r.payment_status, r.status)}</td>
+              <td className="py-2 pr-2">{r.paid_events?.is_free ? freeBadge(r) : paymentBadge(r.payment_status, r.status)}</td>
             </tr>
           ))}
         </tbody>
