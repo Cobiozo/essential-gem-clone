@@ -87,8 +87,11 @@ const PaidEventsListPage: React.FC = () => {
   });
 
   const now = new Date();
-  const upcomingEvents = events?.filter(e => new Date(e.event_date) >= now) || [];
-  const pastEvents = events?.filter(e => new Date(e.event_date) < now) || [];
+  const visibleEvents = guestActive
+    ? (events || []).filter((e) => gv('events', e.id, false))
+    : (events || []);
+  const upcomingEvents = visibleEvents.filter(e => new Date(e.event_date) >= now);
+  const pastEvents = visibleEvents.filter(e => new Date(e.event_date) < now);
 
   if (isLoading) {
     return (
