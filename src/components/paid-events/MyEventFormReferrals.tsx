@@ -104,7 +104,7 @@ export const MyEventFormReferrals: React.FC<MyEventFormReferralsProps> = ({ form
                   <Badge variant="outline">Czeka</Badge>
                 )}
               </td>
-              <td className="py-2 pr-2">{paymentBadge(r.payment_status, r.status)}</td>
+              <td className="py-2 pr-2">{r.paid_events?.is_free ? freeBadge(r) : paymentBadge(r.payment_status, r.status)}</td>
             </tr>
           ))}
         </tbody>
