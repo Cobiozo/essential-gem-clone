@@ -1391,16 +1391,6 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm leading-relaxed">
-            Po usunięciu konto i dane osobowe zostaną <strong>trwale</strong>{' '}
-            wykasowane. Historia rejestracji na wydarzenia oraz zamówień zostanie
-            zachowana w panelu administratora w formie zanonimizowanej (bez
-            powiązania z Twoim profilem). Operacja jest{' '}
-            <strong>nieodwracalna</strong>.
-          </AlertDescription>
-        </Alert>
 
         <AlertDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmEmail(''); }}>
           <AlertDialogTrigger asChild>
