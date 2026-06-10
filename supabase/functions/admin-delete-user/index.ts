@@ -122,8 +122,24 @@ Deno.serve(async (req) => {
       console.log(`Marked team contacts for user ${userId} as deleted`);
     }
 
+    // Anonymize references in event-related tables BEFORE deleting the auth user.
+    // This preserves registrations / orders / invite links produced via the deleted
+    // user (e.g. a Gość PLC invite link), while detaching them from the removed account.
+    const anonymizeOps: Array<Promise<any>> = [
+      supabaseAdmin.from('event_form_submissions').update({ partner_user_id: null }).eq('partner_user_id', userId),
+      supabaseAdmin.from('paid_event_orders').update({ user_id: null }).eq('user_id', userId),
+      supabaseAdmin.from('guest_event_registrations').update({ invited_by_user_id: null }).eq('invited_by_user_id', userId),
+      supabaseAdmin.from('user_reflinks').update({ creator_user_id: null }).eq('creator_user_id', userId),
+      supabaseAdmin.from('guest_invite_links').update({ created_by: null }).eq('created_by', userId),
+    ];
+    const anonResults = await Promise.allSettled(anonymizeOps);
+    anonResults.forEach((r, i) => {
+      if (r.status === 'rejected') console.warn(`anonymize op #${i} failed`, r.reason);
+    });
+
     // Delete the user from auth.users
-    // This will cascade delete related records in profiles and user_roles tables
+    // FK columns to auth.users are now ON DELETE SET NULL for event-related tables;
+    // profiles and user_roles remain ON DELETE CASCADE so the account is removed cleanly.
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {

@@ -180,12 +180,39 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     }));
 
   const submissions = React.useMemo(
-    () =>
-      [...submissionRows, ...orderRows].sort(
+    () => {
+      const merged = [...submissionRows, ...orderRows].sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
+      );
+      // Safety dedupe: collapse rows that share the same email (case-insensitive)
+      // when one is a form submission and the other is a leftover order row.
+      // Keeps the submission row (it already carries __linkedOrderId / status).
+      const seenEmails = new Map<string, any>();
+      const out: any[] = [];
+      for (const row of merged) {
+        const key = (row.email || '').toLowerCase().trim();
+        if (!key) { out.push(row); continue; }
+        const prior = seenEmails.get(key);
+        if (!prior) {
+          seenEmails.set(key, row);
+          out.push(row);
+          continue;
+        }
+        // Prefer the submission row over the order row; drop the duplicate.
+        if (row.__source === 'order' && prior.__source !== 'order') continue;
+        if (prior.__source === 'order' && row.__source !== 'order') {
+          const idx = out.indexOf(prior);
+          if (idx >= 0) out.splice(idx, 1, row);
+          seenEmails.set(key, row);
+          continue;
+        }
+        // Same source duplicate (rare) — keep the newer (already first in merged).
+      }
+      return out;
+    },
     [submissionRows, orderRows],
   );
+
 
 
   // Fetch partner profiles for badges

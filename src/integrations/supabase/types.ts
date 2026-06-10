@@ -3212,7 +3212,7 @@ export type Database = {
           status: string | null
           thank_you_sent: boolean | null
           thank_you_sent_at: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           cancelled_at?: string | null
@@ -3235,7 +3235,7 @@ export type Database = {
           status?: string | null
           thank_you_sent?: boolean | null
           thank_you_sent_at?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           cancelled_at?: string | null
@@ -3258,7 +3258,7 @@ export type Database = {
           status?: string | null
           thank_you_sent?: boolean | null
           thank_you_sent_at?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -10629,7 +10629,7 @@ export type Database = {
         Row: {
           click_count: number
           created_at: string
-          creator_user_id: string
+          creator_user_id: string | null
           expires_at: string
           id: string
           is_active: boolean
@@ -10641,7 +10641,7 @@ export type Database = {
         Insert: {
           click_count?: number
           created_at?: string
-          creator_user_id: string
+          creator_user_id?: string | null
           expires_at?: string
           id?: string
           is_active?: boolean
@@ -10653,7 +10653,7 @@ export type Database = {
         Update: {
           click_count?: number
           created_at?: string
-          creator_user_id?: string
+          creator_user_id?: string | null
           expires_at?: string
           id?: string
           is_active?: boolean
