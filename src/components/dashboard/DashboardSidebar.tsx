@@ -133,7 +133,7 @@ export const DashboardSidebar: React.FC = () => {
   const { t, tf, language } = useLanguage();
   const { canAccess: canVerifyTickets } = useTicketVerifierAccess();
   const { hasAnyAdminAccess, isModerator } = useModeratorAccess();
-  const { isGuest, isVisible: gv, active: guestActive } = useGuestVisibility();
+  const { isGuest, isVisible: gv, active: guestActive, loading: guestLoading } = useGuestVisibility();
 
   // Fallback map for menu labels (used when DB translations are missing)
   const menuLabelFallbacks: Record<string, string> = {
