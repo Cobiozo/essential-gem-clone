@@ -151,7 +151,7 @@ export const MyEventFormLinks: React.FC<MyEventFormLinksProps> = ({ eventId, com
 
   const headerTitle = eventId
     ? 'Twój link zapraszający na to wydarzenie'
-    : 'Moje linki partnerskie do formularzy rejestracyjnych';
+    : 'Moje linki zapraszające na wydarzenia';
   const headerDesc = eventId
     ? 'Udostępniaj swój link, aby zapraszać gości na to wydarzenie. Statystyki (kliknięcia, zapisani) liczone są indywidualnie.'
     : 'Udostępniaj poniższe linki, aby zapraszać gości na wydarzenia. Statystyki zaproszeń (kliknięcia, zapisani) liczone są indywidualnie dla każdego linku.';

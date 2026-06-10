@@ -389,7 +389,7 @@ export const EventTicketsPanel: React.FC<EventTicketsPanelProps> = ({
                     {(() => {
                       const aud = (getEditingValue(ticket.id, 'audience', ticket.audience ?? 'all') as AudienceOption);
                       if (aud === 'logged_in') return 'Bilet widoczny tylko dla zalogowanych użytkowników.';
-                      if (aud === 'guest_only') return 'Bilet widoczny tylko dla niezalogowanych odwiedzających, którzy weszli przez link partnerski (URL z ?ref=...).';
+                      if (aud === 'guest_only') return 'Bilet widoczny tylko dla niezalogowanych odwiedzających, którzy weszli przez link zapraszający (URL z ?ref=...).';
                       return 'Bilet widoczny dla wszystkich.';
                     })()}
                   </p>
