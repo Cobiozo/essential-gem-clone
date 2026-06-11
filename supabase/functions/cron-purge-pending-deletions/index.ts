@@ -1,5 +1,7 @@
 // Daily CRON: permanently delete accounts whose deletion_scheduled_at has passed.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { stampAccountDeletionOnTickets } from '../_shared/account-deletion-stamp.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
