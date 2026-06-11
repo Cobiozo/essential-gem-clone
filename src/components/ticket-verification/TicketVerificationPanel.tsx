@@ -335,7 +335,20 @@ export const TicketVerificationPanel: React.FC = () => {
           checked_in: !!data.checkedIn,
           checkInStartsAt: data.checkInStartsAt || null,
           eventId: verifiedEventId,
+          accountDeleted: !!data.accountDeleted,
+          accountDeletedAt: data.accountDeletedAt || null,
+          accountDeletedAction: data.accountDeletedAction || null,
+          accountDeletedSnapshot: data.accountDeletedSnapshot || null,
         });
+
+        if (data.accountDeleted) {
+          toast({
+            title: 'Konto zostało usunięte',
+            description: 'Bilet jest ważny, ale konto przypisane do biletu zostało usunięte z platformy.',
+            variant: 'destructive',
+          });
+        }
+
 
         // Warn if ticket belongs to different event than selected
         if (selectedEventId && verifiedEventId && verifiedEventId !== selectedEventId) {
