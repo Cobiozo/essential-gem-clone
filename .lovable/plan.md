@@ -1,53 +1,77 @@
-## Problem
+## Zmiana
 
-Dialog szczegółów spotkania (`src/components/events/EventDetailsDialog.tsx`) dla `partner_consultation` i `tripartite_meeting` pokazuje sekcję „Dane konsultacji / Dane spotkania trójstronnego" z polami zapisanymi w `events.description` (JSON). Dla konsultacji partnerskich JSON zawiera tylko `consultation_purpose` i `booking_notes` — nie ma w ogóle informacji **kto zarezerwował** spotkanie. Lider widzący „Konsultacje dla partnerów" w swoim kalendarzu nie wie, z kim ma to spotkanie.
+W dialogu „Potwierdź usunięcie konta" (`src/pages/MyAccount.tsx`, komponent `DeleteAccountCard`) zastępujemy potwierdzenie przez wpisanie e-maila — potwierdzeniem przez **hasło do konta**. Dodatkowo użytkownik otrzymuje e-mail potwierdzający zgłoszenie usunięcia.
 
-Symetrycznie partner-rezerwujący widzi pole „Prowadzący" — to działa, bo `event.host_profile` jest dociągane.
+## 1. Dialog (frontend)
 
-Brakuje danych „rezerwującego" partnera. W bazie tę informację mamy: `events.created_by` = `user.id` partnera, który wykonał rezerwację (`PartnerMeetingBooking.tsx:671`).
-
-## Rozwiązanie
-
-W `EventDetailsDialog.tsx`:
-
-1. Dla `event.event_type ∈ {partner_consultation, tripartite_meeting}` dociągnąć profil rezerwującego z `profiles` po `events.created_by` (osobny `useEffect`, analogicznie do istniejącego pobierania `zoom_link`):
-
-```ts
-const [bookerProfile, setBookerProfile] = useState<{ first_name, last_name, phone_number, email } | null>(null);
-```
-
-Pobranie tylko gdy `created_by !== host_user_id` (żeby nie duplikować) i tylko dla powyższych typów. Pole `email` z `profiles` (jeśli brak, fallback do `get-user-emails` pomijamy — wystarczy imię, nazwisko, telefon).
-
-2. W sekcji „Dane konsultacji / Dane spotkania trójstronnego" dodać wiersz **„Rezerwujący"** (ikona `User`) z imieniem i nazwiskiem rezerwującego — pokazywany tylko gdy:
-   - aktualny `user.id` (`useAuth`) === `event.host_user_id` (czyli widzimy spotkanie jako prowadzący), **lub**
-   - widz jest adminem (drugi przypadek: nie pogarszamy admin UX).
-   
-   Pod wierszem opcjonalnie telefon (jeśli `bookerProfile.phone_number`).
-
-3. Zachować istniejący wiersz „Prowadzący" — dla rezerwującego (`user.id === event.created_by`) to już pokazuje dane lidera prowadzącego spotkanie (z `event.host_profile`).
-
-4. Dla `partner_consultation` aktualnie sekcja „Dane konsultacji" wyświetla się tylko gdy `prospectData` udało się sparsować z JSON. To OK — dla konsultacji partnerskich JSON istnieje (zawiera `consultation_purpose`), więc sekcja będzie widoczna.
-
-5. Dla `tripartite_meeting` rezerwujący jest osobny od prospekta (gość spoza systemu). Wiersz „Rezerwujący" też pasuje — pokazuje partnera, który stworzył spotkanie (oprócz pól prospekta).
-
-### Wynikowy układ sekcji (lider patrzący na konsultację)
+Tekst:
 
 ```
-Dane konsultacji
-  Prowadzący: <host_profile>   (już jest)
-  Rezerwujący: <booker_profile>  ← nowe
-  Telefon: <booker.phone>        ← nowe (jeśli jest)
-  Cel: <consultation_purpose>
-  Notatki: <booking_notes>
+Potwierdź usunięcie konta
+Ta operacja jest nieodwracalna. Twoje konto i wszystkie dane zostaną trwale usunięte.
+
+Aby potwierdzić, wpisz poniżej hasło do konta powiązanego z adresem e-mail:
+<userEmail>
+
+[ Wpisz hasło ]   ← <Input type="password" />
+
+Po potwierdzeniu usunięcia konta otrzymasz wiadomość e-mail z potwierdzeniem tej operacji.
+
+[ Anuluj ]  [ Usuń konto ]
 ```
 
-Rezerwujący patrzący na to samo spotkanie widzi standardowo „Prowadzący: <lider>" — bez zmian.
+Zmiany w `DeleteAccountCard`:
+- `confirmEmail` → `password` (string state, reset przy zamknięciu dialogu).
+- Usuwamy walidację `matches` po e-mailu. Przycisk „Usuń konto" jest aktywny gdy `password.length > 0 && !submitting`.
+- W `handleDelete` przed wywołaniem edge function weryfikujemy hasło:
+  ```ts
+  const { error: pwErr } = await supabase.auth.signInWithPassword({
+    email: userEmail,
+    password,
+  });
+  if (pwErr) {
+    toast({ title: 'Błędne hasło', description: 'Wpisane hasło jest nieprawidłowe.', variant: 'destructive' });
+    setSubmitting(false);
+    return;
+  }
+  ```
+  (To ponownie ustanawia sesję dla bieżącego użytkownika — bez efektów ubocznych. Edge function dalej weryfikuje JWT.)
+- Po pomyślnym wywołaniu `self-delete-account` zostaje istniejąca logika `signOut` + `window.location.replace('/konto-usuniete')`.
+
+Pole hasła używa `type="password"`, `autoComplete="current-password"`, `autoFocus`. `<Input>` z istniejących komponentów UI.
+
+## 2. E-mail potwierdzający do użytkownika (backend)
+
+W `supabase/functions/self-delete-account/index.ts` po sekcji powiadomień adminów dodać wysłanie e-maila do **użytkownika** (na `email` z profilu / `user.email`). Treść po polsku, w `brandedEmailLayout`:
+
+```
+Temat: Pure Life Center — potwierdzenie zgłoszenia usunięcia konta
+
+Cześć <imię lub e-mail>,
+
+Otrzymaliśmy zgłoszenie usunięcia Twojego konta w Pure Life Center.
+
+Data zgłoszenia: <data UTC>
+Trwałe usunięcie zaplanowano na: <data, za 30 dni>
+
+Przez najbliższe 30 dni możesz cofnąć tę decyzję — skontaktuj się z administracją,
+aby przywrócić konto. Po tym terminie konto i wszystkie powiązane dane
+zostaną nieodwracalnie usunięte.
+
+Jeśli to nie Ty zgłosiłeś usunięcie konta, natychmiast zmień hasło
+i skontaktuj się z administracją.
+```
+
+Wysyłka przez istniejący helper `sendMail` (sekwencyjnie po e-mailach adminów). Błąd wysyłki tylko logujemy (`console.warn`) — nie blokuje sukcesu operacji.
 
 ## Pliki do zmiany
 
-- `src/components/events/EventDetailsDialog.tsx`
-  - dodać import `useAuth` z `@/contexts/AuthContext`
-  - dodać `useState` + `useEffect` pobierający `bookerProfile` z `profiles` po `event.created_by`
-  - rozszerzyć sekcję z `prospectData` o wiersze „Rezerwujący" + telefon, warunkowo gdy `user?.id === event.host_user_id` (lub admin)
+- `src/pages/MyAccount.tsx` — komponent `DeleteAccountCard`:
+  - stan `password` zamiast `confirmEmail`,
+  - nowy tekst opisu + dopisek o e-mailu potwierdzającym,
+  - `<Input type="password" />` zamiast `type="email"`,
+  - weryfikacja hasła przez `supabase.auth.signInWithPassword` przed wywołaniem edge function.
+- `supabase/functions/self-delete-account/index.ts`:
+  - dodać wysyłkę e-maila potwierdzającego do użytkownika po zapisaniu zgłoszenia.
 
-Brak zmian w bazie, edge functions ani w komponencie rezerwacji.
+Brak zmian w bazie i RLS.

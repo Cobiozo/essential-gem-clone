@@ -162,9 +162,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4) Confirmation email to the user themselves.
+    if (email) {
+      try {
+        const greetingName = (profile as any)?.first_name || fullName || email;
+        const userHtml = brandedEmailLayout('Potwierdzenie zgłoszenia usunięcia konta', `
+          <p>Cześć ${greetingName},</p>
+          <p>Otrzymaliśmy zgłoszenie usunięcia Twojego konta w Pure Life Center.</p>
+          <p><strong>Data zgłoszenia:</strong> ${now.toISOString().slice(0,16).replace('T',' ')} UTC<br/>
+             <strong>Trwałe usunięcie zaplanowano na:</strong> ${scheduled.toISOString().slice(0,10)} (za ${DAYS_UNTIL_PURGE} dni)</p>
+          <p>Przez najbliższe ${DAYS_UNTIL_PURGE} dni możesz cofnąć tę decyzję — skontaktuj się z administracją, aby przywrócić konto. Po tym terminie konto i wszystkie powiązane dane zostaną nieodwracalnie usunięte.</p>
+          <p><strong>Jeśli to nie Ty zgłosiłeś usunięcie konta</strong>, natychmiast zmień hasło i skontaktuj się z administracją.</p>
+        `);
+        const r = await sendMail({
+          to: email,
+          subject: 'Pure Life Center — potwierdzenie zgłoszenia usunięcia konta',
+          html: userHtml,
+        });
+        if (!r.success) console.warn('[self-delete-account] user confirmation mail failed', email, r.error);
+      } catch (e) {
+        console.warn('[self-delete-account] user confirmation mail exception', e);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, scheduledAt }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error: any) {
     console.error('[self-delete-account] error', error);
     return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {

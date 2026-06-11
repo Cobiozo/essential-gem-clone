@@ -1328,16 +1328,30 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
 }) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [confirmEmail, setConfirmEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const expected = (userEmail || '').trim().toLowerCase();
-  const matches = !!expected && confirmEmail.trim().toLowerCase() === expected;
+  const canSubmit = password.length > 0 && !submitting && !!userEmail;
 
   const handleDelete = async () => {
-    if (!matches || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
+      // 1) Verify password by re-authenticating the current user.
+      const { error: pwErr } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password,
+      });
+      if (pwErr) {
+        toast({
+          title: 'Błędne hasło',
+          description: 'Wpisane hasło jest nieprawidłowe.',
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         'self-delete-account',
         { body: {} },
@@ -1374,6 +1388,8 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
     }
   };
 
+
+
   if (isAdmin) {
     return (
       <Card className="mt-6 border-destructive/40">
@@ -1403,7 +1419,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
       </CardHeader>
       <CardContent className="space-y-4">
 
-        <AlertDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setConfirmEmail(''); }}>
+        <AlertDialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setPassword(''); }}>
           <AlertDialogTrigger asChild>
             <Button variant="destructive">
               <Trash2 className="w-4 h-4 mr-2" />
@@ -1418,21 +1434,25 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
                   Ta operacja jest <strong>nieodwracalna</strong>. Twoje konto i wszystkie dane zostaną trwale usunięte.
                 </span>
                 <span className="block">
-                  Aby potwierdzić, wpisz poniżej swój adres e-mail:
+                  Aby potwierdzić, wpisz poniżej hasło do konta powiązanego z adresem e-mail:
                 </span>
                 <span className="block font-medium text-foreground">
                   {userEmail || '—'}
                 </span>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="py-2">
+            <div className="py-2 space-y-2">
               <Input
-                type="email"
-                autoComplete="off"
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                placeholder="Wpisz swój e-mail"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Wpisz hasło"
               />
+              <p className="text-sm text-muted-foreground">
+                Po potwierdzeniu usunięcia konta otrzymasz wiadomość e-mail z potwierdzeniem tej operacji.
+              </p>
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={submitting}>Anuluj</AlertDialogCancel>
@@ -1441,7 +1461,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
                   e.preventDefault();
                   handleDelete();
                 }}
-                disabled={!matches || submitting}
+                disabled={!canSubmit}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {submitting ? 'Usuwanie…' : 'Usuń konto'}
@@ -1449,6 +1469,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
       </CardContent>
     </Card>
   );
