@@ -17,7 +17,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { getTimezoneAbbr, getUserTimezone, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+
 
 interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
