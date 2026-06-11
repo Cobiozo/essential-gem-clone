@@ -585,6 +585,7 @@ const PaidEventPage: React.FC = () => {
                 showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 alreadyRegistered={hasOwnTicket && !isAdmin}
+                alreadyRegisteredLoading={!!user && !isAdmin && hasOwnTicketLoading}
                 allowAttendeeInvites={!!(event as any).allow_attendee_invites}
                 inviteUrl={
                   registrationForm
@@ -620,6 +621,7 @@ const PaidEventPage: React.FC = () => {
         paymentMethodPaypal={!drawerIsFree && drawerPaypal}
         transferPaymentDetails={(event as any).transfer_payment_details ?? null}
         refCode={refCodeFromUrl ?? myRefCode ?? null}
+        alreadyRegistered={hasOwnTicket && !isAdmin}
         allowAttendeeInvites={!!(event as any).allow_attendee_invites}
         inviteUrl={
           registrationForm
