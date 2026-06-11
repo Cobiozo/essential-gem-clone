@@ -69,6 +69,24 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     if (event) fetchDynamicZoomLink();
   }, [event]);
 
+  // Fetch booker (rezerwujący) profile for individual meetings
+  useEffect(() => {
+    setBookerProfile(null);
+    const fetchBooker = async () => {
+      if (!event?.created_by) return;
+      if (!['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) return;
+      if (event.created_by === event.host_user_id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone_number, email')
+        .eq('user_id', event.created_by)
+        .maybeSingle();
+      if (data) setBookerProfile(data as any);
+    };
+    if (event) fetchBooker();
+  }, [event]);
+
+
   if (!event) return null;
 
   // Parse prospect data from description for individual meetings
