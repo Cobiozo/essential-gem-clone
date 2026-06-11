@@ -18,7 +18,7 @@ interface Props {
 
 type LinkRow = {
   id: string;
-  partner_user_id: string;
+  partner_user_id: string | null;
   form_id: string;
   event_id: string;
   ref_code: string;
@@ -26,6 +26,14 @@ type LinkRow = {
   submission_count: number;
   is_active: boolean;
   created_at: string;
+  partner_deleted_at?: string | null;
+  partner_snapshot?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    roles?: string[];
+    action?: string;
+  } | null;
   event_registration_forms?: { title: string; slug: string } | null;
   paid_events?: { title: string; event_date: string | null; location: string | null } | null;
 };
