@@ -57,19 +57,35 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
       });
       if (error) {
         console.error('[my-event-tickets-inline] rpc failed, fallback to direct query', error);
-        const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
-        const { data: fb, error: fbErr } = await supabase
-          .from('paid_event_orders')
-          .select(`
+        // Match by user_id (own orders) OR by email but only for guest orders not yet
+        // linked to any account. Always exclude rows tied to deleted/anonymized accounts
+        // so a recycled email never inherits the previous owner's tickets.
+        const selectCols = `
             id, quantity, total_amount, status, created_at, email, ticket_code,
             ticket:paid_event_tickets!paid_event_orders_ticket_id_fkey(name, seats_per_ticket),
             attendees:paid_event_order_attendees(id, seat_index, first_name, last_name, email, ticket_code)
-          `)
+          `;
+        const ownQ = supabase
+          .from('paid_event_orders')
+          .select(selectCols)
           .eq('event_id', eventId)
-          .or(orParts.join(','))
-          .order('created_at', { ascending: false });
-        if (fbErr) throw fbErr;
-        return Array.from(new Map(((fb as any[]) || []).map((o) => [o.id, o])).values());
+          .eq('user_id', user!.id)
+          .is('account_deleted_at', null);
+        const emailQ = emails.length > 0
+          ? supabase
+              .from('paid_event_orders')
+              .select(selectCols)
+              .eq('event_id', eventId)
+              .is('user_id', null)
+              .is('account_deleted_at', null)
+              .in('email', emails)
+          : null;
+        const [ownRes, emailRes] = await Promise.all([ownQ, emailQ ?? Promise.resolve({ data: [], error: null } as any)]);
+        if (ownRes.error) throw ownRes.error;
+        if (emailRes.error) throw emailRes.error;
+        const merged = [...(ownRes.data || []), ...(emailRes.data || [])];
+        return Array.from(new Map(merged.map((o: any) => [o.id, o])).values())
+          .sort((a: any, b: any) => (b.created_at || '').localeCompare(a.created_at || ''));
       }
       const rows = (data as any[]) || [];
       return rows.map((r) => ({
@@ -97,6 +113,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         .eq('event_id', eventId)
         .in('email', emails)
         .eq('status', 'active')
+        .is('account_deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
