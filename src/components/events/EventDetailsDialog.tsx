@@ -314,6 +314,32 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                       <span className="font-medium">{hostDisplayName}</span>
                     </div>
                   )}
+                  {bookerProfile && (user?.id === event.host_user_id || isAdmin) && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">Rezerwujący:</span>
+                        <span className="font-medium">
+                          {`${bookerProfile.first_name ?? ''} ${bookerProfile.last_name ?? ''}`.trim() || bookerProfile.email || '—'}
+                        </span>
+                      </div>
+                      {bookerProfile.phone_number && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">Telefon:</span>
+                          <span className="font-medium">{bookerProfile.phone_number}</span>
+                        </div>
+                      )}
+                      {bookerProfile.email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">{bookerProfile.email}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {prospectFullName && (
                     <div className="flex items-center gap-2 text-sm">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
