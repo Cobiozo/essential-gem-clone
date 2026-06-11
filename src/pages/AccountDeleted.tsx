@@ -21,12 +21,13 @@ const AccountDeleted: React.FC = () => {
 
           <div className="space-y-2">
             <h1 className="text-2xl font-semibold">
-              Twoje konto zostało usunięte
+              Konto zgłoszone do usunięcia
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Sesja została zakończona. Wszystkie Twoje dane osobowe
-              zostały trwale usunięte z systemu. Dziękujemy za korzystanie
-              z platformy.
+              Sesja została zakończona. Twoje konto zostało zablokowane, a dane
+              zostaną trwale usunięte z systemu po 30 dniach.
+              Jeśli chcesz cofnąć decyzję w tym czasie — skontaktuj się
+              z administratorem.
             </p>
           </div>
 

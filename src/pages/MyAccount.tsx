@@ -1387,7 +1387,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
           Usuń konto
         </CardTitle>
         <CardDescription>
-          Trwałe usunięcie Twojego konta z platformy.
+          Zgłoszenie usunięcia konta. Po zatwierdzeniu konto zostanie zablokowane, a dane trwale usunięte po 30 dniach. W tym oknie administrator może je przywrócić.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -1401,10 +1401,14 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Potwierdź usunięcie konta</AlertDialogTitle>
+              <AlertDialogTitle>Potwierdź zgłoszenie usunięcia konta</AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
                 <span className="block">
-                  Aby potwierdzić usunięcie, wpisz poniżej swój adres e-mail:
+                  Twoje konto zostanie natychmiast zablokowane, a dane trwale usunięte za <strong>30 dni</strong>.
+                  W tym czasie administrator może przywrócić konto na Twoją prośbę.
+                </span>
+                <span className="block">
+                  Aby potwierdzić, wpisz poniżej swój adres e-mail:
                 </span>
                 <span className="block font-medium text-foreground">
                   {userEmail || '—'}
@@ -1430,7 +1434,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
                 disabled={!matches || submitting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {submitting ? 'Usuwanie...' : 'Usuń trwale'}
+                {submitting ? 'Wysyłanie…' : 'Zgłoś usunięcie konta'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

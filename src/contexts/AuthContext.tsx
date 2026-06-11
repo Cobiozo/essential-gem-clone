@@ -185,6 +185,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Account-pending-deletion guard: profile exists but deletion_status is 'pending'
+      // (user soft-deleted themselves). Block login and bounce to /konto-usuniete.
+      const profData: any = profileResult.data;
+      if (profData && profData.deletion_status === 'pending') {
+        console.warn('[Auth] Account pending deletion – forcing logout');
+        userInitiatedSignOutRef.current = true;
+        try { await supabase.auth.signOut(); } catch (e) { console.warn('[Auth] signOut pending-deletion failed', e); }
+        if (typeof window !== 'undefined' && window.location.pathname !== '/konto-usuniete') {
+          window.location.replace('/konto-usuniete');
+        }
+        return;
+      }
+
 
       if (profileResult.error) {
         console.error('Error fetching profile:', profileResult.error);
