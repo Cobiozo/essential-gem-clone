@@ -19,7 +19,7 @@ export function useLeaderTeamMembers() {
   const { user, profile } = useAuth();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['leader-team-members', user?.id],
+    queryKey: ['leader-team-members', user?.id, profile?.eq_id],
     queryFn: async () => {
       if (!profile?.eq_id) return [];
 
@@ -32,7 +32,8 @@ export function useLeaderTeamMembers() {
       return (data || []) as TeamMember[];
     },
     enabled: !!user && !!profile?.eq_id,
-    staleTime: 2 * 60 * 1000, // 2 minutes cache
+    staleTime: 30 * 1000, // 30 seconds — keep team list fresh
+    refetchOnWindowFocus: true,
   });
 
   const allMembers = data || [];

@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderTeamMembers } from '@/hooks/useLeaderTeamMembers';
-import { Search, Loader2, UserCheck, Users, Radio, GraduationCap } from 'lucide-react';
+import { Search, Loader2, UserCheck, Users, Radio, GraduationCap, RefreshCw } from 'lucide-react';
 
 const SZYBKI_START_MODULE_ID = '7ba86537-309a-479a-a4d2-d8636acb2148';
 
@@ -23,29 +25,34 @@ interface TeamMemberAccess {
 
 const LeaderAutoWebinarAccessView: React.FC = () => {
   const { toast } = useToast();
-  const { teamMembers, loading: teamLoading } = useLeaderTeamMembers();
+  const { profile } = useAuth();
+  const { teamMembers, loading: teamLoading, refetch: refetchTeam } = useLeaderTeamMembers();
   const [accessMap, setAccessMap] = useState<Map<string, boolean>>(new Map());
   const [certMap, setCertMap] = useState<Map<string, boolean>>(new Map());
   const [permLoading, setPermLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
-  const permissionsLoaded = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const teamIdsKey = teamMembers.map(m => m.id).sort().join(',');
 
   useEffect(() => {
     if (teamLoading) return;
-    if (permissionsLoaded.current) return;
     if (teamMembers.length === 0) {
+      setAccessMap(new Map());
+      setCertMap(new Map());
       setPermLoading(false);
       return;
     }
     loadPermissions();
-  }, [teamLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamLoading, teamIdsKey]);
 
   const loadPermissions = async () => {
     setPermLoading(true);
     try {
       const userIds = teamMembers.map(m => m.id);
-      
+
       const permResult = await supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds });
 
       if (permResult.error) throw permResult.error;
@@ -58,14 +65,24 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
       });
       setAccessMap(map);
       setCertMap(certs);
-
-      permissionsLoaded.current = true;
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
       setPermLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetchTeam();
+      // loadPermissions auto-runs via effect when teamIdsKey changes; also force it if same set
+      await loadPermissions();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
 
   const toggleAccess = async (userId: string, value: boolean) => {
     setSaving(userId);
@@ -82,7 +99,10 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
         description: value ? 'Dostęp do auto-webinaru włączony' : 'Dostęp do auto-webinaru wyłączony',
       });
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      const details = [error?.message, error?.details, error?.hint, error?.code]
+        .filter(Boolean)
+        .join(' • ');
+      toast({ title: 'Błąd', description: details || 'Nie udało się zapisać zmiany', variant: 'destructive' });
     } finally {
       setSaving(null);
     }
@@ -194,15 +214,38 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
         </span>
       </p>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Szukaj użytkownika..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj użytkownika..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing || teamLoading || permLoading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+          Odśwież
+        </Button>
       </div>
+
+      {teamMembers.length === 0 && !teamLoading && (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground text-center">
+            Nie znaleziono użytkowników w Twojej strukturze.
+            <span className="block mt-1 text-xs">
+              Twoje eq_id: <code className="font-mono">{profile?.eq_id ?? 'brak'}</code>
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
