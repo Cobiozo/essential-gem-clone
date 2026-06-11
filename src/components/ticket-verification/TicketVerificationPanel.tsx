@@ -542,6 +542,22 @@ export const TicketVerificationPanel: React.FC = () => {
               <CardContent className="space-y-4">
                 {result.valid && result.ticket ? (
                   <>
+                    {result.accountDeleted && (
+                      <div className="rounded-md border-2 border-destructive bg-destructive/10 px-4 py-3">
+                        <div className="font-semibold text-destructive flex items-center gap-2">
+                          <XCircle className="w-4 h-4" />
+                          Bilet wydany dla konta, które zostało usunięte
+                        </div>
+                        <div className="text-sm text-foreground/80 mt-1">
+                          Konto zostało {result.accountDeletedAction === 'anonymized' ? 'zanonimizowane' : 'usunięte'}
+                          {result.accountDeletedAt ? ` dnia ${format(new Date(result.accountDeletedAt), 'dd.MM.yyyy', { locale: pl })}` : ''}.
+                          {result.accountDeletedSnapshot?.email && (
+                            <> Pierwotny e-mail: <code className="font-mono">{result.accountDeletedSnapshot.email}</code>.</>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid gap-3">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-muted-foreground" />
