@@ -453,7 +453,12 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
                           i + 1
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{partner.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {partner.name}
+                        {partner.deleted && (
+                          <Badge variant="outline" className="ml-2 text-[10px] border-amber-500/40 text-amber-600">Konto usunięte</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center">{partner.total}</TableCell>
                       <TableCell className="text-center">{partner.active}</TableCell>
                       <TableCell className="text-center">
