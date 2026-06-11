@@ -585,6 +585,7 @@ const PaidEventPage: React.FC = () => {
                 showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 alreadyRegistered={hasOwnTicket && !isAdmin}
+                alreadyRegisteredLoading={!!user && !isAdmin && hasOwnTicketLoading}
                 allowAttendeeInvites={!!(event as any).allow_attendee_invites}
                 inviteUrl={
                   registrationForm
