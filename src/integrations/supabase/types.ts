@@ -3002,6 +3002,9 @@ export type Database = {
       }
       event_form_submissions: {
         Row: {
+          account_deleted_action: string | null
+          account_deleted_at: string | null
+          account_deleted_snapshot: Json | null
           admin_notes: string | null
           cancellation_token: string
           cancelled_at: string | null
@@ -3028,6 +3031,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           admin_notes?: string | null
           cancellation_token?: string
           cancelled_at?: string | null
@@ -3054,6 +3060,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           admin_notes?: string | null
           cancellation_token?: string
           cancelled_at?: string | null
@@ -3685,6 +3694,9 @@ export type Database = {
       }
       guest_event_registrations: {
         Row: {
+          account_deleted_action: string | null
+          account_deleted_at: string | null
+          account_deleted_snapshot: Json | null
           cancelled_at: string | null
           confirmation_sent: boolean | null
           confirmation_sent_at: string | null
@@ -3721,6 +3733,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           cancelled_at?: string | null
           confirmation_sent?: boolean | null
           confirmation_sent_at?: string | null
@@ -3757,6 +3772,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           cancelled_at?: string | null
           confirmation_sent?: boolean | null
           confirmation_sent_at?: string | null
@@ -7151,6 +7169,9 @@ export type Database = {
       }
       paid_event_order_attendees: {
         Row: {
+          account_deleted_action: string | null
+          account_deleted_at: string | null
+          account_deleted_snapshot: Json | null
           checked_in: boolean
           checked_in_at: string | null
           created_at: string
@@ -7166,6 +7187,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           checked_in?: boolean
           checked_in_at?: string | null
           created_at?: string
@@ -7181,6 +7205,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           checked_in?: boolean
           checked_in_at?: string | null
           created_at?: string
@@ -7214,6 +7241,9 @@ export type Database = {
       }
       paid_event_orders: {
         Row: {
+          account_deleted_action: string | null
+          account_deleted_at: string | null
+          account_deleted_snapshot: Json | null
           checked_in: boolean | null
           checked_in_at: string | null
           created_at: string
@@ -7243,6 +7273,9 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           checked_in?: boolean | null
           checked_in_at?: string | null
           created_at?: string
@@ -7272,6 +7305,9 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          account_deleted_action?: string | null
+          account_deleted_at?: string | null
+          account_deleted_snapshot?: Json | null
           checked_in?: boolean | null
           checked_in_at?: string | null
           created_at?: string
