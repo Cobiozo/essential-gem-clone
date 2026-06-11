@@ -4635,8 +4635,20 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="user-stats">
-            <UserStatistics />
+            <Tabs defaultValue="stats" className="w-full">
+              <TabsList>
+                <TabsTrigger value="stats">Statystyki użytkowników</TabsTrigger>
+                <TabsTrigger value="structure">Struktura całej platformy</TabsTrigger>
+              </TabsList>
+              <TabsContent value="stats" className="mt-4">
+                <UserStatistics />
+              </TabsContent>
+              <TabsContent value="structure" className="mt-4">
+                <PlatformStructureView />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
+
 
           <TabsContent value="training">
             <TrainingManagement />
