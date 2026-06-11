@@ -140,8 +140,20 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Form-only mode (no tickets, just registration form) */}
-        {tickets.length === 0 && formUrl ? (
+        {/* Already-registered banner replaces the whole CTA block */}
+        {alreadyRegistered ? (
+          <div className="space-y-3">
+            <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-3 text-sm text-center">
+              <div className="font-semibold text-primary mb-1">Masz już rezerwację na to wydarzenie</div>
+              <div className="text-xs text-muted-foreground">
+                Każdy użytkownik może zarezerwować bilet tylko raz. Sprawdź swój bilet w sekcji „Twoje bilety na to wydarzenie" powyżej.
+              </div>
+            </div>
+            <Button size="lg" className="w-full" disabled>
+              Już zarezerwowano
+            </Button>
+          </div>
+        ) : tickets.length === 0 && formUrl ? (
           <>
             <div className="text-sm text-muted-foreground text-center">
               Wypełnij krótki formularz, aby zarezerwować miejsce.
