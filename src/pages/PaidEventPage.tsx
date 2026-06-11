@@ -16,6 +16,8 @@ import { PaidEventSpeakers } from '@/components/paid-events/public/PaidEventSpea
 import { PaidEventSchedule } from '@/components/paid-events/public/PaidEventSchedule';
 import { PurchaseDrawer } from '@/components/paid-events/public/PurchaseDrawer';
 import { MyEventTicketsInline } from '@/components/paid-events/MyEventTicketsInline';
+import { useHasOwnEventTicket } from '@/hooks/useHasOwnEventTicket';
+import { toast as sonnerToast } from 'sonner';
 
 
 interface ContentSection {
