@@ -1,81 +1,53 @@
 ## Problem
 
-Na publicznej stronie wydarzenia (`/p/:slug`, plik `src/pages/PaidEventPage.tsx`) licznik „Dostępnych miejsc" liczony jest jako:
+Dialog szczegółów spotkania (`src/components/events/EventDetailsDialog.tsx`) dla `partner_consultation` i `tripartite_meeting` pokazuje sekcję „Dane konsultacji / Dane spotkania trójstronnego" z polami zapisanymi w `events.description` (JSON). Dla konsultacji partnerskich JSON zawiera tylko `consultation_purpose` i `booking_notes` — nie ma w ogóle informacji **kto zarezerwował** spotkanie. Lider widzący „Konsultacje dla partnerów" w swoim kalendarzu nie wie, z kim ma to spotkanie.
 
-```
-max_tickets − (event.tickets_sold + liczba aktywnych event_form_submissions)
-```
+Symetrycznie partner-rezerwujący widzi pole „Prowadzący" — to działa, bo `event.host_profile` jest dociągane.
 
-Pomija to wszystkie pozostałe ścieżki rejestracji, więc miejsca się nie zmniejszają, gdy zapisują się partnerzy, klienci, goście PLC czy uczestnicy płatnych biletów. Dla BOM Łódź (max 155) w bazie jest już 13 aktywnych zgłoszeń z formularza + 33 uczestników w zamówieniach (13 opłaconych + 16 oczekujących), a strona dalej pokazuje 155.
+Brakuje danych „rezerwującego" partnera. W bazie tę informację mamy: `events.created_by` = `user.id` partnera, który wykonał rezerwację (`PartnerMeetingBooking.tsx:671`).
 
 ## Rozwiązanie
 
-Ujednolicić sposób liczenia zajętych miejsc na publicznej stronie wydarzenia tak, aby uwzględniał wszystkie aktywne rezerwacje, niezależnie od kanału.
+W `EventDetailsDialog.tsx`:
 
-### Co zaliczamy do „zajętych miejsc" (sumujemy):
-
-1. **`event_form_submissions`** — `status = 'active'` (już liczone)
-2. **`paid_event_order_attendees`** — wszyscy uczestnicy zamówień, których `paid_event_orders.status ∈ ('paid', 'awaiting_transfer', 'pending')` i `cancelled_at IS NULL` (bilet zajmuje miejsce od momentu utworzenia zamówienia, nie dopiero po opłaceniu — inaczej można dwukrotnie sprzedać te same miejsca).
-   - Jeśli zamówienie nie ma jeszcze rekordów w `paid_event_order_attendees` (np. zamówienie 1-biletowe bez listy gości), liczymy `quantity` z `paid_event_orders` jako fallback, żeby nie pominąć żadnego miejsca.
-3. **`guest_event_registrations`** — `status = 'active'` (rejestracje gości PLC).
-
-Kolumna `paid_events.tickets_sold` jest ignorowana w publicznym widoku (nie jest spójnie utrzymywana). Pozostaje w bazie bez zmian — żeby nie ruszać innych miejsc, które na niej polegają.
-
-### Zmiany w kodzie
-
-**Plik: `src/pages/PaidEventPage.tsx`**
-
-Zastąpić istniejący `useQuery` `activeSubmissionsCount` jednym hookiem `useOccupiedSeats(eventId)`, który równolegle (Promise.all) wykonuje 4 zapytania `count: 'exact', head: true`:
+1. Dla `event.event_type ∈ {partner_consultation, tripartite_meeting}` dociągnąć profil rezerwującego z `profiles` po `events.created_by` (osobny `useEffect`, analogicznie do istniejącego pobierania `zoom_link`):
 
 ```ts
-const { count: submissionsCount } = await supabase
-  .from('event_form_submissions')
-  .select('id', { count: 'exact', head: true })
-  .eq('event_id', eventId).eq('status', 'active');
-
-const { count: attendeesCount } = await supabase
-  .from('paid_event_order_attendees')
-  .select('id, order:paid_event_orders!inner(status, cancelled_at)', { count: 'exact', head: true })
-  .eq('order.event_id', eventId)
-  .in('order.status', ['paid','awaiting_transfer','pending'])
-  .is('order.cancelled_at', null)
-  .is('cancelled_at', null);
-
-// orders bez attendees — fallback po quantity
-const { data: ordersNoAttendees } = await supabase
-  .from('paid_event_orders')
-  .select('id, quantity, paid_event_order_attendees(id)')
-  .eq('event_id', eventId)
-  .in('status', ['paid','awaiting_transfer','pending'])
-  .is('cancelled_at', null);
-const fallbackSeats = ordersNoAttendees
-  .filter(o => (o.paid_event_order_attendees?.length ?? 0) === 0)
-  .reduce((sum, o) => sum + (o.quantity ?? 1), 0);
-
-const { count: guestCount } = await supabase
-  .from('guest_event_registrations')
-  .select('id', { count: 'exact', head: true })
-  .eq('event_id', eventId).eq('status', 'active');
-
-return submissionsCount + attendeesCount + fallbackSeats + guestCount;
+const [bookerProfile, setBookerProfile] = useState<{ first_name, last_name, phone_number, email } | null>(null);
 ```
 
-Następnie:
+Pobranie tylko gdy `created_by !== host_user_id` (żeby nie duplikować) i tylko dla powyższych typów. Pole `email` z `profiles` (jeśli brak, fallback do `get-user-emails` pomijamy — wystarczy imię, nazwisko, telefon).
 
-```ts
-ticketsSold={occupiedSeats}
+2. W sekcji „Dane konsultacji / Dane spotkania trójstronnego" dodać wiersz **„Rezerwujący"** (ikona `User`) z imieniem i nazwiskiem rezerwującego — pokazywany tylko gdy:
+   - aktualny `user.id` (`useAuth`) === `event.host_user_id` (czyli widzimy spotkanie jako prowadzący), **lub**
+   - widz jest adminem (drugi przypadek: nie pogarszamy admin UX).
+   
+   Pod wierszem opcjonalnie telefon (jeśli `bookerProfile.phone_number`).
+
+3. Zachować istniejący wiersz „Prowadzący" — dla rezerwującego (`user.id === event.created_by`) to już pokazuje dane lidera prowadzącego spotkanie (z `event.host_profile`).
+
+4. Dla `partner_consultation` aktualnie sekcja „Dane konsultacji" wyświetla się tylko gdy `prospectData` udało się sparsować z JSON. To OK — dla konsultacji partnerskich JSON istnieje (zawiera `consultation_purpose`), więc sekcja będzie widoczna.
+
+5. Dla `tripartite_meeting` rezerwujący jest osobny od prospekta (gość spoza systemu). Wiersz „Rezerwujący" też pasuje — pokazuje partnera, który stworzył spotkanie (oprócz pól prospekta).
+
+### Wynikowy układ sekcji (lider patrzący na konsultację)
+
+```
+Dane konsultacji
+  Prowadzący: <host_profile>   (już jest)
+  Rezerwujący: <booker_profile>  ← nowe
+  Telefon: <booker.phone>        ← nowe (jeśli jest)
+  Cel: <consultation_purpose>
+  Notatki: <booking_notes>
 ```
 
-`staleTime` ustawiamy na 15–30 s, żeby przy odświeżeniu lub powrocie na zakładkę licznik szybko się aktualizował.
-
-### Co pozostaje bez zmian
-
-- Logika RLS, edge functions, walidacja zapisów (`create-event-order`, `submit-event-form`) — bez zmian. Tam istnieje już osobne sprawdzenie dostępności przy zapisie.
-- Admin panel — bez zmian (admin korzysta z własnych liczników).
-- Etykiety „Ostatnie wolne miejsca!" / „Zostało tylko X" w `PaidEventSidebar` — automatycznie zaczną działać poprawnie, bo dostają teraz realny `availableSpots`.
+Rezerwujący patrzący na to samo spotkanie widzi standardowo „Prowadzący: <lider>" — bez zmian.
 
 ## Pliki do zmiany
 
-- `src/pages/PaidEventPage.tsx` — rozszerzenie liczenia zajętych miejsc o `paid_event_order_attendees`, fallback `paid_event_orders.quantity`, i `guest_event_registrations`.
+- `src/components/events/EventDetailsDialog.tsx`
+  - dodać import `useAuth` z `@/contexts/AuthContext`
+  - dodać `useState` + `useEffect` pobierający `bookerProfile` z `profiles` po `event.created_by`
+  - rozszerzyć sekcję z `prospectData` o wiersze „Rezerwujący" + telefon, warunkowo gdy `user?.id === event.host_user_id` (lub admin)
 
-Brak zmian w bazie i edge functions.
+Brak zmian w bazie, edge functions ani w komponencie rezerwacji.
