@@ -214,15 +214,38 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
         </span>
       </p>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Szukaj użytkownika..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj użytkownika..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing || teamLoading || permLoading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+          Odśwież
+        </Button>
       </div>
+
+      {teamMembers.length === 0 && !teamLoading && (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground text-center">
+            Nie znaleziono użytkowników w Twojej strukturze.
+            <span className="block mt-1 text-xs">
+              Twoje eq_id: <code className="font-mono">{profile?.eq_id ?? 'brak'}</code>
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
