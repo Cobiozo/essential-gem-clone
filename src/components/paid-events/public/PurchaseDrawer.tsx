@@ -111,6 +111,17 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       if (!ordersErr && (orders?.length ?? 0) > 0) return true;
 
       if (emails.length > 0) {
+        // Also check per-attendee table (group tickets) — buyer may already
+        // be registered as a guest seat in another order for the same event.
+        const { data: seats, error: seatsErr } = await supabase
+          .from('paid_event_order_attendees')
+          .select('id, paid_event_orders!inner(event_id, status)')
+          .eq('paid_event_orders.event_id', eventId)
+          .not('paid_event_orders.status', 'in', '("cancelled","refunded","failed","expired")')
+          .in('email', emails)
+          .limit(1);
+        if (!seatsErr && (seats?.length ?? 0) > 0) return true;
+
         const { data: subs, error: subsErr } = await supabase
           .from('event_form_submissions')
           .select('id')
@@ -123,6 +134,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       return false;
     },
   });
+
 
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
   const totalSeats = quantity * seatsPerTicket;
@@ -289,7 +301,16 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   };
   const handleSubmit = async () => {
     // Hard guard: a logged-in user who already holds a reservation cannot
-    // re-register for the SAME free event. Show an informative toast and stop.
+    // re-register for the SAME event (free or paid). For paid events with
+    // multiple seats, the buyer can still buy seats for OTHER people — only
+    // the buyer themselves is blocked from being an additional attendee.
+    if (hasOwnTicket && !isFree && guestSeatsCount === 0) {
+      toast({
+        title: 'Masz już zarezerwowane miejsce',
+        description: 'Twoja rezerwacja na to wydarzenie już istnieje. Kolejny bilet możesz kupić wyłącznie dla innej osoby.',
+      });
+      return;
+    }
     if (isFree && hasOwnTicket) {
       toast({
         title: 'Masz już zarezerwowane miejsce',
@@ -297,6 +318,25 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       });
       return;
     }
+    // Extra protection: when buyer already has a ticket and is purchasing for
+    // guests, none of the guest e-mails may match the buyer's own e-mail.
+    if (hasOwnTicket) {
+      const buyerEmails = new Set(
+        [user?.email, (profile as any)?.email]
+          .filter(Boolean)
+          .map((e: string) => e.toLowerCase()),
+      );
+      const conflict = attendees.find((a) => buyerEmails.has((a.email || '').trim().toLowerCase()));
+      if (conflict) {
+        toast({
+          title: 'Nie możesz dodać siebie jako gościa',
+          description: 'Masz już rezerwację na to wydarzenie — usuń swój adres e-mail z listy gości.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     if (!validate() || !ticket) return;
     setLoadingMode('checkout');
     try {

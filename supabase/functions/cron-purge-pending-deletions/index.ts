@@ -1,5 +1,7 @@
 // Daily CRON: permanently delete accounts whose deletion_scheduled_at has passed.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { stampAccountDeletionOnTickets } from '../_shared/account-deletion-stamp.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +38,13 @@ Deno.serve(async (req) => {
     const actedAt = new Date().toISOString();
 
     try {
+      const { data: rolesRows } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', userId);
+      const rolesList: string[] = ((rolesRows || []) as any[]).map((r) => r.role).filter(Boolean);
+      await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
+        action: 'auto_deleted',
+        snapshot: { first_name: row.first_name, last_name: row.last_name, email, roles: rolesList },
+      });
+
       await supabaseAdmin.from('team_contacts').update({ linked_user_deleted_at: actedAt }).eq('linked_user_id', userId);
       await Promise.allSettled([
         supabaseAdmin.from('event_form_submissions').update({ partner_user_id: null }).eq('partner_user_id', userId),
@@ -44,6 +53,7 @@ Deno.serve(async (req) => {
         supabaseAdmin.from('user_reflinks').update({ creator_user_id: null }).eq('creator_user_id', userId),
         supabaseAdmin.from('guest_invite_links').update({ created_by: null }).eq('created_by', userId),
       ]);
+
 
       const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (delErr) throw delErr;

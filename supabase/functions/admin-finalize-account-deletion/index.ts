@@ -5,6 +5,8 @@
 // - delete: full purge (anonymize FK refs + auth.admin.deleteUser).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 import { sendMail, brandedEmailLayout } from '../_shared/smtp.ts';
+import { stampAccountDeletionOnTickets } from '../_shared/account-deletion-stamp.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +48,17 @@ Deno.serve(async (req) => {
     const email = (profile as any)?.email ?? null;
     const fullName = [(profile as any)?.first_name, (profile as any)?.last_name].filter(Boolean).join(' ').trim() || (email ?? userId);
 
+    const { data: rolesRows } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', userId);
+    const rolesList: string[] = ((rolesRows || []) as any[]).map((r) => r.role).filter(Boolean);
+    const snapshot = {
+      first_name: (profile as any)?.first_name ?? null,
+      last_name: (profile as any)?.last_name ?? null,
+      email,
+      roles: rolesList,
+    };
+
+
+
     const actedAt = new Date().toISOString();
 
     if (action === 'restore') {
@@ -86,6 +99,11 @@ Deno.serve(async (req) => {
       }).eq('user_id', userId);
       if (error) throw error;
 
+      // Stamp tickets/registrations so admin & verification still see them, with note.
+      await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
+        action: 'anonymized', snapshot,
+      });
+
       await supabaseAdmin.from('account_deletion_log').insert({
         user_id: userId, email_snapshot: email, full_name_snapshot: fullName,
         requested_at: (profile as any)?.deletion_requested_at ?? actedAt,
@@ -96,7 +114,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: true, action }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+
     // action === 'delete'
+    // Stamp tickets BEFORE nulling user_id so we can still locate them.
+    await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
+      action: 'deleted', snapshot,
+    });
+
     // Anonymize FK refs (same logic as admin-delete-user).
     await supabaseAdmin.from('team_contacts').update({ linked_user_deleted_at: actedAt }).eq('linked_user_id', userId);
     await Promise.allSettled([
@@ -106,6 +130,7 @@ Deno.serve(async (req) => {
       supabaseAdmin.from('user_reflinks').update({ creator_user_id: null }).eq('creator_user_id', userId),
       supabaseAdmin.from('guest_invite_links').update({ created_by: null }).eq('created_by', userId),
     ]);
+
 
     const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (delErr) throw delErr;
