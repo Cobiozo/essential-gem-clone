@@ -383,11 +383,23 @@ const PaidEventPage: React.FC = () => {
     });
   }, [tickets, user, isAdmin, refCodeFromUrl]);
 
+  // Block re-registration: one user = one ticket per event.
+  const { hasTicket: hasOwnTicket } = useHasOwnEventTicket(event?.id);
+
   // Handle purchase
   const handlePurchase = useCallback((ticketId: string) => {
+    if (hasOwnTicket && !isAdmin) {
+      sonnerToast.error('Masz już rezerwację na to wydarzenie', {
+        description: 'Każdy użytkownik może zarezerwować bilet na to wydarzenie tylko raz. Sprawdź swoje bilety powyżej.',
+      });
+      // Scroll to the user's tickets panel if present
+      const el = document.querySelector('[data-my-event-tickets]') as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     setSelectedTicketId(ticketId);
     setPurchaseDrawerOpen(true);
-  }, []);
+  }, [hasOwnTicket, isAdmin]);
 
   // Get selected ticket info for drawer
   const selectedTicket = useMemo(() => {
