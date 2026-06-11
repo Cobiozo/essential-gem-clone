@@ -16,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
  *
  * Statuses cancelled/refunded/failed/expired do NOT count.
  */
+export const HAS_OWN_EVENT_TICKET_KEY = 'has-own-event-ticket';
+
 export function useHasOwnEventTicket(eventId: string | null | undefined) {
   const { user, profile, rolesReady } = useAuth();
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
@@ -23,9 +25,11 @@ export function useHasOwnEventTicket(eventId: string | null | undefined) {
   const emails = Array.from(new Set([authEmail, profileEmail].filter(Boolean) as string[]));
 
   const query = useQuery({
-    queryKey: ['has-own-event-ticket', user?.id, eventId, emails.join('|')],
+    queryKey: [HAS_OWN_EVENT_TICKET_KEY, user?.id, eventId, emails.join('|')],
     enabled: !!user?.id && !!eventId && rolesReady,
-    staleTime: 30_000,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     queryFn: async () => {
       const notCancelled = '("cancelled","refunded","failed","expired")';
 

@@ -243,8 +243,9 @@ serve(async (req) => {
       .from("paid_event_orders")
       .select("id, status, email_confirmed_at")
       .eq("event_id", eventId)
+      .is("account_deleted_at", null)
       .or(orFilters.join(","))
-      .in("status", ["awaiting_email_confirmation", "confirmed", "paid", "completed"])
+      .in("status", ["awaiting_email_confirmation", "confirmed", "paid", "completed", "pending", "awaiting_transfer"])
       .limit(1)
       .maybeSingle();
 

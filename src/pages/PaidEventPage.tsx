@@ -384,22 +384,27 @@ const PaidEventPage: React.FC = () => {
   }, [tickets, user, isAdmin, refCodeFromUrl]);
 
   // Block re-registration: one user = one ticket per event.
-  const { hasTicket: hasOwnTicket } = useHasOwnEventTicket(event?.id);
+  const { hasTicket: hasOwnTicket, isLoading: hasOwnTicketLoading } = useHasOwnEventTicket(event?.id);
 
   // Handle purchase
   const handlePurchase = useCallback((ticketId: string) => {
+    if (user && hasOwnTicketLoading && !isAdmin) {
+      sonnerToast.info('Sprawdzam Twoje rezerwacje…', {
+        description: 'Chwilę — weryfikujemy czy nie masz już biletu na to wydarzenie.',
+      });
+      return;
+    }
     if (hasOwnTicket && !isAdmin) {
       sonnerToast.error('Masz już rezerwację na to wydarzenie', {
         description: 'Każdy użytkownik może zarezerwować bilet na to wydarzenie tylko raz. Sprawdź swoje bilety powyżej.',
       });
-      // Scroll to the user's tickets panel if present
       const el = document.querySelector('[data-my-event-tickets]') as HTMLElement | null;
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
     setSelectedTicketId(ticketId);
     setPurchaseDrawerOpen(true);
-  }, [hasOwnTicket, isAdmin]);
+  }, [hasOwnTicket, hasOwnTicketLoading, isAdmin, user]);
 
   // Get selected ticket info for drawer
   const selectedTicket = useMemo(() => {
@@ -579,6 +584,7 @@ const PaidEventPage: React.FC = () => {
                 ticketsSold={occupiedSeats}
                 showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
+                alreadyRegistered={hasOwnTicket && !isAdmin}
                 formUrl={
                   registrationForm
                     ? `/event-form/${registrationForm.slug}${myRefCode ? `?ref=${myRefCode}` : ''}`
