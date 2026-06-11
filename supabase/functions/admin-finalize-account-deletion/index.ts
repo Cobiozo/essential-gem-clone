@@ -116,6 +116,11 @@ Deno.serve(async (req) => {
 
 
     // action === 'delete'
+    // Stamp tickets BEFORE nulling user_id so we can still locate them.
+    await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
+      action: 'deleted', snapshot,
+    });
+
     // Anonymize FK refs (same logic as admin-delete-user).
     await supabaseAdmin.from('team_contacts').update({ linked_user_deleted_at: actedAt }).eq('linked_user_id', userId);
     await Promise.allSettled([
@@ -125,6 +130,7 @@ Deno.serve(async (req) => {
       supabaseAdmin.from('user_reflinks').update({ creator_user_id: null }).eq('creator_user_id', userId),
       supabaseAdmin.from('guest_invite_links').update({ created_by: null }).eq('created_by', userId),
     ]);
+
 
     const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (delErr) throw delErr;
