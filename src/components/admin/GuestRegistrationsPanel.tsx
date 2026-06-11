@@ -156,10 +156,15 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
     const XLSX = await import('xlsx');
     const rows = subs.map(s => {
       const link = links.find(l => l.id === s.partner_link_id);
-      const guest = link ? (profiles as any)[link.partner_user_id] : null;
+      const guest = link && link.partner_user_id ? (profiles as any)[link.partner_user_id] : null;
+      const snap = link?.partner_snapshot;
+      const fn = guest?.first_name || snap?.first_name || '';
+      const ln = guest?.last_name || snap?.last_name || '';
+      const guestName = `${fn} ${ln}`.trim() || link?.partner_user_id || '—';
+      const deletedSuffix = link?.partner_deleted_at ? ' (konto usunięte)' : '';
       return {
-        'Gość promujący': guest ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim() : link?.partner_user_id || '—',
-        'Email gościa': guest?.email || '—',
+        'Gość promujący': `${guestName}${deletedSuffix}`,
+        'Email gościa': guest?.email || snap?.email || '—',
         'Wydarzenie': link?.paid_events?.title || '—',
         'Formularz': link?.event_registration_forms?.title || '—',
         'Imię': s.first_name || '—',
