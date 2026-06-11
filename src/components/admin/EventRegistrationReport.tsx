@@ -234,7 +234,15 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
         r.phone || '',
         r.status,
         format(parseISO(r.registered_at), 'dd.MM.yyyy HH:mm'),
-        r.inviter_profile ? `${r.inviter_profile.first_name || ''} ${r.inviter_profile.last_name || ''}`.trim() : '',
+        (() => {
+          const prof = r.inviter_profile;
+          const snap = r.inviter_snapshot;
+          const fn = prof?.first_name || snap?.first_name || '';
+          const ln = prof?.last_name || snap?.last_name || '';
+          const name = `${fn} ${ln}`.trim();
+          const suffix = (r.inviter_deleted_at || snap) ? ' (konto usunięte)' : '';
+          return name ? `${name}${suffix}` : (snap?.email ? `${snap.email}${suffix}` : '');
+        })(),
         r.confirmation_sent ? 'Tak' : 'Nie',
         r.reminder_sent ? 'Tak' : 'Nie',
       ]),
