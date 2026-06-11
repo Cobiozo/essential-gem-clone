@@ -323,7 +323,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         const enrichedData = (regData || []).map(r => ({
           ...r,
           inviter_profile: r.invited_by_user_id ? profilesMap[r.invited_by_user_id] || null : null,
-        }));
+        })) as unknown as GuestRegistration[];
 
         setGuestRegistrations(enrichedData);
       } catch (error) {
