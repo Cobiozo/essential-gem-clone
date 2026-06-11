@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
         .from("paid_event_orders")
         .select("id, email, user_id")
         .eq("event_id", eventId)
+        .is("account_deleted_at", null)
         .or(orderFilters.join(","))
         .in("status", ACTIVE_ORDER_STATUSES)
         .limit(1);
@@ -137,7 +138,7 @@ Deno.serve(async (req) => {
           : `Adres ${dup.email} ma już aktywną rezerwację na to wydarzenie.`;
         return new Response(JSON.stringify({
           error: "already_registered",
-          message: `${who} Kolejny bilet możesz kupić wyłącznie dla innej osoby (innego adresu e-mail).`,
+          message: `${who} Każdy użytkownik może zarezerwować bilet tylko raz.`,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -145,8 +146,10 @@ Deno.serve(async (req) => {
       if (emailsToCheck.length > 0) {
         const { data: dupSeats } = await supabase
           .from("paid_event_order_attendees")
-          .select("id, email, order_id, paid_event_orders!inner(event_id, status)")
+          .select("id, email, order_id, paid_event_orders!inner(event_id, status, account_deleted_at)")
           .eq("paid_event_orders.event_id", eventId)
+          .is("paid_event_orders.account_deleted_at", null)
+          .is("account_deleted_at", null)
           .in("paid_event_orders.status", ACTIVE_ORDER_STATUSES)
           .in("email", emailsToCheck)
           .limit(1);
