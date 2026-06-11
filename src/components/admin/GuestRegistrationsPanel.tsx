@@ -69,18 +69,43 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
     },
   });
 
-  // 2) Partner links of guests
+  // 2) Partner links of guests (including those whose owner account was deleted)
   const { data: links = [], isLoading: linksLoading } = useQuery({
-    queryKey: ['guest-partner-links', guestIds.join(',')],
-    enabled: guestIds.length > 0,
+    queryKey: ['guest-partner-links', guestIds.join(','), guestUserId ?? 'all'],
+    enabled: guestIds.length > 0 || !guestUserId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('paid_event_partner_links')
-        .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
-        .in('partner_user_id', guestIds)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as LinkRow[];
+      // Active guest-owned links
+      const activeP = guestIds.length > 0
+        ? (supabase as any)
+            .from('paid_event_partner_links')
+            .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, partner_deleted_at, partner_snapshot, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
+            .in('partner_user_id', guestIds)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
+      // Deleted guest-owned links — keep showing them so admins still see history.
+      // Only included in the global view (no specific guestUserId), since the per-guest
+      // dialog is mounted only for surviving accounts.
+      const deletedP = !guestUserId
+        ? (supabase as any)
+            .from('paid_event_partner_links')
+            .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, partner_deleted_at, partner_snapshot, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
+            .not('partner_deleted_at', 'is', null)
+            .contains('partner_snapshot', { roles: ['guest'] })
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
+      const [a, d] = await Promise.all([activeP, deletedP]);
+      if (a.error) throw a.error;
+      if (d.error) throw d.error;
+      const seen = new Set<string>();
+      const out: LinkRow[] = [];
+      for (const row of [...(a.data || []), ...(d.data || [])] as LinkRow[]) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        out.push(row);
+      }
+      return out;
     },
   });
 
