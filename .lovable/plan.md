@@ -1,59 +1,43 @@
-## Problem
+## Co się dzieje
 
-Józef Pyza (nowy gość PLC) widzi na liście wydarzeń komunikat „jesteś zarejestrowany", mimo że nigdy się nie rejestrował. Powodem są historyczne rekordy po usuniętym koncie Romanka Romano, który miał ten sam e-mail. Aplikacja w kilku miejscach dopasowuje „moje" rejestracje/bilety po **adresie e-mail** zalogowanego użytkownika — bez sprawdzania, czy rekord należał do konta, które zostało usunięte/zanonimizowane.
+W bazie są jednocześnie:
+- aktualne konto: **Józef Pyza** (`sebastiansnopek87+002@gmail.com`),
+- historyczne zgłoszenie/usunięte konto: **Roma Romanowski / Romanek Romano** z tym samym e-mailem.
 
-Reguła docelowa: **konto usunięte = zero powiązań**. Po usunięciu konta żadne historyczne wpisy nie mogą być prezentowane jako „twoje" dla kolejnego użytkownika, nawet jeśli zarejestruje się na ten sam e-mail.
+Stare rekordy mają już `account_deleted_at`, więc są oznaczone jako historia usuniętego konta. Problem jest w widoku admina zgłoszeń: lista nadal pobiera wszystkie `event_form_submissions` i `paid_event_orders` dla wydarzenia oraz scala/dedupuje je po samym e-mailu. To powoduje, że usunięta historia może mieszać się z nowym kontem, jeśli e-mail jest taki sam.
 
-## Gdzie leży błąd
+## Plan naprawy
 
-Dopasowanie po `email` bez filtra `account_deleted_at IS NULL` (i bez wymagania, że `user_id` jest pusty) znajduje się w:
+1. **Zablokować pobieranie historii usuniętych kont w formularzach zgłoszeń eventu**
+   - W `EventFormSubmissions.tsx` dodać filtr `account_deleted_at IS NULL` dla `event_form_submissions`.
+   - Dodać ten sam filtr dla `paid_event_orders` używanych jako drugi strumień danych w tej liście.
+   - Dzięki temu rekord „Roma Romanowski” z `account_deleted_at` nie będzie już pokazywany jako aktywne zgłoszenie.
 
-1. RPC `public.get_my_event_orders` (`supabase/migrations/20260601072932_*.sql`) — `WHERE o.user_id = me.uid OR lower(o.email) = me.em`.
-2. `src/components/paid-events/MyEventTicketsInline.tsx`:
-   - fallback do `paid_event_orders` (linia ~60, `email.eq.<email>`),
-   - fallback do `event_form_submissions` po `emails` (linia ~94).
-3. `src/components/paid-events/public/PurchaseDrawer.tsx` — sprawdzenie „czy już kupiłem bilet" przez `paid_event_orders`, `paid_event_order_attendees` oraz `event_form_submissions` po `emails`.
+2. **Poprawić scalanie zgłoszeń z zamówieniami**
+   - Nie scalać po e-mailu z rekordami oznaczonymi jako usunięte.
+   - Jeśli trzeba łączyć po e-mailu, dopuszczać tylko aktywne rekordy (`account_deleted_at IS NULL`).
+   - Priorytetem pozostaje łączenie po `order_id`, nie po historii e-maila.
 
-Stamping przy usuwaniu konta (`supabase/functions/_shared/account-deletion-stamp.ts`) już zapisuje `account_deleted_at` / `account_deleted_snapshot` na `paid_event_orders`, `paid_event_order_attendees`, `event_form_submissions`, `guest_event_registrations`. Trzeba to po stronie odczytu uwzględnić.
+3. **Poprawić rozpoznawanie typu osoby w zgłoszeniach**
+   - Przy mapowaniu e-mail → profil brać tylko aktywne profile, bez `deletion_status` i bez `is_active=false`.
+   - Nie używać usuniętych/anonymizowanych profili do klasyfikacji „Gość PLC / Partner”.
 
-## Plan zmian
+4. **Wzmocnić backendową listę zamówień admina**
+   - W `admin-list-event-orders` wykluczyć `paid_event_orders.account_deleted_at IS NOT NULL`, aby fallback z edge function też nie zwracał historii usuniętych kont.
 
-### 1. Migracja: nowa wersja `get_my_event_orders`
-- `CREATE OR REPLACE FUNCTION public.get_my_event_orders(uuid)` z tą samą sygnaturą, ale z warunkiem:
-  ```sql
-  WHERE o.event_id = p_event_id
-    AND auth.uid() IS NOT NULL
-    AND o.account_deleted_at IS NULL
-    AND (
-      o.user_id = me.uid
-      OR (o.user_id IS NULL AND lower(o.email) = me.em)
-    )
-  ```
-- `account_deleted_at IS NULL` blokuje rekordy po usuniętym/zanonimizowanym koncie.
-- `o.user_id IS NULL` przy dopasowaniu po e-mailu sprawia, że historyczne zamówienia poprzedniego właściciela (które miały `user_id = <stary uuid>`) nie wpadają nowemu użytkownikowi — dopasowanie po e-mailu działa tylko dla rezerwacji gościnnych (jeszcze nie zlinkowanych do konta).
+5. **Naprawić procedurę usuwania konta adminem**
+   - Obecna ścieżka `admin-delete-user` zeruje powiązania, ale nie używa pełnego stemplowania historii tak jak nowsza ścieżka finalizacji usunięcia.
+   - Ujednolicić ją tak, aby przed usunięciem oznaczała bilety/zgłoszenia danego konta jako `account_deleted_at`, `account_deleted_action`, `account_deleted_snapshot`.
+   - Ważne: oznaczanie po e-mailu musi dotyczyć wyłącznie rekordów starego konta/historycznych gościnnych rekordów, a widoki aktywne i tak muszą je później ignorować.
 
-### 2. `MyEventTicketsInline.tsx`
-- Fallback `paid_event_orders` po e-mailu: dodać `.is('account_deleted_at', null)` i ograniczyć email-OR do rekordów bez `user_id` (przez osobne zapytanie albo użycie `or(...)` z `user_id.is.null,email.eq.<email>` zgrupowane w nawiasie — najprościej: jedno zapytanie `user_id.eq.<uid>` + drugie po e-mailach z filtrami `user_id IS NULL` i `account_deleted_at IS NULL`, scalenie wyników po `id`).
-- Fallback `event_form_submissions`: dodać `.is('account_deleted_at', null)` oraz `.is('user_id', null)` (kolumna istnieje w `event_form_submissions`).
+6. **Migracja porządkująca istniejące dane**
+   - Dodać migrację, która dla obecnego przypadku upewni się, że historyczne rekordy z tego e-maila i starymi danymi (`Roma/Romanek Romanowski/Romano`) mają `account_deleted_at`.
+   - Nie usuwać danych księgowych/historycznych, tylko sprawić, że nie będą używane do aktywnych widoków i dopasowań.
 
-### 3. `PurchaseDrawer.tsx`
-- W zapytaniach „czy mam już bilet" (`paid_event_orders`, `paid_event_order_attendees`, `event_form_submissions`) dodać `.is('account_deleted_at', null)`; przy dopasowaniach po `email` wymagać, by `user_id` był pusty (analogicznie jak w pkt 2), żeby cudze, zanonimizowane konta nie blokowały zakupu.
+7. **Weryfikacja**
+   - Sprawdzić zapytaniem, że aktywna lista zgłoszeń dla tego wydarzenia pokazuje Józefa Pyzę, a nie Romę/Romanka.
+   - Sprawdzić, że Goście PLC i Zarządzanie użytkownikami nadal pokazują aktualne konto Józefa Pyzy.
 
-### 4. (Higiena) `guest_event_registrations`
-- Tabela ma już `inviter_deleted_at` (zaproszony przez usuniętego partnera) i `account_deleted_at` (na samej rejestracji). Aktualnie żaden ekran NIE pokazuje Józefowi „twoja rejestracja" na podstawie e-maila z tej tabeli, więc nie zmieniamy logiki UI. Zostawiamy zapytania administracyjne (`team_contacts`, panel admina, leader stats) bez zmian — to są widoki historyczne, nie „moje".
+## Zasada po wdrożeniu
 
-### 5. Bez zmian wstecznych
-- Nie ruszamy `event_registrations` — tam dopasowanie idzie po `user_id`, więc problemu nie ma.
-- Nie kasujemy historycznych rekordów Romanka — pozostają z `account_deleted_at`/snapshotami dla księgowości i panelu admina, ale przestają „przeciekać" do nowego konta.
-
-## Pliki
-
-- `supabase/migrations/<nowa>.sql` — nowa wersja `get_my_event_orders`.
-- `src/components/paid-events/MyEventTicketsInline.tsx`
-- `src/components/paid-events/public/PurchaseDrawer.tsx`
-
-## Walidacja po wdrożeniu
-
-1. Zalogować się jako Józef Pyza → wejść na `/eventy` i kartę paid event, na którym wcześniej rejestrował się Romanek z tym samym e-mailem → komunikat „Twoje bilety" / „jesteś zarejestrowany" ma zniknąć, ma się pojawić standardowy ekran rejestracji.
-2. Zalogować się jako użytkownik, który ma własną aktywną rezerwację → bilety dalej widoczne (regresja).
-3. Panel admina → karta usuniętych kont → historyczne wpisy Romanka pozostają widoczne z oznaczeniem „konto usunięte".
+Nowe konto jest zawsze nowym kontem. Ten sam e-mail nie może odziedziczyć żadnych danych, statusów, zgłoszeń, biletów ani nazw z konta, które zostało usunięte lub zanonimizowane.

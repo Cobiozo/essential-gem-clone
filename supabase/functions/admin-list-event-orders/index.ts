@@ -24,13 +24,16 @@ Deno.serve(async (req) => {
     const eventId: string | undefined = body.event_id ?? body.eventId;
     if (!eventId) return jsonResponse({ error: "event_id is required", code: "missing_event_id" }, 400);
 
-    // 1) Orders
+    // 1) Orders — exclude rows owned by deleted/anonymized accounts. Historical
+    // data is preserved in the DB but must NEVER appear in active admin views,
+    // so a new account registering with the same email is fully isolated.
     const { data: orders, error: ordersErr } = await supabaseAdmin
       .from("paid_event_orders")
       .select(
-        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id"
+        "id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, checked_in, checked_in_at, created_at, ticket_id, account_deleted_at"
       )
       .eq("event_id", eventId)
+      .is("account_deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (ordersErr) {
