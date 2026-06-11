@@ -33,12 +33,16 @@ interface PaidEventOrder {
   checked_in: boolean | null;
   checked_in_at: string | null;
   created_at: string;
+  account_deleted_at: string | null;
+  account_deleted_action: string | null;
+  account_deleted_snapshot: { first_name?: string | null; last_name?: string | null; email?: string | null; roles?: string[] } | null;
   paid_events: {
     title: string;
     event_date: string;
     is_free?: boolean;
   } | null;
 }
+
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
   pending: { label: 'Oczekuje', variant: 'secondary', icon: <Clock className="w-3 h-3" /> },
