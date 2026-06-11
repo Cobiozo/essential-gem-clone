@@ -1,41 +1,31 @@
 ## Cel
-Poprawić czytelność widoku "Struktura całej platformy" w panelu admina na urządzeniach mobilnych (≤640px). Desktop pozostaje bez zmian.
+W widoku „Struktura całej platformy" (admin) kliknięcie wiersza użytkownika otwiera modal ze szczegółami tego użytkownika.
 
-## Zmiany w `src/components/admin/PlatformStructureView.tsx`
+## Zmiany
 
-### 1. Pasek akcji (Top bar)
-- Pole wyszukiwania na pełną szerokość w pierwszym wierszu, czcionka `text-base` (zapobiega zoom-in w iOS Safari).
-- Drugi wiersz: dwa rzędy przycisków w gridzie:
-  - `grid grid-cols-2 sm:flex sm:flex-wrap` dla Odśwież / Rozwiń wszystko
-  - `grid grid-cols-3 sm:flex` dla Excel / Word / HTML (równe szerokości, krótsze etykiety na xs, ikona + tekst)
-- Usunąć pionowy separator na mobile (`hidden sm:block`).
+### 1. Nowy komponent `src/components/admin/PlatformUserDetailsDialog.tsx`
+Modal (shadcn `Dialog`) z pełnymi danymi `profiles` + role + relacje:
 
-### 2. Podsumowanie (summary chips)
-- Kompaktowe: `text-[11px]`, `h-5`, `px-1.5`.
-- Wymusić układ poziomy ze zwijaniem (`flex-wrap`) i mniejsze odstępy `gap-1`.
+- **Nagłówek**: avatar (`avatar_url` lub inicjały), pełne imię i nazwisko, badges ról (te same kolory co w drzewie), status `Aktywny`/`Zablokowany`.
+- **Sekcja Kontakt**: email (link `mailto:`), telefon (link `tel:`), miasto/kraj, data rejestracji, ostatnie logowanie.
+- **Sekcja Konto**: `user_id` (mono, copy-to-clipboard), `eq_id`, `upline_eq_id` + imię uplinea (lookup z drzewa), liczba bezpośrednich (directCount) i całego downline (Σ).
+- **Sekcja Dodatkowe pola profilu** (jeżeli ustawione): `team_id`/nazwa zespołu jeśli dostępna, kraj, język, data ostatniej aktywności, `blocked_at`.
+- **Stopka**: przyciski „Zobacz w panelu admina" (link do `/admin?tab=users&search={eq_id|email}`), „Wyślij e-mail" (mailto), „Zamknij".
 
-### 3. Drzewo (renderNode)
-Główny problem: nazwa + role + EQ ID + (n)Σ łamią się brzydko i obcinają.
-Refaktor wiersza węzła na **dwurzędowy layout na mobile**:
-- Rząd 1: chevron + ikona admin + **nazwa (truncate, flex-1)** + licznik `(n) Σn` po prawej.
-- Rząd 2: role badges + EQ ID chip + status "Zablok." — zawijane (`flex-wrap`).
-- Na `sm:` wszystko wraca do jednego rzędu (jak teraz).
+Dane bierzemy z `PlatformNode` już dostępnego w drzewie — bez dodatkowych zapytań. Telefon/email są już w `profile`.
 
-Dodatkowo:
-- Zwiększyć tap target chevrona do `w-6 h-6` (łatwiejsze trafienie palcem).
-- Wcięcie poziomu zmniejszyć na mobile: `ml-1 pl-1.5` zamiast `ml-2 pl-2`.
-- E-mail/telefon w rozwiniętym wierszu: `break-all` na email, `flex-col sm:flex-row` żeby nie cięło tekstu.
+### 2. Edycja `src/components/admin/PlatformStructureView.tsx`
+- Dodać stan `selectedNode: PlatformNode | null`.
+- W `renderNode` zamienić zewnętrzny `div` wiersza na klikalny element (`role="button"`, `tabIndex={0}`, kursor `cursor-pointer`, hover `hover:bg-muted/50`).
+- Kliknięcie chevrona dalej tylko zwija/rozwija (`onClick` z `e.stopPropagation()`). Kliknięcie reszty wiersza → `setSelectedNode(n)`.
+- Linki email/telefon w wierszu rozwiniętym też `stopPropagation`, żeby nie otwierały modala.
+- Na końcu komponentu renderować `<PlatformUserDetailsDialog node={selectedNode} onOpenChange={...} />`.
 
-### 4. Karty (Card padding)
-- `p-2 sm:p-3` na kartach (więcej miejsca na treść).
-
-### 5. EQ ID chip
-- `whitespace-nowrap` żeby długie ID nie łamały się na dwie linie (jak na screenie "121229225" → "12122922" + "5").
-
-## Bez zmian
-- Logika, dane, eksporty, RPC, RLS, hooki, routing.
-- Wygląd desktopowy (breakpoint `sm:` przywraca obecny layout).
+### 3. Bez zmian w bazie i RLS
+Dane są już ładowane przez istniejące zapytania `fetchProfiles` / `fetchRoles`.
 
 ## Weryfikacja
-- Podgląd mobile 390px: nazwy czytelne, badges nie nachodzą, EQ ID w jednej linii, przyciski eksportu równej szerokości.
-- Podgląd desktop ≥640px: bez zmian względem obecnego stanu.
+- Klik na wiersz → otwiera się modal z pełnymi danymi.
+- Klik na chevron → tylko zwija/rozwija, modal się nie otwiera.
+- Klik na link e-mail/telefon → otwiera klienta poczty/dzwoni, bez modala.
+- Działa na desktop i mobile (`max-w-lg`, scroll w środku).

@@ -32,6 +32,7 @@ import {
   type PlatformProfile,
   type PlatformNode,
 } from './exports/platformStructureExport';
+import PlatformUserDetailsDialog from './PlatformUserDetailsDialog';
 
 interface RoleRow { user_id: string; role: string }
 
@@ -101,6 +102,7 @@ const PlatformStructureView: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [forceAllExpanded, setForceAllExpanded] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<PlatformNode | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -231,14 +233,26 @@ const PlatformStructureView: React.FC = () => {
     return (
       <div key={n.profile.user_id} className="border-l border-border ml-1 pl-1.5 sm:ml-2 sm:pl-2">
         <div
-          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs ${
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedNode(n)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedNode(n);
+            }
+          }}
+          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs cursor-pointer hover:bg-muted/60 transition-colors ${
             isAdmin ? 'bg-destructive/5 border border-destructive/30' : ''
           } ${isMatch ? 'ring-1 ring-primary/60' : ''}`}
         >
           <div className="flex items-center gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
             <button
               type="button"
-              onClick={() => hasChildren && toggle(n.profile.user_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasChildren) toggle(n.profile.user_id);
+              }}
               className={`shrink-0 w-6 h-6 sm:w-4 sm:h-4 flex items-center justify-center text-muted-foreground ${
                 hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
               }`}
@@ -284,7 +298,7 @@ const PlatformStructureView: React.FC = () => {
         {isOpen && (
           <div className="ml-7 sm:ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-col sm:flex-row sm:flex-wrap gap-x-3 gap-y-0.5">
             {n.profile.email && (
-              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary break-all">
+              <a href={`mailto:${n.profile.email}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-primary break-all">
                 <Mail className="h-3 w-3 shrink-0" /> <span className="break-all">{n.profile.email}</span>
               </a>
             )}
@@ -408,6 +422,16 @@ const PlatformStructureView: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <PlatformUserDetailsDialog
+        node={selectedNode}
+        uplineName={(() => {
+          if (!selectedNode?.profile.upline_eq_id) return null;
+          const up = allNodes.find((n) => n.profile.eq_id === selectedNode.profile.upline_eq_id);
+          return up ? fullName(up.profile) : null;
+        })()}
+        onOpenChange={(o) => !o && setSelectedNode(null)}
+      />
     </div>
   );
 };
