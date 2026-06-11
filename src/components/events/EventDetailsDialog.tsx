@@ -17,7 +17,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { getTimezoneAbbr, getUserTimezone, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+
 
 interface EventDetailsDialogProps {
   event: EventWithRegistration | null;
@@ -39,7 +41,10 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const { language } = useLanguage();
   const locale = getAppDateLocale(language);
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
+  const [bookerProfile, setBookerProfile] = useState<{ first_name: string | null; last_name: string | null; phone_number: string | null; email: string | null } | null>(null);
+
 
   // Fetch zoom_link from leader_permissions if event doesn't have one
   useEffect(() => {
@@ -63,6 +68,24 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
     setDynamicZoomLink(null); // Reset when event changes
     if (event) fetchDynamicZoomLink();
   }, [event]);
+
+  // Fetch booker (rezerwujący) profile for individual meetings
+  useEffect(() => {
+    setBookerProfile(null);
+    const fetchBooker = async () => {
+      if (!event?.created_by) return;
+      if (!['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) return;
+      if (event.created_by === event.host_user_id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone_number, email')
+        .eq('user_id', event.created_by)
+        .maybeSingle();
+      if (data) setBookerProfile(data as any);
+    };
+    if (event) fetchBooker();
+  }, [event]);
+
 
   if (!event) return null;
 
@@ -291,6 +314,32 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                       <span className="font-medium">{hostDisplayName}</span>
                     </div>
                   )}
+                  {bookerProfile && (user?.id === event.host_user_id || isAdmin) && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">Rezerwujący:</span>
+                        <span className="font-medium">
+                          {`${bookerProfile.first_name ?? ''} ${bookerProfile.last_name ?? ''}`.trim() || bookerProfile.email || '—'}
+                        </span>
+                      </div>
+                      {bookerProfile.phone_number && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">Telefon:</span>
+                          <span className="font-medium">{bookerProfile.phone_number}</span>
+                        </div>
+                      )}
+                      {bookerProfile.email && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium">{bookerProfile.email}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {prospectFullName && (
                     <div className="flex items-center gap-2 text-sm">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
