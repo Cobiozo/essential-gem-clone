@@ -585,6 +585,12 @@ const PaidEventPage: React.FC = () => {
                 showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 alreadyRegistered={hasOwnTicket && !isAdmin}
+                allowAttendeeInvites={!!(event as any).allow_attendee_invites}
+                inviteUrl={
+                  registrationForm
+                    ? `/event-form/${registrationForm.slug}`
+                    : (typeof window !== 'undefined' ? window.location.pathname : null)
+                }
                 formUrl={
                   registrationForm
                     ? `/event-form/${registrationForm.slug}${myRefCode ? `?ref=${myRefCode}` : ''}`
