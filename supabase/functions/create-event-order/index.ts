@@ -24,6 +24,22 @@ Deno.serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Best-effort: identify the logged-in buyer so we can (a) attach user_id
+    // to the order and (b) catch duplicates that come from a different e-mail.
+    let currentUserId: string | null = null;
+    try {
+      const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+      if (authHeader?.toLowerCase().startsWith("bearer ")) {
+        const token = authHeader.slice(7).trim();
+        const supabaseAuth = createClient(
+          Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+        );
+        const { data: userData } = await supabaseAuth.auth.getUser(token);
+        currentUserId = userData?.user?.id || null;
+      }
+    } catch { /* ignore */ }
+
     const body = await req.json();
     const { eventId, ticketId, buyer, attendees = [], buyerIsAttendee = true, refCode = null, quantity = 1 } = body as {
       eventId: string; ticketId: string; buyer: Buyer; attendees?: Attendee[];
@@ -34,6 +50,7 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     const qty = Math.max(1, Math.min(50, Number(quantity) || 1));
 
     // When quantity > 1, every additional attendee must have full identifying data (imię, nazwisko, email).
