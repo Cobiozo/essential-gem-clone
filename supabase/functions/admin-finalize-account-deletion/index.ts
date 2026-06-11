@@ -2,10 +2,10 @@
 // Body: { userId: string, action: 'restore'|'anonymize'|'delete' }
 // - restore: clears deletion fields, reactivates account, emails user.
 // - anonymize: keeps row but scrubs PII; account stays disabled.
-// - delete: full purge (anonymize FK refs + auth.admin.deleteUser).
+// - delete: full purge (snapshot inviter refs + auth.admin.deleteUser).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 import { sendMail, brandedEmailLayout } from '../_shared/smtp.ts';
-import { stampAccountDeletionOnTickets } from '../_shared/account-deletion-stamp.ts';
+import { stampAccountDeletionOnTickets, stampInviterAccountDeletion } from '../_shared/account-deletion-stamp.ts';
 
 
 const corsHeaders = {
@@ -14,6 +14,39 @@ const corsHeaders = {
 };
 
 type Action = 'restore' | 'anonymize' | 'delete';
+
+async function sendUserNotice(
+  supabaseAdmin: any,
+  logId: string | null,
+  to: string | null,
+  subject: string,
+  html: string,
+) {
+  if (!to) return;
+  let status = 'sent';
+  let errorMsg: string | null = null;
+  try {
+    const r = await sendMail({ to, subject, html });
+    if (!r.success) {
+      status = 'failed';
+      errorMsg = r.error || 'unknown error';
+      console.warn('[admin-finalize] user mail failed', to, r.error);
+    }
+  } catch (e: any) {
+    status = 'failed';
+    errorMsg = e?.message || String(e);
+    console.warn('[admin-finalize] user mail exception', e);
+  }
+  if (logId) {
+    try {
+      await supabaseAdmin.from('account_deletion_log').update({
+        user_email_sent_at: new Date().toISOString(),
+        user_email_status: status,
+        user_email_error: errorMsg,
+      }).eq('id', logId);
+    } catch (e) { console.warn('[admin-finalize] log update failed', e); }
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -47,6 +80,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const email = (profile as any)?.email ?? null;
     const fullName = [(profile as any)?.first_name, (profile as any)?.last_name].filter(Boolean).join(' ').trim() || (email ?? userId);
+    const greetingName = (profile as any)?.first_name || fullName || email || '';
 
     const { data: rolesRows } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', userId);
     const rolesList: string[] = ((rolesRows || []) as any[]).map((r) => r.role).filter(Boolean);
@@ -56,8 +90,6 @@ Deno.serve(async (req) => {
       email,
       roles: rolesList,
     };
-
-
 
     const actedAt = new Date().toISOString();
 
@@ -70,26 +102,27 @@ Deno.serve(async (req) => {
       }).eq('user_id', userId);
       if (error) throw error;
 
-      await supabaseAdmin.from('account_deletion_log').insert({
+      const { data: logRow } = await supabaseAdmin.from('account_deletion_log').insert({
         user_id: userId, email_snapshot: email, full_name_snapshot: fullName,
         requested_at: (profile as any)?.deletion_requested_at ?? actedAt,
         final_action: 'restored', acted_by: user.id, acted_at: actedAt,
         notes: 'Admin restored account',
-      } as any);
+      } as any).select('id').maybeSingle();
 
-      if (email) {
-        const html = brandedEmailLayout('Twoje konto zostało przywrócone', `
-          <p>Cześć ${fullName.split(' ')[0] || ''},</p>
-          <p>Administrator Pure Life Center przywrócił Twoje konto. Możesz ponownie się zalogować i korzystać z platformy.</p>
-          <p>Jeśli to nie Ty wnioskowałeś o przywrócenie, skontaktuj się z nami niezwłocznie.</p>
-        `);
-        await sendMail({ to: email, subject: 'Pure Life Center — konto przywrócone', html });
-      }
+      const html = brandedEmailLayout('Twoje konto zostało przywrócone', `
+        <p>Cześć ${greetingName},</p>
+        <p>Administrator Pure Life Center przywrócił Twoje konto. Możesz ponownie się zalogować i korzystać z platformy.</p>
+        <p>Jeśli to nie Ty wnioskowałeś o przywrócenie, skontaktuj się z nami niezwłocznie.</p>
+      `);
+      await sendUserNotice(supabaseAdmin, (logRow as any)?.id ?? null, email, 'Pure Life Center — konto przywrócone', html);
 
       return new Response(JSON.stringify({ success: true, action }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (action === 'anonymize') {
+      // Preserve inviter/creator references BEFORE we touch the profile.
+      await stampInviterAccountDeletion(supabaseAdmin, userId, { action: 'anonymized', snapshot });
+
       const anonEmail = `deleted-${userId}@anonymized.local`;
       const { error } = await supabaseAdmin.from('profiles').update({
         first_name: 'Konto', last_name: 'usunięte',
@@ -99,48 +132,57 @@ Deno.serve(async (req) => {
       }).eq('user_id', userId);
       if (error) throw error;
 
-      // Stamp tickets/registrations so admin & verification still see them, with note.
       await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
         action: 'anonymized', snapshot,
       });
 
-      await supabaseAdmin.from('account_deletion_log').insert({
+      const { data: logRow } = await supabaseAdmin.from('account_deletion_log').insert({
         user_id: userId, email_snapshot: email, full_name_snapshot: fullName,
         requested_at: (profile as any)?.deletion_requested_at ?? actedAt,
         final_action: 'anonymized', acted_by: user.id, acted_at: actedAt,
         notes: 'Admin anonymized account',
-      } as any);
+      } as any).select('id').maybeSingle();
+
+      const html = brandedEmailLayout('Twoje konto zostało zanonimizowane', `
+        <p>Cześć ${greetingName},</p>
+        <p>Informujemy, że Twoje konto w Pure Life Center zostało zanonimizowane na podstawie wcześniejszego zgłoszenia usunięcia.</p>
+        <p>Twoje dane osobowe (imię, nazwisko, e-mail, telefon, avatar) zostały usunięte z naszej bazy. Powiązane rejestracje i bilety pozostają w systemie wyłącznie z oznaczeniem „konto usunięte" — w celach księgowych i statystycznych.</p>
+        <p>Jeśli to nie Ty wnioskowałeś o usunięcie konta, skontaktuj się z administracją.</p>
+      `);
+      await sendUserNotice(supabaseAdmin, (logRow as any)?.id ?? null, email, 'Pure Life Center — konto zanonimizowane', html);
 
       return new Response(JSON.stringify({ success: true, action }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-
     // action === 'delete'
-    // Stamp tickets BEFORE nulling user_id so we can still locate them.
-    await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
-      action: 'deleted', snapshot,
-    });
+    // Preserve inviter/creator info BEFORE the cascade runs.
+    await stampInviterAccountDeletion(supabaseAdmin, userId, { action: 'deleted', snapshot });
+    await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, { action: 'deleted', snapshot });
 
-    // Anonymize FK refs (same logic as admin-delete-user).
+    // Team contacts marker (kept).
     await supabaseAdmin.from('team_contacts').update({ linked_user_deleted_at: actedAt }).eq('linked_user_id', userId);
-    await Promise.allSettled([
-      supabaseAdmin.from('event_form_submissions').update({ partner_user_id: null }).eq('partner_user_id', userId),
-      supabaseAdmin.from('paid_event_orders').update({ user_id: null }).eq('user_id', userId),
-      supabaseAdmin.from('guest_event_registrations').update({ invited_by_user_id: null }).eq('invited_by_user_id', userId),
-      supabaseAdmin.from('user_reflinks').update({ creator_user_id: null }).eq('creator_user_id', userId),
-      supabaseAdmin.from('guest_invite_links').update({ created_by: null }).eq('created_by', userId),
-    ]);
 
+    // NOTE: we intentionally NO LONGER null invited_by_user_id / partner_user_id
+    // / created_by here — snapshots above preserve the display info; for hard
+    // delete, the ON DELETE SET NULL on profiles will null FKs automatically.
 
     const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (delErr) throw delErr;
 
-    await supabaseAdmin.from('account_deletion_log').insert({
+    const { data: logRow } = await supabaseAdmin.from('account_deletion_log').insert({
       user_id: userId, email_snapshot: email, full_name_snapshot: fullName,
       requested_at: (profile as any)?.deletion_requested_at ?? actedAt,
       final_action: 'deleted', acted_by: user.id, acted_at: actedAt,
       notes: 'Admin permanently deleted account',
-    } as any);
+    } as any).select('id').maybeSingle();
+
+    const html = brandedEmailLayout('Twoje konto zostało trwale usunięte', `
+      <p>Cześć ${greetingName},</p>
+      <p>Informujemy, że Twoje konto w Pure Life Center zostało trwale usunięte na podstawie wcześniejszego zgłoszenia.</p>
+      <p>Wszystkie powiązane dane osobowe zostały skasowane. Historyczne rejestracje i bilety mogą pozostać w systemie z oznaczeniem „konto usunięte" wyłącznie w celach księgowych i statystycznych.</p>
+      <p>Jeśli to nie Ty wnioskowałeś o usunięcie konta, skontaktuj się natychmiast z administracją.</p>
+    `);
+    await sendUserNotice(supabaseAdmin, (logRow as any)?.id ?? null, email, 'Pure Life Center — konto usunięte', html);
 
     return new Response(JSON.stringify({ success: true, action }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
