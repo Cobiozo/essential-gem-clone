@@ -521,9 +521,31 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                 <span>Sprawdź folder Spam, jeśli wiadomość nie dotarła w ciągu kilku minut.</span>
               </div>
             </div>
+          ) : hasOwnTicket ? (
+            <div className="px-4 pb-4 space-y-4">
+              <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-4 text-sm flex gap-3">
+                <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-primary mb-1">
+                    {isFree
+                      ? 'Masz już zarezerwowane miejsce na to wydarzenie'
+                      : 'Masz już rezerwację na to wydarzenie'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Każdy użytkownik może zarezerwować bilet na to wydarzenie tylko raz.
+                    Sprawdź swój bilet w sekcji „Twoje bilety na to wydarzenie" powyżej
+                    lub w skrzynce e-mail.
+                  </div>
+                </div>
+              </div>
+              <Button type="button" variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
+                Zamknij
+              </Button>
+            </div>
           ) : (
             <form onSubmit={(e) => e.preventDefault()} className="px-4 space-y-4">
-              {hasOwnTicket && (
+              {/* Legacy hasOwnTicket banner (kept for admins / edge cases) */}
+              {false && hasOwnTicket && (
                 <div className="rounded-md border-2 border-primary/40 bg-primary/10 p-4 text-sm flex gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <div>

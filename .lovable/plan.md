@@ -1,43 +1,40 @@
-## Co się dzieje
+## Cel
 
-W bazie są jednocześnie:
-- aktualne konto: **Józef Pyza** (`sebastiansnopek87+002@gmail.com`),
-- historyczne zgłoszenie/usunięte konto: **Roma Romanowski / Romanek Romano** z tym samym e-mailem.
+Zalogowany użytkownik (klient / specjalista / partner / gość PLC), który ma już rezerwację/bilet na dane wydarzenie, nie może otworzyć formularza rejestracyjnego po raz drugi. Próba kliknięcia „Rezerwuję" / „Kup bilet" pokazuje komunikat „Masz już rezerwację na to wydarzenie", a formularz w ogóle się nie otwiera.
 
-Stare rekordy mają już `account_deleted_at`, więc są oznaczone jako historia usuniętego konta. Problem jest w widoku admina zgłoszeń: lista nadal pobiera wszystkie `event_form_submissions` i `paid_event_orders` dla wydarzenia oraz scala/dedupuje je po samym e-mailu. To powoduje, że usunięta historia może mieszać się z nowym kontem, jeśli e-mail jest taki sam.
+Obecnie `PurchaseDrawer` wykrywa istniejący bilet (`hasOwnTicket`) tylko po otwarciu — i jedynie blokuje pola kupującego, ale formularz nadal się pojawia (sytuacja widoczna na zrzucie ekranu Józefa Pyzy).
 
-## Plan naprawy
+## Zmiany
 
-1. **Zablokować pobieranie historii usuniętych kont w formularzach zgłoszeń eventu**
-   - W `EventFormSubmissions.tsx` dodać filtr `account_deleted_at IS NULL` dla `event_form_submissions`.
-   - Dodać ten sam filtr dla `paid_event_orders` używanych jako drugi strumień danych w tej liście.
-   - Dzięki temu rekord „Roma Romanowski” z `account_deleted_at` nie będzie już pokazywany jako aktywne zgłoszenie.
+### 1. Nowy hook `useHasOwnEventTicket(eventId)`
+- Plik: `src/hooks/useHasOwnEventTicket.ts`
+- Wyodrębnia istniejącą logikę z `PurchaseDrawer` (sprawdzenie `paid_event_orders` own + email, `paid_event_order_attendees`, `event_form_submissions`), zawsze z filtrem `account_deleted_at IS NULL` i wykluczeniem statusów `cancelled/refunded/failed/expired`.
+- Zwraca `{ hasTicket, isLoading }`.
+- Używany przez `PaidEventPage` oraz `PurchaseDrawer` (DRY, jedno źródło prawdy).
 
-2. **Poprawić scalanie zgłoszeń z zamówieniami**
-   - Nie scalać po e-mailu z rekordami oznaczonymi jako usunięte.
-   - Jeśli trzeba łączyć po e-mailu, dopuszczać tylko aktywne rekordy (`account_deleted_at IS NULL`).
-   - Priorytetem pozostaje łączenie po `order_id`, nie po historii e-maila.
+### 2. `src/pages/PaidEventPage.tsx`
+- Wywołuje `useHasOwnEventTicket(event.id)`.
+- W `handlePurchase`:
+  - jeżeli `hasTicket === true` → nie otwiera drawer'a, pokazuje `toast({ title: 'Masz już rezerwację na to wydarzenie', description: 'Każdy użytkownik może zarezerwować bilet na to wydarzenie tylko raz. Sprawdź swoje bilety powyżej.' })` i przewija stronę do panelu „Twoje bilety na to wydarzenie".
+  - w przeciwnym razie — działa jak dziś.
+- Przyciski rezerwacji w sekcji biletów (w `PaidEventSidebar` / kartach biletów) przyjmują nowy prop `disabledReason` lub po prostu są wyłączone z etykietą „Masz już rezerwację", gdy `hasTicket === true` (z wyjątkiem podglądu admina, który dzisiaj już widzi wszystko).
 
-3. **Poprawić rozpoznawanie typu osoby w zgłoszeniach**
-   - Przy mapowaniu e-mail → profil brać tylko aktywne profile, bez `deletion_status` i bez `is_active=false`.
-   - Nie używać usuniętych/anonymizowanych profili do klasyfikacji „Gość PLC / Partner”.
+### 3. `src/components/paid-events/public/PurchaseDrawer.tsx`
+- Zastępuje wewnętrzną `useQuery` o `hasOwnTicket` wywołaniem nowego hooka (zachowując dokładnie tę samą logikę zapytań).
+- Dodatkowy bezpiecznik: jeśli drawer został otwarty (np. przez stary cache) i `hasTicket === true`, renderuje wyłącznie komunikat „Masz już rezerwację na to wydarzenie" + przycisk „Zamknij", zamiast formularza. To zabezpiecza przed race condition między pierwszym kliknięciem a załadowaniem flagi.
 
-4. **Wzmocnić backendową listę zamówień admina**
-   - W `admin-list-event-orders` wykluczyć `paid_event_orders.account_deleted_at IS NOT NULL`, aby fallback z edge function też nie zwracał historii usuniętych kont.
+### 4. Brak zmian w bazie / edge functions
+- Cała logika pozostaje po stronie frontu; reguły izolacji kont usuniętych z poprzednich kroków (`account_deleted_at IS NULL`, dopasowanie po emailu tylko dla `user_id IS NULL`) są zachowane, więc nowe konto z recyklowanym mailem nigdy nie odziedziczy historii usuniętego konta.
 
-5. **Naprawić procedurę usuwania konta adminem**
-   - Obecna ścieżka `admin-delete-user` zeruje powiązania, ale nie używa pełnego stemplowania historii tak jak nowsza ścieżka finalizacji usunięcia.
-   - Ujednolicić ją tak, aby przed usunięciem oznaczała bilety/zgłoszenia danego konta jako `account_deleted_at`, `account_deleted_action`, `account_deleted_snapshot`.
-   - Ważne: oznaczanie po e-mailu musi dotyczyć wyłącznie rekordów starego konta/historycznych gościnnych rekordów, a widoki aktywne i tak muszą je później ignorować.
+## Zakres działania reguły
 
-6. **Migracja porządkująca istniejące dane**
-   - Dodać migrację, która dla obecnego przypadku upewni się, że historyczne rekordy z tego e-maila i starymi danymi (`Roma/Romanek Romanowski/Romano`) mają `account_deleted_at`.
-   - Nie usuwać danych księgowych/historycznych, tylko sprawić, że nie będą używane do aktywnych widoków i dopasowań.
+- Dotyczy wszystkich zalogowanych ról (klient, specjalista, partner, gość PLC, leader). Admin w trybie podglądu nadal może otwierać drawer (bo nie kupuje — używa CMS-a).
+- Reguła: jeden zalogowany użytkownik = jeden bilet na dane wydarzenie, niezależnie od metody płatności (PayU / przelew / darmowe) i statusu (`pending` / `paid` / `awaiting_transfer`). Statusy `cancelled/refunded/failed/expired` nie blokują (te nie liczą się jako aktywna rezerwacja).
+- Sprawdzenie obejmuje również sytuację, gdy użytkownik figuruje jako uczestnik (attendee) w cudzym zamówieniu grupowym oraz potwierdzone zgłoszenia z `event_form_submissions`.
 
-7. **Weryfikacja**
-   - Sprawdzić zapytaniem, że aktywna lista zgłoszeń dla tego wydarzenia pokazuje Józefa Pyzę, a nie Romę/Romanka.
-   - Sprawdzić, że Goście PLC i Zarządzanie użytkownikami nadal pokazują aktualne konto Józefa Pyzy.
+## Weryfikacja
 
-## Zasada po wdrożeniu
-
-Nowe konto jest zawsze nowym kontem. Ten sam e-mail nie może odziedziczyć żadnych danych, statusów, zgłoszeń, biletów ani nazw z konta, które zostało usunięte lub zanonimizowane.
+1. Józef Pyza (z aktywnym biletem `pending`) klika „Rezerwuję" → drawer się nie otwiera, pojawia się toast „Masz już rezerwację…".
+2. Inny użytkownik bez biletu klika „Rezerwuję" → drawer otwiera się normalnie.
+3. Po anulowaniu biletu (status `cancelled`) ten sam użytkownik może zarezerwować ponownie.
+4. Admin w trybie podglądu nadal może otworzyć formularz.
