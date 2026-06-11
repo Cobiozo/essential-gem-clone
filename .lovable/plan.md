@@ -1,40 +1,42 @@
-## Cel
+## Problem
 
-Zalogowany użytkownik (klient / specjalista / partner / gość PLC), który ma już rezerwację/bilet na dane wydarzenie, nie może otworzyć formularza rejestracyjnego po raz drugi. Próba kliknięcia „Rezerwuję" / „Kup bilet" pokazuje komunikat „Masz już rezerwację na to wydarzenie", a formularz w ogóle się nie otwiera.
+Gość PLC ma już 3 aktywne rezerwacje na to samo wydarzenie. Blokada frontendowa działa za późno albo nie wykrywa rezerwacji w tej ścieżce, a backend przelewu nadal pozwala utworzyć kolejne zamówienie, zamiast zwrócić informację „masz już rezerwację”.
 
-Obecnie `PurchaseDrawer` wykrywa istniejący bilet (`hasOwnTicket`) tylko po otwarciu — i jedynie blokuje pola kupującego, ale formularz nadal się pojawia (sytuacja widoczna na zrzucie ekranu Józefa Pyzy).
+## Plan naprawy
 
-## Zmiany
+1. **Ujednolicić wykrywanie istniejącego biletu**
+   - `PurchaseDrawer` przestanie używać własnej, starej kopii zapytania i użyje `useHasOwnEventTicket` jako jednego źródła prawdy.
+   - Hook będzie zwracał stan „gotowe/ładowanie”, żeby nie otwierać formularza zanim sprawdzenie rezerwacji się zakończy.
 
-### 1. Nowy hook `useHasOwnEventTicket(eventId)`
-- Plik: `src/hooks/useHasOwnEventTicket.ts`
-- Wyodrębnia istniejącą logikę z `PurchaseDrawer` (sprawdzenie `paid_event_orders` own + email, `paid_event_order_attendees`, `event_form_submissions`), zawsze z filtrem `account_deleted_at IS NULL` i wykluczeniem statusów `cancelled/refunded/failed/expired`.
-- Zwraca `{ hasTicket, isLoading }`.
-- Używany przez `PaidEventPage` oraz `PurchaseDrawer` (DRY, jedno źródło prawdy).
+2. **Zablokować przycisk „Zapisz się” na stronie wydarzenia**
+   - W `PaidEventPage` przy kliknięciu CTA:
+     - jeśli sprawdzanie jeszcze trwa → nie otwieramy formularza,
+     - jeśli użytkownik ma aktywną rezerwację → pokazujemy komunikat „Masz już rezerwację na to wydarzenie” i przewijamy do sekcji „Twoje bilety”.
+   - Do `PaidEventSidebar` dodam stan blokady CTA: przy istniejącej rezerwacji przycisk pokaże „Masz już rezerwację” zamiast nadal wyglądać jak aktywna rejestracja.
 
-### 2. `src/pages/PaidEventPage.tsx`
-- Wywołuje `useHasOwnEventTicket(event.id)`.
-- W `handlePurchase`:
-  - jeżeli `hasTicket === true` → nie otwiera drawer'a, pokazuje `toast({ title: 'Masz już rezerwację na to wydarzenie', description: 'Każdy użytkownik może zarezerwować bilet na to wydarzenie tylko raz. Sprawdź swoje bilety powyżej.' })` i przewija stronę do panelu „Twoje bilety na to wydarzenie".
-  - w przeciwnym razie — działa jak dziś.
-- Przyciski rezerwacji w sekcji biletów (w `PaidEventSidebar` / kartach biletów) przyjmują nowy prop `disabledReason` lub po prostu są wyłączone z etykietą „Masz już rezerwację", gdy `hasTicket === true` (z wyjątkiem podglądu admina, który dzisiaj już widzi wszystko).
+3. **Usunąć tryb „kupuję kolejny bilet dla gości” dla zalogowanego użytkownika z własną rezerwacją**
+   - W `PurchaseDrawer` każdy zalogowany użytkownik z istniejącą rezerwacją zobaczy wyłącznie komunikat o posiadanej rezerwacji + przycisk „Zamknij”.
+   - Nie będzie już możliwości zwiększenia liczby biletów i dopisania siebie lub kolejnej osoby w tym samym flow.
 
-### 3. `src/components/paid-events/public/PurchaseDrawer.tsx`
-- Zastępuje wewnętrzną `useQuery` o `hasOwnTicket` wywołaniem nowego hooka (zachowując dokładnie tę samą logikę zapytań).
-- Dodatkowy bezpiecznik: jeśli drawer został otwarty (np. przez stary cache) i `hasTicket === true`, renderuje wyłącznie komunikat „Masz już rezerwację na to wydarzenie" + przycisk „Zamknij", zamiast formularza. To zabezpiecza przed race condition między pierwszym kliknięciem a załadowaniem flagi.
+4. **Dodać twardą blokadę backendową dla przelewu**
+   - W `supabase/functions/register-event-transfer-order/index.ts` przed utworzeniem zamówienia dodam sprawdzenie:
+     - aktywne `paid_event_orders` po `user_id`,
+     - aktywne `paid_event_orders` po e-mailu,
+     - aktywne `paid_event_order_attendees` po e-mailu,
+     - aktywne `event_form_submissions` po e-mailu,
+     - z wykluczeniem kont usuniętych przez `account_deleted_at IS NULL`.
+   - Jeśli istnieje rezerwacja, funkcja zwróci `already_registered` z tekstem „Masz już rezerwację na to wydarzenie”.
 
-### 4. Brak zmian w bazie / edge functions
-- Cała logika pozostaje po stronie frontu; reguły izolacji kont usuniętych z poprzednich kroków (`account_deleted_at IS NULL`, dopasowanie po emailu tylko dla `user_id IS NULL`) są zachowane, więc nowe konto z recyklowanym mailem nigdy nie odziedziczy historii usuniętego konta.
+5. **Dodać analogiczną ochronę dla płatności PayU**
+   - W `supabase/functions/create-event-order/index.ts` doprecyzuję istniejącą blokadę, żeby też respektowała `account_deleted_at IS NULL` i nie pozwalała użytkownikowi utworzyć kolejnego aktywnego zamówienia.
 
-## Zakres działania reguły
+6. **Opcjonalna kontrola formularza bezpośredniego**
+   - Jeśli wydarzenie ma też link `/event-form/...`, `EventFormPublicPage` dostanie sprawdzenie istniejącej rezerwacji dla zalogowanego użytkownika i zamiast formularza pokaże komunikat, że miejsce jest już zarezerwowane.
 
-- Dotyczy wszystkich zalogowanych ról (klient, specjalista, partner, gość PLC, leader). Admin w trybie podglądu nadal może otwierać drawer (bo nie kupuje — używa CMS-a).
-- Reguła: jeden zalogowany użytkownik = jeden bilet na dane wydarzenie, niezależnie od metody płatności (PayU / przelew / darmowe) i statusu (`pending` / `paid` / `awaiting_transfer`). Statusy `cancelled/refunded/failed/expired` nie blokują (te nie liczą się jako aktywna rezerwacja).
-- Sprawdzenie obejmuje również sytuację, gdy użytkownik figuruje jako uczestnik (attendee) w cudzym zamówieniu grupowym oraz potwierdzone zgłoszenia z `event_form_submissions`.
+## Efekt
 
-## Weryfikacja
-
-1. Józef Pyza (z aktywnym biletem `pending`) klika „Rezerwuję" → drawer się nie otwiera, pojawia się toast „Masz już rezerwację…".
-2. Inny użytkownik bez biletu klika „Rezerwuję" → drawer otwiera się normalnie.
-3. Po anulowaniu biletu (status `cancelled`) ten sam użytkownik może zarezerwować ponownie.
-4. Admin w trybie podglądu nadal może otworzyć formularz.
+Dla Józefa Pyzy / gościa PLC po pierwszej aktywnej rezerwacji:
+- przycisk rejestracji nie pozwoli otworzyć formularza,
+- drawer nie pokaże pól rejestracyjnych nawet przy opóźnionym odczycie,
+- edge function nie utworzy kolejnego zamówienia nawet przy obejściu frontendu,
+- komunikat będzie jednoznaczny: „Masz już rezerwację na to wydarzenie”.
