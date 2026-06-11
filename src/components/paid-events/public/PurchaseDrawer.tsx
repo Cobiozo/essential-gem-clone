@@ -383,6 +383,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+        qc.invalidateQueries({ queryKey: ['has-own-event-ticket'] });
 
         toast({
           title: data?.auto_confirmed ? 'Bilet wysłany' : 'Rezerwacja przyjęta',
@@ -422,6 +423,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
         qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
         qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+        qc.invalidateQueries({ queryKey: ['has-own-event-ticket'] });
         qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
 
         toast({
@@ -450,6 +452,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       qc.invalidateQueries({ queryKey: ['my-ticket-orders'] });
       qc.invalidateQueries({ queryKey: ['my-event-tickets-inline'] });
       qc.invalidateQueries({ queryKey: ['my-event-ticket-exists'] });
+        qc.invalidateQueries({ queryKey: ['has-own-event-ticket'] });
       qc.invalidateQueries({ queryKey: ['my-event-registration-fallback'] });
 
       onOpenChange(false);
