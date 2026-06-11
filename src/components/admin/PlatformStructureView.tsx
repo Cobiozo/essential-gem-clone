@@ -233,14 +233,26 @@ const PlatformStructureView: React.FC = () => {
     return (
       <div key={n.profile.user_id} className="border-l border-border ml-1 pl-1.5 sm:ml-2 sm:pl-2">
         <div
-          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs ${
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedNode(n)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedNode(n);
+            }
+          }}
+          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs cursor-pointer hover:bg-muted/60 transition-colors ${
             isAdmin ? 'bg-destructive/5 border border-destructive/30' : ''
           } ${isMatch ? 'ring-1 ring-primary/60' : ''}`}
         >
           <div className="flex items-center gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
             <button
               type="button"
-              onClick={() => hasChildren && toggle(n.profile.user_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasChildren) toggle(n.profile.user_id);
+              }}
               className={`shrink-0 w-6 h-6 sm:w-4 sm:h-4 flex items-center justify-center text-muted-foreground ${
                 hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
               }`}
