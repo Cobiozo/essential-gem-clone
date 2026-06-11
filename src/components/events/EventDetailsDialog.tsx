@@ -41,7 +41,10 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const { language } = useLanguage();
   const locale = getAppDateLocale(language);
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
+  const [bookerProfile, setBookerProfile] = useState<{ first_name: string | null; last_name: string | null; phone_number: string | null; email: string | null } | null>(null);
+
 
   // Fetch zoom_link from leader_permissions if event doesn't have one
   useEffect(() => {
