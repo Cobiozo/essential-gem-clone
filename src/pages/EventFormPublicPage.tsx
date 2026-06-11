@@ -210,6 +210,16 @@ const EventFormPublicPage: React.FC = () => {
                   )}
                 </div>
               )}
+              {event?.slug && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
+                >
+                  Dowiedz się więcej na temat wydarzenia
+                </Button>
+              )}
               {form.description && (
                 <p className="mt-4 text-sm whitespace-pre-wrap">{form.description}</p>
               )}
