@@ -40,6 +40,7 @@ import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
 import TrainingManagement from '@/components/admin/TrainingManagement';
 import UserStatistics from '@/components/admin/UserStatistics';
+import PlatformStructureView from '@/components/admin/PlatformStructureView';
 import CertificateEditor from '@/components/admin/CertificateEditor';
 import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
@@ -4634,8 +4635,20 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="user-stats">
-            <UserStatistics />
+            <Tabs defaultValue="stats" className="w-full">
+              <TabsList>
+                <TabsTrigger value="stats">Statystyki użytkowników</TabsTrigger>
+                <TabsTrigger value="structure">Struktura całej platformy</TabsTrigger>
+              </TabsList>
+              <TabsContent value="stats" className="mt-4">
+                <UserStatistics />
+              </TabsContent>
+              <TabsContent value="structure" className="mt-4">
+                <PlatformStructureView />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
+
 
           <TabsContent value="training">
             <TrainingManagement />
