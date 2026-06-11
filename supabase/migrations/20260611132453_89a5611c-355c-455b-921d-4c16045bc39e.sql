@@ -1,0 +1,1 @@
+ALTER TABLE public.paid_events ADD COLUMN IF NOT EXISTS allow_attendee_invites BOOLEAN NOT NULL DEFAULT false;

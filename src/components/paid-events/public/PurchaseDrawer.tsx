@@ -33,6 +33,10 @@ interface PurchaseDrawerProps {
   paymentMethodPaypal?: boolean;
   transferPaymentDetails?: string | null;
   refCode?: string | null;
+  /** When true AND buyer already has a reservation, show "invite a guest" panel with link. */
+  allowAttendeeInvites?: boolean;
+  /** URL used as the guest invitation link (event public URL or registration form URL). */
+  inviteUrl?: string | null;
 }
 
 type SubmitMode = 'checkout';
@@ -69,9 +73,11 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   paymentMethodPaypal = false,
   transferPaymentDetails = null,
   refCode = null,
+  allowAttendeeInvites = false,
+  inviteUrl = null,
 }) => {
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const profileEmail = (profile as any)?.email?.toLowerCase?.() ?? null;
@@ -155,16 +161,24 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
 
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
+
+  // "One reservation per user" rule: a logged-in, non-admin user can only buy a single
+  // ticket for themselves. Admin keeps the full multi-quantity / guest flow. Anonymous
+  // buyers (no account) can still buy multiple seats unless admin caps it.
+  const isLoggedInRegularUser = !!user && !isAdmin;
+  const singleSeatLock = isLoggedInRegularUser;
+
   const totalSeats = quantity * seatsPerTicket;
   const totalPrice = (ticket?.price ?? 0) * quantity;
 
   const maxQty = useMemo(() => {
+    if (singleSeatLock) return 1;
     const qa = ticket?.available_quantity;
     const mpo = ticket?.max_per_order;
     const availCap = qa && qa > 0 ? qa : MAX_TICKETS;
     const orderCap = mpo && mpo > 0 ? mpo : MAX_TICKETS;
     return Math.max(1, Math.min(MAX_TICKETS, availCap, orderCap));
-  }, [ticket?.available_quantity, ticket?.max_per_order]);
+  }, [ticket?.available_quantity, ticket?.max_per_order, singleSeatLock]);
   const allowMultiple = maxQty > 1;
 
   // Keep quantity within the dynamic upper bound (admin may forbid multi-purchase, in which case maxQty=1).
@@ -541,6 +555,36 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 </div>
               </div>
+              {allowAttendeeInvites && inviteUrl && (() => {
+                const absoluteUrl = inviteUrl.startsWith('http')
+                  ? inviteUrl
+                  : `${typeof window !== 'undefined' ? window.location.origin : ''}${inviteUrl}`;
+                const copy = async () => {
+                  try {
+                    await navigator.clipboard.writeText(absoluteUrl);
+                    toast({ title: 'Skopiowano link', description: 'Link zapraszający został skopiowany do schowka.' });
+                  } catch {
+                    toast({ title: 'Nie udało się skopiować', description: absoluteUrl, variant: 'destructive' });
+                  }
+                };
+                return (
+                  <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                    <div className="text-sm font-semibold">Zaproś gościa</div>
+                    <p className="text-xs text-muted-foreground">
+                      Udostępnij poniższy link osobom, które chcesz zaprosić. Każdy gość rejestruje się samodzielnie — jedna rezerwacja na osobę.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={absoluteUrl}
+                        className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background font-mono truncate"
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <Button type="button" size="sm" onClick={copy}>Kopiuj</Button>
+                    </div>
+                  </div>
+                );
+              })()}
               <Button type="button" variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
                 Zamknij
               </Button>

@@ -307,6 +307,26 @@ export const EventMainSettingsPanel: React.FC<EventMainSettingsPanelProps> = ({
                 </div>
               </div>
 
+              <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Switch
+                    checked={formData.allow_attendee_invites ?? false}
+                    onCheckedChange={(checked) => handleFieldChange('allow_attendee_invites', checked)}
+                  />
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium">
+                      Pozwól uczestnikom zapraszać dodatkowych gości (przez link zapraszający)
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Domyślnie wyłączone. Każdy zalogowany użytkownik (klient, partner, specjalista, gość PLC)
+                      może mieć tylko jedną rezerwację na to wydarzenie i nie widzi pól „dodaj gościa" w formularzu zakupu.
+                      Po włączeniu tej opcji uczestnik z aktywną rezerwacją zobaczy gotowy link zapraszający,
+                      który może udostępnić — każdy zapraszany gość rejestruje się osobno (jedna rezerwacja na osobę).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2 pt-2">
                 <Label className="text-sm font-medium">Widoczność dla ról</Label>
                 <div className="grid grid-cols-2 gap-2">
