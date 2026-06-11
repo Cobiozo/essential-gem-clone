@@ -96,6 +96,7 @@ interface GuestRow {
   is_active?: boolean;
   email_activated?: boolean;
   admin_approved?: boolean;
+  deletion_status?: string | null;
 }
 
 const guestRegisterUrl = (token: string) => `${window.location.origin}/zaproszenie/${token}`;
