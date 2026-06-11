@@ -303,17 +303,6 @@ const EventFormPublicPage: React.FC = () => {
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                 {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Zapisywanie...</> : (form.cta_label || 'Zapisuję się')}
               </Button>
-
-              {event?.slug && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
-                >
-                  Dowiedz się więcej na temat wydarzenia
-                </Button>
-              )}
             </form>
           </CardContent>
         </Card>
