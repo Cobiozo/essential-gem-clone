@@ -1,32 +1,25 @@
-## Zmiany
+# Naprawa: usunięte konto gościa nie trafia do „Usuniętych kont"
 
-### 1. `src/pages/MyAccount.tsx` — karta „Usuń konto"
-Uprościć copy dla użytkownika — żadnych wzmianek o 30 dniach, administratorze ani przywracaniu. To, co dzieje się w panelu admina, jest sprawą zaplecza.
+## Diagnoza (potwierdzona)
 
-- `CardDescription` (linia 1390) → jedno zdanie typu:
-  „Usunięcie konta jest **nieodwracalne**. Stracisz dostęp do wszystkich swoich danych, postępów, materiałów i historii. Przemyśl tę decyzję."
-- `AlertDialogTitle` (1404) → „Potwierdź usunięcie konta".
-- `AlertDialogDescription` (1405–1416) → zostawić wyłącznie zdanie o nieodwracalności + prośbę o wpisanie e-maila do potwierdzenia (usunąć fragment „administrator może przywrócić").
-- Przycisk w dialogu (1437) → „Usuń konto" zamiast „Zgłoś usunięcie konta".
+Na serwerze działa **stara wersja** funkcji `self-delete-account`, która **natychmiast i trwale kasuje konto** (log z 08:05: „user … deleted themselves"). Skutki:
 
-Backend (soft-delete 30 dni, panel admina, CRON purga) bez zmian — to wyłącznie UI/copy.
+- Konto gościa zostało od razu usunięte z `auth.users` i `profiles` — dlatego zniknęło z listy gości.
+- Nie powstał wpis `deletion_status='pending'` ani rekord w `account_deletion_log` — dlatego zakładka „Oczekujące" i „Historia" są puste.
+- Nowy kod soft-delete (30-dniowe okno + powiadomienie admina) istnieje w projekcie, ale nigdy nie został wdrożony — m.in. brak wpisów w `supabase/config.toml` dla `self-delete-account`, `admin-finalize-account-deletion` i `cron-purge-pending-deletions`.
 
-### 2. Samouczek — ukryć dla gościa PLC
-Rola gościa PLC = `'guest'` (potwierdzone w `AuthContext.tsx`).
+## Plan naprawy
 
-- `src/hooks/useOnboardingTour.ts`: w `useEffect` (l. 36) early-return gdy `userRole?.role === 'guest'` → brak auto-welcome dialogu po pierwszym logowaniu.
-- `src/components/dashboard/DashboardTopbar.tsx` (l. 205 i 285): ukryć przycisk „Samouczek" (ikona w pasku + pozycja w dropdown), gdy `userRole?.role === 'guest'`.
+1. **`supabase/config.toml`** — dodać wpisy:
+   - `self-delete-account` → `verify_jwt = true`
+   - `admin-finalize-account-deletion` → `verify_jwt = true`
+   - `cron-purge-pending-deletions` → `verify_jwt = false` (wywoływana przez CRON)
+2. **Wymusić wdrożenie aktualnych wersji** tych trzech funkcji (deploy edge functions), aby na serwerze działał soft-delete z 30-dniowym oknem zamiast natychmiastowego kasowania.
+3. **Wpis audytowy dla już usuniętego gościa** — dodać do `account_deletion_log` rekord z `user_id = 53b20e8a-…`, `final_action='deleted'` i notatką, że konto zostało skasowane przez starą wersję funkcji (konto jest nieodwracalnie usunięte — nie da się go przywrócić, ale admin zobaczy ślad w zakładce „Historia").
+4. **Weryfikacja** — sprawdzić logi funkcji po wdrożeniu i potwierdzić, że nowe zgłoszenie ustawia `deletion_status='pending'`, tworzy wpis w logu i wysyła powiadomienie do adminów.
 
-### 3. Baner uzupełnienia danych — podświetlanie wszystkich brakujących pól
-Baner `ProfileFieldsBanner` już dziś przekazuje listę brakujących pól do `/my-account?highlight=field1,field2`. Trzeba domknąć drugą stronę: na `MyAccount` realnie podświetlić te pola na czerwono — wszystkie, nie tylko adresowe (`first_name`, `last_name`, `phone_number`, `street_address`, `postal_code`, `city`, `country`, `eq_id` itp.).
+## Efekt
 
-- `src/pages/MyAccount.tsx`:
-  - Odczytać `?highlight=` z `useSearchParams`, sparsować na `Set<string>` brakujących pól.
-  - Trzymać `missingSet` w stanie. Po każdym udanym zapisie profilu (`handleSave`) usunąć z setu pola, które właśnie zostały wypełnione (re-walidacja po wartościach z formularza); gdy `missingSet` pustnieje, usunąć parametr `highlight` z URL.
-  - Każdemu `<Input>` / `<Select>` odpowiadającemu polu z `missingSet` dodać warunkowy `className="border-destructive ring-1 ring-destructive focus-visible:ring-destructive"` + krótki tekst pomocniczy „Pole wymagane" pod inputem.
-  - Auto-scroll do pierwszego podświetlonego pola po wejściu na stronę (ref + `scrollIntoView({ behavior:'smooth', block:'center' })`).
-- `src/components/profile/ProfileFieldsBanner.tsx`:
-  - Już ma `required_fields` z admina i refetchuje profil — żadnych zmian logiki nie trzeba poza upewnieniem się, że `staleTime` nie zablokuje schowania banera po zapisie. Po `handleSave` w `MyAccount` wywołać `queryClient.invalidateQueries({ queryKey: ['profile-fields-banner-profile', user.id] })`, żeby baner zniknął natychmiast.
-  - Usunąć wymuszony `navigate('/dashboard')` z `useEffect` (l. 84–87) — użytkownik ma zostać tam gdzie jest; baner zniknie sam, gdy `missing.length === 0`.
-
-Wynik: użytkownik klika baner → trafia do `/my-account` z czerwono oznaczonymi wszystkimi brakującymi polami → uzupełnia → klika „Zapisz" → baner natychmiast znika, podświetlenia gasną.
+- Każde kolejne zgłoszenie usunięcia konta (gość, klient, partner) pojawi się u admina w „Usunięte konta → Oczekujące" z akcjami: Przywróć / Zanonimizuj / Usuń trwale.
+- Admin dostanie e-mail i powiadomienie w aplikacji.
+- Już usuniętego konta nie da się odzyskać, ale ślad trafi do „Historii".
