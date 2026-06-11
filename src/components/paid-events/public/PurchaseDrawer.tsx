@@ -77,6 +77,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   refCode = null,
   allowAttendeeInvites = false,
   inviteUrl = null,
+  alreadyRegistered: alreadyRegisteredProp = false,
 }) => {
   const { toast } = useToast();
   const { user, profile, isAdmin } = useAuth();
