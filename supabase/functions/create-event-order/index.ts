@@ -108,11 +108,83 @@ Deno.serve(async (req) => {
     const totalAmount = ticket.price_pln * qty;
     const code = ticketCode();
 
+    // Duplicate guard: a logged-in user can hold only ONE reservation as a
+    // participant for the same event. We also block ANY attendee e-mail that
+    // already has an active ticket/registration for this event.
+    const buyerEmailLc = (buyer.email || "").trim().toLowerCase();
+    const attendeeEmails = (attendees || [])
+      .map((a) => (a?.email || "").trim().toLowerCase())
+      .filter(Boolean);
+    const emailsToCheck = Array.from(new Set([buyerEmailLc, ...attendeeEmails].filter(Boolean)));
+    const ACTIVE_ORDER_STATUSES = ["pending", "awaiting_email_confirmation", "awaiting_transfer", "paid", "confirmed", "completed"];
+
+    if (emailsToCheck.length > 0 || currentUserId) {
+      // 1) orders by email or user_id
+      const orderFilters: string[] = [];
+      if (currentUserId) orderFilters.push(`user_id.eq.${currentUserId}`);
+      for (const e of emailsToCheck) orderFilters.push(`email.eq.${e}`);
+      const { data: dupOrders } = await supabase
+        .from("paid_event_orders")
+        .select("id, email, user_id")
+        .eq("event_id", eventId)
+        .or(orderFilters.join(","))
+        .in("status", ACTIVE_ORDER_STATUSES)
+        .limit(1);
+      if (dupOrders && dupOrders.length > 0) {
+        const dup = dupOrders[0] as any;
+        const who = currentUserId && dup.user_id === currentUserId
+          ? "Masz już aktywną rezerwację na to wydarzenie."
+          : `Adres ${dup.email} ma już aktywną rezerwację na to wydarzenie.`;
+        return new Response(JSON.stringify({
+          error: "already_registered",
+          message: `${who} Kolejny bilet możesz kupić wyłącznie dla innej osoby (innego adresu e-mail).`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // 2) attendee seats by email (group tickets)
+      if (emailsToCheck.length > 0) {
+        const { data: dupSeats } = await supabase
+          .from("paid_event_order_attendees")
+          .select("id, email, order_id, paid_event_orders!inner(event_id, status)")
+          .eq("paid_event_orders.event_id", eventId)
+          .in("paid_event_orders.status", ACTIVE_ORDER_STATUSES)
+          .in("email", emailsToCheck)
+          .limit(1);
+        if (dupSeats && dupSeats.length > 0) {
+          const dup = dupSeats[0] as any;
+          return new Response(JSON.stringify({
+            error: "already_registered",
+            message: `Adres ${dup.email} jest już zarejestrowany jako uczestnik na to wydarzenie. Każdy uczestnik może mieć tylko jedną rezerwację.`,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
+      // 3) free form submissions
+      if (emailsToCheck.length > 0) {
+        const { data: dupSubs } = await supabase
+          .from("event_form_submissions")
+          .select("id, email")
+          .eq("event_id", eventId)
+          .in("email", emailsToCheck)
+          .eq("status", "active")
+          .limit(1);
+        if (dupSubs && dupSubs.length > 0) {
+          const dup = dupSubs[0] as any;
+          return new Response(JSON.stringify({
+            error: "already_registered",
+            message: `Adres ${dup.email} ma już rezerwację na to wydarzenie.`,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     const { data: order, error: oErr } = await supabase.from("paid_event_orders").insert({
       event_id: eventId,
       ticket_id: ticketId,
-      email: buyer.email,
+      user_id: currentUserId,
+      email: buyerEmailLc,
       first_name: buyer.firstName,
+
       last_name: buyer.lastName,
       phone: buyer.phone || null,
       quantity: qty,
