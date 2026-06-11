@@ -209,6 +209,7 @@ export const DeletedAccountsManagement: React.FC = () => {
           )}
           {logs.map((r) => {
             const a = ACTION_LABELS[r.final_action || ''] || { label: r.final_action || '—', variant: 'secondary' as const };
+            const mailStatus = r.user_email_status;
             return (
               <Card key={r.id}>
                 <CardContent className="p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -219,6 +220,22 @@ export const DeletedAccountsManagement: React.FC = () => {
                       Zgłoszono: {formatDate(r.requested_at)} · Zakończono: {formatDate(r.acted_at)}
                       {r.acted_by ? ' · przez admina' : ' · automatycznie'}
                     </div>
+                    {mailStatus === 'sent' && (
+                      <div className="text-xs text-green-600 mt-1">
+                        E-mail potwierdzający wysłany: {formatDate(r.user_email_sent_at)}
+                      </div>
+                    )}
+                    {mailStatus === 'failed' && (
+                      <div className="text-xs text-destructive mt-1" title={r.user_email_error || ''}>
+                        E-mail potwierdzający: błąd wysyłki ({formatDate(r.user_email_sent_at)})
+                        {r.user_email_error ? ` — ${r.user_email_error}` : ''}
+                      </div>
+                    )}
+                    {!mailStatus && r.final_action && r.final_action !== 'restored' && (
+                      <div className="text-xs text-muted-foreground mt-1 italic">
+                        E-mail potwierdzający nie został wysłany (rekord historyczny).
+                      </div>
+                    )}
                     {r.notes && <div className="text-xs text-muted-foreground mt-1 italic">{r.notes}</div>}
                   </div>
                   <Badge variant={a.variant}>{a.label}</Badge>
