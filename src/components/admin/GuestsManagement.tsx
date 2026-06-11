@@ -404,7 +404,7 @@ const GuestUsersTab: React.FC = () => {
     if (ids.length === 0) { setGuests([]); setLoading(false); return; }
     const { data: profs } = await (supabase as any)
       .from('profiles')
-      .select('user_id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved')
+      .select('user_id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved, deletion_status')
       .in('user_id', ids)
       .order('created_at', { ascending: false });
     const rows: GuestRow[] = (profs || []).map((p: any) => ({
@@ -416,6 +416,7 @@ const GuestUsersTab: React.FC = () => {
       is_active: p.is_active,
       email_activated: p.email_activated,
       admin_approved: p.admin_approved,
+      deletion_status: p.deletion_status,
     }));
     setGuests(rows);
     setLoading(false);
