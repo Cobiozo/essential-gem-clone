@@ -6,17 +6,24 @@ import { useAuth } from '@/contexts/AuthContext';
  * Returns true when the currently logged-in user already holds an ACTIVE
  * (non-cancelled) reservation for the given paid event.
  *
- * Checks (each scoped to NON-deleted accounts only — `account_deleted_at IS NULL` —
- * so a recycled email can never inherit a deleted account's history):
- *   1. paid_event_orders matched by user_id (own orders)
+ * PRIMARY source of truth: the `get_my_event_orders` RPC (same as
+ * MyEventTicketsInline). RPC runs as SECURITY DEFINER so it sees orders
+ * matched by user_id OR lower(email) regardless of RLS quirks — this is
+ * critical because reservations created while the user was anonymous
+ * (user_id IS NULL, email-only) are otherwise invisible to a direct
+ * `paid_event_orders` query.
+ *
+ * Secondary fallbacks (used only if RPC fails or returns empty):
+ *   1. paid_event_orders matched by user_id
  *   2. paid_event_orders matched by email but only for guest rows (user_id IS NULL)
- *   3. paid_event_order_attendees — the user appears as a guest seat in someone
- *      else's group order
+ *   3. paid_event_order_attendees — the user appears as a guest seat
  *   4. event_form_submissions with status='active'
  *
  * Statuses cancelled/refunded/failed/expired do NOT count.
  */
 export const HAS_OWN_EVENT_TICKET_KEY = 'has-own-event-ticket';
+
+const INACTIVE_STATUSES = new Set(['cancelled', 'refunded', 'failed', 'expired']);
 
 export function useHasOwnEventTicket(eventId: string | null | undefined) {
   const { user, profile, rolesReady } = useAuth();
@@ -27,10 +34,23 @@ export function useHasOwnEventTicket(eventId: string | null | undefined) {
   const query = useQuery({
     queryKey: [HAS_OWN_EVENT_TICKET_KEY, user?.id, eventId, emails.join('|')],
     enabled: !!user?.id && !!eventId && rolesReady,
-    staleTime: 10_000,
+    staleTime: 5_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     queryFn: async () => {
+      // PRIMARY: RPC (bypasses RLS, matches by user_id OR email)
+      try {
+        const { data, error } = await (supabase as any).rpc('get_my_event_orders', {
+          p_event_id: eventId,
+        });
+        if (!error && Array.isArray(data)) {
+          const activeRow = data.find((r: any) => !INACTIVE_STATUSES.has(r.status));
+          if (activeRow) return true;
+        }
+      } catch (e) {
+        console.warn('[useHasOwnEventTicket] RPC failed, falling back to direct queries', e);
+      }
+
       const notCancelled = '("cancelled","refunded","failed","expired")';
 
       // 1. Own paid_event_orders by user_id
