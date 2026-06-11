@@ -119,21 +119,55 @@ const PaidEventPage: React.FC = () => {
     enabled: !!event?.id,
   });
 
-  // Fetch number of active form submissions for this event (used to compute available spots)
-  const { data: activeSubmissionsCount = 0 } = useQuery({
-    queryKey: ['paid-event-active-submissions', event?.id],
+  // Count all occupied seats across every registration channel for this event.
+  // Includes: active form submissions + paid order attendees (paid/pending/awaiting_transfer,
+  // not cancelled) + fallback by order.quantity when attendees are not yet stored +
+  // active guest_event_registrations. Public sidebar uses this for "Dostępnych miejsc".
+  const { data: occupiedSeats = 0 } = useQuery({
+    queryKey: ['paid-event-occupied-seats', event?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from('event_form_submissions')
-        .select('id', { count: 'exact', head: true })
-        .eq('event_id', event!.id)
-        .eq('status', 'active');
-      if (error) throw error;
-      return count ?? 0;
+      const eventId = event!.id;
+      const ACTIVE_ORDER_STATUSES = ['paid', 'awaiting_transfer', 'pending'];
+
+      const [submissionsRes, attendeesRes, ordersRes, guestsRes] = await Promise.all([
+        supabase
+          .from('event_form_submissions')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .eq('status', 'active'),
+        supabase
+          .from('paid_event_order_attendees')
+          .select('id, order:paid_event_orders!inner(event_id, status, cancelled_at)', { count: 'exact', head: true })
+          .eq('order.event_id', eventId)
+          .in('order.status', ACTIVE_ORDER_STATUSES)
+          .is('order.cancelled_at', null)
+          .is('cancelled_at', null),
+        supabase
+          .from('paid_event_orders')
+          .select('id, quantity, paid_event_order_attendees(id)')
+          .eq('event_id', eventId)
+          .in('status', ACTIVE_ORDER_STATUSES)
+          .is('cancelled_at', null),
+        supabase
+          .from('guest_event_registrations')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .eq('status', 'active'),
+      ]);
+
+      const submissionsCount = submissionsRes.count ?? 0;
+      const attendeesCount = attendeesRes.count ?? 0;
+      const guestCount = guestsRes.count ?? 0;
+      const fallbackSeats = ((ordersRes.data ?? []) as Array<{ quantity: number | null; paid_event_order_attendees: { id: string }[] | null }>)
+        .filter((o) => (o.paid_event_order_attendees?.length ?? 0) === 0)
+        .reduce((sum, o) => sum + (o.quantity ?? 1), 0);
+
+      return submissionsCount + attendeesCount + fallbackSeats + guestCount;
     },
     enabled: !!event?.id,
-    staleTime: 30_000,
+    staleTime: 20_000,
   });
+
 
   // Fetch tickets
   const { data: tickets = [] } = useQuery({
@@ -528,7 +562,7 @@ const PaidEventPage: React.FC = () => {
                 })}
                 eventDate={event.event_date}
                 maxTickets={event.max_tickets}
-                ticketsSold={(event.tickets_sold ?? 0) + (activeSubmissionsCount ?? 0)}
+                ticketsSold={occupiedSeats}
                 showLastSpotsLabel={!!event.show_last_spots_label}
                 onPurchase={handlePurchase}
                 formUrl={
