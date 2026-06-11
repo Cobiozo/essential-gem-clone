@@ -57,6 +57,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   helperText = null,
   showLastSpotsLabel = false,
   alreadyRegistered = false,
+  alreadyRegisteredLoading = false,
   allowAttendeeInvites = false,
   inviteUrl = null,
 }) => {
