@@ -36,6 +36,10 @@ interface PaidEventSidebarProps {
   showLastSpotsLabel?: boolean;
   /** When true, user already has an active reservation — CTA is replaced with a "Masz już rezerwację" badge. */
   alreadyRegistered?: boolean;
+  /** When true AND alreadyRegistered, show an "invite a guest" panel with a shareable link. */
+  allowAttendeeInvites?: boolean;
+  /** Absolute or relative URL used as the guest invitation link (event public URL or registration form URL). */
+  inviteUrl?: string | null;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
@@ -51,7 +55,10 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   helperText = null,
   showLastSpotsLabel = false,
   alreadyRegistered = false,
+  allowAttendeeInvites = false,
+  inviteUrl = null,
 }) => {
+  const { toast } = useToast();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
   );
