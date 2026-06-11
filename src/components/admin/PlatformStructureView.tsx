@@ -32,6 +32,7 @@ import {
   type PlatformProfile,
   type PlatformNode,
 } from './exports/platformStructureExport';
+import PlatformUserDetailsDialog from './PlatformUserDetailsDialog';
 
 interface RoleRow { user_id: string; role: string }
 
