@@ -40,6 +40,7 @@ import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
 import TrainingManagement from '@/components/admin/TrainingManagement';
 import UserStatistics from '@/components/admin/UserStatistics';
+import PlatformStructureView from '@/components/admin/PlatformStructureView';
 import CertificateEditor from '@/components/admin/CertificateEditor';
 import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
 import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
