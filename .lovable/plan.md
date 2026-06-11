@@ -1,66 +1,37 @@
-## Problem
+## Diagnoza
 
-1. **Janek Malak** (zaproszony przez gościa PLC, który został usunięty) nie pokazuje partnera zapraszającego, bo `admin-finalize-account-deletion` i `cron-purge-pending-deletions` zerują `invited_by_user_id`, `partner_user_id`, `created_by` itd. — informacja jest bezpowrotnie tracona.
-2. W zakładce **Goście PLC → Lista gości / Rejestracje gości** rekordy zaproszone przez usuniętego gościa PLC znikają z tych samych powodów (oraz przez cascade na `auth.users` przy pełnym usunięciu profilu/roli).
-3. **Roma Romanowski** po zatwierdzeniu usunięcia (anonimizacja/delete) nie dostał maila — `admin-finalize-account-deletion` wysyła maila do użytkownika tylko przy `restore`. Brak też informacji w „Usunięte konta" o tym, że (i kiedy) mail został wysłany.
+Po sprawdzeniu danych:
+- Elżbieta Dąbrowska (eq_id `191021665`) ma uprawnienie `can_manage_auto_webinar_access = true`.
+- Wanda Koralewska (`upline_eq_id = 191021665`) JEST w downline Elżbiety na poziomie 1 (RPC `get_organization_tree('191021665')` ją zwraca).
+- Wanda ma kilka aktywnych certyfikatów SZYBKI START.
+- RPC `leader_update_auto_webinar_access` i `leader_get_team_auto_webinar_access` działają poprawnie i są SECURITY DEFINER (bypass RLS).
 
-## Plan
+Ponieważ Elżbieta widziała zakładkę „Auto-Webinary", ale **Wandy nie było na liście**, problem leży w komponencie `src/components/leader/LeaderAutoWebinarAccessView.tsx` + hooku `useLeaderTeamMembers`. Trzy realne źródła błędu:
 
-### 1. Migracja DB — snapshot zapraszającego + log maila
+1. **`useLeaderTeamMembers`** używa React Query z `staleTime: 2 min` kluczowanym po `user.id`. Jeśli hook pobrał listę zanim `profile.eq_id` był dostępny (race condition przy logowaniu lub przy odświeżeniu profilu), zapytanie zwróciło `[]` i siedzi w cache — Wanda nigdy się nie pojawi do czasu pełnego przeładowania strony.
+2. **`permissionsLoaded.current = true`** w `LeaderAutoWebinarAccessView` blokuje ponowne pobranie uprawnień nawet jeśli lista `teamMembers` później się powiększy — nowi członkowie zespołu nie dostaną wpisu w `accessMap`/`certMap`.
+3. Brak ręcznego przycisku „Odśwież" — leader nie ma jak wymusić ponownego pobrania zespołu z bazy.
 
-- Dodać kolumny (idempotentnie):
-  - `public.guest_event_registrations`: `inviter_deleted_at timestamptz`, `inviter_snapshot jsonb`
-  - `public.event_form_submissions`: `partner_deleted_at timestamptz`, `partner_snapshot jsonb`
-  - `public.paid_event_partner_links`: `partner_deleted_at timestamptz`, `partner_snapshot jsonb`
-  - `public.events`: `creator_deleted_at timestamptz`, `creator_snapshot jsonb` (dla `created_by` — np. trójstronne / konsultacje rezerwowane przez partnera)
-  - `public.account_deletion_log`: `user_email_sent_at timestamptz`, `user_email_status text`, `user_email_error text`
-- Bez zmian w RLS (kolumny służbowe; admin ma już dostęp).
+## Zakres zmian
 
-### 2. Edge: `_shared/account-deletion-stamp.ts`
+### 1. `src/hooks/useLeaderTeamMembers.ts`
+- `queryKey` zmienić na `['leader-team-members', user?.id, profile?.eq_id]`, żeby zmiana eq_id automatycznie unieważniała cache.
+- Dodać `refetchOnWindowFocus: true` i obniżyć `staleTime` do 30 s.
+- Wyeksportować `refetch` (już jest) — będzie używany w widoku.
 
-Rozszerzyć helper o dodatkową funkcję `stampInviterAccountDeletion(supabaseAdmin, userId, snapshot)` która:
-- Ustawia `inviter_snapshot` + `inviter_deleted_at` na wszystkich `guest_event_registrations.invited_by_user_id = userId` (BEZ zerowania FK).
-- To samo dla `event_form_submissions.partner_user_id`, `paid_event_partner_links.partner_user_id`, `events.created_by`.
-- Snapshot = `{ first_name, last_name, email, roles, action: 'anonymized'|'deleted'|'auto_deleted' }`.
+### 2. `src/components/leader/LeaderAutoWebinarAccessView.tsx`
+- Usunąć blokadę `permissionsLoaded.current` lub przeładowywać uprawnienia za każdym razem, gdy zmienia się lista `teamMembers.map(m => m.id).join(',')`.
+- Zmienić dependency `useEffect` z `[teamLoading]` na `[teamLoading, teamMembers.length]`.
+- Dodać przycisk „Odśwież listę" (ikona `RefreshCw`) obok pola wyszukiwania, który wywoła `refetch()` z hooka + ponowne `loadPermissions()`.
+- Gdy `teamMembers.length === 0` po załadowaniu, pokazać czytelną informację: „Nie znaleziono użytkowników w Twojej strukturze. Twoje eq_id: {profile.eq_id ?? 'brak'}." — to ułatwi diagnozę w przyszłości (np. jeśli profil leadera nie ma jeszcze eq_id).
+- W toast błędu z `toggleAccess` dołączyć `error.code`/`details`, żeby było widać konkretny powód odrzucenia RPC.
 
-### 3. Edge: `admin-finalize-account-deletion` + `cron-purge-pending-deletions`
+### 3. Brak zmian w bazie
+RPC i uprawnienia są poprawne. Nie ruszamy `leader_get_team_auto_webinar_access`, `leader_update_auto_webinar_access`, `get_organization_tree`.
 
-- Przed jakimkolwiek nullowaniem FK wywołać `stampInviterAccountDeletion`.
-- **Usunąć** linie zerujące `invited_by_user_id`, `partner_user_id`, `created_by` (oraz `guest_invite_links.created_by`, `user_reflinks.creator_user_id`) — zostawić FK żeby przy `anonymize` profil dalej istniał. Dla `delete` (hard) profil jest cascade-usuwany przez `auth.admin.deleteUser`; wtedy `ON DELETE SET NULL` automatycznie wyzeruje FK, ale **snapshot zostanie** i UI go pokaże.
-- W gałęziach `anonymize` i `delete` wysłać maila do użytkownika („Konto zostało zanonimizowane / trwale usunięte") używając `sendMail` + branded layout. Po wysyłce zaktualizować świeżo wstawiony wiersz `account_deletion_log` polami `user_email_sent_at`, `user_email_status` (`sent` lub `failed`), `user_email_error`.
-- Analogicznie wysyłać maila w `cron-purge-pending-deletions` („Konto zostało automatycznie usunięte po 30 dniach") i zapisać status.
+## Pliki
 
-### 4. Frontend
+- `src/hooks/useLeaderTeamMembers.ts` (edytowane)
+- `src/components/leader/LeaderAutoWebinarAccessView.tsx` (edytowane)
 
-- **`EventRegistrationsManagement.tsx`** (Eventy → rejestracje gości) i **`EventRegistrationReport.tsx`**:
-  - Doczytać `inviter_snapshot` + `inviter_deleted_at`. Jeśli `inviter_profile` brak / pusty, ale snapshot istnieje → renderować `Imię Nazwisko · konto usunięte` (badge szary „Konto usunięte"). Jeśli ani profil, ani snapshot → istniejący „—".
-- **`GuestRegistrationsPanel.tsx`** (Goście PLC → Rejestracje gości):
-  - Pobierać też `paid_event_partner_links` gdzie `partner_deleted_at IS NOT NULL` (tj. nie filtrować po `partner_user_id IN guestIds` — zamiast tego: linki, których `partner_user_id` należy do gości **lub** `partner_snapshot.roles` zawiera `guest`).
-  - W nagłówku linku obok imienia gościa pokazać „Konto usunięte" (kiedy `partner_deleted_at` jest ustawione) i wyświetlić dane ze snapshotu.
-- **`GuestsManagement.tsx` (Lista gości)**:
-  - Doczytać profile z `deletion_status IN ('anonymized')` mające rolę `guest` → pokazać je z badge „Konto usunięte" (zachowując e-mail/imię ze snapshotu, jeżeli dane już zanonimizowane). Po hard-delete profil znika — w tym przypadku polegamy na snapshotach w „Rejestracje gości".
-- **`DeletedAccountsManagement.tsx` (Historia)**:
-  - Doczytać i wyświetlić `user_email_sent_at` + `user_email_status` jako linijkę „E-mail do użytkownika: wysłano 11.06.2026 09:50" lub badge „Mail: błąd" + tooltip z `user_email_error`. Pokazać też dla wierszy oczekujących, jeśli już wysłano.
-
-### 5. Testowe sprawdzenie
-
-Po wdrożeniu:
-- Otworzyć `EventRegistrationsManagement` z rekordem Janka Malaka — sprawdzić, że pojawia się „Konto usunięte" w kolumnie „Partner zapraszający".
-- Otworzyć Historia w „Usunięte konta" — przy Romie Romanowskim wyświetli się info o wysłanym mailu (po ponownej akcji administratora; dla istniejącego wpisu jednorazowo wykonać „Wyślij ponownie potwierdzenie" — opcjonalny przycisk w przyszłości, w tym planie pominięty).
-
-## Pliki do zmiany
-
-- nowy migration SQL (kolumny snapshotów + log maila)
-- `supabase/functions/_shared/account-deletion-stamp.ts`
-- `supabase/functions/admin-finalize-account-deletion/index.ts`
-- `supabase/functions/cron-purge-pending-deletions/index.ts`
-- `src/components/admin/EventRegistrationsManagement.tsx`
-- `src/components/admin/EventRegistrationReport.tsx`
-- `src/components/admin/GuestRegistrationsPanel.tsx`
-- `src/components/admin/GuestsManagement.tsx`
-- `src/components/admin/DeletedAccountsManagement.tsx`
-
-## Czego NIE robię
-
-- Nie zmieniam istniejących już wysłanych maili / wpisów (Roma Romanowski — istniejący wpis nie cofnie się automatycznie; nowe akcje będą działać poprawnie).
-- Nie ruszam logiki przepływów rejestracji ani RLS.
+Po wdrożeniu poproszę Elżbietę o odświeżenie strony — Wanda powinna od razu być widoczna (obecnie w sekcji „Z dostępem", bo nadałeś już dostęp jako admin), a w przyszłości race condition znika dzięki kluczowi po eq_id + odświeżaniu po focusie.
