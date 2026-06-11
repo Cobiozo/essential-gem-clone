@@ -203,6 +203,12 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
     return 'valid';
   };
 
+  // Red-border class for inputs that the user still has to fill in.
+  const highlightInput = (fieldName: string) =>
+    missingFields.includes(fieldName)
+      ? 'border-destructive ring-1 ring-destructive focus-visible:ring-destructive'
+      : '';
+
   const isProfileAlreadyCompleted = (profile as any)?.profile_completed === true;
 
   return (
