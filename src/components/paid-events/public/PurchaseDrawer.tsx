@@ -161,16 +161,24 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
 
 
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
+
+  // "One reservation per user" rule: a logged-in, non-admin user can only buy a single
+  // ticket for themselves. Admin keeps the full multi-quantity / guest flow. Anonymous
+  // buyers (no account) can still buy multiple seats unless admin caps it.
+  const isLoggedInRegularUser = !!user && !isAdmin;
+  const singleSeatLock = isLoggedInRegularUser;
+
   const totalSeats = quantity * seatsPerTicket;
   const totalPrice = (ticket?.price ?? 0) * quantity;
 
   const maxQty = useMemo(() => {
+    if (singleSeatLock) return 1;
     const qa = ticket?.available_quantity;
     const mpo = ticket?.max_per_order;
     const availCap = qa && qa > 0 ? qa : MAX_TICKETS;
     const orderCap = mpo && mpo > 0 ? mpo : MAX_TICKETS;
     return Math.max(1, Math.min(MAX_TICKETS, availCap, orderCap));
-  }, [ticket?.available_quantity, ticket?.max_per_order]);
+  }, [ticket?.available_quantity, ticket?.max_per_order, singleSeatLock]);
   const allowMultiple = maxQty > 1;
 
   // Keep quantity within the dynamic upper bound (admin may forbid multi-purchase, in which case maxQty=1).
