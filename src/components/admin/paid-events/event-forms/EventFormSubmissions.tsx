@@ -61,10 +61,13 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     enabled: !!eventId,
     queryFn: async () => {
       // Primary: direct select (works when admin RLS resolves correctly).
+      // Skip orders tied to a deleted/anonymized account — those belong to
+      // the historical owner and must not be merged with the new account.
       const { data, error } = await supabase
         .from('paid_event_orders')
-        .select('id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, created_at')
+        .select('id, event_id, user_id, email, first_name, last_name, phone, status, email_confirmed_at, ticket_code, ticket_sent_at, created_at, account_deleted_at')
         .eq('event_id', eventId!)
+        .is('account_deleted_at', null)
         .order('created_at', { ascending: false });
       if (!error && data && data.length > 0) return data as any[];
       if (error) console.error('[event-form-submissions-orders] direct select error, falling back to edge fn', error);
@@ -76,7 +79,9 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         console.error('[event-form-submissions-orders] edge fn failed', fnErr);
         return [];
       }
-      return ((fnData as any)?.orders as any[]) || [];
+      const list = ((fnData as any)?.orders as any[]) || [];
+      // Defensive filter in case the edge fn returns rows from older deploys.
+      return list.filter((o: any) => !o.account_deleted_at);
     },
   });
 
