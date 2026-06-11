@@ -100,24 +100,41 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         (user!.email || '').toLowerCase(),
         profileEmail || '',
       ].filter(Boolean)));
-      const orParts = [`user_id.eq.${user!.id}`, ...emails.map((e) => `email.eq.${e}`)];
-      const { data: orders, error: ordersErr } = await supabase
+      // Match by user_id (own orders) OR by email but only for guest rows not yet
+      // linked to a user. Always exclude rows tied to deleted/anonymized accounts so
+      // recycled emails never inherit the previous owner's tickets.
+      const notCancelled = '("cancelled","refunded","failed","expired")';
+      const { data: ownOrders, error: ownErr } = await supabase
         .from('paid_event_orders')
         .select('id')
         .eq('event_id', eventId)
-        .or(orParts.join(','))
-        .not('status', 'in', '("cancelled","refunded","failed","expired")')
+        .eq('user_id', user!.id)
+        .is('account_deleted_at', null)
+        .not('status', 'in', notCancelled)
         .limit(1);
-      if (!ordersErr && (orders?.length ?? 0) > 0) return true;
+      if (!ownErr && (ownOrders?.length ?? 0) > 0) return true;
 
       if (emails.length > 0) {
+        const { data: emailOrders, error: emailErr } = await supabase
+          .from('paid_event_orders')
+          .select('id')
+          .eq('event_id', eventId)
+          .is('user_id', null)
+          .is('account_deleted_at', null)
+          .in('email', emails)
+          .not('status', 'in', notCancelled)
+          .limit(1);
+        if (!emailErr && (emailOrders?.length ?? 0) > 0) return true;
+
         // Also check per-attendee table (group tickets) — buyer may already
         // be registered as a guest seat in another order for the same event.
         const { data: seats, error: seatsErr } = await supabase
           .from('paid_event_order_attendees')
-          .select('id, paid_event_orders!inner(event_id, status)')
+          .select('id, paid_event_orders!inner(event_id, status, account_deleted_at)')
           .eq('paid_event_orders.event_id', eventId)
-          .not('paid_event_orders.status', 'in', '("cancelled","refunded","failed","expired")')
+          .is('paid_event_orders.account_deleted_at', null)
+          .is('account_deleted_at', null)
+          .not('paid_event_orders.status', 'in', notCancelled)
           .in('email', emails)
           .limit(1);
         if (!seatsErr && (seats?.length ?? 0) > 0) return true;
@@ -128,6 +145,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           .eq('event_id', eventId)
           .in('email', emails)
           .eq('status', 'active')
+          .is('account_deleted_at', null)
           .limit(1);
         if (!subsErr && (subs?.length ?? 0) > 0) return true;
       }
