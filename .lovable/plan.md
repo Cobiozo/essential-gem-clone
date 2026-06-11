@@ -1,20 +1,33 @@
-# Plan — „jedna rezerwacja na wydarzenie" + zapraszanie gości tylko przez link
+Plan naprawy:
 
-## Zasada
-Każdy zalogowany użytkownik (klient, partner, specjalista, lider, gość PLC) może mieć tylko jedną aktywną rezerwację na dane wydarzenie. Tylko admin omija blokadę. Dopisywanie gości w formularzu zakupu jest niedostępne. Goście rejestrują się wyłącznie przez osobny link zapraszający, i tylko gdy admin włączy tę opcję na wydarzeniu.
+1. Ujednolicić wykrywanie istniejącej rezerwacji
+- W `useHasOwnEventTicket` użyć tego samego źródła prawdy, które już poprawnie pokazuje panel „Jesteś zarejestrowany” (`get_my_event_orders` + fallbacki).
+- Dodać wariant fallback, który liczy rezerwację także wtedy, gdy zamówienie jest widoczne po `user_id`, po adresie e-mail albo użytkownik występuje jako uczestnik biletu grupowego.
+- Nie uzależniać blokady od problematycznego odczytu pojedynczych tabel, jeśli RPC zwróci już aktywną rezerwację.
 
-## Zaimplementowane
-- Migracja: `paid_events.allow_attendee_invites BOOLEAN NOT NULL DEFAULT false`.
-- Admin (EventMainSettingsPanel): toggle „Pozwól uczestnikom zapraszać dodatkowych gości (przez link zapraszający)".
-- `useHasOwnEventTicket` jako jedyne źródło prawdy (orders + attendees + form_submissions, `account_deleted_at IS NULL`).
-- `PaidEventPage.handlePurchase` blokuje otwarcie drawera dla użytkownika z rezerwacją (poza adminem).
-- `PaidEventSidebar`: panel „Masz już rezerwację" + opcjonalny panel „Zaproś gościa" z linkiem zapraszającym (Kopiuj / Wyślij — Web Share API).
-- `PurchaseDrawer`:
-  - logged-in non-admin → quantity zablokowane na 1 (brak pola „dorzuć gościa" w domyślnej rezerwacji 1-osobowej),
-  - hasOwnTicket → wyłącznie komunikat + (opcjonalnie) panel „Zaproś gościa" + przycisk zamknij,
-  - admin nadal ma pełne flow.
-- Backend (`create-event-order`, `register-event-transfer-order`, `register-free-event-order`): twardy guard po `user_id` ORAZ e-mailu z `account_deleted_at IS NULL`.
-- Komunikaty spójne dla wszystkich ról.
+2. Zablokować przycisk i otwieranie formularza w czasie sprawdzania
+- Na stronie wydarzenia dopóki trwa sprawdzanie rezerwacji zalogowanego użytkownika, CTA „Zapisz się” nie może otworzyć formularza.
+- Sidebar dostanie stan `alreadyRegisteredLoading`; przycisk będzie chwilowo nieaktywny z tekstem „Sprawdzam rezerwację…”.
 
-## Efekt
-Klient/Partner/Specjalista/Gość PLC nie zarezerwuje drugiego biletu i nie widzi pól dopisywania gości. Dodatkowi goście trafiają na wydarzenie tylko przez link zapraszający — i tylko gdy admin to włączy.
+3. Dodać twardą blokadę w `PurchaseDrawer`
+- Drawer dostanie informację z rodzica: `alreadyRegistered` i `alreadyRegisteredLoading`.
+- Jeśli użytkownik ma już rezerwację, formularz kupującego nie będzie renderowany w ogóle — tylko komunikat „Masz już rezerwację”.
+- Dla zalogowanego nie-admina kliknięcie submit zostanie zablokowane również na podstawie tej flagi z rodzica, nie tylko lokalnego zapytania drawera.
+
+4. Usunąć ścieżkę „kupuję dla gości” z formularza
+- Jeżeli użytkownik ma już własną rezerwację, drawer nie pozwoli tworzyć kolejnej rezerwacji ani dla siebie, ani jako zamówienia z dodatkowymi gośćmi.
+- Zapraszanie gości zostaje wyłącznie przez link zapraszający i tylko gdy admin włączy `allow_attendee_invites`.
+
+5. Spójność po udanej rezerwacji
+- Po utworzeniu rezerwacji invalidować oba klucze zapytań: panel biletów i blokadę CTA.
+- Po odświeżeniu danych przycisk „Zapisz się” ma zostać zastąpiony komunikatem „Masz już rezerwację”.
+
+Zakres techniczny:
+- `src/hooks/useHasOwnEventTicket.ts`
+- `src/pages/PaidEventPage.tsx`
+- `src/components/paid-events/public/PaidEventSidebar.tsx`
+- `src/components/paid-events/public/PurchaseDrawer.tsx`
+
+Efekt końcowy:
+- Józef Pyza oraz każda inna rola zalogowana z aktywną rezerwacją nie może ponownie otworzyć formularza ani złożyć drugiej rezerwacji na to samo wydarzenie.
+- Informacja o istniejącej rezerwacji pojawia się zamiast możliwości zapisu.
