@@ -259,6 +259,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Wprowadź imię"
                 disabled={loading}
+                className={highlightInput('first_name')}
               />
             </div>
             
@@ -275,6 +276,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Wprowadź nazwisko"
                 disabled={loading}
+                className={highlightInput('last_name')}
               />
             </div>
           </div>
@@ -311,6 +313,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+48 123 456 789"
                 disabled={loading}
+                className={highlightInput('phone_number')}
               />
             </div>
           </div>
@@ -434,6 +437,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
               placeholder="Np. Dietetyka, Naturoterapia, Coaching zdrowia..."
               disabled={loading}
               rows={3}
+              className={highlightInput('specialization')}
             />
             <p className="text-xs text-muted-foreground">Wprowadź wszystkie swoje specjalizacje</p>
           </div>
@@ -452,6 +456,7 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
               placeholder="Opisz swoje doświadczenie, podejście do pracy, obszary specjalizacji..."
               disabled={loading}
               rows={4}
+              className={highlightInput('profile_description')}
             />
           </div>
 
