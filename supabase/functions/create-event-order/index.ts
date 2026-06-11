@@ -168,6 +168,7 @@ Deno.serve(async (req) => {
           .from("event_form_submissions")
           .select("id, email")
           .eq("event_id", eventId)
+          .is("account_deleted_at", null)
           .in("email", emailsToCheck)
           .eq("status", "active")
           .limit(1);
