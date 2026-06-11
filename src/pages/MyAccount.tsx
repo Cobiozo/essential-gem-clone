@@ -1328,16 +1328,30 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
 }) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [confirmEmail, setConfirmEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const expected = (userEmail || '').trim().toLowerCase();
-  const matches = !!expected && confirmEmail.trim().toLowerCase() === expected;
+  const canSubmit = password.length > 0 && !submitting && !!userEmail;
 
   const handleDelete = async () => {
-    if (!matches || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
+      // 1) Verify password by re-authenticating the current user.
+      const { error: pwErr } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password,
+      });
+      if (pwErr) {
+        toast({
+          title: 'Błędne hasło',
+          description: 'Wpisane hasło jest nieprawidłowe.',
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         'self-delete-account',
         { body: {} },
@@ -1373,6 +1387,8 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
       setSubmitting(false);
     }
   };
+
+
 
   if (isAdmin) {
     return (
