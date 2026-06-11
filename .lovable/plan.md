@@ -1,77 +1,66 @@
-## Zmiana
+## Problem
 
-W dialogu „Potwierdź usunięcie konta" (`src/pages/MyAccount.tsx`, komponent `DeleteAccountCard`) zastępujemy potwierdzenie przez wpisanie e-maila — potwierdzeniem przez **hasło do konta**. Dodatkowo użytkownik otrzymuje e-mail potwierdzający zgłoszenie usunięcia.
+1. **Janek Malak** (zaproszony przez gościa PLC, który został usunięty) nie pokazuje partnera zapraszającego, bo `admin-finalize-account-deletion` i `cron-purge-pending-deletions` zerują `invited_by_user_id`, `partner_user_id`, `created_by` itd. — informacja jest bezpowrotnie tracona.
+2. W zakładce **Goście PLC → Lista gości / Rejestracje gości** rekordy zaproszone przez usuniętego gościa PLC znikają z tych samych powodów (oraz przez cascade na `auth.users` przy pełnym usunięciu profilu/roli).
+3. **Roma Romanowski** po zatwierdzeniu usunięcia (anonimizacja/delete) nie dostał maila — `admin-finalize-account-deletion` wysyła maila do użytkownika tylko przy `restore`. Brak też informacji w „Usunięte konta" o tym, że (i kiedy) mail został wysłany.
 
-## 1. Dialog (frontend)
+## Plan
 
-Tekst:
+### 1. Migracja DB — snapshot zapraszającego + log maila
 
-```
-Potwierdź usunięcie konta
-Ta operacja jest nieodwracalna. Twoje konto i wszystkie dane zostaną trwale usunięte.
+- Dodać kolumny (idempotentnie):
+  - `public.guest_event_registrations`: `inviter_deleted_at timestamptz`, `inviter_snapshot jsonb`
+  - `public.event_form_submissions`: `partner_deleted_at timestamptz`, `partner_snapshot jsonb`
+  - `public.paid_event_partner_links`: `partner_deleted_at timestamptz`, `partner_snapshot jsonb`
+  - `public.events`: `creator_deleted_at timestamptz`, `creator_snapshot jsonb` (dla `created_by` — np. trójstronne / konsultacje rezerwowane przez partnera)
+  - `public.account_deletion_log`: `user_email_sent_at timestamptz`, `user_email_status text`, `user_email_error text`
+- Bez zmian w RLS (kolumny służbowe; admin ma już dostęp).
 
-Aby potwierdzić, wpisz poniżej hasło do konta powiązanego z adresem e-mail:
-<userEmail>
+### 2. Edge: `_shared/account-deletion-stamp.ts`
 
-[ Wpisz hasło ]   ← <Input type="password" />
+Rozszerzyć helper o dodatkową funkcję `stampInviterAccountDeletion(supabaseAdmin, userId, snapshot)` która:
+- Ustawia `inviter_snapshot` + `inviter_deleted_at` na wszystkich `guest_event_registrations.invited_by_user_id = userId` (BEZ zerowania FK).
+- To samo dla `event_form_submissions.partner_user_id`, `paid_event_partner_links.partner_user_id`, `events.created_by`.
+- Snapshot = `{ first_name, last_name, email, roles, action: 'anonymized'|'deleted'|'auto_deleted' }`.
 
-Po potwierdzeniu usunięcia konta otrzymasz wiadomość e-mail z potwierdzeniem tej operacji.
+### 3. Edge: `admin-finalize-account-deletion` + `cron-purge-pending-deletions`
 
-[ Anuluj ]  [ Usuń konto ]
-```
+- Przed jakimkolwiek nullowaniem FK wywołać `stampInviterAccountDeletion`.
+- **Usunąć** linie zerujące `invited_by_user_id`, `partner_user_id`, `created_by` (oraz `guest_invite_links.created_by`, `user_reflinks.creator_user_id`) — zostawić FK żeby przy `anonymize` profil dalej istniał. Dla `delete` (hard) profil jest cascade-usuwany przez `auth.admin.deleteUser`; wtedy `ON DELETE SET NULL` automatycznie wyzeruje FK, ale **snapshot zostanie** i UI go pokaże.
+- W gałęziach `anonymize` i `delete` wysłać maila do użytkownika („Konto zostało zanonimizowane / trwale usunięte") używając `sendMail` + branded layout. Po wysyłce zaktualizować świeżo wstawiony wiersz `account_deletion_log` polami `user_email_sent_at`, `user_email_status` (`sent` lub `failed`), `user_email_error`.
+- Analogicznie wysyłać maila w `cron-purge-pending-deletions` („Konto zostało automatycznie usunięte po 30 dniach") i zapisać status.
 
-Zmiany w `DeleteAccountCard`:
-- `confirmEmail` → `password` (string state, reset przy zamknięciu dialogu).
-- Usuwamy walidację `matches` po e-mailu. Przycisk „Usuń konto" jest aktywny gdy `password.length > 0 && !submitting`.
-- W `handleDelete` przed wywołaniem edge function weryfikujemy hasło:
-  ```ts
-  const { error: pwErr } = await supabase.auth.signInWithPassword({
-    email: userEmail,
-    password,
-  });
-  if (pwErr) {
-    toast({ title: 'Błędne hasło', description: 'Wpisane hasło jest nieprawidłowe.', variant: 'destructive' });
-    setSubmitting(false);
-    return;
-  }
-  ```
-  (To ponownie ustanawia sesję dla bieżącego użytkownika — bez efektów ubocznych. Edge function dalej weryfikuje JWT.)
-- Po pomyślnym wywołaniu `self-delete-account` zostaje istniejąca logika `signOut` + `window.location.replace('/konto-usuniete')`.
+### 4. Frontend
 
-Pole hasła używa `type="password"`, `autoComplete="current-password"`, `autoFocus`. `<Input>` z istniejących komponentów UI.
+- **`EventRegistrationsManagement.tsx`** (Eventy → rejestracje gości) i **`EventRegistrationReport.tsx`**:
+  - Doczytać `inviter_snapshot` + `inviter_deleted_at`. Jeśli `inviter_profile` brak / pusty, ale snapshot istnieje → renderować `Imię Nazwisko · konto usunięte` (badge szary „Konto usunięte"). Jeśli ani profil, ani snapshot → istniejący „—".
+- **`GuestRegistrationsPanel.tsx`** (Goście PLC → Rejestracje gości):
+  - Pobierać też `paid_event_partner_links` gdzie `partner_deleted_at IS NOT NULL` (tj. nie filtrować po `partner_user_id IN guestIds` — zamiast tego: linki, których `partner_user_id` należy do gości **lub** `partner_snapshot.roles` zawiera `guest`).
+  - W nagłówku linku obok imienia gościa pokazać „Konto usunięte" (kiedy `partner_deleted_at` jest ustawione) i wyświetlić dane ze snapshotu.
+- **`GuestsManagement.tsx` (Lista gości)**:
+  - Doczytać profile z `deletion_status IN ('anonymized')` mające rolę `guest` → pokazać je z badge „Konto usunięte" (zachowując e-mail/imię ze snapshotu, jeżeli dane już zanonimizowane). Po hard-delete profil znika — w tym przypadku polegamy na snapshotach w „Rejestracje gości".
+- **`DeletedAccountsManagement.tsx` (Historia)**:
+  - Doczytać i wyświetlić `user_email_sent_at` + `user_email_status` jako linijkę „E-mail do użytkownika: wysłano 11.06.2026 09:50" lub badge „Mail: błąd" + tooltip z `user_email_error`. Pokazać też dla wierszy oczekujących, jeśli już wysłano.
 
-## 2. E-mail potwierdzający do użytkownika (backend)
+### 5. Testowe sprawdzenie
 
-W `supabase/functions/self-delete-account/index.ts` po sekcji powiadomień adminów dodać wysłanie e-maila do **użytkownika** (na `email` z profilu / `user.email`). Treść po polsku, w `brandedEmailLayout`:
-
-```
-Temat: Pure Life Center — potwierdzenie zgłoszenia usunięcia konta
-
-Cześć <imię lub e-mail>,
-
-Otrzymaliśmy zgłoszenie usunięcia Twojego konta w Pure Life Center.
-
-Data zgłoszenia: <data UTC>
-Trwałe usunięcie zaplanowano na: <data, za 30 dni>
-
-Przez najbliższe 30 dni możesz cofnąć tę decyzję — skontaktuj się z administracją,
-aby przywrócić konto. Po tym terminie konto i wszystkie powiązane dane
-zostaną nieodwracalnie usunięte.
-
-Jeśli to nie Ty zgłosiłeś usunięcie konta, natychmiast zmień hasło
-i skontaktuj się z administracją.
-```
-
-Wysyłka przez istniejący helper `sendMail` (sekwencyjnie po e-mailach adminów). Błąd wysyłki tylko logujemy (`console.warn`) — nie blokuje sukcesu operacji.
+Po wdrożeniu:
+- Otworzyć `EventRegistrationsManagement` z rekordem Janka Malaka — sprawdzić, że pojawia się „Konto usunięte" w kolumnie „Partner zapraszający".
+- Otworzyć Historia w „Usunięte konta" — przy Romie Romanowskim wyświetli się info o wysłanym mailu (po ponownej akcji administratora; dla istniejącego wpisu jednorazowo wykonać „Wyślij ponownie potwierdzenie" — opcjonalny przycisk w przyszłości, w tym planie pominięty).
 
 ## Pliki do zmiany
 
-- `src/pages/MyAccount.tsx` — komponent `DeleteAccountCard`:
-  - stan `password` zamiast `confirmEmail`,
-  - nowy tekst opisu + dopisek o e-mailu potwierdzającym,
-  - `<Input type="password" />` zamiast `type="email"`,
-  - weryfikacja hasła przez `supabase.auth.signInWithPassword` przed wywołaniem edge function.
-- `supabase/functions/self-delete-account/index.ts`:
-  - dodać wysyłkę e-maila potwierdzającego do użytkownika po zapisaniu zgłoszenia.
+- nowy migration SQL (kolumny snapshotów + log maila)
+- `supabase/functions/_shared/account-deletion-stamp.ts`
+- `supabase/functions/admin-finalize-account-deletion/index.ts`
+- `supabase/functions/cron-purge-pending-deletions/index.ts`
+- `src/components/admin/EventRegistrationsManagement.tsx`
+- `src/components/admin/EventRegistrationReport.tsx`
+- `src/components/admin/GuestRegistrationsPanel.tsx`
+- `src/components/admin/GuestsManagement.tsx`
+- `src/components/admin/DeletedAccountsManagement.tsx`
 
-Brak zmian w bazie i RLS.
+## Czego NIE robię
+
+- Nie zmieniam istniejących już wysłanych maili / wpisów (Roma Romanowski — istniejący wpis nie cofnie się automatycznie; nowe akcje będą działać poprawnie).
+- Nie ruszam logiki przepływów rejestracji ani RLS.
