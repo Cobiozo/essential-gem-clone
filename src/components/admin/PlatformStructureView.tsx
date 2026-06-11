@@ -321,17 +321,17 @@ const PlatformStructureView: React.FC = () => {
     <div className="space-y-3">
       {/* Top bar */}
       <Card>
-        <CardContent className="p-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Szukaj: ID, EQ ID, imię, nazwisko, e-mail, telefon…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 h-9"
-              />
-            </div>
+        <CardContent className="p-2 sm:p-3 space-y-2">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj: ID, EQ ID, imię, nazwisko, e-mail, telefon…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 h-9 text-base sm:text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={refresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
               Odśwież
@@ -347,8 +347,8 @@ const PlatformStructureView: React.FC = () => {
                 </>
               )}
             </Button>
-            <div className="w-px h-6 bg-border mx-1" />
-            <Button size="sm" variant="outline" onClick={() => doExport('xlsx')}>
+            <div className="hidden sm:block w-px h-6 bg-border mx-1" />
+            <Button size="sm" variant="outline" onClick={() => doExport('xlsx')} className="col-span-2 sm:col-span-1">
               <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
             </Button>
             <Button size="sm" variant="outline" onClick={() => doExport('docx')}>
@@ -360,20 +360,20 @@ const PlatformStructureView: React.FC = () => {
           </div>
 
           {/* Summary chips */}
-          <div className="flex flex-wrap gap-1.5 text-xs">
-            <Badge variant="secondary" className="h-6">
+          <div className="flex flex-wrap gap-1 text-[11px]">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Razem: <b className="ml-1">{summary.total}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Aktywni: <b className="ml-1 text-green-700">{summary.activeCount}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Zablokowani: <b className="ml-1 text-destructive">{summary.blockedCount}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Z uplinem: <b className="ml-1">{summary.withUpline}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Korzeni: <b className="ml-1">{summary.rootCount}</b>
             </Badge>
             {Object.entries(summary.byRole)
@@ -381,7 +381,7 @@ const PlatformStructureView: React.FC = () => {
               .map(([role, count]) => (
                 <Badge
                   key={role}
-                  className={`h-6 ${ROLE_BADGE_CLASS[role] ?? 'bg-secondary text-secondary-foreground'}`}
+                  className={`h-5 px-1.5 ${ROLE_BADGE_CLASS[role] ?? 'bg-secondary text-secondary-foreground'}`}
                 >
                   {ROLE_LABELS[role] ?? role}: <b className="ml-1">{count}</b>
                 </Badge>
@@ -392,7 +392,7 @@ const PlatformStructureView: React.FC = () => {
 
       {/* Tree */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="p-2 sm:p-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /> Ładowanie struktury…
