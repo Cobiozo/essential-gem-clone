@@ -229,71 +229,81 @@ const PlatformStructureView: React.FC = () => {
     const isMatch = matchedIds?.has(n.profile.user_id);
 
     return (
-      <div key={n.profile.user_id} className="border-l border-border ml-2 pl-2">
+      <div key={n.profile.user_id} className="border-l border-border ml-1 pl-1.5 sm:ml-2 sm:pl-2">
         <div
-          className={`group flex items-center gap-1.5 py-0.5 px-1 rounded text-xs ${
+          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs ${
             isAdmin ? 'bg-destructive/5 border border-destructive/30' : ''
           } ${isMatch ? 'ring-1 ring-primary/60' : ''}`}
         >
-          <button
-            type="button"
-            onClick={() => hasChildren && toggle(n.profile.user_id)}
-            className={`shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground ${
-              hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
-            }`}
-            aria-label={isOpen ? 'Zwiń' : 'Rozwiń'}
-          >
-            <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-            />
-          </button>
-          {isAdmin && <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />}
-          <span className="font-medium truncate">{fullName(n.profile)}</span>
-          {n.roles.map((r) => (
-            <Badge
-              key={r}
-              className={`${ROLE_BADGE_CLASS[r] ?? 'bg-secondary text-secondary-foreground'} text-[9px] px-1 py-0 h-4 font-semibold uppercase tracking-wide`}
+          <div className="flex items-center gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
+            <button
+              type="button"
+              onClick={() => hasChildren && toggle(n.profile.user_id)}
+              className={`shrink-0 w-6 h-6 sm:w-4 sm:h-4 flex items-center justify-center text-muted-foreground ${
+                hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
+              }`}
+              aria-label={isOpen ? 'Zwiń' : 'Rozwiń'}
             >
-              {ROLE_LABELS[r] ?? r}
-            </Badge>
-          ))}
-          {n.profile.eq_id && (
-            <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 rounded">
-              {n.profile.eq_id}
+              <ChevronRight
+                className={`h-4 w-4 sm:h-3.5 sm:w-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {isAdmin && <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />}
+            <span className="font-medium truncate flex-1 min-w-0">{fullName(n.profile)}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0 sm:hidden">
+              {hasChildren && <>({n.directCount}) </>}
+              {n.downlineCount > 0 && <>Σ{n.downlineCount}</>}
             </span>
-          )}
-          {isBlocked && (
-            <span className="text-[9px] uppercase font-semibold text-destructive">Zablok.</span>
-          )}
-          <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 pl-7 sm:pl-0 min-w-0">
+            {n.roles.map((r) => (
+              <Badge
+                key={r}
+                className={`${ROLE_BADGE_CLASS[r] ?? 'bg-secondary text-secondary-foreground'} text-[9px] px-1 py-0 h-4 font-semibold uppercase tracking-wide`}
+              >
+                {ROLE_LABELS[r] ?? r}
+              </Badge>
+            ))}
+            {n.profile.eq_id && (
+              <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 rounded whitespace-nowrap">
+                {n.profile.eq_id}
+              </span>
+            )}
+            {isBlocked && (
+              <span className="text-[9px] uppercase font-semibold text-destructive">Zablok.</span>
+            )}
+          </div>
+
+          <span className="hidden sm:inline ml-auto text-[10px] text-muted-foreground shrink-0">
             {hasChildren && <>({n.directCount}) </>}
             {n.downlineCount > 0 && <>Σ{n.downlineCount}</>}
           </span>
         </div>
 
         {isOpen && (
-          <div className="ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+          <div className="ml-7 sm:ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-col sm:flex-row sm:flex-wrap gap-x-3 gap-y-0.5">
             {n.profile.email && (
-              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary">
-                <Mail className="h-3 w-3" /> {n.profile.email}
+              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary break-all">
+                <Mail className="h-3 w-3 shrink-0" /> <span className="break-all">{n.profile.email}</span>
               </a>
             )}
             {n.profile.phone_number && (
               <span className="inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {n.profile.phone_number}
+                <Phone className="h-3 w-3 shrink-0" /> {n.profile.phone_number}
               </span>
             )}
             {(n.profile.city || n.profile.country) && (
               <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
+                <MapPin className="h-3 w-3 shrink-0" />
                 {[n.profile.city, n.profile.country].filter(Boolean).join(', ')}
               </span>
             )}
             <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3 w-3 shrink-0" />
               {new Date(n.profile.created_at).toLocaleDateString('pl-PL')}
             </span>
-            {n.uplinePath && <span className="opacity-70">Upline: {n.uplinePath}</span>}
+            {n.uplinePath && <span className="opacity-70 break-all">Upline: {n.uplinePath}</span>}
           </div>
         )}
 
