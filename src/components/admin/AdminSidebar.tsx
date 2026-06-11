@@ -160,6 +160,7 @@ const navCategories: NavCategory[] = [
       { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
       { value: 'moderators', labelKey: 'moderators', icon: Shield },
       { value: 'guests', labelKey: 'guests', icon: Users },
+      { value: 'deleted-accounts', labelKey: 'deletedAccounts', icon: Trash2 },
     ],
   },
   {
@@ -284,6 +285,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     userStats: 'Statystyki użytkowników',
     moderators: 'Moderatorzy',
     guests: 'Goście PLC',
+    deletedAccounts: 'Usunięte konta',
   };
 
   const getLabel = (key: string): string => {
@@ -301,7 +303,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       .map((cat) => ({
         ...cat,
         items: cat.items.filter((item) => {
-          if (item.value === 'moderators' || item.value === 'guests') return isAdmin;
+          if (item.value === 'moderators' || item.value === 'guests' || item.value === 'deleted-accounts') return isAdmin;
           if (isAdmin) return true;
           return can(item.value);
         }),
