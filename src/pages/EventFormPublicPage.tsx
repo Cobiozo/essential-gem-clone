@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, Loader2, Calendar, MapPin, UserCheck } from 'lucide-react';
+import { PhoneInputWithPrefix } from '@/components/ui/phone-input-prefix';
 
 interface FieldDef {
   key: string;
