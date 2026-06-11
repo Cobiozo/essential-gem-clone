@@ -9,6 +9,7 @@ interface LanguageContextType {
   t: (key: string) => string;
   tf: (key: string, fallback: string) => string;
   refreshTranslations: () => Promise<void>;
+  ready: boolean;
 }
 
 const LanguageContext = React.createContext<LanguageContextType | undefined>(undefined);
@@ -19,7 +20,8 @@ const defaultContextValue: LanguageContextType = {
   setLanguage: () => {},
   t: (key: string) => key,
   tf: (key: string, fallback: string) => fallback,
-  refreshTranslations: async () => {}
+  refreshTranslations: async () => {},
+  ready: false,
 };
 
 // Track missing keys to avoid duplicate warnings
