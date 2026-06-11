@@ -61,6 +61,8 @@ const CACHE_VERSION = 3;
 const LS_CACHE_KEY = 'i18n_translations_cache';
 const LS_CACHE_VERSION_KEY = 'i18n_cache_version';
 const LS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Extended TTL used ONLY for synchronous hydration on first render (stale-while-revalidate)
+const LS_CACHE_HYDRATE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -88,6 +90,64 @@ const checkCacheVersion = (): void => {
 
 // Run version check on module load
 checkCacheVersion();
+
+// Track whether sync hydration produced any usable translations on module load
+let didHydrateSync = false;
+
+const readLocalStorageForHydration = (langCode: string): I18nTranslation[] | null => {
+  try {
+    const cached = localStorage.getItem(`${LS_CACHE_KEY}_${langCode}`);
+    if (!cached) return null;
+    const { data, timestamp, version }: LSCacheEntry = JSON.parse(cached);
+    if (version !== CACHE_VERSION) return null;
+    // Accept entries up to 7 days old for hydration; background refresh will update them.
+    if (Date.now() - timestamp > LS_CACHE_HYDRATE_TTL) return null;
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Synchronously hydrate the in-memory translations cache from localStorage.
+ * Must run at module import time, BEFORE React's first render, to prevent
+ * the flash of untranslated text (FOUT) where raw keys like "auth.signIn" appear.
+ */
+export const hydrateCacheFromLocalStorageSync = (extraLangs: string[] = []): boolean => {
+  try {
+    const saved = (() => {
+      try { return localStorage.getItem('pure-life-language') || 'pl'; } catch { return 'pl'; }
+    })();
+    const langs = Array.from(new Set(['pl', saved, ...extraLangs]));
+
+    if (!translationsCache) translationsCache = {};
+
+    let anyLoaded = false;
+    for (const langCode of langs) {
+      const data = readLocalStorageForHydration(langCode);
+      if (!data || data.length === 0) continue;
+
+      for (const t of data) {
+        if (!translationsCache[t.language_code]) translationsCache[t.language_code] = {};
+        if (!translationsCache[t.language_code][t.namespace]) translationsCache[t.language_code][t.namespace] = {};
+        translationsCache[t.language_code][t.namespace][t.key] = t.value;
+      }
+      loadedLanguages.add(langCode);
+      anyLoaded = true;
+    }
+
+    if (anyLoaded) didHydrateSync = true;
+    return anyLoaded;
+  } catch (e) {
+    console.warn('[i18n] Sync hydration failed:', e);
+    return false;
+  }
+};
+
+export const wasHydratedSync = (): boolean => didHydrateSync;
+
+// Run synchronous hydration immediately on module import — key fix for FOUT.
+hydrateCacheFromLocalStorageSync();
 
 const getLocalStorageCache = (langCode: string): I18nTranslation[] | null => {
   try {
