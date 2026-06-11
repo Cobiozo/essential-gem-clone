@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, Loader2, Calendar, MapPin, UserCheck } from 'lucide-react';
+import { PhoneInputWithPrefix } from '@/components/ui/phone-input-prefix';
 
 interface FieldDef {
   key: string;
@@ -209,6 +210,16 @@ const EventFormPublicPage: React.FC = () => {
                   )}
                 </div>
               )}
+              {event?.slug && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
+                >
+                  Dowiedz się więcej na temat wydarzenia
+                </Button>
+              )}
               {form.description && (
                 <p className="mt-4 text-sm whitespace-pre-wrap">{form.description}</p>
               )}
@@ -237,7 +248,7 @@ const EventFormPublicPage: React.FC = () => {
                 </div>
                 <div>
                   <Label>Telefon</Label>
-                  <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48..." />
+                  <PhoneInputWithPrefix value={phone} onChange={setPhone} />
                 </div>
               </div>
 
@@ -292,17 +303,6 @@ const EventFormPublicPage: React.FC = () => {
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                 {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Zapisywanie...</> : (form.cta_label || 'Zapisuję się')}
               </Button>
-
-              {event?.slug && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => window.open(`/events/${event.slug}`, '_blank', 'noopener,noreferrer')}
-                >
-                  Dowiedz się więcej na temat wydarzenia
-                </Button>
-              )}
             </form>
           </CardContent>
         </Card>
