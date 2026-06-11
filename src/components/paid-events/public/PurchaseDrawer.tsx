@@ -37,6 +37,8 @@ interface PurchaseDrawerProps {
   allowAttendeeInvites?: boolean;
   /** URL used as the guest invitation link (event public URL or registration form URL). */
   inviteUrl?: string | null;
+  /** Authoritative flag from parent — when true, drawer hard-blocks any new reservation. */
+  alreadyRegistered?: boolean;
 }
 
 type SubmitMode = 'checkout';
