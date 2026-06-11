@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderTeamMembers } from '@/hooks/useLeaderTeamMembers';
-import { Search, Loader2, UserCheck, Users, Radio, GraduationCap } from 'lucide-react';
+import { Search, Loader2, UserCheck, Users, Radio, GraduationCap, RefreshCw } from 'lucide-react';
 
 const SZYBKI_START_MODULE_ID = '7ba86537-309a-479a-a4d2-d8636acb2148';
 
