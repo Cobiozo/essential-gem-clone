@@ -96,6 +96,7 @@ interface GuestRow {
   is_active?: boolean;
   email_activated?: boolean;
   admin_approved?: boolean;
+  deletion_status?: string | null;
 }
 
 const guestRegisterUrl = (token: string) => `${window.location.origin}/zaproszenie/${token}`;
@@ -403,7 +404,7 @@ const GuestUsersTab: React.FC = () => {
     if (ids.length === 0) { setGuests([]); setLoading(false); return; }
     const { data: profs } = await (supabase as any)
       .from('profiles')
-      .select('user_id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved')
+      .select('user_id, email, first_name, last_name, created_at, is_active, email_activated, admin_approved, deletion_status')
       .in('user_id', ids)
       .order('created_at', { ascending: false });
     const rows: GuestRow[] = (profs || []).map((p: any) => ({
@@ -415,6 +416,7 @@ const GuestUsersTab: React.FC = () => {
       is_active: p.is_active,
       email_activated: p.email_activated,
       admin_approved: p.admin_approved,
+      deletion_status: p.deletion_status,
     }));
     setGuests(rows);
     setLoading(false);
@@ -462,7 +464,13 @@ const GuestUsersTab: React.FC = () => {
             {guests.map((g) => {
               let statusLabel = 'Aktywny';
               let statusCls = 'bg-green-500/15 text-green-600 border-green-500/30';
-              if (g.email_activated === false) {
+              if (g.deletion_status === 'anonymized') {
+                statusLabel = 'Konto usunięte';
+                statusCls = 'bg-amber-500/15 text-amber-600 border-amber-500/30';
+              } else if (g.deletion_status === 'pending') {
+                statusLabel = 'Oczekuje na usunięcie';
+                statusCls = 'bg-orange-500/15 text-orange-600 border-orange-500/30';
+              } else if (g.email_activated === false) {
                 statusLabel = 'Czeka na potwierdzenie e-mail';
                 statusCls = 'bg-amber-500/15 text-amber-600 border-amber-500/30';
               } else if (g.admin_approved === false || g.is_active === false) {

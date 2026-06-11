@@ -44,6 +44,14 @@ interface GuestRegistration {
   reminder_sent: boolean;
   invited_by_user_id: string | null;
   team_contact_id: string | null;
+  inviter_deleted_at?: string | null;
+  inviter_snapshot?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    roles?: string[];
+    action?: string;
+  } | null;
   inviter_profile?: {
     first_name: string | null;
     last_name: string | null;
@@ -152,15 +160,18 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
 
   // Top 10 partner ranking
   const partnerRanking = useMemo(() => {
-    const inviterMap = new Map<string, { total: number; active: number; profile: { first_name: string | null; last_name: string | null } | null }>();
+    const inviterMap = new Map<string, { total: number; active: number; profile: { first_name: string | null; last_name: string | null } | null; deleted: boolean }>();
 
     guestRegistrations.forEach(r => {
-      if (!r.invited_by_user_id) return;
-      const entry = inviterMap.get(r.invited_by_user_id) || { total: 0, active: 0, profile: r.inviter_profile || null };
+      const key = r.invited_by_user_id || (r.inviter_snapshot ? `snap:${r.inviter_snapshot.email || r.inviter_snapshot.first_name || ''}` : null);
+      if (!key) return;
+      const fallbackProfile = r.inviter_profile || (r.inviter_snapshot ? { first_name: r.inviter_snapshot.first_name || null, last_name: r.inviter_snapshot.last_name || null } : null);
+      const entry = inviterMap.get(key) || { total: 0, active: 0, profile: fallbackProfile, deleted: !!r.inviter_deleted_at || !!r.inviter_snapshot };
       entry.total++;
       if (r.status === 'registered') entry.active++;
-      if (!entry.profile && r.inviter_profile) entry.profile = r.inviter_profile;
-      inviterMap.set(r.invited_by_user_id, entry);
+      if (!entry.profile && fallbackProfile) entry.profile = fallbackProfile;
+      if (r.inviter_deleted_at || r.inviter_snapshot) entry.deleted = true;
+      inviterMap.set(key, entry);
     });
 
     return Array.from(inviterMap.entries())
@@ -169,6 +180,7 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
         name: data.profile
           ? `${data.profile.first_name || ''} ${data.profile.last_name || ''}`.trim() || 'Brak danych'
           : 'Brak danych',
+        deleted: data.deleted,
         total: data.total,
         active: data.active,
         rate: data.total > 0 ? Math.round((data.active / data.total) * 100) : 0,
@@ -222,7 +234,15 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
         r.phone || '',
         r.status,
         format(parseISO(r.registered_at), 'dd.MM.yyyy HH:mm'),
-        r.inviter_profile ? `${r.inviter_profile.first_name || ''} ${r.inviter_profile.last_name || ''}`.trim() : '',
+        (() => {
+          const prof = r.inviter_profile;
+          const snap = r.inviter_snapshot;
+          const fn = prof?.first_name || snap?.first_name || '';
+          const ln = prof?.last_name || snap?.last_name || '';
+          const name = `${fn} ${ln}`.trim();
+          const suffix = (r.inviter_deleted_at || snap) ? ' (konto usunięte)' : '';
+          return name ? `${name}${suffix}` : (snap?.email ? `${snap.email}${suffix}` : '');
+        })(),
         r.confirmation_sent ? 'Tak' : 'Nie',
         r.reminder_sent ? 'Tak' : 'Nie',
       ]),
@@ -441,7 +461,12 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
                           i + 1
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{partner.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {partner.name}
+                        {partner.deleted && (
+                          <Badge variant="outline" className="ml-2 text-[10px] border-amber-500/40 text-amber-600">Konto usunięte</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center">{partner.total}</TableCell>
                       <TableCell className="text-center">{partner.active}</TableCell>
                       <TableCell className="text-center">

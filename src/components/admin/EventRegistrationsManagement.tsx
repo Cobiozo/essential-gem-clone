@@ -67,6 +67,14 @@ interface GuestRegistration {
   reminder_sent: boolean;
   invited_by_user_id: string | null;
   team_contact_id: string | null;
+  inviter_deleted_at?: string | null;
+  inviter_snapshot?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    roles?: string[];
+    action?: string;
+  } | null;
   inviter_profile?: {
     first_name: string | null;
     last_name: string | null;
@@ -315,7 +323,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         const enrichedData = (regData || []).map(r => ({
           ...r,
           inviter_profile: r.invited_by_user_id ? profilesMap[r.invited_by_user_id] || null : null,
-        }));
+        })) as unknown as GuestRegistration[];
 
         setGuestRegistrations(enrichedData);
       } catch (error) {
@@ -1579,10 +1587,25 @@ export const EventRegistrationsManagement: React.FC = () => {
                               {format(new Date(registration.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
                             </TableCell>
                             <TableCell>
-                              {registration.inviter_profile 
-                                ? `${registration.inviter_profile.first_name || ''} ${registration.inviter_profile.last_name || ''}`.trim()
-                                : <span className="text-muted-foreground">-</span>
-                              }
+                              {(() => {
+                                const prof = registration.inviter_profile;
+                                const snap = registration.inviter_snapshot;
+                                const deleted = !!registration.inviter_deleted_at || !!snap;
+                                const fn = prof?.first_name || snap?.first_name || '';
+                                const ln = prof?.last_name || snap?.last_name || '';
+                                const name = `${fn} ${ln}`.trim();
+                                if (!name && !deleted) return <span className="text-muted-foreground">-</span>;
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{name || (snap?.email ?? '—')}</span>
+                                    {deleted && (
+                                      <Badge variant="outline" className="text-[10px] w-fit border-amber-500/40 text-amber-600">
+                                        Konto usunięte
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">

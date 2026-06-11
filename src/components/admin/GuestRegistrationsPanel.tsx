@@ -18,7 +18,7 @@ interface Props {
 
 type LinkRow = {
   id: string;
-  partner_user_id: string;
+  partner_user_id: string | null;
   form_id: string;
   event_id: string;
   ref_code: string;
@@ -26,6 +26,14 @@ type LinkRow = {
   submission_count: number;
   is_active: boolean;
   created_at: string;
+  partner_deleted_at?: string | null;
+  partner_snapshot?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    roles?: string[];
+    action?: string;
+  } | null;
   event_registration_forms?: { title: string; slug: string } | null;
   paid_events?: { title: string; event_date: string | null; location: string | null } | null;
 };
@@ -61,18 +69,43 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
     },
   });
 
-  // 2) Partner links of guests
+  // 2) Partner links of guests (including those whose owner account was deleted)
   const { data: links = [], isLoading: linksLoading } = useQuery({
-    queryKey: ['guest-partner-links', guestIds.join(',')],
-    enabled: guestIds.length > 0,
+    queryKey: ['guest-partner-links', guestIds.join(','), guestUserId ?? 'all'],
+    enabled: guestIds.length > 0 || !guestUserId,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('paid_event_partner_links')
-        .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
-        .in('partner_user_id', guestIds)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as LinkRow[];
+      // Active guest-owned links
+      const activeP = guestIds.length > 0
+        ? (supabase as any)
+            .from('paid_event_partner_links')
+            .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, partner_deleted_at, partner_snapshot, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
+            .in('partner_user_id', guestIds)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
+      // Deleted guest-owned links — keep showing them so admins still see history.
+      // Only included in the global view (no specific guestUserId), since the per-guest
+      // dialog is mounted only for surviving accounts.
+      const deletedP = !guestUserId
+        ? (supabase as any)
+            .from('paid_event_partner_links')
+            .select('id, partner_user_id, form_id, event_id, ref_code, click_count, submission_count, is_active, created_at, partner_deleted_at, partner_snapshot, event_registration_forms!form_id(title, slug), paid_events!event_id(title, event_date, location)')
+            .not('partner_deleted_at', 'is', null)
+            .contains('partner_snapshot', { roles: ['guest'] })
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
+      const [a, d] = await Promise.all([activeP, deletedP]);
+      if (a.error) throw a.error;
+      if (d.error) throw d.error;
+      const seen = new Set<string>();
+      const out: LinkRow[] = [];
+      for (const row of [...(a.data || []), ...(d.data || [])] as LinkRow[]) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        out.push(row);
+      }
+      return out;
     },
   });
 
@@ -123,10 +156,15 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
     const XLSX = await import('xlsx');
     const rows = subs.map(s => {
       const link = links.find(l => l.id === s.partner_link_id);
-      const guest = link ? (profiles as any)[link.partner_user_id] : null;
+      const guest = link && link.partner_user_id ? (profiles as any)[link.partner_user_id] : null;
+      const snap = link?.partner_snapshot;
+      const fn = guest?.first_name || snap?.first_name || '';
+      const ln = guest?.last_name || snap?.last_name || '';
+      const guestName = `${fn} ${ln}`.trim() || link?.partner_user_id || '—';
+      const deletedSuffix = link?.partner_deleted_at ? ' (konto usunięte)' : '';
       return {
-        'Gość promujący': guest ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim() : link?.partner_user_id || '—',
-        'Email gościa': guest?.email || '—',
+        'Gość promujący': `${guestName}${deletedSuffix}`,
+        'Email gościa': guest?.email || snap?.email || '—',
         'Wydarzenie': link?.paid_events?.title || '—',
         'Formularz': link?.event_registration_forms?.title || '—',
         'Imię': s.first_name || '—',
@@ -175,15 +213,29 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
         {links.map(link => {
           const linkSubs = subsByLink[link.id] || [];
           const isOpen = !!openLinks[link.id];
-          const guest = (profiles as any)[link.partner_user_id];
+          const guest = link.partner_user_id ? (profiles as any)[link.partner_user_id] : null;
+          const snap = link.partner_snapshot;
+          const deleted = !!link.partner_deleted_at;
+          const guestName = guest
+            ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim()
+            : snap
+              ? `${snap.first_name || ''} ${snap.last_name || ''}`.trim()
+              : '';
+          const guestEmail = guest?.email || snap?.email || '';
           const url = `${window.location.origin}/event-form/${link.event_registration_forms?.slug}?ref=${link.ref_code}`;
           return (
             <div key={link.id} className="border rounded-md p-3 space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  {!guestUserId && guest && (
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Gość: <span className="font-medium text-foreground">{guest.first_name} {guest.last_name}</span> · {guest.email}
+                  {!guestUserId && (guestName || guestEmail) && (
+                    <div className="text-xs text-muted-foreground mb-1 flex flex-wrap items-center gap-1">
+                      Gość: <span className="font-medium text-foreground">{guestName || '—'}</span>
+                      {guestEmail && <span>· {guestEmail}</span>}
+                      {deleted && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                          Konto usunięte
+                        </Badge>
+                      )}
                     </div>
                   )}
                   <div className="font-medium text-sm truncate">{link.paid_events?.title || '—'}</div>

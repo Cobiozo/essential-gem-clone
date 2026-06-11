@@ -27,6 +27,9 @@ export type Database = {
           requested_at: string
           roles_snapshot: Json | null
           scheduled_at: string | null
+          user_email_error: string | null
+          user_email_sent_at: string | null
+          user_email_status: string | null
           user_id: string | null
         }
         Insert: {
@@ -41,6 +44,9 @@ export type Database = {
           requested_at?: string
           roles_snapshot?: Json | null
           scheduled_at?: string | null
+          user_email_error?: string | null
+          user_email_sent_at?: string | null
+          user_email_status?: string | null
           user_id?: string | null
         }
         Update: {
@@ -55,6 +61,9 @@ export type Database = {
           requested_at?: string
           roles_snapshot?: Json | null
           scheduled_at?: string | null
+          user_email_error?: string | null
+          user_email_sent_at?: string | null
+          user_email_status?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -3020,7 +3029,9 @@ export type Database = {
           form_id: string
           id: string
           last_name: string | null
+          partner_deleted_at: string | null
           partner_link_id: string | null
+          partner_snapshot: Json | null
           partner_user_id: string | null
           payment_marked_at: string | null
           payment_marked_by: string | null
@@ -3049,7 +3060,9 @@ export type Database = {
           form_id: string
           id?: string
           last_name?: string | null
+          partner_deleted_at?: string | null
           partner_link_id?: string | null
+          partner_snapshot?: Json | null
           partner_user_id?: string | null
           payment_marked_at?: string | null
           payment_marked_by?: string | null
@@ -3078,7 +3091,9 @@ export type Database = {
           form_id?: string
           id?: string
           last_name?: string | null
+          partner_deleted_at?: string | null
           partner_link_id?: string | null
+          partner_snapshot?: Json | null
           partner_user_id?: string | null
           payment_marked_at?: string | null
           payment_marked_by?: string | null
@@ -3419,6 +3434,8 @@ export type Database = {
           buttons: Json | null
           created_at: string | null
           created_by: string | null
+          creator_deleted_at: string | null
+          creator_snapshot: Json | null
           description: string | null
           duration_minutes: number | null
           email_reminder_enabled: boolean | null
@@ -3469,6 +3486,8 @@ export type Database = {
           buttons?: Json | null
           created_at?: string | null
           created_by?: string | null
+          creator_deleted_at?: string | null
+          creator_snapshot?: Json | null
           description?: string | null
           duration_minutes?: number | null
           email_reminder_enabled?: boolean | null
@@ -3519,6 +3538,8 @@ export type Database = {
           buttons?: Json | null
           created_at?: string | null
           created_by?: string | null
+          creator_deleted_at?: string | null
+          creator_snapshot?: Json | null
           description?: string | null
           duration_minutes?: number | null
           email_reminder_enabled?: boolean | null
@@ -3706,6 +3727,8 @@ export type Database = {
           first_name: string
           id: string
           invited_by_user_id: string | null
+          inviter_deleted_at: string | null
+          inviter_snapshot: Json | null
           last_name: string | null
           notes: string | null
           occurrence_date: string | null
@@ -3745,6 +3768,8 @@ export type Database = {
           first_name: string
           id?: string
           invited_by_user_id?: string | null
+          inviter_deleted_at?: string | null
+          inviter_snapshot?: Json | null
           last_name?: string | null
           notes?: string | null
           occurrence_date?: string | null
@@ -3784,6 +3809,8 @@ export type Database = {
           first_name?: string
           id?: string
           invited_by_user_id?: string | null
+          inviter_deleted_at?: string | null
+          inviter_snapshot?: Json | null
           last_name?: string | null
           notes?: string | null
           occurrence_date?: string | null
@@ -7361,6 +7388,8 @@ export type Database = {
           form_id: string
           id: string
           is_active: boolean
+          partner_deleted_at: string | null
+          partner_snapshot: Json | null
           partner_user_id: string
           ref_code: string
           submission_count: number
@@ -7373,6 +7402,8 @@ export type Database = {
           form_id: string
           id?: string
           is_active?: boolean
+          partner_deleted_at?: string | null
+          partner_snapshot?: Json | null
           partner_user_id: string
           ref_code: string
           submission_count?: number
@@ -7385,6 +7416,8 @@ export type Database = {
           form_id?: string
           id?: string
           is_active?: boolean
+          partner_deleted_at?: string | null
+          partner_snapshot?: Json | null
           partner_user_id?: string
           ref_code?: string
           submission_count?: number
