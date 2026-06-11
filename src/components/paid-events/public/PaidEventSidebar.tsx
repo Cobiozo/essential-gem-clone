@@ -160,6 +160,50 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
             <Button size="lg" className="w-full" disabled>
               Już zarezerwowano
             </Button>
+            {allowAttendeeInvites && inviteUrl && (() => {
+              const absoluteUrl = inviteUrl.startsWith('http')
+                ? inviteUrl
+                : `${typeof window !== 'undefined' ? window.location.origin : ''}${inviteUrl}`;
+              const copy = async () => {
+                try {
+                  await navigator.clipboard.writeText(absoluteUrl);
+                  toast({ title: 'Skopiowano link', description: 'Link zapraszający został skopiowany do schowka.' });
+                } catch {
+                  toast({ title: 'Nie udało się skopiować', description: absoluteUrl, variant: 'destructive' });
+                }
+              };
+              const share = async () => {
+                if (typeof navigator !== 'undefined' && (navigator as any).share) {
+                  try { await (navigator as any).share({ title: 'Zaproszenie na wydarzenie', url: absoluteUrl }); return; } catch { /* fallthrough */ }
+                }
+                copy();
+              };
+              return (
+                <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-primary" /> Zaproś gościa
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Udostępnij poniższy link osobom, które chcesz zaprosić. Każdy gość rejestruje się samodzielnie
+                    — jedna rezerwacja na osobę.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={absoluteUrl}
+                      className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background font-mono truncate"
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <Button type="button" size="sm" variant="outline" onClick={copy} className="gap-1">
+                      <Copy className="w-3.5 h-3.5" /> Kopiuj
+                    </Button>
+                    <Button type="button" size="sm" onClick={share} className="gap-1">
+                      <Share2 className="w-3.5 h-3.5" /> Wyślij
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : tickets.length === 0 && formUrl ? (
           <>
