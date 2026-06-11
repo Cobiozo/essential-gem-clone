@@ -1,54 +1,80 @@
 
-# Soft-delete kont użytkowników z decyzją admina
+## Problem
 
-Obecnie kliknięcie „Usuń trwale" w `MyAccount` od razu kasuje konto (auth + profil + role, CASCADE). Admin nie jest o tym informowany i nie ma żadnej listy. Zmieniamy to na soft-delete z 30-dniowym oknem, powiadomieniem admina i sekcją w panelu.
+On every refresh / module entry, raw translation keys (`auth.signIn`, `nav.home`, `auth.adminPanel`…) flash for ~300–800 ms before the real Polish/EN/DE text appears. Reason: translations are fetched from Supabase **asynchronously** inside `LanguageProvider`'s `useEffect`, so the first render of every component runs with an empty cache and `t(key)` returns the raw key as fallback.
 
-## Co się zmienia dla użytkownika
+Today's flow (in `src/hooks/useTranslations.ts` + `src/contexts/LanguageContext.tsx`):
 
-- Po potwierdzeniu „Usuń trwale" konto **nie jest** od razu kasowane. Zostaje:
-  - oznaczone jako `pending_deletion` (data zgłoszenia + planowana data trwałego usunięcia = +30 dni),
-  - natychmiast zablokowane (nie można się zalogować, sesja wylogowana),
-  - użytkownik trafia na `/konto-usuniete` z komunikatem: „Twoje konto zostało zgłoszone do usunięcia. Dane zostaną trwale usunięte za 30 dni. W tym czasie administrator może je przywrócić — skontaktuj się z administratorem."
-- Jeśli w ciągu 30 dni admin przywróci konto, użytkownik może się znów zalogować (otrzyma e-mail informacyjny).
+```text
+mount → render with empty cache → t('auth.signIn') === 'auth.signIn'  ← FLASH
+      → useEffect → fetch from Supabase / localStorage
+      → setState → re-render with real strings
+```
 
-## Co dostaje admin
+There **is** a localStorage cache (`i18n_translations_cache_<lang>`, 5 min TTL), but it's only read inside the async fetcher — never used to hydrate the very first render.
 
-1. **E-mail do wszystkich adminów** — natychmiast po zgłoszeniu („Użytkownik X (rola, e-mail) zgłosił usunięcie konta. Trwałe usunięcie: <data>").
-2. **Powiadomienie w dzwoneczku** (in-app) dla roli `admin` z linkiem do nowej sekcji.
-3. **Nowa podstrona w Panelu admina → Użytkownicy → „Usunięte konta"** z dwiema zakładkami:
-   - **Oczekujące usunięcia** (pending): lista, dla każdego: dane, rola, data zgłoszenia, ile dni zostało, przyciski **Przywróć konto**, **Zanonimizuj teraz**, **Usuń trwale teraz**.
-   - **Historia** (już usunięte/zanonimizowane): wpisy audytowe, kto i kiedy wykonał akcję końcową.
+## Goal
 
-## Auto-czyszczenie
+Zero visible flash of raw keys on:
+- Hard refresh (cold cache)
+- Soft navigation between modules
+- Language switch
 
-CRON codziennie o 03:00 wywołuje edge function, która dla każdego konta z `deletion_scheduled_at <= now()` wykonuje twarde usunięcie (tak jak dzisiejszy `admin-delete-user`: anonimizacja referencji + `auth.admin.deleteUser`). Wpis trafia do historii.
+## Plan
 
-## Zmiany techniczne (sekcja dla developera)
+### 1. Synchronous hydration from localStorage (eliminates flash on warm cache)
 
-### Baza (migration)
-- Nowe kolumny w `profiles`:
-  - `deletion_requested_at timestamptz`
-  - `deletion_scheduled_at timestamptz`
-  - `deletion_status text` (`null` | `pending` | `anonymized` | `deleted`)
-  - `is_active` ustawiane na `false` przy zgłoszeniu (login zablokowany przez istniejące guardy).
-- Nowa tabela `account_deletion_log` (audyt finalnych akcji): `user_id`, `email_snapshot`, `full_name_snapshot`, `roles_snapshot jsonb`, `requested_at`, `final_action` (`restored|anonymized|deleted|auto_deleted`), `acted_by uuid null`, `acted_at`, `notes`. GRANT + RLS: tylko admin SELECT, service_role ALL.
+In `src/hooks/useTranslations.ts`:
+- Add `hydrateCacheFromLocalStorageSync(langCodes)` that runs at **module import time** (top-level, before React renders). It reads `i18n_translations_cache_pl` and `i18n_translations_cache_<saved-lang>` from localStorage and populates the in-memory `translationsCache` + `loadedLanguages` synchronously.
+- Read the saved language from `localStorage.getItem('pure-life-language')` so we hydrate the right pair.
+- Keep the existing 5-min TTL but, for hydration only, accept stale entries up to 7 days (revalidate-on-mount, stale-while-revalidate). This guarantees a populated cache on every return visit.
 
-### Edge functions
-- **`self-delete-account`** — przerabiamy: zamiast `auth.admin.deleteUser` ustawia `deletion_*` na profilu, `is_active=false`, wstawia wiersz pending do `account_deletion_log`, wysyła powiadomienia (mail + in-app), wywołuje `signOut`. Anonimizacja FK **nie odbywa się tutaj** — dopiero przy finalnej akcji admina/CRON.
-- **`admin-finalize-account-deletion`** (nowa) — body: `{ userId, action: 'restore'|'anonymize'|'delete' }`. Wymaga JWT admina. `restore` → czyści pola `deletion_*`, ustawia `is_active=true`, mail do użytkownika. `anonymize` → zostawia konto, czyści PII (imię/nazwisko/telefon/avatar → puste, e-mail → `deleted-<uuid>@anonymized.local`), `deletion_status='anonymized'`. `delete` → wykonuje pełną anonimizację FK (jak dziś) + `auth.admin.deleteUser`. Każda akcja loguje do `account_deletion_log` i `admin_activity_log`.
-- **`cron-purge-pending-deletions`** (nowa) — codzienny CRON, dla `deletion_scheduled_at <= now()` woła wewnętrznie logikę `delete`.
-- **`send-approval-email`/templates** — dodajemy 3 nowe app email templates: `account-deletion-requested-admin`, `account-deletion-restored-user`, `account-deletion-finalized-admin`.
+Result: on warm cache, `getTranslation` returns real strings on the very first render → no flash.
 
-### Frontend
-- **`MyAccount.tsx`** — dialog potwierdzający informuje teraz o 30-dniowym oknie zamiast „nieodwracalne".
-- **`AccountDeleted.tsx`** — drobna zmiana copy: „Konto zostało zgłoszone do usunięcia. Pełne dane zostaną usunięte za 30 dni. Skontaktuj się z administratorem, jeśli chcesz cofnąć decyzję."
-- **`AuthContext`** — przy logowaniu: jeśli `profiles.deletion_status='pending'` → `signOut` + redirect na `/konto-usuniete` (blokada logowania w oknie 30 dni).
-- **Panel admina → Użytkownicy** — nowa pozycja menu „Usunięte konta" (`/admin/usuniete-konta`) z komponentem listy (pending + history), akcjami i potwierdzeniami. Dzwoneczek (`useNotifications`) – nowy typ `account_deletion_requested`.
+### 2. Hard gate for cold cache (first-ever visit)
 
-### Konfiguracja
-- Włączyć `pg_cron` + `pg_net` (jeśli nie są) i zarejestrować dzienny job o 03:00 dla `cron-purge-pending-deletions` (przez tool insert, nie migration).
-- Memory `account/self-deletion.md` zostanie zaktualizowane po implementacji.
+In `src/contexts/LanguageContext.tsx`:
+- Add `ready` flag to `LanguageContextType`. `ready = true` when either (a) sync hydration succeeded, or (b) the initial async fetch finished.
+- Export `ready` from `useLanguage()`.
+- In `src/main.tsx` (or top-level `App`), wrap the router in a tiny gate component: while `!ready && !hasHydrated`, render a minimal splash (existing logo + spinner already present in `AuthContext` loading state) instead of the route tree. This only triggers on the user's first-ever visit; on every subsequent visit step 1 covers it.
 
-## Co zostaje bez zmian
-- Admin nadal usuwa innych przez istniejący `admin-delete-user` (twardo, bez 30-dniowego okna) — to są decyzje administracyjne.
-- Ścieżki publiczne, layout `AccountDeleted`, dzisiejsze guardy `PUBLIC_PATHS`.
+### 3. Background revalidation (keeps strings fresh)
+
+After sync hydration we still kick off the existing async `loadTranslationsCache` in the background to refresh stale entries. When it resolves and the data differs, `notifyListeners()` already triggers re-render — no UX change, just newer copy.
+
+### 4. Preload current language before app mount
+
+In `src/main.tsx`, before `ReactDOM.createRoot().render(...)`:
+- Call `hydrateCacheFromLocalStorageSync()` (sync, instant).
+- Fire-and-forget `loadTranslationsCache(savedLang)` so by the time React commits, the promise is usually resolved.
+
+### 5. Safe fallback for `t(key)` during the brief cold window
+
+In `LanguageContext.t()`:
+- If translation missing AND `ready === false`, return an **empty string** instead of the raw key. This prevents the `auth.signIn` text from ever being painted, even in the worst case (first visit, slow network, hydration miss). Combined with the gate in step 2 this is belt-and-suspenders.
+- Keep returning the key (and dev warning) once `ready === true`, so genuine missing keys are still visible to developers.
+
+### 6. Module-entry flashes (route changes within app)
+
+These happen when a lazy-loaded route mounts before its namespace is in cache. Since we now hydrate **all** translations for `pl` + current language at module import time (single cache, not per-namespace), route changes hit a warm in-memory cache → no fetch, no flash.
+
+## Files touched
+
+- `src/hooks/useTranslations.ts` — add sync hydration, extend TTL for hydration path, expose `hydrateCacheFromLocalStorageSync()`.
+- `src/contexts/LanguageContext.tsx` — add `ready` flag, hydrate on construction, empty-string fallback while `!ready`.
+- `src/main.tsx` — call sync hydration + kick off async load before `render()`; wrap app in `<TranslationsGate>` (small inline component) that shows splash only on true cold start.
+- (No DB changes, no edge-function changes, no UI redesign.)
+
+## Out of scope
+
+- Server-side rendering of translations (would require Next.js).
+- Bundling Polish strings into the JS chunk (defeats the dynamic-CMS i18n model).
+- Changing how admins edit translations.
+
+## Validation
+
+1. Clear `localStorage` → hard refresh `/auth` → expect splash (≤500 ms), then fully translated UI; **no** `auth.*` keys visible.
+2. Refresh again → expect instant translated UI, no splash, no flash.
+3. Switch language `pl → en` → existing brief load is fine (already gated by current spinner), no key flash.
+4. Navigate `/auth → /dashboard → /admin` → no flashes on any module entry.
+5. Open DevTools → Network → confirm only one `i18n_translations` fetch per language per 5 min.

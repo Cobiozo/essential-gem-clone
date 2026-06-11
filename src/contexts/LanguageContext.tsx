@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap } from '@/hooks/useTranslations';
+import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap, wasHydratedSync } from '@/hooks/useTranslations';
 
 export type Language = 'pl' | 'de' | 'en' | 'no' | string;
 
@@ -9,6 +9,7 @@ interface LanguageContextType {
   t: (key: string) => string;
   tf: (key: string, fallback: string) => string;
   refreshTranslations: () => Promise<void>;
+  ready: boolean;
 }
 
 const LanguageContext = React.createContext<LanguageContextType | undefined>(undefined);
@@ -19,7 +20,8 @@ const defaultContextValue: LanguageContextType = {
   setLanguage: () => {},
   t: (key: string) => key,
   tf: (key: string, fallback: string) => fallback,
-  refreshTranslations: async () => {}
+  refreshTranslations: async () => {},
+  ready: false,
 };
 
 // Track missing keys to avoid duplicate warnings
@@ -39,6 +41,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [dbTranslations, setDbTranslations] = useState<TranslationsMap | null>(null);
   const [defaultLang, setDefaultLang] = useState<string>('pl');
   const [translationVersion, setTranslationVersion] = useState(0);
+  const [ready, setReady] = useState<boolean>(() => wasHydratedSync());
 
   // Single useEffect for loading translations - eliminates race condition
   useEffect(() => {
@@ -56,9 +59,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
 
         setTranslationVersion(v => v + 1);
+        setReady(true);
       } catch (err) {
         console.error('[LanguageProvider] Failed to load translations:', err);
         setTranslationVersion(v => v + 1);
+        setReady(true);
       }
     };
     loadLangTranslations();
@@ -83,28 +88,34 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Get translation from database
     const dbValue = getTranslation(language, key, defaultLang);
     if (dbValue) return dbValue;
-    
+
+    // While translations are still loading on a cold cache, hide raw keys
+    // (prevents flash of untranslated text like "auth.signIn").
+    if (!ready) return '';
+
     // Log missing keys in development (once per key)
     if (process.env.NODE_ENV === 'development' && !missingKeysWarned.has(key)) {
       missingKeysWarned.add(key);
       console.warn(`[i18n] Missing translation: "${key}" for language "${language}"`);
     }
-    
-    // Return key as fallback
+
+    // Return key as fallback (after ready, so developers still see missing keys)
     return key;
-  }, [language, defaultLang, dbTranslations, translationVersion]);
+  }, [language, defaultLang, dbTranslations, translationVersion, ready]);
 
   const tf = useCallback((key: string, fallback: string): string => {
-    const translated = t(key);
-    return translated !== key ? translated : fallback;
-  }, [t]);
+    const dbValue = getTranslation(language, key, defaultLang);
+    if (dbValue) return dbValue;
+    return fallback;
+  }, [language, defaultLang, translationVersion]);
 
   const contextValue: LanguageContextType = {
     language,
     setLanguage,
     t,
     tf,
-    refreshTranslations
+    refreshTranslations,
+    ready,
   };
 
   return (
