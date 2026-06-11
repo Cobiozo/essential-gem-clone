@@ -5,6 +5,8 @@
 // - delete: full purge (anonymize FK refs + auth.admin.deleteUser).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 import { sendMail, brandedEmailLayout } from '../_shared/smtp.ts';
+import { stampAccountDeletionOnTickets } from '../_shared/account-deletion-stamp.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
