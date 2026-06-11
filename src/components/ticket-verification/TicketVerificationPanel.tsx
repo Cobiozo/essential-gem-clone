@@ -30,7 +30,12 @@ interface VerificationResult {
   checked_in?: boolean;
   checkInStartsAt?: string | null;
   eventId?: string | null;
+  accountDeleted?: boolean;
+  accountDeletedAt?: string | null;
+  accountDeletedAction?: string | null;
+  accountDeletedSnapshot?: { first_name?: string | null; last_name?: string | null; email?: string | null; roles?: string[] } | null;
 }
+
 
 interface EventOption {
   id: string;
