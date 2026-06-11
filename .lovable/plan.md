@@ -1,82 +1,41 @@
 ## Cel
+Poprawić czytelność widoku "Struktura całej platformy" w panelu admina na urządzeniach mobilnych (≤640px). Desktop pozostaje bez zmian.
 
-W zakładce admina **Użytkownicy → „Statystyki użytkowników"** dołożyć równolegle przełącznik (Tabs) z dwiema sekcjami:
-1. „Statystyki użytkowników" (obecny komponent `UserStatistics`)
-2. **„Struktura całej platformy"** — nowa kompaktowa lista rozwijana całej organizacji z wyszukiwaniem, wyróżnieniem adminów, oznaczeniem ról i eksportem do Excel / Word / HTML.
+## Zmiany w `src/components/admin/PlatformStructureView.tsx`
 
-## Architektura danych
+### 1. Pasek akcji (Top bar)
+- Pole wyszukiwania na pełną szerokość w pierwszym wierszu, czcionka `text-base` (zapobiega zoom-in w iOS Safari).
+- Drugi wiersz: dwa rzędy przycisków w gridzie:
+  - `grid grid-cols-2 sm:flex sm:flex-wrap` dla Odśwież / Rozwiń wszystko
+  - `grid grid-cols-3 sm:flex` dla Excel / Word / HTML (równe szerokości, krótsze etykiety na xs, ikona + tekst)
+- Usunąć pionowy separator na mobile (`hidden sm:block`).
 
-- Źródło: `profiles` + `user_roles` (jeden user może mieć wiele ról; w UI pokazujemy wszystkie jako badge'y, kolejność: `admin → moderator → leader → guardian → specjalista → partner → klient → guest_plc`).
-- Drzewo budowane po stronie klienta: relacja `upline_eq_id → eq_id`. Użytkownicy bez uplinu lub z uplinem spoza platformy stają się korzeniami sekcji „Bez uplinu / korzenie".
-- Jedno zapytanie dla wszystkich profili (lekkie kolumny: `user_id, first_name, last_name, email, eq_id, upline_eq_id, phone_number, country, city, role, is_active, blocked_at, created_at, avatar_url`) + jedno do `user_roles`. Bez paginacji — wszyscy on-demand, lazy expand.
+### 2. Podsumowanie (summary chips)
+- Kompaktowe: `text-[11px]`, `h-5`, `px-1.5`.
+- Wymusić układ poziomy ze zwijaniem (`flex-wrap`) i mniejsze odstępy `gap-1`.
 
-## Komponent: `PlatformStructureView`
+### 3. Drzewo (renderNode)
+Główny problem: nazwa + role + EQ ID + (n)Σ łamią się brzydko i obcinają.
+Refaktor wiersza węzła na **dwurzędowy layout na mobile**:
+- Rząd 1: chevron + ikona admin + **nazwa (truncate, flex-1)** + licznik `(n) Σn` po prawej.
+- Rząd 2: role badges + EQ ID chip + status "Zablok." — zawijane (`flex-wrap`).
+- Na `sm:` wszystko wraca do jednego rzędu (jak teraz).
 
-Plik: `src/components/admin/PlatformStructureView.tsx`
+Dodatkowo:
+- Zwiększyć tap target chevrona do `w-6 h-6` (łatwiejsze trafienie palcem).
+- Wcięcie poziomu zmniejszyć na mobile: `ml-1 pl-1.5` zamiast `ml-2 pl-2`.
+- E-mail/telefon w rozwiniętym wierszu: `break-all` na email, `flex-col sm:flex-row` żeby nie cięło tekstu.
 
-UI:
-- Pasek nad listą: **wyszukiwarka** (debounce 200 ms, dopasowanie po `user_id`, `eq_id`, `first_name`, `last_name`, `email`, `phone_number`) + przyciski **„Odśwież"**, **„Excel"**, **„Word"**, **„HTML"** oraz **„Rozwiń wszystko"/„Zwiń"**.
-- Pasek podsumowania (chipsy): łączna liczba użytkowników + breakdown per rola, liczba korzeni, liczba z uplinem, liczba adminów (zawsze widoczna podpowiedź `Admin: N`).
-- Lista: rekurencyjne, akordeonowe wiersze (custom, bez Radix Accordion żeby trzymać kompakt). Każdy wiersz:
-  - lewa strona: chevron, awatar 24 px, **imię nazwisko**, badge'y ról (admin = `bg-destructive`, moderator = `bg-amber-500`, leader = `bg-primary`, reszta `secondary`), `eq_id` jako mono chip
-  - prawa strona: liczba bezpośrednich (`(N)`), liczba pełnego downline (`Σ N`), kropka aktywności
-  - rozwinięcie: krótki popover/inline z e-mailem, telefonem, miastem/krajem, datą rejestracji, statusem (aktywny / zablokowany), uplinem (klik → przewija do uplina w drzewie)
-- Wysokość linii ~32 px (text-xs), gęste padding, ikony 14 px — żeby pomieścić setki/tysiące pozycji. Wirtualizacja drzewa za pomocą `@tanstack/react-virtual` przy >300 widocznych elementów (lib już w projekcie? jeśli nie — dodać).
-- **Wyszukiwanie**: filtruje drzewo zachowując ścieżki przodków pasującego węzła (auto-expand do dopasowania). Liczniki pod paskiem aktualizują się do widocznego zbioru.
-- **Wyróżnienie adminów**: stała ikona `ShieldAlert` + obwódka `border-destructive/40` + jasne tło `bg-destructive/5`.
-- **Realtime**: subskrypcja `profiles` + `user_roles` (debounce 1.5 s, identyczna do `UserStatistics`).
+### 4. Karty (Card padding)
+- `p-2 sm:p-3` na kartach (więcej miejsca na treść).
 
-## Eksport — `src/components/admin/exports/platformStructureExport.ts`
+### 5. EQ ID chip
+- `whitespace-nowrap` żeby długie ID nie łamały się na dwie linie (jak na screenie "121229225" → "12122922" + "5").
 
-Wspólny builder modelu drzewa + 3 wyjścia:
+## Bez zmian
+- Logika, dane, eksporty, RPC, RLS, hooki, routing.
+- Wygląd desktopowy (breakpoint `sm:` przywraca obecny layout).
 
-1. **Excel (`xlsx`)** — biblioteka `xlsx` (jeśli brak: `bun add xlsx`).
-   - Arkusz „Podsumowanie": tabela ról z liczbami + sumy korzenie/uplink, data eksportu, nazwa platformy.
-   - Arkusz „Użytkownicy (płaska lista)": kolumny: EQ ID, Upline EQ ID, Pełna ścieżka uplinów, Imię, Nazwisko, Email, Telefon, Kraj, Miasto, Role, Status, Rejestracja, Liczba bezpośrednich, Liczba w downline. Nagłówek bold, freeze panes, autoszerokości, filtry.
-   - Arkusz „Struktura (drzewo)": jedna kolumna „Imię i nazwisko" z wcięciem przez `'  '.repeat(depth)` + obok role i licznik downline.
-
-2. **Word (`.docx`)** — `docx` (już używany w projekcie do innych eksportów, jeśli nie: `bun add docx`).
-   - Strona tytułowa: logo platformy (opcjonalnie), „Struktura platformy — stan na {data}", podsumowanie ról jako tabela.
-   - Sekcja „Drzewo": rekurencyjna lista wcięta, pogrubione imię, mniejszą czcionką role + eq_id, separator między korzeniami.
-
-3. **HTML (`.html`, samodzielny plik do pobrania)**:
-   - Inline CSS (Inter, kolory semantyczne zdublowane z motywu, tryb druku), nagłówek z podsumowaniem (grid kart), drzewo jako zagnieżdżone `<details>` (rozwijane natywnie), badge'y ról jak w UI, link `mailto:` dla emaili.
-   - Stopka: data wygenerowania + nazwa admina.
-
-Wszystkie 3 eksporty współdzielą funkcje `buildTree(profiles, roles)` i `summarize(tree)`, więc liczby per rola/upline są spójne.
-
-## Integracja z `Admin.tsx`
-
-W `<TabsContent value="user-stats">` (linia 4636) zamiast bezpośredniego `<UserStatistics />` wstawić wewnętrzny przełącznik:
-
-```tsx
-<Tabs defaultValue="stats">
-  <TabsList>
-    <TabsTrigger value="stats">Statystyki użytkowników</TabsTrigger>
-    <TabsTrigger value="structure">Struktura całej platformy</TabsTrigger>
-  </TabsList>
-  <TabsContent value="stats"><UserStatistics /></TabsContent>
-  <TabsContent value="structure"><PlatformStructureView /></TabsContent>
-</Tabs>
-```
-
-Zachowanie URL: stan wewnętrznej zakładki w `useSearchParams` jako `userTab=stats|structure`, aby admin mógł podlinkować widok struktury.
-
-## Zakres uprawnień
-
-- Widoczne tylko dla `admin` i moderatorów z uprawnieniem `user-stats:view`/`user-stats:export` (analogicznie jak obecny `UserStatistics`). Eksport gated przez `user-stats:export` — przyciski ukryte gdy moderator nie ma akcji `export`.
-
-## Pliki
-
-Nowe:
-- `src/components/admin/PlatformStructureView.tsx`
-- `src/components/admin/exports/platformStructureExport.ts`
-
-Edytowane:
-- `src/pages/Admin.tsx` — opakowanie `TabsContent value="user-stats"` w wewnętrzne `Tabs`.
-
-Brak zmian w bazie i edge functions (RLS na `profiles`/`user_roles` już pozwala adminowi czytać wszystko).
-
-## Zależności
-
-- Sprawdzić obecność `xlsx`, `docx`, `@tanstack/react-virtual`. Jeśli brakuje — dodać przez `bun add`. (Według mojej wiedzy `docx` jest już używany; `xlsx` prawdopodobnie nie.)
+## Weryfikacja
+- Podgląd mobile 390px: nazwy czytelne, badges nie nachodzą, EQ ID w jednej linii, przyciski eksportu równej szerokości.
+- Podgląd desktop ≥640px: bez zmian względem obecnego stanu.

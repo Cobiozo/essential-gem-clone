@@ -229,71 +229,81 @@ const PlatformStructureView: React.FC = () => {
     const isMatch = matchedIds?.has(n.profile.user_id);
 
     return (
-      <div key={n.profile.user_id} className="border-l border-border ml-2 pl-2">
+      <div key={n.profile.user_id} className="border-l border-border ml-1 pl-1.5 sm:ml-2 sm:pl-2">
         <div
-          className={`group flex items-center gap-1.5 py-0.5 px-1 rounded text-xs ${
+          className={`group flex flex-col sm:flex-row sm:items-center gap-x-1.5 gap-y-1 py-1 px-1 rounded text-xs ${
             isAdmin ? 'bg-destructive/5 border border-destructive/30' : ''
           } ${isMatch ? 'ring-1 ring-primary/60' : ''}`}
         >
-          <button
-            type="button"
-            onClick={() => hasChildren && toggle(n.profile.user_id)}
-            className={`shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground ${
-              hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
-            }`}
-            aria-label={isOpen ? 'Zwiń' : 'Rozwiń'}
-          >
-            <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-            />
-          </button>
-          {isAdmin && <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />}
-          <span className="font-medium truncate">{fullName(n.profile)}</span>
-          {n.roles.map((r) => (
-            <Badge
-              key={r}
-              className={`${ROLE_BADGE_CLASS[r] ?? 'bg-secondary text-secondary-foreground'} text-[9px] px-1 py-0 h-4 font-semibold uppercase tracking-wide`}
+          <div className="flex items-center gap-1.5 min-w-0 w-full sm:w-auto sm:flex-1">
+            <button
+              type="button"
+              onClick={() => hasChildren && toggle(n.profile.user_id)}
+              className={`shrink-0 w-6 h-6 sm:w-4 sm:h-4 flex items-center justify-center text-muted-foreground ${
+                hasChildren ? 'hover:text-foreground' : 'opacity-0 pointer-events-none'
+              }`}
+              aria-label={isOpen ? 'Zwiń' : 'Rozwiń'}
             >
-              {ROLE_LABELS[r] ?? r}
-            </Badge>
-          ))}
-          {n.profile.eq_id && (
-            <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 rounded">
-              {n.profile.eq_id}
+              <ChevronRight
+                className={`h-4 w-4 sm:h-3.5 sm:w-3.5 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {isAdmin && <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />}
+            <span className="font-medium truncate flex-1 min-w-0">{fullName(n.profile)}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0 sm:hidden">
+              {hasChildren && <>({n.directCount}) </>}
+              {n.downlineCount > 0 && <>Σ{n.downlineCount}</>}
             </span>
-          )}
-          {isBlocked && (
-            <span className="text-[9px] uppercase font-semibold text-destructive">Zablok.</span>
-          )}
-          <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 pl-7 sm:pl-0 min-w-0">
+            {n.roles.map((r) => (
+              <Badge
+                key={r}
+                className={`${ROLE_BADGE_CLASS[r] ?? 'bg-secondary text-secondary-foreground'} text-[9px] px-1 py-0 h-4 font-semibold uppercase tracking-wide`}
+              >
+                {ROLE_LABELS[r] ?? r}
+              </Badge>
+            ))}
+            {n.profile.eq_id && (
+              <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 rounded whitespace-nowrap">
+                {n.profile.eq_id}
+              </span>
+            )}
+            {isBlocked && (
+              <span className="text-[9px] uppercase font-semibold text-destructive">Zablok.</span>
+            )}
+          </div>
+
+          <span className="hidden sm:inline ml-auto text-[10px] text-muted-foreground shrink-0">
             {hasChildren && <>({n.directCount}) </>}
             {n.downlineCount > 0 && <>Σ{n.downlineCount}</>}
           </span>
         </div>
 
         {isOpen && (
-          <div className="ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+          <div className="ml-7 sm:ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-col sm:flex-row sm:flex-wrap gap-x-3 gap-y-0.5">
             {n.profile.email && (
-              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary">
-                <Mail className="h-3 w-3" /> {n.profile.email}
+              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary break-all">
+                <Mail className="h-3 w-3 shrink-0" /> <span className="break-all">{n.profile.email}</span>
               </a>
             )}
             {n.profile.phone_number && (
               <span className="inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {n.profile.phone_number}
+                <Phone className="h-3 w-3 shrink-0" /> {n.profile.phone_number}
               </span>
             )}
             {(n.profile.city || n.profile.country) && (
               <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
+                <MapPin className="h-3 w-3 shrink-0" />
                 {[n.profile.city, n.profile.country].filter(Boolean).join(', ')}
               </span>
             )}
             <span className="inline-flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3 w-3 shrink-0" />
               {new Date(n.profile.created_at).toLocaleDateString('pl-PL')}
             </span>
-            {n.uplinePath && <span className="opacity-70">Upline: {n.uplinePath}</span>}
+            {n.uplinePath && <span className="opacity-70 break-all">Upline: {n.uplinePath}</span>}
           </div>
         )}
 
@@ -311,17 +321,17 @@ const PlatformStructureView: React.FC = () => {
     <div className="space-y-3">
       {/* Top bar */}
       <Card>
-        <CardContent className="p-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Szukaj: ID, EQ ID, imię, nazwisko, e-mail, telefon…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 h-9"
-              />
-            </div>
+        <CardContent className="p-2 sm:p-3 space-y-2">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Szukaj: ID, EQ ID, imię, nazwisko, e-mail, telefon…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 h-9 text-base sm:text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={refresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
               Odśwież
@@ -337,8 +347,8 @@ const PlatformStructureView: React.FC = () => {
                 </>
               )}
             </Button>
-            <div className="w-px h-6 bg-border mx-1" />
-            <Button size="sm" variant="outline" onClick={() => doExport('xlsx')}>
+            <div className="hidden sm:block w-px h-6 bg-border mx-1" />
+            <Button size="sm" variant="outline" onClick={() => doExport('xlsx')} className="col-span-2 sm:col-span-1">
               <FileSpreadsheet className="h-4 w-4 mr-1.5" /> Excel
             </Button>
             <Button size="sm" variant="outline" onClick={() => doExport('docx')}>
@@ -350,20 +360,20 @@ const PlatformStructureView: React.FC = () => {
           </div>
 
           {/* Summary chips */}
-          <div className="flex flex-wrap gap-1.5 text-xs">
-            <Badge variant="secondary" className="h-6">
+          <div className="flex flex-wrap gap-1 text-[11px]">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Razem: <b className="ml-1">{summary.total}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Aktywni: <b className="ml-1 text-green-700">{summary.activeCount}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Zablokowani: <b className="ml-1 text-destructive">{summary.blockedCount}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Z uplinem: <b className="ml-1">{summary.withUpline}</b>
             </Badge>
-            <Badge variant="secondary" className="h-6">
+            <Badge variant="secondary" className="h-5 px-1.5">
               Korzeni: <b className="ml-1">{summary.rootCount}</b>
             </Badge>
             {Object.entries(summary.byRole)
@@ -371,7 +381,7 @@ const PlatformStructureView: React.FC = () => {
               .map(([role, count]) => (
                 <Badge
                   key={role}
-                  className={`h-6 ${ROLE_BADGE_CLASS[role] ?? 'bg-secondary text-secondary-foreground'}`}
+                  className={`h-5 px-1.5 ${ROLE_BADGE_CLASS[role] ?? 'bg-secondary text-secondary-foreground'}`}
                 >
                   {ROLE_LABELS[role] ?? role}: <b className="ml-1">{count}</b>
                 </Badge>
@@ -382,7 +392,7 @@ const PlatformStructureView: React.FC = () => {
 
       {/* Tree */}
       <Card>
-        <CardContent className="p-3">
+        <CardContent className="p-2 sm:p-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
               <Loader2 className="h-5 w-5 animate-spin" /> Ładowanie struktury…
