@@ -233,6 +233,9 @@ Deno.serve(async (req) => {
 
     // Return valid ticket info
     const ticketRel = (order as any).paid_event_tickets;
+    const accountDeletedAt = (attendee?.account_deleted_at) || (order as any).account_deleted_at || null;
+    const accountDeletedAction = (attendee?.account_deleted_action) || (order as any).account_deleted_action || null;
+    const accountDeletedSnapshot = (attendee?.account_deleted_snapshot) || (order as any).account_deleted_snapshot || null;
     return new Response(
       JSON.stringify({
         valid: true,
@@ -241,6 +244,10 @@ Deno.serve(async (req) => {
         action: isCheckOut ? 'check_out' : (markAsCheckedIn ? 'check_in' : 'verify'),
         checkInStartsAt: checkInStart.toISOString(),
         eventEndedAt: eventEndDate.toISOString(),
+        accountDeleted: !!accountDeletedAt,
+        accountDeletedAt,
+        accountDeletedAction,
+        accountDeletedSnapshot,
         order: {
           id: order.id,
           quantity: order.quantity,
@@ -273,6 +280,7 @@ Deno.serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
 
   } catch (error) {
     console.error('Error in verify-event-ticket:', error);
