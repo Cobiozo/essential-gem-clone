@@ -7623,6 +7623,7 @@ export type Database = {
       }
       paid_events: {
         Row: {
+          allow_attendee_invites: boolean
           banner_url: string | null
           created_at: string
           created_by: string | null
@@ -7659,6 +7660,7 @@ export type Database = {
           visible_to_specjalista: boolean | null
         }
         Insert: {
+          allow_attendee_invites?: boolean
           banner_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -7695,6 +7697,7 @@ export type Database = {
           visible_to_specjalista?: boolean | null
         }
         Update: {
+          allow_attendee_invites?: boolean
           banner_url?: string | null
           created_at?: string
           created_by?: string | null
