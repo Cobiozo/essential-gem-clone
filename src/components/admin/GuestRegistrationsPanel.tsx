@@ -208,15 +208,29 @@ const GuestRegistrationsPanel: React.FC<Props> = ({ guestUserId }) => {
         {links.map(link => {
           const linkSubs = subsByLink[link.id] || [];
           const isOpen = !!openLinks[link.id];
-          const guest = (profiles as any)[link.partner_user_id];
+          const guest = link.partner_user_id ? (profiles as any)[link.partner_user_id] : null;
+          const snap = link.partner_snapshot;
+          const deleted = !!link.partner_deleted_at;
+          const guestName = guest
+            ? `${guest.first_name || ''} ${guest.last_name || ''}`.trim()
+            : snap
+              ? `${snap.first_name || ''} ${snap.last_name || ''}`.trim()
+              : '';
+          const guestEmail = guest?.email || snap?.email || '';
           const url = `${window.location.origin}/event-form/${link.event_registration_forms?.slug}?ref=${link.ref_code}`;
           return (
             <div key={link.id} className="border rounded-md p-3 space-y-2">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  {!guestUserId && guest && (
-                    <div className="text-xs text-muted-foreground mb-1">
-                      Gość: <span className="font-medium text-foreground">{guest.first_name} {guest.last_name}</span> · {guest.email}
+                  {!guestUserId && (guestName || guestEmail) && (
+                    <div className="text-xs text-muted-foreground mb-1 flex flex-wrap items-center gap-1">
+                      Gość: <span className="font-medium text-foreground">{guestName || '—'}</span>
+                      {guestEmail && <span>· {guestEmail}</span>}
+                      {deleted && (
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                          Konto usunięte
+                        </Badge>
+                      )}
                     </div>
                   )}
                   <div className="font-medium text-sm truncate">{link.paid_events?.title || '—'}</div>
