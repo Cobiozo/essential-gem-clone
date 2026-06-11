@@ -101,7 +101,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   // Detect if the logged-in partner already has a (non-cancelled) ticket for this event.
   // Checks BOTH paid_event_orders AND event_form_submissions (mirrored registrations),
   // mirroring MyEventTicketsInline so the drawer reliably switches to "guest-only" mode.
-  const { data: hasOwnTicket = false } = useQuery({
+  const { data: hasOwnTicketLocal = false } = useQuery({
     queryKey: ['my-event-ticket-exists', user?.id, profileEmail, eventId],
     enabled: !!user?.id && !!eventId && open,
     queryFn: async () => {
@@ -109,10 +109,19 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
         (user!.email || '').toLowerCase(),
         profileEmail || '',
       ].filter(Boolean)));
-      // Match by user_id (own orders) OR by email but only for guest rows not yet
-      // linked to a user. Always exclude rows tied to deleted/anonymized accounts so
-      // recycled emails never inherit the previous owner's tickets.
       const notCancelled = '("cancelled","refunded","failed","expired")';
+      const INACTIVE = new Set(['cancelled','refunded','failed','expired']);
+
+      // PRIMARY: same RPC source of truth as the visible tickets panel
+      try {
+        const { data, error } = await (supabase as any).rpc('get_my_event_orders', {
+          p_event_id: eventId,
+        });
+        if (!error && Array.isArray(data)) {
+          if (data.some((r: any) => !INACTIVE.has(r.status))) return true;
+        }
+      } catch { /* fall through */ }
+
       const { data: ownOrders, error: ownErr } = await supabase
         .from('paid_event_orders')
         .select('id')
@@ -135,8 +144,6 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
           .limit(1);
         if (!emailErr && (emailOrders?.length ?? 0) > 0) return true;
 
-        // Also check per-attendee table (group tickets) — buyer may already
-        // be registered as a guest seat in another order for the same event.
         const { data: seats, error: seatsErr } = await supabase
           .from('paid_event_order_attendees')
           .select('id, paid_event_orders!inner(event_id, status, account_deleted_at)')
@@ -161,6 +168,10 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       return false;
     },
   });
+
+  // Parent's flag is authoritative — OR with local check so the drawer is never
+  // more permissive than the page-level check that already drives the sidebar.
+  const hasOwnTicket = alreadyRegisteredProp || hasOwnTicketLocal;
 
 
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
