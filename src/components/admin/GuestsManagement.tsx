@@ -464,7 +464,13 @@ const GuestUsersTab: React.FC = () => {
             {guests.map((g) => {
               let statusLabel = 'Aktywny';
               let statusCls = 'bg-green-500/15 text-green-600 border-green-500/30';
-              if (g.email_activated === false) {
+              if (g.deletion_status === 'anonymized') {
+                statusLabel = 'Konto usunięte';
+                statusCls = 'bg-amber-500/15 text-amber-600 border-amber-500/30';
+              } else if (g.deletion_status === 'pending') {
+                statusLabel = 'Oczekuje na usunięcie';
+                statusCls = 'bg-orange-500/15 text-orange-600 border-orange-500/30';
+              } else if (g.email_activated === false) {
                 statusLabel = 'Czeka na potwierdzenie e-mail';
                 statusCls = 'bg-amber-500/15 text-amber-600 border-amber-500/30';
               } else if (g.admin_approved === false || g.is_active === false) {
