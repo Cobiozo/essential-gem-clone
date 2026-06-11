@@ -555,6 +555,36 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
                   </div>
                 </div>
               </div>
+              {allowAttendeeInvites && inviteUrl && (() => {
+                const absoluteUrl = inviteUrl.startsWith('http')
+                  ? inviteUrl
+                  : `${typeof window !== 'undefined' ? window.location.origin : ''}${inviteUrl}`;
+                const copy = async () => {
+                  try {
+                    await navigator.clipboard.writeText(absoluteUrl);
+                    toast({ title: 'Skopiowano link', description: 'Link zapraszający został skopiowany do schowka.' });
+                  } catch {
+                    toast({ title: 'Nie udało się skopiować', description: absoluteUrl, variant: 'destructive' });
+                  }
+                };
+                return (
+                  <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                    <div className="text-sm font-semibold">Zaproś gościa</div>
+                    <p className="text-xs text-muted-foreground">
+                      Udostępnij poniższy link osobom, które chcesz zaprosić. Każdy gość rejestruje się samodzielnie — jedna rezerwacja na osobę.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={absoluteUrl}
+                        className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background font-mono truncate"
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                      <Button type="button" size="sm" onClick={copy}>Kopiuj</Button>
+                    </div>
+                  </div>
+                );
+              })()}
               <Button type="button" variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
                 Zamknij
               </Button>
