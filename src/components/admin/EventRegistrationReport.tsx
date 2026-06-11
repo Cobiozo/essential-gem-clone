@@ -44,6 +44,14 @@ interface GuestRegistration {
   reminder_sent: boolean;
   invited_by_user_id: string | null;
   team_contact_id: string | null;
+  inviter_deleted_at?: string | null;
+  inviter_snapshot?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    roles?: string[];
+    action?: string;
+  } | null;
   inviter_profile?: {
     first_name: string | null;
     last_name: string | null;
