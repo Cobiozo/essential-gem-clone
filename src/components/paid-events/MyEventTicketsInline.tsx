@@ -113,6 +113,7 @@ export const MyEventTicketsInline: React.FC<Props> = ({ eventId }) => {
         .eq('event_id', eventId)
         .in('email', emails)
         .eq('status', 'active')
+        .is('account_deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
