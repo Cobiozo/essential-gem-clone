@@ -99,6 +99,11 @@ Deno.serve(async (req) => {
       }).eq('user_id', userId);
       if (error) throw error;
 
+      // Stamp tickets/registrations so admin & verification still see them, with note.
+      await stampAccountDeletionOnTickets(supabaseAdmin, userId, email, {
+        action: 'anonymized', snapshot,
+      });
+
       await supabaseAdmin.from('account_deletion_log').insert({
         user_id: userId, email_snapshot: email, full_name_snapshot: fullName,
         requested_at: (profile as any)?.deletion_requested_at ?? actedAt,
@@ -108,6 +113,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({ success: true, action }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
 
     // action === 'delete'
     // Anonymize FK refs (same logic as admin-delete-user).
