@@ -38,10 +38,14 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
   const { data: rawSubmissions = [], isLoading } = useQuery({
     queryKey: ['event-form-submissions', form.id],
     queryFn: async () => {
+      // Exclude rows owned by deleted/anonymized accounts. Historical data
+      // stays in the DB for accounting but must NEVER appear in active views
+      // — a new account that recycles the same email is a separate person.
       const { data, error } = await supabase
         .from('event_form_submissions')
         .select('*')
         .eq('form_id', form.id)
+        .is('account_deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as any[];
