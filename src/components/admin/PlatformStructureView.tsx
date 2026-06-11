@@ -422,6 +422,16 @@ const PlatformStructureView: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <PlatformUserDetailsDialog
+        node={selectedNode}
+        uplineName={(() => {
+          if (!selectedNode?.profile.upline_eq_id) return null;
+          const up = allNodes.find((n) => n.profile.eq_id === selectedNode.profile.upline_eq_id);
+          return up ? fullName(up.profile) : null;
+        })()}
+        onOpenChange={(o) => !o && setSelectedNode(null)}
+      />
     </div>
   );
 };
