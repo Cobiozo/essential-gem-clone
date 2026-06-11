@@ -301,7 +301,16 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
   };
   const handleSubmit = async () => {
     // Hard guard: a logged-in user who already holds a reservation cannot
-    // re-register for the SAME free event. Show an informative toast and stop.
+    // re-register for the SAME event (free or paid). For paid events with
+    // multiple seats, the buyer can still buy seats for OTHER people — only
+    // the buyer themselves is blocked from being an additional attendee.
+    if (hasOwnTicket && !isFree && guestSeatsCount === 0) {
+      toast({
+        title: 'Masz już zarezerwowane miejsce',
+        description: 'Twoja rezerwacja na to wydarzenie już istnieje. Kolejny bilet możesz kupić wyłącznie dla innej osoby.',
+      });
+      return;
+    }
     if (isFree && hasOwnTicket) {
       toast({
         title: 'Masz już zarezerwowane miejsce',
@@ -309,6 +318,25 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       });
       return;
     }
+    // Extra protection: when buyer already has a ticket and is purchasing for
+    // guests, none of the guest e-mails may match the buyer's own e-mail.
+    if (hasOwnTicket) {
+      const buyerEmails = new Set(
+        [user?.email, (profile as any)?.email]
+          .filter(Boolean)
+          .map((e: string) => e.toLowerCase()),
+      );
+      const conflict = attendees.find((a) => buyerEmails.has((a.email || '').trim().toLowerCase()));
+      if (conflict) {
+        toast({
+          title: 'Nie możesz dodać siebie jako gościa',
+          description: 'Masz już rezerwację na to wydarzenie — usuń swój adres e-mail z listy gości.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     if (!validate() || !ticket) return;
     setLoadingMode('checkout');
     try {
