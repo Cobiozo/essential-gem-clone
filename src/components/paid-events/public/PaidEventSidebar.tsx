@@ -33,6 +33,8 @@ interface PaidEventSidebarProps {
   helperText?: string | null;
   /** When true, replace the numeric availability with a red "Ostatnie wolne miejsca!" label. */
   showLastSpotsLabel?: boolean;
+  /** When true, user already has an active reservation — CTA is replaced with a "Masz już rezerwację" badge. */
+  alreadyRegistered?: boolean;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
@@ -47,6 +49,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   formUrl = null,
   helperText = null,
   showLastSpotsLabel = false,
+  alreadyRegistered = false,
 }) => {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
     tickets.find(t => t.isFeatured)?.id || tickets[0]?.id || null
