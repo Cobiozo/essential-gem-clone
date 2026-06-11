@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_log: {
+        Row: {
+          acted_at: string | null
+          acted_by: string | null
+          created_at: string
+          email_snapshot: string | null
+          final_action: string | null
+          full_name_snapshot: string | null
+          id: string
+          notes: string | null
+          requested_at: string
+          roles_snapshot: Json | null
+          scheduled_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          acted_at?: string | null
+          acted_by?: string | null
+          created_at?: string
+          email_snapshot?: string | null
+          final_action?: string | null
+          full_name_snapshot?: string | null
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          roles_snapshot?: Json | null
+          scheduled_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          acted_at?: string | null
+          acted_by?: string | null
+          created_at?: string
+          email_snapshot?: string | null
+          final_action?: string | null
+          full_name_snapshot?: string | null
+          id?: string
+          notes?: string | null
+          requested_at?: string
+          roles_snapshot?: Json | null
+          scheduled_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_activity_log: {
         Row: {
           action_description: string
@@ -8288,6 +8333,9 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          deletion_requested_at: string | null
+          deletion_scheduled_at: string | null
+          deletion_status: string | null
           email: string
           email_activated: boolean | null
           email_activated_at: string | null
@@ -8343,6 +8391,9 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
+          deletion_scheduled_at?: string | null
+          deletion_status?: string | null
           email: string
           email_activated?: boolean | null
           email_activated_at?: string | null
@@ -8398,6 +8449,9 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          deletion_requested_at?: string | null
+          deletion_scheduled_at?: string | null
+          deletion_status?: string | null
           email?: string
           email_activated?: boolean | null
           email_activated_at?: string | null
