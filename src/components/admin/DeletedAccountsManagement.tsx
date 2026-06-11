@@ -31,6 +31,9 @@ interface LogRow {
   acted_by: string | null;
   final_action: string | null;
   notes: string | null;
+  user_email_sent_at?: string | null;
+  user_email_status?: string | null;
+  user_email_error?: string | null;
 }
 
 const ACTION_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
