@@ -238,7 +238,7 @@ const EventFormPublicPage: React.FC = () => {
                 </div>
                 <div>
                   <Label>Telefon</Label>
-                  <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48..." />
+                  <PhoneInputWithPrefix value={phone} onChange={setPhone} />
                 </div>
               </div>
 
