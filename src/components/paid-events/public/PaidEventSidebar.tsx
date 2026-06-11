@@ -36,6 +36,8 @@ interface PaidEventSidebarProps {
   showLastSpotsLabel?: boolean;
   /** When true, user already has an active reservation — CTA is replaced with a "Masz już rezerwację" badge. */
   alreadyRegistered?: boolean;
+  /** When true, reservation check is still in flight — CTA must be disabled to prevent opening the form. */
+  alreadyRegisteredLoading?: boolean;
   /** When true AND alreadyRegistered, show an "invite a guest" panel with a shareable link. */
   allowAttendeeInvites?: boolean;
   /** Absolute or relative URL used as the guest invitation link (event public URL or registration form URL). */
