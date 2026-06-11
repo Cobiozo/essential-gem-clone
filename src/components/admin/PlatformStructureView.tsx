@@ -102,6 +102,7 @@ const PlatformStructureView: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [forceAllExpanded, setForceAllExpanded] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<PlatformNode | null>(null);
 
   // Debounce search
   useEffect(() => {
