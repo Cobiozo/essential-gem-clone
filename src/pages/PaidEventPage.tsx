@@ -497,7 +497,7 @@ const PaidEventPage: React.FC = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         {user && (
-          <div className="mb-6">
+          <div className="mb-6" data-my-event-tickets>
             <MyEventTicketsInline eventId={event.id} />
           </div>
         )}
