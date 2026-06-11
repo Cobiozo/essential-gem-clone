@@ -298,7 +298,7 @@ const PlatformStructureView: React.FC = () => {
         {isOpen && (
           <div className="ml-7 sm:ml-4 text-[10px] text-muted-foreground py-0.5 flex flex-col sm:flex-row sm:flex-wrap gap-x-3 gap-y-0.5">
             {n.profile.email && (
-              <a href={`mailto:${n.profile.email}`} className="inline-flex items-center gap-1 hover:text-primary break-all">
+              <a href={`mailto:${n.profile.email}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 hover:text-primary break-all">
                 <Mail className="h-3 w-3 shrink-0" /> <span className="break-all">{n.profile.email}</span>
               </a>
             )}
