@@ -256,12 +256,21 @@ export const PaidEventsOrders: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium flex items-center gap-2">
+                        <div className="font-medium flex items-center gap-2 flex-wrap">
                           {order.first_name} {order.last_name}
                           {order.user_id ? (
                             <Badge variant="default" className="text-[10px] px-1.5 py-0">Zalogowany</Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0">Gość</Badge>
+                          )}
+                          {order.account_deleted_at && (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] px-1.5 py-0"
+                              title={`Konto ${order.account_deleted_action === 'anonymized' ? 'zanonimizowane' : 'usunięte'} dnia ${format(new Date(order.account_deleted_at), 'dd.MM.yyyy HH:mm', { locale: pl })}${order.account_deleted_snapshot?.email ? ` — pierwotny e-mail: ${order.account_deleted_snapshot.email}` : ''}`}
+                            >
+                              Konto usunięte
+                            </Badge>
                           )}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
@@ -270,6 +279,7 @@ export const PaidEventsOrders: React.FC = () => {
                         </div>
                       </div>
                     </TableCell>
+
                     <TableCell>
                       {order.ticket_code ? (
                         <div className="flex items-center gap-1 font-mono text-sm">
