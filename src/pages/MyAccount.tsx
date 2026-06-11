@@ -284,15 +284,26 @@ const MyAccount = () => {
     isHighlighted(field) ? 'ring-2 ring-destructive ring-offset-2 ring-offset-background' : '';
   const firstHighlightRef = useRef<HTMLInputElement | null>(null);
 
+  const ADDRESS_FIELDS = new Set(['street_address', 'postal_code', 'city', 'country']);
+  const hasNonAddressHighlights = useMemo(
+    () => Array.from(highlightedFields).some((f) => !ADDRESS_FIELDS.has(f)),
+    [highlightedFields]
+  );
+
   useEffect(() => {
     if (highlightedFields.size === 0) return;
-    // Switch to settings tab where address fields live
+    // Switch to profile tab where all editable fields live
+    setActiveTab('profile');
+    // If any non-address field is missing, open the full profile edit form
+    if (hasNonAddressHighlights) {
+      setIsEditingProfile(true);
+    }
     const t = setTimeout(() => {
       firstHighlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       firstHighlightRef.current?.focus({ preventScroll: true });
     }, 400);
     return () => clearTimeout(t);
-  }, [highlightedFields]);
+  }, [highlightedFields, hasNonAddressHighlights]);
 
   // Update address state when profile loads
   React.useEffect(() => {
