@@ -76,17 +76,6 @@ export const ProfileFieldsBanner: React.FC = () => {
     });
   }, [config, profile]);
 
-  const wasIncomplete = useRef(false);
-
-  useEffect(() => {
-    if (missing.length > 0) {
-      wasIncomplete.current = true;
-    } else if (wasIncomplete.current && location.pathname.startsWith('/my-account')) {
-      wasIncomplete.current = false;
-      navigate('/dashboard');
-    }
-  }, [missing.length, location.pathname, navigate]);
-
   useEffect(() => {
     setDismissed(false);
   }, [location.pathname]);

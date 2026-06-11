@@ -1387,7 +1387,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
           Usuń konto
         </CardTitle>
         <CardDescription>
-          Zgłoszenie usunięcia konta. Po zatwierdzeniu konto zostanie zablokowane, a dane trwale usunięte po 30 dniach. W tym oknie administrator może je przywrócić.
+          Usunięcie konta jest <strong>nieodwracalne</strong>. Stracisz dostęp do wszystkich swoich danych, postępów, materiałów i historii. Przemyśl tę decyzję przed potwierdzeniem.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -1396,16 +1396,15 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
           <AlertDialogTrigger asChild>
             <Button variant="destructive">
               <Trash2 className="w-4 h-4 mr-2" />
-              Usuń moje konto
+              Usuń konto
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Potwierdź zgłoszenie usunięcia konta</AlertDialogTitle>
+              <AlertDialogTitle>Potwierdź usunięcie konta</AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
                 <span className="block">
-                  Twoje konto zostanie natychmiast zablokowane, a dane trwale usunięte za <strong>30 dni</strong>.
-                  W tym czasie administrator może przywrócić konto na Twoją prośbę.
+                  Ta operacja jest <strong>nieodwracalna</strong>. Twoje konto i wszystkie dane zostaną trwale usunięte.
                 </span>
                 <span className="block">
                   Aby potwierdzić, wpisz poniżej swój adres e-mail:
@@ -1434,7 +1433,7 @@ const DeleteAccountCard: React.FC<{ isAdmin: boolean; userEmail: string }> = ({
                 disabled={!matches || submitting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {submitting ? 'Wysyłanie…' : 'Zgłoś usunięcie konta'}
+                {submitting ? 'Usuwanie…' : 'Usuń konto'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
