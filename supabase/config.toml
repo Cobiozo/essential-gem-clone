@@ -1,5 +1,14 @@
 project_id = "xzlhssqqbajqhnsmbucf"
 
+[functions.self-delete-account]
+verify_jwt = true
+
+[functions.admin-finalize-account-deletion]
+verify_jwt = true
+
+[functions.cron-purge-pending-deletions]
+verify_jwt = false
+
 [functions.admin-delete-user]
 verify_jwt = true
 
