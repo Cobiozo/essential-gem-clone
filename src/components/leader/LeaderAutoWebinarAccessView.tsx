@@ -99,7 +99,10 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
         description: value ? 'Dostęp do auto-webinaru włączony' : 'Dostęp do auto-webinaru wyłączony',
       });
     } catch (error: any) {
-      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      const details = [error?.message, error?.details, error?.hint, error?.code]
+        .filter(Boolean)
+        .join(' • ');
+      toast({ title: 'Błąd', description: details || 'Nie udało się zapisać zmiany', variant: 'destructive' });
     } finally {
       setSaving(null);
     }
