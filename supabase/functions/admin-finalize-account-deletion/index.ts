@@ -48,6 +48,17 @@ Deno.serve(async (req) => {
     const email = (profile as any)?.email ?? null;
     const fullName = [(profile as any)?.first_name, (profile as any)?.last_name].filter(Boolean).join(' ').trim() || (email ?? userId);
 
+    const { data: rolesRows } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', userId);
+    const rolesList: string[] = ((rolesRows || []) as any[]).map((r) => r.role).filter(Boolean);
+    const snapshot = {
+      first_name: (profile as any)?.first_name ?? null,
+      last_name: (profile as any)?.last_name ?? null,
+      email,
+      roles: rolesList,
+    };
+
+
+
     const actedAt = new Date().toISOString();
 
     if (action === 'restore') {
