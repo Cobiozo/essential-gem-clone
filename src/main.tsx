@@ -2,6 +2,16 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { hydrateCacheFromLocalStorageSync, loadTranslationsCache } from "./hooks/useTranslations";
+
+// Hydrate translations synchronously from localStorage BEFORE React renders.
+// This eliminates the flash of raw keys (e.g. "auth.signIn") on every page load.
+hydrateCacheFromLocalStorageSync();
+// Kick off a background refresh so stale entries get updated.
+try {
+  const savedLang = localStorage.getItem('pure-life-language') || 'pl';
+  loadTranslationsCache(savedLang).catch(() => {});
+} catch {}
 
 // Register Service Worker early for caching benefits
 if ('serviceWorker' in navigator) {
