@@ -33,6 +33,10 @@ interface PurchaseDrawerProps {
   paymentMethodPaypal?: boolean;
   transferPaymentDetails?: string | null;
   refCode?: string | null;
+  /** When true AND buyer already has a reservation, show "invite a guest" panel with link. */
+  allowAttendeeInvites?: boolean;
+  /** URL used as the guest invitation link (event public URL or registration form URL). */
+  inviteUrl?: string | null;
 }
 
 type SubmitMode = 'checkout';
