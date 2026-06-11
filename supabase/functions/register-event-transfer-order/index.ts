@@ -392,6 +392,66 @@ serve(async (req) => {
     const seatsPerTicket = Math.max(1, Number((ticket as any).seats_per_ticket) || 1);
     const totalSeats = quantity * seatsPerTicket;
 
+    // HARD GUARD: any logged-in user OR matching e-mail that already has an
+    // ACTIVE reservation for this event cannot create another one. This blocks
+    // the gość PLC scenario where the frontend cache hasn't caught up yet.
+    // Exclude rows tied to deleted accounts so a recycled e-mail never inherits
+    // the previous owner's reservations.
+    {
+      const lowerBuyerEmail = (buyer.email || "").trim().toLowerCase();
+      const ACTIVE = '("cancelled","refunded","failed","expired")';
+      const orFilters: string[] = [];
+      if (currentUserId) orFilters.push(`user_id.eq.${currentUserId}`);
+      if (lowerBuyerEmail) orFilters.push(`email.eq.${lowerBuyerEmail}`);
+      if (orFilters.length > 0) {
+        const { data: dupOrders } = await supabase
+          .from("paid_event_orders")
+          .select("id, email, user_id")
+          .eq("event_id", eventId)
+          .is("account_deleted_at", null)
+          .or(orFilters.join(","))
+          .not("status", "in", ACTIVE)
+          .limit(1);
+        if ((dupOrders?.length ?? 0) > 0) {
+          return new Response(JSON.stringify({
+            error: "already_registered",
+            message: "Masz już rezerwację na to wydarzenie. Każdy użytkownik może zarezerwować bilet tylko raz.",
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+      if (lowerBuyerEmail) {
+        const { data: dupSeats } = await supabase
+          .from("paid_event_order_attendees")
+          .select("id, paid_event_orders!inner(event_id, status, account_deleted_at)")
+          .eq("paid_event_orders.event_id", eventId)
+          .is("paid_event_orders.account_deleted_at", null)
+          .is("account_deleted_at", null)
+          .not("paid_event_orders.status", "in", ACTIVE)
+          .eq("email", lowerBuyerEmail)
+          .limit(1);
+        if ((dupSeats?.length ?? 0) > 0) {
+          return new Response(JSON.stringify({
+            error: "already_registered",
+            message: "Masz już rezerwację na to wydarzenie (jako uczestnik). Każdy użytkownik może zarezerwować bilet tylko raz.",
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const { data: dupSubs } = await supabase
+          .from("event_form_submissions")
+          .select("id")
+          .eq("event_id", eventId)
+          .is("account_deleted_at", null)
+          .eq("email", lowerBuyerEmail)
+          .eq("status", "active")
+          .limit(1);
+        if ((dupSubs?.length ?? 0) > 0) {
+          return new Response(JSON.stringify({
+            error: "already_registered",
+            message: "Masz już rezerwację na to wydarzenie. Każdy użytkownik może zarezerwować bilet tylko raz.",
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     // Determine whether the buyer also takes seat #1.
     // Default: yes (legacy behaviour). If the client explicitly says no, OR if a logged-in
     // user / matching email already has a non-cancelled order for this event, we skip
