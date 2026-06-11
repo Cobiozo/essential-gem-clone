@@ -111,6 +111,17 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       if (!ordersErr && (orders?.length ?? 0) > 0) return true;
 
       if (emails.length > 0) {
+        // Also check per-attendee table (group tickets) — buyer may already
+        // be registered as a guest seat in another order for the same event.
+        const { data: seats, error: seatsErr } = await supabase
+          .from('paid_event_order_attendees')
+          .select('id, paid_event_orders!inner(event_id, status)')
+          .eq('paid_event_orders.event_id', eventId)
+          .not('paid_event_orders.status', 'in', '("cancelled","refunded","failed","expired")')
+          .in('email', emails)
+          .limit(1);
+        if (!seatsErr && (seats?.length ?? 0) > 0) return true;
+
         const { data: subs, error: subsErr } = await supabase
           .from('event_form_submissions')
           .select('id')
@@ -123,6 +134,7 @@ export const PurchaseDrawer: React.FC<PurchaseDrawerProps> = ({
       return false;
     },
   });
+
 
   const seatsPerTicket = Math.max(1, ticket?.seats_per_ticket ?? 1);
   const totalSeats = quantity * seatsPerTicket;
