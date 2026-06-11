@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap } from '@/hooks/useTranslations';
+import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap, wasHydratedSync } from '@/hooks/useTranslations';
 
 export type Language = 'pl' | 'de' | 'en' | 'no' | string;
 
