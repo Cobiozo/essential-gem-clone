@@ -25,29 +25,34 @@ interface TeamMemberAccess {
 
 const LeaderAutoWebinarAccessView: React.FC = () => {
   const { toast } = useToast();
-  const { teamMembers, loading: teamLoading } = useLeaderTeamMembers();
+  const { profile } = useAuth();
+  const { teamMembers, loading: teamLoading, refetch: refetchTeam } = useLeaderTeamMembers();
   const [accessMap, setAccessMap] = useState<Map<string, boolean>>(new Map());
   const [certMap, setCertMap] = useState<Map<string, boolean>>(new Map());
   const [permLoading, setPermLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
-  const permissionsLoaded = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const teamIdsKey = teamMembers.map(m => m.id).sort().join(',');
 
   useEffect(() => {
     if (teamLoading) return;
-    if (permissionsLoaded.current) return;
     if (teamMembers.length === 0) {
+      setAccessMap(new Map());
+      setCertMap(new Map());
       setPermLoading(false);
       return;
     }
     loadPermissions();
-  }, [teamLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamLoading, teamIdsKey]);
 
   const loadPermissions = async () => {
     setPermLoading(true);
     try {
       const userIds = teamMembers.map(m => m.id);
-      
+
       const permResult = await supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds });
 
       if (permResult.error) throw permResult.error;
@@ -60,14 +65,24 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
       });
       setAccessMap(map);
       setCertMap(certs);
-
-      permissionsLoaded.current = true;
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
       setPermLoading(false);
     }
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetchTeam();
+      // loadPermissions auto-runs via effect when teamIdsKey changes; also force it if same set
+      await loadPermissions();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
 
   const toggleAccess = async (userId: string, value: boolean) => {
     setSaving(userId);
