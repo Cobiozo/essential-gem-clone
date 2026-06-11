@@ -295,9 +295,9 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
               size="lg"
               className="w-full gap-2"
               onClick={() => selectedTicketId && onPurchase(selectedTicketId)}
-              disabled={!selectedTicketId || availableSpots === 0}
+              disabled={!selectedTicketId || availableSpots === 0 || alreadyRegisteredLoading}
             >
-              {ctaText}
+              {alreadyRegisteredLoading ? 'Sprawdzam rezerwację…' : ctaText}
               <ArrowRight className="w-4 h-4" />
             </Button>
 
