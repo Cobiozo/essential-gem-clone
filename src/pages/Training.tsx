@@ -908,7 +908,7 @@ const Training = () => {
                         if (!hasCertificate) {
                           // No certificate yet - show prominent Generate CTA
                           return (
-                            <div className="bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary rounded-lg p-4 overflow-hidden animate-pulse-slow ring-2 ring-primary/30">
+                            <div className="bg-gradient-to-r from-primary/20 to-primary/10 border-2 border-primary rounded-lg p-4 overflow-hidden ring-2 ring-primary/30 shadow-md">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Award className="h-6 w-6 text-primary flex-shrink-0" />
