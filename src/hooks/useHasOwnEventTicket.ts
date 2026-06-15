@@ -37,7 +37,33 @@ export function useHasOwnEventTicket(eventId: string | null | undefined) {
     staleTime: 5_000,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    // HARD TIMEOUT: never let the reservation check hang the "Zapisz się" button.
+    // If RPC + fallbacks can't answer within 8s, assume "no reservation" so the
+    // CTA stays enabled (backend create-event-order will still enforce uniqueness).
     queryFn: async () => {
+      const TIMEOUT_MS = 8000;
+      const withTimeout = <T,>(p: Promise<T>) => Promise.race([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS)),
+      ]);
+
+      try {
+        return await withTimeout(checkOwnTicket(user!.id, eventId!, emails));
+      } catch (e) {
+        console.warn('[useHasOwnEventTicket] check timed out / failed — assuming no reservation', e);
+        return false;
+      }
+    },
+  });
+
+  return {
+    hasTicket: !!query.data,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
+}
+
+async function checkOwnTicket(userId: string, eventId: string, emails: string[]): Promise<boolean> {
       // PRIMARY: RPC (bypasses RLS, matches by user_id OR email)
       try {
         const { data, error } = await (supabase as any).rpc('get_my_event_orders', {
