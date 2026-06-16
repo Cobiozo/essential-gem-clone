@@ -24,9 +24,10 @@ interface NewsHubVideoPlayerProps {
   url: string;
   className?: string;
   poster?: string | null;
+  autoPlay?: boolean;
 }
 
-export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, className, poster }) => {
+export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, className, poster, autoPlay }) => {
   const [error, setError] = React.useState(false);
   const yt = !error ? youTubeId(url) : null;
   const vm = !error ? vimeoId(url) : null;
@@ -40,17 +41,19 @@ export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, cla
   }
 
   if (yt) {
+    const src = `https://www.youtube.com/embed/${yt}${autoPlay ? '?autoplay=1' : ''}`;
     return (
       <div className={cn('aspect-video w-full overflow-hidden rounded-xl bg-black', className)}>
-        <iframe className="h-full w-full" src={`https://www.youtube.com/embed/${yt}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        <iframe className="h-full w-full" src={src} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
       </div>
     );
   }
 
   if (vm) {
+    const src = `https://player.vimeo.com/video/${vm}${autoPlay ? '?autoplay=1' : ''}`;
     return (
       <div className={cn('aspect-video w-full overflow-hidden rounded-xl bg-black', className)}>
-        <iframe className="h-full w-full" src={`https://player.vimeo.com/video/${vm}`} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
+        <iframe className="h-full w-full" src={src} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />
       </div>
     );
   }
@@ -66,13 +69,17 @@ export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, cla
     );
   }
 
+  // Gdy mamy poster, nie ma sensu pobierać metadanych z pliku — i tak pokażemy obrazek.
+  const preload: 'none' | 'metadata' = poster ? 'none' : 'metadata';
+
   return (
     <div className={cn('aspect-video w-full overflow-hidden rounded-xl bg-black', className)}>
       <video
         key={url}
         controls
-        preload="metadata"
+        preload={preload}
         playsInline
+        autoPlay={autoPlay}
         poster={poster || undefined}
         controlsList="nodownload"
         className="h-full w-full object-contain"
