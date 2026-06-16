@@ -41,7 +41,7 @@ export interface HeadingBlockData { level?: 1 | 2 | 3 | 4; text?: string; color?
 export interface ParagraphBlockData { html?: string }
 export interface ImageBlockData { url?: string; alt?: string; caption?: string; href?: string; fit?: 'cover' | 'contain'; height?: number }
 export interface GalleryBlockData { images?: string[]; columns?: 2 | 3 | 4 }
-export interface VideoBlockData { url?: string; caption?: string }
+export interface VideoBlockData { url?: string; caption?: string; poster?: string }
 export interface FileDownloadBlockData { url?: string; name?: string; description?: string; size?: number }
 export interface ButtonCtaBlockData { text?: string; url?: string; variant?: 'default' | 'outline' | 'secondary' | 'ghost'; align?: 'left' | 'center' | 'right' }
 export interface CalloutBlockData { variant?: 'info' | 'warning' | 'success' | 'danger'; title?: string; text?: string; icon?: string }

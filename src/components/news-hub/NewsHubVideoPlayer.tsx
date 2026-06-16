@@ -23,9 +23,10 @@ function videoMime(url: string): string {
 interface NewsHubVideoPlayerProps {
   url: string;
   className?: string;
+  poster?: string | null;
 }
 
-export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, className }) => {
+export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, className, poster }) => {
   const [error, setError] = React.useState(false);
   const yt = !error ? youTubeId(url) : null;
   const vm = !error ? vimeoId(url) : null;
@@ -72,6 +73,7 @@ export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, cla
         controls
         preload="metadata"
         playsInline
+        poster={poster || undefined}
         controlsList="nodownload"
         className="h-full w-full object-contain"
         onLoadedMetadata={() => setError(false)}
