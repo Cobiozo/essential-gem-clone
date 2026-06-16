@@ -159,22 +159,32 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
   );
 };
 
+const GALLERY_PAGE = 12;
 const GalleryGrid: React.FC<{ images: string[]; title: string }> = ({ images, title }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE);
+  const visible = images.slice(0, visibleCount);
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {images.map((src, i) => (
+        {visible.map((src, i) => (
           <button
             type="button"
             key={i}
             onClick={() => setOpenIndex(i)}
             className="block aspect-square overflow-hidden rounded-lg cursor-pointer"
           >
-            <img src={src} alt={`${title} ${i + 1}`} loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+            <img src={src} alt={`${title} ${i + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover hover:scale-105 transition-transform" />
           </button>
         ))}
       </div>
+      {visibleCount < images.length && (
+        <div className="flex justify-center pt-2">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + GALLERY_PAGE)}>
+            Pokaż więcej ({images.length - visibleCount})
+          </Button>
+        </div>
+      )}
       <GalleryLightbox images={images} startIndex={openIndex ?? 0} open={openIndex !== null} onClose={() => setOpenIndex(null)} />
     </>
   );
