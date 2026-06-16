@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { RichTextEditor } from './RichTextEditor';
+import { PosterPickerField } from './PosterPickerField';
 import { uploadNewsHubFile } from '@/hooks/useNewsHub';
 import { toast } from 'sonner';
 import {
