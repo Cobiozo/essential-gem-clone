@@ -99,13 +99,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
       {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} />}
 
       {post.type === 'gallery' && gallery.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {gallery.map((src, i) => (
-            <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg">
-              <img src={src} alt={`${post.title} ${i + 1}`} loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
-            </a>
-          ))}
-        </div>
+        <GalleryGrid images={gallery} title={post.title} />
       )}
 
       {Array.isArray(post.content_blocks) && post.content_blocks.length > 0 ? (
