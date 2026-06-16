@@ -1,66 +1,97 @@
-# Okładka (poster) dla wideo w News Hub
+## Cel
 
-Aktualnie po wgraniu pliku MP4 wideo nie ma żadnej okładki — odtwarzacz pokazuje czarny ekran z przyciskiem play. Dodaję możliwość wskazania okładki **przed zapisaniem** posta/bloku, na dwa sposoby:
+Skrócić czas, po którym widać wideo w aplikacji (News Hub, posty, bloki, modale, intro), oraz przy okazji wyeliminować nadmiarowe pobieranie danych CMS i obrazów w galeriach News Hub.
 
-1. **Wgraj obrazek** (JPG/PNG) jako okładkę,
-2. **Wybierz klatkę z wideo** — suwakiem przewijasz film, klikasz „Użyj tej klatki", system zapisuje stop-klatkę jako obrazek-okładkę.
+## Diagnoza (skąd bierze się „wolne wideo")
 
-## Gdzie pojawi się nowa kontrolka
+1. `NewsHubVideoPlayer` montuje `<video src=...>` od razu po renderze posta/modala — przeglądarka zaczyna ściągać metadane (a często i pierwsze segmenty) wideo **zanim użytkownik kliknie play**. Gdy w widoku jest kilka postów wideo (Bento Grid, lista, modal), bandwidth jest dzielony i każdy klip startuje wolniej.
+2. Brak `poster` na większości starszych wideo → przeglądarka musi zdekodować pierwszą klatkę, żeby cokolwiek pokazać (dodatkowe range requesty).
+3. Wideo serwowane wprost z bucketu Supabase / VPS, bez wstępnego „rozgrzania" (brak `<link rel="preconnect">` do hosta wideo na pierwszym renderze).
+4. `VideoFrameCapturePicker` używa `preload="auto"` — w edytorze to OK, ale potwierdza, że gdzie indziej `metadata` to właściwy wybór.
 
-Dwa miejsca w edytorze News Hub, oba dla treści wideo:
+## Zakres zmian
 
-- **Post typu „Wideo"** (`MediaControls.tsx`, `draft.type === 'video'`) — sekcja „Wideo" w formularzu posta.
-- **Blok „Wideo"** wewnątrz posta zbudowanego z bloków (`BlockListEditor.tsx`, `case 'video'`).
+### A. Wideo — lazy player z plakatem (główny zysk)
 
-W obu miejscach, **pod polem URL/upload wideo**, pojawia się nowa sekcja „Okładka wideo" z dwoma przyciskami:
+Nowy komponent-wrapper `LazyVideoPlayer` (cienka nakładka na `NewsHubVideoPlayer`):
 
-- `Wgraj okładkę` — standardowy input file (image/*) → upload do bucketu News Hub (folder `covers`) → zapis URL w polu poster.
-- `Wybierz klatkę z wideo` — otwiera modal z odtwarzaczem, suwakiem czasu i przyciskiem „Użyj tej klatki".
+- Domyślnie renderuje **tylko obrazek-plakat** (`poster` / `cover_url`) z przyciskiem ▶ na środku, w tym samym kontenerze `aspect-video`. Brak `<video>` w DOM → 0 bajtów wideo.
+- Po kliknięciu ▶ podmienia się na pełny `NewsHubVideoPlayer` z `autoplay` (atrybut przekazywany przez prop) — użytkownik nie musi klikać drugi raz.
+- Jeśli `poster` nie jest dostępny: pokazuje neutralny placeholder z ikoną play (bez ściągania wideo).
+- Dla YouTube/Vimeo używa lekkiego thumbnaila (`https://img.youtube.com/vi/{id}/hqdefault.jpg`) zamiast od razu osadzać iframe — duża oszczędność, bo iframe YT to ~1MB JS.
+- `IntersectionObserver` z `rootMargin: 200px`: jeśli kafelek wideo wjeżdża w viewport, dodaje `<link rel="preconnect" href="{origin}">` żeby skrócić TTFB pierwszego segmentu po kliknięciu play.
 
-Po wybraniu okładki: miniatura + przycisk „Usuń okładkę".
+Miejsca, które przełączymy na `LazyVideoPlayer`:
 
-## Modal wyboru klatki
+- `src/components/news-hub/PostContent.tsx` (post `video` + bloki `video`)
+- `src/components/news-hub/PostDetailModal.tsx` (poster z `post.cover_url`)
+- `src/components/news-hub/BlockRenderer.tsx` (blok video w renderze listy)
 
-Nowy komponent `src/components/news-hub/VideoFrameCapturePicker.tsx`:
+**Nie ruszamy** odtwarzaczy w spotkaniach/WebRTC (`VideoGrid`, `MeetingLobby`), Auto-Webinaru ani `IntroVideoStage` — tam wideo musi startować automatycznie z innych powodów, a dotykanie ich może rozbić synchronizację.
 
-- `Dialog` (shadcn) z `<video src={videoUrl} crossOrigin="anonymous" preload="auto">`.
-- Suwak (`<input type="range">`) od 0 do `duration`, krok 0.1s; pokazuje aktualny czas (mm:ss.cc).
-- Skróty: ←/→ = ±1s, Shift+←/→ = ±5s.
-- Przycisk **„Użyj tej klatki"** → renderuje `<video>` na `<canvas>` w natywnej rozdzielczości, `canvas.toBlob('image/jpeg', 0.9)` → upload przez istniejące `uploadNewsHubFile(blob, 'covers', { kind: 'cover' })` → callback z URL → modal się zamyka, ustawia poster.
-- Obsługa CORS: wideo zostało wgrane do tego samego bucketu Supabase (publiczny URL) — `crossOrigin="anonymous"` powinno działać, ale jeśli `toDataURL/toBlob` rzuci `SecurityError`, pokazuję toast „Nie można pobrać klatki z zewnętrznego wideo (CORS) — wgraj okładkę ręcznie".
-- Dla YouTube/Vimeo (iframe) **przycisk „Wybierz klatkę" jest wyłączony** z tooltipem „Dostępne tylko dla MP4 wgranego do galerii" — wtedy zostaje opcja wgrania własnej grafiki.
+### B. Poster jako fallback dla istniejących wideo bez okładki
 
-## Zmiany w danych
+`NewsHubVideoPlayer` dla pliku hostowanego dostaje atrybut `preload="none"` zawsze, gdy `poster` istnieje (i tak nic nie zobaczymy poza plakatem). Bez `poster` zostawiamy `metadata`. To skraca pierwszy fetch o ~kilkaset KB na każde wideo w kafelkach.
 
-- **Block-level** (`src/types/newsHubBlocks.ts`): rozszerzam `VideoBlockData` o `poster?: string` (URL). Renderer (`BlockRenderer.tsx` case `video`) przekazuje poster do `NewsHubVideoPlayer`.
-- **Post-level**: post ma już `cover_url` (główna okładka karty na liście aktualności). Dla typu „Wideo" ta sama wartość pełni rolę postera odtwarzacza — `NewsHubVideoPlayer` w widoku posta dostaje `poster={post.cover_url}`. Nie dodaję nowej kolumny w bazie; tylko reuse istniejącej `cover_url`.
-- `NewsHubVideoPlayer`: dodaję prop opcjonalny `poster?: string` → trafia do `<video poster={poster}>`. Dla YouTube/Vimeo iframe ignorowany (te platformy mają własne thumbnail).
+### C. Cache CMS w React Query (drugi temat z odpowiedzi)
 
-## Backend / storage
+W hookach które ciągle pobierają to samo z `cms_sections` / `cms_items` / `cms_*_translations` ustawiamy spójne czasy cache wzorowane na istniejących (`usePublishedPages`, `useSystemTexts` używają już 5min/30min):
 
-- Brak nowych tabel ani kolumn.
-- Brak nowych edge functions.
-- Reuse istniejącej funkcji `uploadNewsHubFile` (zgodnie z memory **News Hub Upload**: >2MB → XHR na VPS, mniejsze → Supabase). Stop-klatka JPG ~100–400 KB, pójdzie standardową drogą.
+- `useCMSTranslations` i `useCMSSectionTranslations` → dorzucamy `useQuery` z `staleTime: 5min`, `gcTime: 30min` (zamiast surowego `useEffect` na każdy montaż komponentu).
+- Walidujemy że hooki listujące posty News Hub w `useNewsHub` mają sensowny `staleTime` (≥60s) — jeśli nie, podnosimy.
 
-## Co dostarczam (pliki)
+To nie zmienia logiki biznesowej, tylko ogranicza powielone zapytania przy nawigacji między zakładkami.
 
-1. `src/types/newsHubBlocks.ts` — dodanie `poster?: string` w `VideoBlockData`.
-2. `src/components/news-hub/NewsHubVideoPlayer.tsx` — prop `poster`, atrybut `<video poster>`.
-3. `src/components/news-hub/VideoFrameCapturePicker.tsx` — **nowy** modal (suwak + capture klatki + upload).
-4. `src/components/news-hub/editor/PosterPickerField.tsx` — **nowy** mały komponent: miniatura + 2 przyciski („Wgraj okładkę" / „Wybierz klatkę"). Używany w obu miejscach.
-5. `src/components/news-hub/editor/MediaControls.tsx` — dla `draft.type === 'video'` dodaję `<PosterPickerField videoUrl={draft.media_url} value={draft.cover_url} onChange={(url) => update({ cover_url: url })} />`.
-6. `src/components/news-hub/editor/BlockListEditor.tsx` — w `case 'video'` dodaję `<PosterPickerField videoUrl={d.url} value={d.poster} onChange={(url) => onChangeData({ poster: url })} />`.
-7. `src/components/news-hub/BlockRenderer.tsx` — przekazanie postera do `NewsHubVideoPlayer` w bloku wideo.
-8. `src/components/news-hub/PostContent.tsx` — dla posta typu wideo: `<NewsHubVideoPlayer url={post.media_url} poster={post.cover_url} />`.
+### D. Lazy loading + paginacja galerii News Hub
 
-## UX detale
+W `BlockRenderer.tsx` (`GalleryGrid`) i w karcie posta typu galeria:
 
-- Modal wyboru klatki: czarne tło, video max-h 70vh, pod spodem pasek czasu + 2 przyciski („Anuluj", „Użyj tej klatki" — disabled dopóki video się nie załaduje, spinner podczas uploadu).
-- Po sukcesie toast „Okładka ustawiona".
-- Mobile: suwak full-width, przyciski stack vertical.
+- Wszystkie `<img>` dostają `loading="lazy"` i `decoding="async"` (jeśli jeszcze nie mają).
+- Dodajemy paginację „pokaż więcej" co 12 obrazów: pierwsze 12 jest renderowane od razu, kolejne po kliknięciu w przycisk pod galerią. Lightbox dalej widzi pełną listę (nawigacja strzałkami między wszystkimi zdjęciami).
 
-## Czego NIE zmieniam
+## Sekcja techniczna
 
-- Listy aktualności (kart) — to już używa `cover_url`, działa bez zmian.
-- Logiki uploadu wideo, walidacji rozmiaru, kompresji.
-- YouTube/Vimeo (mają własne thumbnaile).
+Nowy plik:
+
+- `src/components/news-hub/LazyVideoPlayer.tsx`
+  - Props: `url, poster?, className?, autoPlayOnReveal?: boolean (default true)`.
+  - Stan `revealed: boolean`. Dopóki `!revealed` renderuje `<button>` z `<img>` plakatem + ikoną `Play` (semantyczny `aria-label="Odtwórz wideo"`).
+  - Po `revealed` renderuje `<NewsHubVideoPlayer url={url} poster={poster} />` i — jeśli plik hostowany — przekazuje nowo dodany prop `autoPlay` (rozszerzamy `NewsHubVideoPlayer` o `autoPlay?: boolean`, mapujemy na `autoPlay muted={false}` na elemencie `<video>`; YouTube/Vimeo dostają `?autoplay=1` w URL iframe).
+  - YouTube/Vimeo thumbnaile: helper `getThumbnail(url)` w tym samym pliku.
+
+Zmiany w istniejących plikach:
+
+- `src/components/news-hub/NewsHubVideoPlayer.tsx`
+  - Dodać prop `autoPlay?: boolean`.
+  - Logika `preload`: `poster ? 'none' : 'metadata'`.
+  - YouTube/Vimeo iframe URL: doklejać `autoplay=1` gdy `autoPlay`.
+- `src/components/news-hub/PostContent.tsx`, `PostDetailModal.tsx`, `BlockRenderer.tsx`
+  - Podmiana `NewsHubVideoPlayer` → `LazyVideoPlayer` w renderze treści (edytor zostawiamy bez zmian).
+- `src/hooks/useCMSTranslations.ts` i `src/hooks/useCMSSectionTranslations.ts`
+  - Przepisać z `useEffect/useState` na `useQuery` (`queryKey: ['cms-item-translations', languageCode, sortedIds]`, `staleTime: 5*60_000`, `gcTime: 30*60_000`, `enabled: languageCode !== defaultLanguage && ids.length > 0`).
+- `src/components/news-hub/BlockRenderer.tsx` (`GalleryGrid`)
+  - Stan `visibleCount`, początkowo 12. Renderuje `images.slice(0, visibleCount)`. Pod gridem przycisk „Pokaż więcej" zwiększający o 12; znika gdy `visibleCount >= images.length`. Lightbox dostaje pełne `images` i działający `openIndex` względem pełnej listy.
+  - Atrybuty `loading="lazy" decoding="async"` na każdym `<img>`.
+
+```text
+Karta posta video                         Po kliknięciu ▶
+┌──────────────────────────┐              ┌──────────────────────────┐
+│        [poster.jpg]      │   click ▶    │       <video autoplay>   │
+│            ▶             │ ───────────► │     ◀  ━━━●━━━  ▶ ⛶      │
+│  (0 bajtów wideo w DOM)  │              │  (pełny range request)   │
+└──────────────────────────┘              └──────────────────────────┘
+```
+
+## Czego NIE robię w tej iteracji
+
+- Nie kompresuję ani nie transkoduję wideo (to wymaga osobnej dyskusji o pipeline'ie, np. ffmpeg na VPS).
+- Nie podpinam CDN-a przed Supabase Storage.
+- Nie ruszam Auto-Webinaru, spotkań WebRTC, IntroVideo, AutoWebinarEmbed.
+- Nie wdrażam SWR (zostajemy przy React Query, który już jest standardem projektu).
+
+## Plik testowy / weryfikacja
+
+Po wdrożeniu sprawdzimy w `browser--performance_profile` na `/aktualnosci`:
+- LCP karty wideo: oczekiwane <2,5s vs obecne (poster zamiast `<video>`).
+- Network: brak żądań do plików `.mp4` przed kliknięciem ▶.
+- Po kliknięciu ▶ pierwszy `Range: bytes=0-` powinien startować z `preconnect` już otwartym.
