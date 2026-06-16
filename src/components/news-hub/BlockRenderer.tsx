@@ -98,16 +98,7 @@ export const BlockView: React.FC<Props> = ({ block }) => {
       const imgs: string[] = Array.isArray(d.images) ? d.images : [];
       if (!imgs.length) return null;
       const cols = d.columns || 3;
-      const gridCols: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-2 md:grid-cols-3', 4: 'grid-cols-2 md:grid-cols-4' };
-      return (
-        <div className={cn('grid gap-2', gridCols[cols], wrapC)} style={wrapS}>
-          {imgs.map((src, i) => (
-            <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg bg-muted">
-              <img src={src} alt="" loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
-            </a>
-          ))}
-        </div>
-      );
+      return <GalleryBlockView images={imgs} columns={cols} wrapC={wrapC} wrapS={wrapS} />;
     }
     case 'video': {
       return (
