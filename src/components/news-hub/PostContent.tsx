@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Download } from 'lucide-react';
@@ -9,6 +9,7 @@ import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { BlockListView, NewsHubPostContextProvider } from './BlockRenderer';
 import { CommentsSection } from './CommentsSection';
 import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { GalleryLightbox } from './GalleryLightbox';
 
 interface Props {
   post: NewsHubPost;
