@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Download, ExternalLink, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommentsSection } from './CommentsSection';
-import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { LazyVideoPlayer } from './LazyVideoPlayer';
 import { GalleryLightbox } from './GalleryLightbox';
 import type { NewsHubBlock, NewsHubBlockStyle } from '@/types/newsHubBlocks';
 
@@ -16,7 +16,7 @@ export const NewsHubPostContextProvider: React.FC<{ postId: string; children: Re
 export function useNewsHubPostContext() { return React.useContext(PostContext); }
 
 const VideoFrame: React.FC<{ url: string; poster?: string }> = ({ url, poster }) => {
-  return <NewsHubVideoPlayer url={url} poster={poster} />;
+  return <LazyVideoPlayer url={url} poster={poster} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {
