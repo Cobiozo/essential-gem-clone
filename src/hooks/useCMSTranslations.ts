@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CMSItem, ContentCell } from '@/types/cms';
 
@@ -14,73 +15,51 @@ interface CMSTranslation {
 /**
  * Hook to fetch and merge CMS translations for a given language.
  * Returns translated items if translations exist, otherwise original items.
+ *
+ * Cached via React Query (5 min stale / 30 min gc) to avoid refetching
+ * the same translations on every page navigation.
  */
 export const useCMSTranslations = (
   items: CMSItem[],
   languageCode: string,
   defaultLanguage: string = 'pl'
 ): CMSItem[] => {
-  const [translations, setTranslations] = useState<CMSTranslation[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Stable sorted IDs as cache key
+  const sortedIds = useMemo(
+    () => items.map((i) => i.id).filter(Boolean).sort(),
+    [items]
+  );
+  const idsKey = sortedIds.join(',');
 
-  // Stable item IDs for dependency tracking
-  const itemIds = useMemo(() => items.map(i => i.id).sort().join(','), [items]);
-
-  useEffect(() => {
-    // Skip fetching if using default language or no items
-    if (languageCode === defaultLanguage || items.length === 0) {
-      setTranslations([]);
-      return;
-    }
-
-    const fetchTranslations = async () => {
-      setLoading(true);
-      try {
-        const ids = items.map(i => i.id);
-        
-        const { data, error } = await supabase
-          .from('cms_item_translations')
-          .select('*')
-          .eq('language_code', languageCode)
-          .in('item_id', ids);
-
-        if (error) {
-          console.error('Error fetching CMS translations:', error);
-          setTranslations([]);
-        } else {
-          setTranslations(data || []);
-        }
-      } catch (err) {
-        console.error('Error in useCMSTranslations:', err);
-        setTranslations([]);
-      } finally {
-        setLoading(false);
+  const { data: translations = [] } = useQuery<CMSTranslation[]>({
+    queryKey: ['cms-item-translations', languageCode, idsKey],
+    enabled: languageCode !== defaultLanguage && sortedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cms_item_translations')
+        .select('*')
+        .eq('language_code', languageCode)
+        .in('item_id', sortedIds as string[]);
+      if (error) {
+        console.error('Error fetching CMS translations:', error);
+        return [];
       }
-    };
+      return (data as CMSTranslation[]) || [];
+    },
+  });
 
-    fetchTranslations();
-  }, [languageCode, defaultLanguage, itemIds]);
+  return useMemo(() => {
+    if (languageCode === defaultLanguage) return items;
 
-  // Merge translations with original items
-  const translatedItems = useMemo(() => {
-    // If using default language, return original items
-    if (languageCode === defaultLanguage) {
-      return items;
-    }
-
-    // Create a map for quick translation lookup
     const translationMap = new Map<string, CMSTranslation>();
-    translations.forEach(t => translationMap.set(t.item_id, t));
+    translations.forEach((t) => translationMap.set(t.item_id, t));
 
-    // Merge translations with original items
-    return items.map(item => {
-      const translation = translationMap.get(item.id);
-      
-      if (!translation) {
-        return item;
-      }
+    return items.map((item) => {
+      const translation = item.id ? translationMap.get(item.id) : undefined;
+      if (!translation) return item;
 
-      // Parse cells if they're a string
       let translatedCells = item.cells;
       if (translation.cells) {
         if (typeof translation.cells === 'string') {
@@ -98,10 +77,8 @@ export const useCMSTranslations = (
         ...item,
         title: translation.title || item.title,
         description: translation.description || item.description,
-        cells: translatedCells
+        cells: translatedCells,
       };
     });
   }, [items, translations, languageCode, defaultLanguage]);
-
-  return translatedItems;
 };
