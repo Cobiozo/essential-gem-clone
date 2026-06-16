@@ -8,7 +8,7 @@ import type { NewsHubPost } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { incrementPostView } from '@/hooks/useNewsHub';
 import { useAuth } from '@/contexts/AuthContext';
-import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { LazyVideoPlayer } from './LazyVideoPlayer';
 
 interface Props {
   post: NewsHubPost | null;
