@@ -158,3 +158,24 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
     </article>
   );
 };
+
+const GalleryGrid: React.FC<{ images: string[]; title: string }> = ({ images, title }) => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {images.map((src, i) => (
+          <button
+            type="button"
+            key={i}
+            onClick={() => setOpenIndex(i)}
+            className="block aspect-square overflow-hidden rounded-lg cursor-pointer"
+          >
+            <img src={src} alt={`${title} ${i + 1}`} loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+          </button>
+        ))}
+      </div>
+      <GalleryLightbox images={images} startIndex={openIndex ?? 0} open={openIndex !== null} onClose={() => setOpenIndex(null)} />
+    </>
+  );
+};
