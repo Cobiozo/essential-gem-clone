@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Download } from 'lucide-react';
@@ -9,6 +9,7 @@ import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { BlockListView, NewsHubPostContextProvider } from './BlockRenderer';
 import { CommentsSection } from './CommentsSection';
 import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { GalleryLightbox } from './GalleryLightbox';
 
 interface Props {
   post: NewsHubPost;
@@ -98,13 +99,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
       {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} />}
 
       {post.type === 'gallery' && gallery.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {gallery.map((src, i) => (
-            <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="block aspect-square overflow-hidden rounded-lg">
-              <img src={src} alt={`${post.title} ${i + 1}`} loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
-            </a>
-          ))}
-        </div>
+        <GalleryGrid images={gallery} title={post.title} />
       )}
 
       {Array.isArray(post.content_blocks) && post.content_blocks.length > 0 ? (
@@ -161,5 +156,26 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
         <CommentsSection postId={post.id} className="mt-6" />
       )}
     </article>
+  );
+};
+
+const GalleryGrid: React.FC<{ images: string[]; title: string }> = ({ images, title }) => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {images.map((src, i) => (
+          <button
+            type="button"
+            key={i}
+            onClick={() => setOpenIndex(i)}
+            className="block aspect-square overflow-hidden rounded-lg cursor-pointer"
+          >
+            <img src={src} alt={`${title} ${i + 1}`} loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+          </button>
+        ))}
+      </div>
+      <GalleryLightbox images={images} startIndex={openIndex ?? 0} open={openIndex !== null} onClose={() => setOpenIndex(null)} />
+    </>
   );
 };
