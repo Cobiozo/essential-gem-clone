@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Download, ExternalLink, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommentsSection } from './CommentsSection';
-import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { LazyVideoPlayer } from './LazyVideoPlayer';
 import { GalleryLightbox } from './GalleryLightbox';
 import type { NewsHubBlock, NewsHubBlockStyle } from '@/types/newsHubBlocks';
 
@@ -16,7 +16,7 @@ export const NewsHubPostContextProvider: React.FC<{ postId: string; children: Re
 export function useNewsHubPostContext() { return React.useContext(PostContext); }
 
 const VideoFrame: React.FC<{ url: string; poster?: string }> = ({ url, poster }) => {
-  return <NewsHubVideoPlayer url={url} poster={poster} />;
+  return <LazyVideoPlayer url={url} poster={poster} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {
@@ -63,23 +63,33 @@ interface Props {
   block: NewsHubBlock;
 }
 
+const GALLERY_PAGE = 12;
 const GalleryBlockView: React.FC<{ images: string[]; columns: number; wrapC: string; wrapS: React.CSSProperties }> = ({ images, columns, wrapC, wrapS }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE);
   const gridCols: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-2 md:grid-cols-3', 4: 'grid-cols-2 md:grid-cols-4' };
+  const visible = images.slice(0, visibleCount);
   return (
     <>
       <div className={cn('grid gap-2', gridCols[columns], wrapC)} style={wrapS}>
-        {images.map((src, i) => (
+        {visible.map((src, i) => (
           <button
             type="button"
             key={i}
             onClick={() => setOpenIndex(i)}
             className="block aspect-square overflow-hidden rounded-lg bg-muted cursor-pointer"
           >
-            <img src={src} alt="" loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+            <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover hover:scale-105 transition-transform" />
           </button>
         ))}
       </div>
+      {visibleCount < images.length && (
+        <div className="flex justify-center pt-3">
+          <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + GALLERY_PAGE)}>
+            Pokaż więcej ({images.length - visibleCount})
+          </Button>
+        </div>
+      )}
       <GalleryLightbox images={images} startIndex={openIndex ?? 0} open={openIndex !== null} onClose={() => setOpenIndex(null)} />
     </>
   );
