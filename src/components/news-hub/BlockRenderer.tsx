@@ -63,6 +63,28 @@ interface Props {
   block: NewsHubBlock;
 }
 
+const GalleryBlockView: React.FC<{ images: string[]; columns: number; wrapC: string; wrapS: React.CSSProperties }> = ({ images, columns, wrapC, wrapS }) => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const gridCols: Record<number, string> = { 2: 'grid-cols-2', 3: 'grid-cols-2 md:grid-cols-3', 4: 'grid-cols-2 md:grid-cols-4' };
+  return (
+    <>
+      <div className={cn('grid gap-2', gridCols[columns], wrapC)} style={wrapS}>
+        {images.map((src, i) => (
+          <button
+            type="button"
+            key={i}
+            onClick={() => setOpenIndex(i)}
+            className="block aspect-square overflow-hidden rounded-lg bg-muted cursor-pointer"
+          >
+            <img src={src} alt="" loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+          </button>
+        ))}
+      </div>
+      <GalleryLightbox images={images} startIndex={openIndex ?? 0} open={openIndex !== null} onClose={() => setOpenIndex(null)} />
+    </>
+  );
+};
+
 export const BlockView: React.FC<Props> = ({ block }) => {
   const s = block.style || {};
   const wrapS = wrapStyle(s);
