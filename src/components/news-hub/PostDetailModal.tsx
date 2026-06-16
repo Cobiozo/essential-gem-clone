@@ -61,7 +61,7 @@ export const PostDetailModal: React.FC<Props> = ({ post, open, onClose }) => {
             <p className="text-lg text-muted-foreground">{post.short_description}</p>
           )}
 
-          {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} />}
+          {post.type === 'video' && post.media_url && <LazyVideoPlayer url={post.media_url} poster={post.cover_url} />}
 
           {post.type === 'gallery' && gallery.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
