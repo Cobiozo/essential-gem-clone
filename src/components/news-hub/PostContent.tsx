@@ -8,7 +8,7 @@ import type { NewsHubPost, NewsHubStyleOverrides } from '@/types/newsHub';
 import { POST_TYPE_LABELS } from '@/types/newsHub';
 import { BlockListView, NewsHubPostContextProvider } from './BlockRenderer';
 import { CommentsSection } from './CommentsSection';
-import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { LazyVideoPlayer } from './LazyVideoPlayer';
 import { GalleryLightbox } from './GalleryLightbox';
 
 interface Props {
