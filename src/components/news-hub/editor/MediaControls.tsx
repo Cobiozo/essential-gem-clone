@@ -6,6 +6,7 @@ import { Upload, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadNewsHubFile } from '@/hooks/useNewsHub';
 import type { NewsHubPost } from '@/types/newsHub';
+import { PosterPickerField } from './PosterPickerField';
 
 interface Props {
   draft: Partial<NewsHubPost>;
@@ -49,6 +50,11 @@ export const MediaControls: React.FC<Props> = ({ draft, update }) => {
           <span>Lub wgraj MP4</span>
           <input type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f, 'media', 'media_url'); }} />
         </label>
+        <PosterPickerField
+          videoUrl={draft.media_url}
+          value={draft.cover_url}
+          onChange={(url) => update({ cover_url: url })}
+        />
       </div>
     );
   }

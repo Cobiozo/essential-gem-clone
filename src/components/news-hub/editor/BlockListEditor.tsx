@@ -282,6 +282,11 @@ const BlockDataEditor: React.FC<{ block: NewsHubBlock; onChangeData: (p: Record<
           />
           <Input placeholder="...lub wklej URL YouTube / Vimeo / mp4" value={d.url || ''} onChange={(e) => onChangeData({ url: e.target.value })} />
           <Input placeholder="Podpis (opcjonalnie)" value={d.caption || ''} onChange={(e) => onChangeData({ caption: e.target.value })} />
+          <PosterPickerField
+            videoUrl={d.url}
+            value={d.poster}
+            onChange={(url) => onChangeData({ poster: url || undefined })}
+          />
         </div>
       );
 

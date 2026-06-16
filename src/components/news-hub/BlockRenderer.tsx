@@ -15,8 +15,8 @@ export const NewsHubPostContextProvider: React.FC<{ postId: string; children: Re
 );
 export function useNewsHubPostContext() { return React.useContext(PostContext); }
 
-const VideoFrame: React.FC<{ url: string }> = ({ url }) => {
-  return <NewsHubVideoPlayer url={url} />;
+const VideoFrame: React.FC<{ url: string; poster?: string }> = ({ url, poster }) => {
+  return <NewsHubVideoPlayer url={url} poster={poster} />;
 };
 
 function wrapStyle(s?: NewsHubBlockStyle): React.CSSProperties {
@@ -125,7 +125,7 @@ export const BlockView: React.FC<Props> = ({ block }) => {
     case 'video': {
       return (
         <div className={cn(wrapC)} style={wrapS}>
-          <VideoFrame url={d.url || ''} />
+          <VideoFrame url={d.url || ''} poster={d.poster} />
           {d.caption && <div className="mt-2 text-xs text-muted-foreground text-center">{d.caption}</div>}
         </div>
       );

@@ -96,7 +96,7 @@ export const PostContent: React.FC<Props> = ({ post, styleOverrides, showCover =
 
 
 
-      {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} />}
+      {post.type === 'video' && post.media_url && <NewsHubVideoPlayer url={post.media_url} poster={post.cover_url} />}
 
       {post.type === 'gallery' && gallery.length > 0 && (
         <GalleryGrid images={gallery} title={post.title} />
