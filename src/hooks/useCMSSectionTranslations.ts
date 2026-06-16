@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CMSSectionTranslation {
@@ -20,81 +21,53 @@ interface CMSSection {
 
 /**
  * Hook to fetch and merge CMS section translations for a given language.
- * Returns translated sections if translations exist, otherwise original sections.
+ * Cached via React Query (5 min stale / 30 min gc).
  */
 export const useCMSSectionTranslations = <T extends CMSSection>(
   sections: T[],
   languageCode: string,
   defaultLanguage: string = 'pl'
 ): T[] => {
-  const [translations, setTranslations] = useState<CMSSectionTranslation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const sortedIds = useMemo(
+    () => sections.map((s) => s.id).filter(Boolean).sort(),
+    [sections]
+  );
+  const idsKey = sortedIds.join(',');
 
-  // Stable section IDs for dependency tracking
-  const sectionIds = useMemo(() => sections.map(s => s.id).sort().join(','), [sections]);
-
-  useEffect(() => {
-    // Skip fetching if using default language or no sections
-    if (languageCode === defaultLanguage || sections.length === 0) {
-      setTranslations([]);
-      return;
-    }
-
-    const fetchTranslations = async () => {
-      setLoading(true);
-      try {
-        const ids = sections.map(s => s.id);
-        
-        const { data, error } = await supabase
-          .from('cms_section_translations')
-          .select('*')
-          .eq('language_code', languageCode)
-          .in('section_id', ids);
-
-        if (error) {
-          console.error('Error fetching CMS section translations:', error);
-          setTranslations([]);
-        } else {
-          setTranslations(data || []);
-        }
-      } catch (err) {
-        console.error('Error in useCMSSectionTranslations:', err);
-        setTranslations([]);
-      } finally {
-        setLoading(false);
+  const { data: translations = [] } = useQuery<CMSSectionTranslation[]>({
+    queryKey: ['cms-section-translations', languageCode, idsKey],
+    enabled: languageCode !== defaultLanguage && sortedIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cms_section_translations')
+        .select('*')
+        .eq('language_code', languageCode)
+        .in('section_id', sortedIds);
+      if (error) {
+        console.error('Error fetching CMS section translations:', error);
+        return [];
       }
-    };
+      return (data as CMSSectionTranslation[]) || [];
+    },
+  });
 
-    fetchTranslations();
-  }, [languageCode, defaultLanguage, sectionIds]);
+  return useMemo(() => {
+    if (languageCode === defaultLanguage) return sections;
 
-  // Merge translations with original sections
-  const translatedSections = useMemo(() => {
-    // If using default language, return original sections
-    if (languageCode === defaultLanguage) {
-      return sections;
-    }
-
-    // Create a map for quick translation lookup
     const translationMap = new Map<string, CMSSectionTranslation>();
-    translations.forEach(t => translationMap.set(t.section_id, t));
+    translations.forEach((t) => translationMap.set(t.section_id, t));
 
-    // Merge translations with original sections
-    return sections.map(section => {
+    return sections.map((section) => {
       const translation = translationMap.get(section.id);
-      
-      if (!translation) {
-        return section;
-      }
-
+      if (!translation) return section;
       return {
         ...section,
         title: translation.title || section.title,
         description: translation.description || section.description,
-        collapsible_header: translation.collapsible_header || section.collapsible_header
+        collapsible_header: translation.collapsible_header || section.collapsible_header,
       };
     });
   }, [sections, translations, languageCode, defaultLanguage]);
-
-  return translatedSections;
 };
