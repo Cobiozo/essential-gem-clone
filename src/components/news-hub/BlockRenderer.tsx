@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Download, ExternalLink, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommentsSection } from './CommentsSection';
 import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { GalleryLightbox } from './GalleryLightbox';
 import type { NewsHubBlock, NewsHubBlockStyle } from '@/types/newsHubBlocks';
 
 // Context to pass postId to comment blocks rendered inside content
