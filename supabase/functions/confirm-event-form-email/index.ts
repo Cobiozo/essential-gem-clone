@@ -38,6 +38,35 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
     .maybeSingle();
   if (!ev?.is_free) return;
 
+  // === PARTNER GUARD ===
+  // For logged-in partners (role != 'guest'), we DO NOT auto-issue a free
+  // ticket. Admin must confirm payment manually via admin-mark-event-payment
+  // (same workflow as paid events). For guests / platform guests, keep the
+  // automatic free-ticket flow.
+  let isPartnerSubmitter = false;
+  try {
+    const emailLc = String(sub.email).toLowerCase();
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .ilike("email", emailLc)
+      .maybeSingle();
+    if (prof?.user_id) {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", prof.user_id);
+      const roleSet = new Set((roles || []).map((r: any) => String(r.role || '').toLowerCase()));
+      // Anyone registered on the platform whose role(s) are not exclusively 'guest'
+      // is treated as a partner for ticket-issuance purposes.
+      if (roleSet.size > 0 && ![...roleSet].every(r => r === 'guest')) {
+        isPartnerSubmitter = true;
+      }
+    }
+  } catch (e) {
+    console.warn("[confirm-event-form-email] partner role check failed", e);
+  }
+
   const submitted = (sub.submitted_data || {}) as any;
   let orderId: string | null = submitted.order_id || null;
   let existingOrder: any = null;
@@ -93,6 +122,67 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
       .from("event_form_submissions")
       .update({
         submitted_data: { ...submitted, order_id: orderId, order_ids: [orderId] },
+        email_status: "confirmed",
+      })
+      .eq("id", sub.id);
+    return;
+  }
+
+  // === PARTNER GUARD (free event) ===
+  // For partners we want the same manual-confirmation flow as transfer
+  // reservations: create (or reuse) a placeholder order in 'awaiting_transfer'
+  // status, record email confirmation, but do NOT mark as paid and do NOT
+  // issue the ticket. Admin confirms via admin-mark-event-payment which then
+  // flips status to 'paid' and triggers issueFreeTicketForOrder.
+  if (isPartnerSubmitter) {
+    const nowIso = new Date().toISOString();
+    if (!orderId) {
+      const { data: tickets } = await supabase
+        .from("paid_event_tickets")
+        .select("id, price_pln, is_active, deleted_at, position")
+        .eq("event_id", sub.event_id)
+        .is("deleted_at", null)
+        .order("position", { ascending: true });
+      const freeTicket = (tickets || []).find((t: any) => t.is_active && Number(t.price_pln) === 0)
+        || (tickets || []).find((t: any) => t.is_active)
+        || (tickets || [])[0];
+      if (freeTicket) {
+        const ticketCode = generateTicketCode();
+        const { data: inserted, error: insErr } = await supabase
+          .from("paid_event_orders")
+          .insert({
+            event_id: sub.event_id,
+            ticket_id: freeTicket.id,
+            email: sub.email,
+            first_name: sub.first_name || "",
+            last_name: sub.last_name || "",
+            phone: sub.phone || null,
+            quantity: 1,
+            total_amount: 0,
+            status: "awaiting_transfer",
+            email_confirmed_at: nowIso,
+            ticket_code: ticketCode,
+          })
+          .select("id")
+          .single();
+        if (!insErr && inserted) {
+          orderId = inserted.id;
+        } else {
+          console.error("[confirm-event-form-email] partner placeholder order failed", insErr);
+        }
+      }
+    } else {
+      await supabase
+        .from("paid_event_orders")
+        .update({ email_confirmed_at: nowIso })
+        .eq("id", orderId)
+        .is("email_confirmed_at", null);
+    }
+
+    await supabase
+      .from("event_form_submissions")
+      .update({
+        submitted_data: orderId ? { ...submitted, order_id: orderId, order_ids: [orderId] } : submitted,
         email_status: "confirmed",
       })
       .eq("id", sub.id);

@@ -631,7 +631,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         s.last_name || '',
         s.email || '',
         s.phone || '',
-        isFreeEvent && s.payment_status !== 'cancelled'
+        (isFreeEvent && getAudience(s) !== 'partner' && s.payment_status !== 'cancelled')
           ? ((s.payment_status === 'paid' || s.email_confirmed_at) ? 'Bezpłatne — potwierdzone' : 'Bezpłatne — oczekuje potwierdzenia e-mail')
           : (PAYMENT_LABELS[s.payment_status]?.label || s.payment_status || ''),
         s.email_status || '',
@@ -938,7 +938,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.phone && <div className="text-muted-foreground">{s.phone}</div>}
                     </TableCell>
                     <TableCell>
-                      {isFreeEvent && s.payment_status !== 'cancelled' ? (
+                      {isFreeEvent && !isPartnerRow && s.payment_status !== 'cancelled' ? (
                         (s.payment_status === 'paid' || s.email_confirmed_at) ? (
                           <Badge className="bg-green-600 text-white">
                             <CheckCircle2 className="w-3 h-3 mr-1" />Bezpłatne — potwierdzone
@@ -1041,12 +1041,12 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                         </>
                       ) : (
                         <>
-                          {!isFreeEvent && s.payment_status !== 'paid' && (
+                          {(!isFreeEvent || isPartnerRow) && s.payment_status !== 'paid' && (
                             <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
                               <CheckCircle2 className="w-4 h-4 text-green-600" />
                             </Button>
                           )}
-                          {!isFreeEvent && s.payment_status === 'paid' && (
+                          {(!isFreeEvent || isPartnerRow) && s.payment_status === 'paid' && (
                             <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
                               <RotateCcw className="w-4 h-4" />
                             </Button>
