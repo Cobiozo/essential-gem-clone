@@ -52,6 +52,22 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
 
+  // Free-event flag — drives "Płatność" cell + actions for free tickets.
+  const { data: isFreeEvent = false } = useQuery({
+    queryKey: ['event-form-submissions-is-free', form.event_id],
+    enabled: !!form.event_id,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_events')
+        .select('is_free')
+        .eq('id', form.event_id)
+        .maybeSingle();
+      if (error) return false;
+      return !!data?.is_free;
+    },
+  });
+
   // Also fetch paid_event_orders for the same event so that reservations made
   // by logged-in partners (which write to paid_event_orders, not
   // event_form_submissions) appear on the same list.
