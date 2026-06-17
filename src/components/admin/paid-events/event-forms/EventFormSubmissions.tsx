@@ -52,6 +52,22 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
     },
   });
 
+  // Free-event flag — drives "Płatność" cell + actions for free tickets.
+  const { data: isFreeEvent = false } = useQuery({
+    queryKey: ['event-form-submissions-is-free', form.event_id],
+    enabled: !!form.event_id,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paid_events')
+        .select('is_free')
+        .eq('id', form.event_id)
+        .maybeSingle();
+      if (error) return false;
+      return !!data?.is_free;
+    },
+  });
+
   // Also fetch paid_event_orders for the same event so that reservations made
   // by logged-in partners (which write to paid_event_orders, not
   // event_form_submissions) appear on the same list.
@@ -615,7 +631,9 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         s.last_name || '',
         s.email || '',
         s.phone || '',
-        PAYMENT_LABELS[s.payment_status]?.label || s.payment_status || '',
+        isFreeEvent && s.payment_status !== 'cancelled'
+          ? ((s.payment_status === 'paid' || s.email_confirmed_at) ? 'Bezpłatne — potwierdzone' : 'Bezpłatne — oczekuje potwierdzenia e-mail')
+          : (PAYMENT_LABELS[s.payment_status]?.label || s.payment_status || ''),
         s.email_status || '',
         s.email_confirmed_at ? new Date(s.email_confirmed_at).toLocaleString('pl-PL') : '',
         s.cancelled_at ? new Date(s.cancelled_at).toLocaleString('pl-PL') : '',
@@ -920,7 +938,28 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.phone && <div className="text-muted-foreground">{s.phone}</div>}
                     </TableCell>
                     <TableCell>
-                      <Badge className={ps.cls}><PsIcon className="w-3 h-3 mr-1" />{ps.label}</Badge>
+                      {isFreeEvent && s.payment_status !== 'cancelled' ? (
+                        (s.payment_status === 'paid' || s.email_confirmed_at) ? (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />Bezpłatne — potwierdzone
+                          </Badge>
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge className="bg-yellow-500/15 text-yellow-700 border border-yellow-500/30">
+                                  <Mail className="w-3 h-3 mr-1" />Bezpłatne — czeka na potwierdzenie e-mail
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Bilet zostanie wysłany automatycznie po kliknięciu linku w mailu potwierdzającym.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )
+                      ) : (
+                        <Badge className={ps.cls}><PsIcon className="w-3 h-3 mr-1" />{ps.label}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>{renderEmailCell(s)}</TableCell>
                     <TableCell className="text-xs">
@@ -1002,12 +1041,12 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                         </>
                       ) : (
                         <>
-                          {s.payment_status !== 'paid' && (
+                          {!isFreeEvent && s.payment_status !== 'paid' && (
                             <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
                               <CheckCircle2 className="w-4 h-4 text-green-600" />
                             </Button>
                           )}
-                          {s.payment_status === 'paid' && (
+                          {!isFreeEvent && s.payment_status === 'paid' && (
                             <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
                               <RotateCcw className="w-4 h-4" />
                             </Button>
