@@ -938,7 +938,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.phone && <div className="text-muted-foreground">{s.phone}</div>}
                     </TableCell>
                     <TableCell>
-                      {isFreeEvent && s.payment_status !== 'cancelled' ? (
+                      {isFreeEvent && !isPartnerRow && s.payment_status !== 'cancelled' ? (
                         (s.payment_status === 'paid' || s.email_confirmed_at) ? (
                           <Badge className="bg-green-600 text-white">
                             <CheckCircle2 className="w-3 h-3 mr-1" />Bezpłatne — potwierdzone
