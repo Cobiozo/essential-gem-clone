@@ -631,7 +631,7 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
         s.last_name || '',
         s.email || '',
         s.phone || '',
-        isFreeEvent && s.payment_status !== 'cancelled'
+        (isFreeEvent && getAudience(s) !== 'partner' && s.payment_status !== 'cancelled')
           ? ((s.payment_status === 'paid' || s.email_confirmed_at) ? 'Bezpłatne — potwierdzone' : 'Bezpłatne — oczekuje potwierdzenia e-mail')
           : (PAYMENT_LABELS[s.payment_status]?.label || s.payment_status || ''),
         s.email_status || '',
