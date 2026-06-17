@@ -128,6 +128,67 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
     return;
   }
 
+  // === PARTNER GUARD (free event) ===
+  // For partners we want the same manual-confirmation flow as transfer
+  // reservations: create (or reuse) a placeholder order in 'awaiting_transfer'
+  // status, record email confirmation, but do NOT mark as paid and do NOT
+  // issue the ticket. Admin confirms via admin-mark-event-payment which then
+  // flips status to 'paid' and triggers issueFreeTicketForOrder.
+  if (isPartnerSubmitter) {
+    const nowIso = new Date().toISOString();
+    if (!orderId) {
+      const { data: tickets } = await supabase
+        .from("paid_event_tickets")
+        .select("id, price_pln, is_active, deleted_at, position")
+        .eq("event_id", sub.event_id)
+        .is("deleted_at", null)
+        .order("position", { ascending: true });
+      const freeTicket = (tickets || []).find((t: any) => t.is_active && Number(t.price_pln) === 0)
+        || (tickets || []).find((t: any) => t.is_active)
+        || (tickets || [])[0];
+      if (freeTicket) {
+        const ticketCode = generateTicketCode();
+        const { data: inserted, error: insErr } = await supabase
+          .from("paid_event_orders")
+          .insert({
+            event_id: sub.event_id,
+            ticket_id: freeTicket.id,
+            email: sub.email,
+            first_name: sub.first_name || "",
+            last_name: sub.last_name || "",
+            phone: sub.phone || null,
+            quantity: 1,
+            total_amount: 0,
+            status: "awaiting_transfer",
+            email_confirmed_at: nowIso,
+            ticket_code: ticketCode,
+          })
+          .select("id")
+          .single();
+        if (!insErr && inserted) {
+          orderId = inserted.id;
+        } else {
+          console.error("[confirm-event-form-email] partner placeholder order failed", insErr);
+        }
+      }
+    } else {
+      await supabase
+        .from("paid_event_orders")
+        .update({ email_confirmed_at: nowIso })
+        .eq("id", orderId)
+        .is("email_confirmed_at", null);
+    }
+
+    await supabase
+      .from("event_form_submissions")
+      .update({
+        submitted_data: orderId ? { ...submitted, order_id: orderId, order_ids: [orderId] } : submitted,
+        email_status: "confirmed",
+      })
+      .eq("id", sub.id);
+    return;
+  }
+
   if (!orderId) {
     const { data: tickets } = await supabase
       .from("paid_event_tickets")
