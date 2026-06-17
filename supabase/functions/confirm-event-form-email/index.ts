@@ -38,6 +38,35 @@ async function ensureFreeOrderAndSendTicket(supabase: any, submissionId: string)
     .maybeSingle();
   if (!ev?.is_free) return;
 
+  // === PARTNER GUARD ===
+  // For logged-in partners (role != 'guest'), we DO NOT auto-issue a free
+  // ticket. Admin must confirm payment manually via admin-mark-event-payment
+  // (same workflow as paid events). For guests / platform guests, keep the
+  // automatic free-ticket flow.
+  let isPartnerSubmitter = false;
+  try {
+    const emailLc = String(sub.email).toLowerCase();
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .ilike("email", emailLc)
+      .maybeSingle();
+    if (prof?.user_id) {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", prof.user_id);
+      const roleSet = new Set((roles || []).map((r: any) => String(r.role || '').toLowerCase()));
+      // Anyone registered on the platform whose role(s) are not exclusively 'guest'
+      // is treated as a partner for ticket-issuance purposes.
+      if (roleSet.size > 0 && ![...roleSet].every(r => r === 'guest')) {
+        isPartnerSubmitter = true;
+      }
+    }
+  } catch (e) {
+    console.warn("[confirm-event-form-email] partner role check failed", e);
+  }
+
   const submitted = (sub.submitted_data || {}) as any;
   let orderId: string | null = submitted.order_id || null;
   let existingOrder: any = null;
