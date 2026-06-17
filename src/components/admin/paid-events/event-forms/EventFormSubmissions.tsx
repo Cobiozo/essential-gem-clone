@@ -1041,12 +1041,12 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                         </>
                       ) : (
                         <>
-                          {!isFreeEvent && s.payment_status !== 'paid' && (
+                          {(!isFreeEvent || isPartnerRow) && s.payment_status !== 'paid' && (
                             <Button size="sm" variant="ghost" title="Oznacz jako opłacone" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'paid' })}>
                               <CheckCircle2 className="w-4 h-4 text-green-600" />
                             </Button>
                           )}
-                          {!isFreeEvent && s.payment_status === 'paid' && (
+                          {(!isFreeEvent || isPartnerRow) && s.payment_status === 'paid' && (
                             <Button size="sm" variant="ghost" title="Cofnij do oczekującego" onClick={() => updatePayment.mutate({ submissionId: s.id, paymentStatus: 'pending' })}>
                               <RotateCcw className="w-4 h-4" />
                             </Button>
