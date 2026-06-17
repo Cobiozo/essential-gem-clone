@@ -936,7 +936,28 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
                       {s.phone && <div className="text-muted-foreground">{s.phone}</div>}
                     </TableCell>
                     <TableCell>
-                      <Badge className={ps.cls}><PsIcon className="w-3 h-3 mr-1" />{ps.label}</Badge>
+                      {isFreeEvent && s.payment_status !== 'cancelled' ? (
+                        (s.payment_status === 'paid' || s.email_confirmed_at) ? (
+                          <Badge className="bg-green-600 text-white">
+                            <CheckCircle2 className="w-3 h-3 mr-1" />Bezpłatne — potwierdzone
+                          </Badge>
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge className="bg-yellow-500/15 text-yellow-700 border border-yellow-500/30">
+                                  <Mail className="w-3 h-3 mr-1" />Bezpłatne — czeka na potwierdzenie e-mail
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Bilet zostanie wysłany automatycznie po kliknięciu linku w mailu potwierdzającym.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )
+                      ) : (
+                        <Badge className={ps.cls}><PsIcon className="w-3 h-3 mr-1" />{ps.label}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>{renderEmailCell(s)}</TableCell>
                     <TableCell className="text-xs">
