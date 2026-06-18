@@ -47,7 +47,7 @@ export default function ChallengeAdminPage() {
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("challenge_settings").update({
+    const { error } = await (supabase.from("challenge_settings") as any).update({
       title: settings.title,
       subtitle: settings.subtitle,
       terms_html: settings.terms_html,
@@ -58,6 +58,8 @@ export default function ChallengeAdminPage() {
       excluded_weekdays: settings.excluded_weekdays,
       ranking_visible_to_participants: settings.ranking_visible_to_participants,
       is_enabled: settings.is_enabled,
+      global_start_date: settings.global_start_date,
+      allow_late_join: settings.allow_late_join,
     }).eq("id", true);
     setSaving(false);
     if (error) toast.error(error.message);
