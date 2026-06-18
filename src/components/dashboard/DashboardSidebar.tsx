@@ -53,6 +53,7 @@ import {
   QrCode,
   FileText,
   Crown,
+  Trophy,
   icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
