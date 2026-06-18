@@ -20,7 +20,7 @@ export function useChallengeAction() {
           .eq("status", "active")
           .maybeSingle();
         if (!p?.id) return;
-        await supabase.from("challenge_activity_log").insert({
+        await (supabase.from("challenge_activity_log") as any).insert({
           user_id: user.id,
           participant_id: p.id,
           action_type: actionType,
