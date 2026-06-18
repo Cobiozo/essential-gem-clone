@@ -56,6 +56,7 @@ import {
   Heart,
   TreePine,
   Newspaper,
+  Trophy,
   Ticket,
   Trash2,
   Crown,
@@ -396,6 +397,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   >
                     <Newspaper className="w-4 h-4" />
                     <span>Centrum aktualności</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => handleNavigate('/admin/wyzwanie-90')}
+                    tooltip="Wyzwanie 90-dniowe"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    <span>Wyzwanie 90-dniowe</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}

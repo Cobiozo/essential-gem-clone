@@ -163,6 +163,8 @@ const NewsHubAdminPage = lazyWithRetry(() => import("./pages/NewsHubAdminPage"))
 const CheckoutPage = lazyWithRetry(() => import("./pages/CheckoutPage"));
 const TicketPage = lazyWithRetry(() => import("./pages/TicketPage"));
 const PaymentsAdminPage = lazyWithRetry(() => import("./pages/PaymentsAdminPage"));
+const ChallengePage = lazyWithRetry(() => import("./pages/ChallengePage"));
+const ChallengeAdminPage = lazyWithRetry(() => import("./pages/ChallengeAdminPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -453,6 +455,8 @@ const AppContent = () => {
                 <Route path="/aktualnosci/:slug" element={<NewsHubPostPage />} />
                 <Route path="/admin/news-hub" element={<NewsHubAdminPage />} />
                 <Route path="/admin/payments" element={<PaymentsAdminPage />} />
+                <Route path="/wyzwanie-90" element={<ChallengePage />} />
+                <Route path="/admin/wyzwanie-90" element={<ChallengeAdminPage />} />
                 <Route path="/checkout/:orderId" element={<CheckoutPage />} />
                 <Route path="/ticket/:code" element={<TicketPage />} />
                 <Route path="/free-event/confirm/:token" element={<FreeEventConfirmPage />} />

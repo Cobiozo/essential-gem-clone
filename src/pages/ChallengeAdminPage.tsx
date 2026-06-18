@@ -1,0 +1,143 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { Trophy, ArrowLeft } from "lucide-react";
+import type { ChallengeSettings } from "@/types/challenge";
+
+export default function ChallengeAdminPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState<ChallengeSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) return;
+      const { data } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      setIsAdmin(!!data);
+      if (data) {
+        const { data: s } = await supabase.from("challenge_settings").select("*").eq("id", true).maybeSingle();
+        setSettings(s as any);
+      }
+    })();
+  }, [user?.id]);
+
+  if (isAdmin === null) return <div className="min-h-[60vh] flex items-center justify-center"><LoadingSpinner /></div>;
+  if (!isAdmin) {
+    return <div className="p-8 text-center text-muted-foreground">Brak dostępu.</div>;
+  }
+  if (!settings) return <div className="min-h-[60vh] flex items-center justify-center"><LoadingSpinner /></div>;
+
+  const updateField = (k: keyof ChallengeSettings, v: any) => setSettings({ ...settings, [k]: v });
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("challenge_settings").update({
+      title: settings.title,
+      subtitle: settings.subtitle,
+      terms_html: settings.terms_html,
+      instructions_html: settings.instructions_html,
+      banner_url: settings.banner_url,
+      accent_color: settings.accent_color,
+      duration_days: settings.duration_days,
+      excluded_weekdays: settings.excluded_weekdays,
+      ranking_visible_to_participants: settings.ranking_visible_to_participants,
+      is_enabled: settings.is_enabled,
+    }).eq("id", true);
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success("Zapisano ustawienia");
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}><ArrowLeft className="w-4 h-4 mr-1" /> Admin</Button>
+          <div className="flex items-center gap-2">
+            <Trophy className="w-6 h-6 text-primary" />
+            <h1 className="text-2xl font-bold">Wyzwanie 90-dniowe</h1>
+          </div>
+        </div>
+      </div>
+
+      <Tabs defaultValue="settings">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="settings">Ustawienia</TabsTrigger>
+          <TabsTrigger value="tasks">Zadania</TabsTrigger>
+          <TabsTrigger value="participants">Uczestnicy</TabsTrigger>
+          <TabsTrigger value="access">Dostęp</TabsTrigger>
+          <TabsTrigger value="stats">Statystyki</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings">
+          <Card className="p-6 space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tytuł</Label>
+                <Input value={settings.title} onChange={(e) => updateField("title", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Kolor akcentu</Label>
+                <Input type="color" value={settings.accent_color} onChange={(e) => updateField("accent_color", e.target.value)} className="h-10 w-24" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Podtytuł</Label>
+                <Input value={settings.subtitle ?? ""} onChange={(e) => updateField("subtitle", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>URL banera</Label>
+                <Input value={settings.banner_url ?? ""} onChange={(e) => updateField("banner_url", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Czas trwania (dni)</Label>
+                <Input type="number" min={1} value={settings.duration_days} onChange={(e) => updateField("duration_days", Number(e.target.value))} />
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={settings.ranking_visible_to_participants} onCheckedChange={(v) => updateField("ranking_visible_to_participants", v)} />
+                <Label>Pokaż ranking uczestnikom</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={settings.is_enabled} onCheckedChange={(v) => updateField("is_enabled", v)} />
+                <Label>Moduł aktywny</Label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Regulamin (HTML)</Label>
+              <Textarea rows={6} value={settings.terms_html} onChange={(e) => updateField("terms_html", e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Instrukcja (HTML)</Label>
+              <Textarea rows={6} value={settings.instructions_html} onChange={(e) => updateField("instructions_html", e.target.value)} />
+            </div>
+            <Button onClick={save} disabled={saving}>{saving ? "Zapisuję..." : "Zapisz"}</Button>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tasks">
+          <Card className="p-8 text-center text-muted-foreground">Edytor zadań pojawi się w kolejnym kroku.</Card>
+        </TabsContent>
+        <TabsContent value="participants">
+          <Card className="p-8 text-center text-muted-foreground">Tabela uczestników pojawi się w kolejnym kroku.</Card>
+        </TabsContent>
+        <TabsContent value="access">
+          <Card className="p-8 text-center text-muted-foreground">Zarządzanie dostępem i uprawnieniami liderów pojawi się w kolejnym kroku.</Card>
+        </TabsContent>
+        <TabsContent value="stats">
+          <Card className="p-8 text-center text-muted-foreground">Szczegółowe statystyki pojawią się w kolejnym kroku.</Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
