@@ -35,9 +35,11 @@ interface Task {
 }
 
 function calcCurrentDay(p: Participant, s: Settings): number {
-  const start = new Date(p.start_date + "T00:00:00Z");
+  if (!s.global_start_date) return 0;
+  const start = new Date(s.global_start_date + "T00:00:00Z");
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
+  if (today < start) return 0;
   const excluded = new Set<string>([
     ...(s.excluded_dates ?? []),
     ...(p.excluded_dates ?? []),
