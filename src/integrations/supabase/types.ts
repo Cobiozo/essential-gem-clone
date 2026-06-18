@@ -11266,6 +11266,10 @@ export type Database = {
         Returns: boolean
       }
       cancel_event_form_submission: { Args: { _token: string }; Returns: Json }
+      challenge_count_action: {
+        Args: { _action_key: string; _params?: Json; _participant_id: string }
+        Returns: number
+      }
       check_event_conflicts: {
         Args: {
           p_end_time: string
