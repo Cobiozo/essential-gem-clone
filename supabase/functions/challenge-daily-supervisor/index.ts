@@ -10,6 +10,7 @@ interface Settings {
   duration_days: number;
   excluded_weekdays: number[] | null;
   excluded_dates: string[] | null;
+  global_start_date: string | null;
 }
 
 interface Participant {
