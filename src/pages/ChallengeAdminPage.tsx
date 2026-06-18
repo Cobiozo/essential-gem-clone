@@ -141,16 +141,16 @@ export default function ChallengeAdminPage() {
         </TabsContent>
 
         <TabsContent value="tasks">
-          <Card className="p-8 text-center text-muted-foreground">Edytor zadań pojawi się w kolejnym kroku.</Card>
+          <TasksEditor durationDays={settings.duration_days} />
         </TabsContent>
         <TabsContent value="participants">
-          <Card className="p-8 text-center text-muted-foreground">Tabela uczestników pojawi się w kolejnym kroku.</Card>
+          <ParticipantsTable />
         </TabsContent>
         <TabsContent value="access">
-          <Card className="p-8 text-center text-muted-foreground">Zarządzanie dostępem i uprawnieniami liderów pojawi się w kolejnym kroku.</Card>
+          <AccessManager />
         </TabsContent>
         <TabsContent value="stats">
-          <Card className="p-8 text-center text-muted-foreground">Szczegółowe statystyki pojawią się w kolejnym kroku.</Card>
+          <ChallengeStats />
         </TabsContent>
       </Tabs>
     </div>
