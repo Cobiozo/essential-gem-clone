@@ -209,6 +209,7 @@ export const DashboardSidebar: React.FC = () => {
   const isPaidEventsVisible = useIsPaidEventsVisible();
   
   const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
+  const { data: hasChallengeAccess } = useChallengeAccess();
   const { isModuleVisible: isNewsHubVisible } = useNewsHubVisibility();
   const { order: menuOrder } = useSidebarMenuOrder();
 
