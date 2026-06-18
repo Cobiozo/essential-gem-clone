@@ -26,6 +26,8 @@ export interface ChallengeSettings {
   ranking_visible_to_participants: boolean;
   szybki_start_module_id: string | null;
   is_enabled: boolean;
+  global_start_date: string | null;
+  allow_late_join: boolean;
 }
 
 export interface ChallengeParticipant {

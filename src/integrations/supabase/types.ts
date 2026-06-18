@@ -1693,7 +1693,7 @@ export type Database = {
           excluded_dates: string[]
           id: string
           longest_streak: number
-          start_date: string
+          start_date: string | null
           status: Database["public"]["Enums"]["challenge_participant_status"]
           total_points: number
           updated_at: string
@@ -1708,7 +1708,7 @@ export type Database = {
           excluded_dates?: string[]
           id?: string
           longest_streak?: number
-          start_date?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["challenge_participant_status"]
           total_points?: number
           updated_at?: string
@@ -1723,7 +1723,7 @@ export type Database = {
           excluded_dates?: string[]
           id?: string
           longest_streak?: number
-          start_date?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["challenge_participant_status"]
           total_points?: number
           updated_at?: string
@@ -1734,11 +1734,13 @@ export type Database = {
       challenge_settings: {
         Row: {
           accent_color: string
+          allow_late_join: boolean
           banner_url: string | null
           created_at: string
           duration_days: number
           excluded_dates: string[]
           excluded_weekdays: number[]
+          global_start_date: string | null
           id: boolean
           instructions_html: string
           is_enabled: boolean
@@ -1751,11 +1753,13 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          allow_late_join?: boolean
           banner_url?: string | null
           created_at?: string
           duration_days?: number
           excluded_dates?: string[]
           excluded_weekdays?: number[]
+          global_start_date?: string | null
           id?: boolean
           instructions_html?: string
           is_enabled?: boolean
@@ -1768,11 +1772,13 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          allow_late_join?: boolean
           banner_url?: string | null
           created_at?: string
           duration_days?: number
           excluded_dates?: string[]
           excluded_weekdays?: number[]
+          global_start_date?: string | null
           id?: boolean
           instructions_html?: string
           is_enabled?: boolean
