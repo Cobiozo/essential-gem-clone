@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ChallengeHeroBadge } from "./ChallengeHeroBadge";
+import { DayTasksList } from "./DayTasksList";
 import type { ChallengeParticipant, ChallengeSettings } from "@/types/challenge";
 import { Flame, Star, Calendar } from "lucide-react";
 
@@ -11,7 +12,7 @@ interface Props {
 
 export const ChallengeDashboard = ({ settings, participant }: Props) => {
   const accent = settings.accent_color || "#7c3aed";
-  const day = Math.min(participant.current_day, settings.duration_days);
+  const day = Math.max(1, Math.min(participant.current_day, settings.duration_days));
   const pct = Math.round((day / settings.duration_days) * 100);
 
   return (
@@ -35,12 +36,8 @@ export const ChallengeDashboard = ({ settings, participant }: Props) => {
         </div>
       </div>
 
-      <Card className="p-8 text-center space-y-3">
-        <h2 className="text-xl font-bold">Twoje zadania na dziś</h2>
-        <p className="text-muted-foreground text-sm max-w-xl mx-auto">
-          Zadania będą dodawane przez administratora i pojawią się tutaj automatycznie każdego dnia o 06:00.
-        </p>
-      </Card>
+      <DayTasksList participant={participant} currentDay={day} />
     </div>
   );
 };
+
