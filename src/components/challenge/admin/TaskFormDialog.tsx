@@ -76,8 +76,8 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
       sort_order: Number(form.sort_order ?? 0),
     };
     const { error } = initial?.id
-      ? await supabase.from("challenge_tasks").update(payload).eq("id", initial.id)
-      : await supabase.from("challenge_tasks").insert(payload);
+      ? await (supabase.from("challenge_tasks") as any).update(payload).eq("id", initial.id)
+      : await (supabase.from("challenge_tasks") as any).insert(payload);
     setSaving(false);
     if (error) {
       toast.error(error.message);
