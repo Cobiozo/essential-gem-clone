@@ -1,154 +1,123 @@
-## Moduł "Wyzwanie 90-dniowe" — fundament
+## Etap 2 — Integracja w PureBox, przykładowe zadania, CRON nadzorujący
 
-Nowy moduł, który nie zmienia żadnej istniejącej funkcjonalności. Tworzymy podstawę pod rozbudowę krok po kroku.
-
-### Zakres etapu 1
-
-1. Schemat bazy (tabele + RLS + GRANTy + enum + funkcje SECURITY DEFINER)
-2. Routing i widoczność (admin + uczestnik)
-3. Onboarding (regulamin + instrukcja + „Dołączam")
-4. Panel admina (ustawienia, zadania, uczestnicy, dostęp, statystyki)
-5. Widok uczestnika (dzisiejsze zadania, postęp, ranking/podium)
-6. CRON nadzorujący (codzienna weryfikacja, przesuwanie dni, wykluczenia)
-7. Profesjonalny wygląd z charakterem
-8. Lider — włączanie dostępu tylko dla osób z ukończonym „Szybkim Startem"
+Bez zmian w istniejącej logice. Rozszerzamy tylko fundament z etapu 1.
 
 ---
 
-### Decyzje (potwierdzone)
+### 1. Widoczność: wejście przez rozwinięcie zakładki PureBox
 
-- **Czas wyzwania:** **kalendarzowy**, ale start liczony od `start_date` ustawionego per uczestnik (domyślnie data dołączenia, admin/lider może wybrać inny dzień). Globalnie i per uczestnik można wskazać **dni wykluczone** (`excluded_dates[]`) — te dni nie liczą się do 90 i nie generują zadań (np. święta, weekendy jeśli admin tak ustawi).
-- **Lider:** widzi **statystyki swojej struktury w dół**, ale tylko jeśli admin nadał mu uprawnienie `can_view_structure_stats`. Lider może **nadać dostęp tylko użytkownikom, którzy mają ukończony moduł „Szybki Start" w Akademii** (twardy warunek serwerowy).
-- **Ranking:** **globalny ranking widoczny dla uczestników** — podium (top 3) + lista pozostałych z punktami i pozycją. Admin widzi pełne statystyki szczegółowe (per dzień, per zadanie, retencja, drop-off, średni czas wykonania).
+- Moduł NIE pojawia się jako osobna pozycja w głównym sidebarze użytkownika.
+- Pozycja **„Wyzwanie 90-dniowe"** zostaje dodana do listy elementów PureBox (`purebox_settings` jako `element_key = 'challenge-90'`), więc rozwija się razem z menu PureBox.
+- Widoczność: każdy użytkownik, który ma `has_challenge_access(uid) = true` (admin OR per-user grant OR grant od uprawnionego lidera).
+- Hook `usePureBoxVisibility` zostaje rozszerzony o sprawdzenie `has_challenge_access` dla klucza `challenge-90` (nie zmieniamy logiki dla innych elementów PureBox).
+- W AdminSidebar pozycja „Wyzwanie 90-dniowe" pozostaje (panel admina), ale dla zwykłego użytkownika wejście jest tylko z PureBox.
+- Trasa pozostaje `/wyzwanie-90`.
+
+Seed: `INSERT INTO purebox_settings (element_key, is_active, visible_to_admin, visible_to_partner, visible_to_client, visible_to_specjalista) VALUES ('challenge-90', true, true, true, true, true) ON CONFLICT DO NOTHING;` — i tak gate finalny robi `has_challenge_access`.
 
 ---
 
-### 1. Baza danych (jedna migracja)
+### 2. Trzy przykładowe dni — zadania działaniowe (na elementach aplikacji)
 
-Enumy: `challenge_task_type` (`button_click`, `link_visit`, `file_download`, `video_watch`, `resource_view`, `training_lesson`, `manual_confirm`, `external_action`), `challenge_participant_status` (`active`/`paused`/`completed`/`abandoned`), `challenge_completion_status` (`pending`/`verified`/`rejected`).
+Każde zadanie ma `task_type`, `target_ref` (JSONB z parametrami) i `verification_mode = 'auto'`. CRON+triggery weryfikują na podstawie zdarzeń w aplikacji, nie tylko opisu.
 
-Tabele w `public` (wszystkie z GRANT do `authenticated` + `service_role`, RLS ENABLED):
+**Dzień 1 — Start i pierwsze działanie**
+1. `video_watch` — obejrzyj wideo powitalne (admin wskazuje `healthy_knowledge` lub `knowledge_resources` ID).
+   `target_ref: { source: 'healthy_knowledge', resource_id: '...', required_seconds: 180 }`
+   Weryfikacja: progress w `useVideoProgress` zapisuje `evidence.watched_seconds`; CRON oznacza zaliczone gdy `watched_seconds >= required_seconds`.
+2. `resource_view` — przeczytaj konkretny zasób z bazy wiedzy.
+   `target_ref: { resource_id: '...' }`
+   Weryfikacja: wpis w `user_activity_log` z `action_type='resource_view'` i pasującym `resource_id` po `accepted_terms_at`.
+3. `manual_confirm` — wypełnij swój profil do 100% (sprawdzane przez `useProfileCompletion`).
+   `target_ref: { check: 'profile_completion_100' }`
 
-- **`challenge_settings`** (singleton `id=true`) — nazwa, podtytuł, regulamin (HTML), instrukcja (HTML), banner URL, akcent kolorystyczny, czas trwania (default 90), globalne `excluded_weekdays[]` i `excluded_dates[]`, `ranking_visible_to_participants` (bool), `szybki_start_module_id` (referencja do `training_modules` — który moduł Akademii kwalifikuje).
-- **`challenge_user_access`** — `user_id`, `granted_by`, `granted_at`. Override per użytkownik (admin lub uprawniony lider).
-- **`challenge_leader_permissions`** — `leader_id`, `can_grant_access` (bool, default true gdy admin doda lidera), `can_view_structure_stats` (bool, default false — admin ręcznie nadaje).
-- **`challenge_participants`** — `user_id`, `start_date` (data kalendarzowa startu), `accepted_terms_at`, `current_day` (1–90, wyliczane dynamicznie), `total_points`, `current_streak`, `longest_streak`, `status`, `completion_date`, `excluded_dates[]` (override per uczestnik, np. urlop).
-- **`challenge_tasks`** — `day_number` (1–N), `title`, `description` (rich text), `task_type`, `target_ref` (JSONB — np. `{resource_id, lesson_id, video_id, url, file_path, required_seconds}`), `points`, `required_to_advance`, `verification_mode` (`auto`/`manual_admin`), `is_active`, `sort_order`.
-- **`challenge_task_completions`** — `participant_id`, `task_id`, `completed_at`, `verified_at`, `verified_by`, `verification_status`, `evidence` (JSONB), `points_awarded`. Unique `(participant_id, task_id)`.
-- **`challenge_activity_log`** — pełen audyt akcji uczestnika (typ akcji, ref, czas, IP).
+**Dzień 2 — Sieć kontaktów**
+1. `external_action: add_team_contacts` — dodaj 5 nowych kontaktów prywatnych w CRM.
+   `target_ref: { check: 'team_contacts_added', count: 5, since: 'start_date' }`
+   Weryfikacja: `SELECT COUNT(*) FROM team_contacts WHERE owner_id = uid AND created_at >= participant.start_date`.
+2. `external_action: share_resource` — wygeneruj link do udostępnienia wybranego wideo z bazy wiedzy i wyślij go do min. 10 osób (np. przez wewnętrzny czat / kontakty).
+   `target_ref: { check: 'shared_resource_recipients', resource_id: '...', min_recipients: 10 }`
+   Weryfikacja: logujemy każde wysłanie do `challenge_activity_log` (`action='share_send'`, `evidence={resource_id, recipient_id}`), CRON sumuje unikalnych odbiorców.
+3. `button_click` — wejdź w zakładkę „Akademia" i otwórz konkretną lekcję.
+   `target_ref: { check: 'training_lesson_opened', lesson_id: '...' }`
+   Weryfikacja: `user_activity_log` z `action_type='training_module_start'` i pasującym `lesson_id`.
 
-Funkcje SECURITY DEFINER (`SET search_path = public`):
+**Dzień 3 — Aktywność i nauka**
+1. `training_lesson` — ukończ wskazaną lekcję „Szybkiego Startu" (jeśli już ukończona — auto-zalicza się od razu z `training_progress`).
+   `target_ref: { lesson_id: '...' }`
+2. `external_action: send_messages` — wyślij wiadomość do 3 nowych osób w komunikatorze (DM).
+   `target_ref: { check: 'new_dm_threads', count: 3, since: 'start_date' }`
+   Weryfikacja: `private_chat_threads` utworzone przez uczestnika po `start_date`, gdzie druga osoba nie miała wcześniej z nim wątku.
+3. `link_visit` — odwiedź konkretną stronę CMS / partnera.
+   `target_ref: { check: 'page_view', page_path: '/...' }`
+   Weryfikacja: `user_activity_log` z `action_type='page_view'` i `page_path` po `start_date`.
 
-- `public.has_challenge_access(_uid uuid) returns boolean` — admin OR per-user override OR (lider w górę łańcucha ma `can_grant_access` i nadał ten dostęp przez `challenge_user_access`).
-- `public.user_completed_szybki_start(_uid uuid) returns boolean` — sprawdza `training_progress` dla `szybki_start_module_id` z `challenge_settings` (wszystkie lekcje ukończone).
-- `public.can_leader_grant_challenge(_leader_id uuid, _target_user_id uuid) returns boolean` — `_target_user_id` jest w strukturze w dół lidera AND `user_completed_szybki_start(_target_user_id)` AND lider ma `can_grant_access = true`.
-- `public.can_leader_view_challenge_stats(_leader_id uuid) returns boolean` — `challenge_leader_permissions.can_view_structure_stats = true`.
-- `public.calculate_challenge_day(_participant_id uuid) returns int` — liczy dni od `start_date` z wykluczeniem `excluded_weekdays` z settings + `excluded_dates` z settings + `excluded_dates` z participanta.
+Wszystkie 9 zadań dodajemy seedem przez `supabase--insert` (admin może je później edytować w panelu).
 
-RLS:
-- `challenge_participants`: SELECT — sam siebie OR admin OR (lider z `can_view_structure_stats` widzi swoją strukturę).
-- `challenge_task_completions`: tak samo.
-- `challenge_tasks`: SELECT dla wszystkich z `has_challenge_access`; INSERT/UPDATE/DELETE tylko admin.
-- `challenge_settings`: SELECT dla wszystkich auth; UPDATE admin.
-- `challenge_user_access`: INSERT przez admina OR przez lidera tylko gdy `can_leader_grant_challenge`.
+---
 
-Seed: po migracji — `supabase--insert` z `INSERT INTO challenge_user_access (user_id, granted_by) SELECT id, id FROM profiles WHERE username = 'sebastiansnopek87' OR email LIKE 'sebastiansnopek87%' LIMIT 1;`
+### 3. CRON nadzorujący (`challenge-daily-supervisor`)
 
-### 2. Routing i widoczność
+Edge function `supabase/functions/challenge-daily-supervisor/index.ts` + `pg_cron` co godzinę (dla szybkiej weryfikacji aktywności) + dodatkowy daily o 06:00 Warszawa do rolowania dni.
 
-- `/wyzwanie-90` — strona uczestnika (gate `has_challenge_access`).
-- `/admin?tab=challenge` — zakładka admina (pod-zakładki: Ustawienia / Zadania / Uczestnicy / Dostęp / Statystyki).
-- `/panel-lidera?tab=challenge` — zakładka lidera (Moja struktura / Nadaj dostęp / Statystyki — ostatnia widoczna tylko gdy `can_view_structure_stats`).
-- Wpis do `KNOWN_APP_ROUTES`, brak `PUBLIC_PATHS` (auth-only).
-- Sidebar/menu: pozycja warunkowa na `has_challenge_access`.
+Logika per aktywny uczestnik:
 
-### 3. Onboarding uczestnika
+1. **Roluj dzień** — `calculate_challenge_day(participant_id)` z uwzględnieniem `excluded_weekdays` / `excluded_dates` (globalne + per uczestnik).
+2. **Auto-weryfikuj zadania** dla wszystkich dni `<= current_day`, które nie mają jeszcze `challenge_task_completions` z `verification_status='verified'`:
+   - `video_watch`: `evidence.watched_seconds >= required_seconds`.
+   - `resource_view` / `page_view` / `button_click` / `link_visit`: query do `user_activity_log` po `participant.start_date`.
+   - `training_lesson`: `training_progress.completed = true` dla danej lekcji.
+   - `external_action: team_contacts_added`: COUNT z `team_contacts WHERE owner_id = uid AND created_at >= start_date >= count`.
+   - `external_action: shared_resource_recipients`: COUNT DISTINCT recipient z `challenge_activity_log` (action='share_send').
+   - `external_action: new_dm_threads`: COUNT nowych unikalnych wątków `private_chat_threads`.
+   - `manual_confirm: profile_completion_100`: query do profilu.
+3. **Punkty i streak** — gdy wszystkie `required_to_advance=true` zadania danego dnia są `verified`, `current_streak += 1`, w przeciwnym razie reset do 0, aktualizacja `longest_streak`, sumowanie `points_awarded` do `total_points`.
+4. **Zakończenie** — gdy `current_day > duration_days`, `status='completed'`, `completion_date=now()`.
+5. **Log** — wpis do `cron_job_logs`.
 
-`ChallengeOnboarding`:
-- Hero z banerem i nazwą.
-- Zakładki **Regulamin** i **Instrukcja** (HTML z settings).
-- Wybór `start_date` (domyślnie dziś, można przesunąć w przyszłość — np. „startuję od poniedziałku").
-- Checkbox „Akceptuję regulamin".
-- Przycisk **Dołączam** → tworzy `challenge_participants` z `accepted_terms_at = now()`.
+CRON harmonogram:
+- Co godzinę: tylko auto-weryfikacja zadań (szybki feedback dla użytkownika).
+- 06:00 Warszawa (`warsawLocalToUtc`): pełna rolka (dzień + streak + zakończenia).
 
-### 4. Panel admina
+Tracking po stronie klienta:
+- Hook `useChallengeAction(actionKey, evidence)` — wywoływany z odpowiednich miejsc w aplikacji (player wideo, share button, dodanie kontaktu), zapisuje do `challenge_activity_log`. Nie zmienia żadnej istniejącej funkcjonalności — to tylko dodatkowy zapis obok już istniejących.
+- Trigger w bazie: na INSERT do `team_contacts` / `private_chat_threads` — dodajemy odpowiedni wpis do `challenge_activity_log` jeśli właściciel jest aktywnym uczestnikiem (nieinwazyjnie, BEFORE/AFTER trigger tylko czyta `challenge_participants`).
 
-`src/components/admin/challenge/`:
-- `ChallengeSettingsTab` — regulamin, instrukcja, banner, kolor, wybór modułu „Szybki Start", globalne wykluczenia dni.
-- `ChallengeTasksTab` — siatka 90 dni; per dzień lista zadań; modal dodawania z pickerem zasobu (re-use pickerów resources/lessons/videos/files/URL).
-- `ChallengeAccessTab` — `UserAccessPicker` + lista liderów z dwoma togglami: `can_grant_access`, `can_view_structure_stats`.
-- `ChallengeParticipantsTab` — tabela uczestników, postęp, punkty, status, akcje (reset, pauza, dodaj wykluczone dni, ręczna weryfikacja zadania).
-- `ChallengeStatsTab` — szczegółowe wykresy (Recharts): aktywni w czasie, retencja per dzień, drop-off, top/bottom zadania, średni czas wykonania, ranking pełny, heatmapa aktywności.
+---
 
-### 5. Panel lidera
+### 4. Pliki
 
-`src/components/leader/challenge/`:
-- Lista użytkowników z mojej struktury z flagą „Szybki Start ukończony" (tylko ci mogą dostać dostęp).
-- Przycisk „Nadaj dostęp" — wywołuje `can_leader_grant_challenge` (server-side guard).
-- Zakładka „Statystyki struktury" — widoczna tylko gdy `can_view_structure_stats` (toggle przez admina).
+**Migracja (1 sztuka):**
+- Trigger `tg_challenge_track_team_contact` na `team_contacts` (AFTER INSERT) — log do `challenge_activity_log`.
+- Trigger `tg_challenge_track_private_thread` na `private_chat_threads` (AFTER INSERT) — log.
+- Funkcja `public.challenge_count_action(participant_id, action_key, since, params)` — pomocnicza dla CRONa.
+- Rozszerzenie funkcji `calculate_challenge_day` jeśli wymagane.
 
-### 6. Widok uczestnika (po dołączeniu)
+**Seed (przez `supabase--insert`):**
+- `purebox_settings` wiersz `challenge-90`.
+- 9 zadań w `challenge_tasks` (Dzień 1–3).
+- `cron.schedule` dla CRONa (godzinowy + dzienny).
 
-- Hero: dzień `X/90`, pasek postępu, suma punktów, streak.
-- Karta **Dzisiejsze zadania** — lista z odpowiednimi interakcjami per `task_type`:
-  - `video_watch` → `LazyVideoPlayer` + tracking `watched_seconds`,
-  - `file_download` → przycisk + log,
-  - `link_visit`/`button_click` → przycisk z trackingiem,
-  - `resource_view`/`training_lesson` → link do modułu + sprawdzenie ukończenia w istniejących tabelach,
-  - `manual_confirm` → checkbox z opisem.
-- **Historia poprzednich dni** — podgląd, opcjonalnie „nadrób" jeśli `verification_mode = auto`.
-- **Ranking** (jeśli `ranking_visible_to_participants`): podium top 3 (z efektem złoto/srebro/brąz) + tabela pozostałych z pozycją i punktami, własna pozycja zawsze podświetlona.
-- **Streak** — dni z rzędu z kompletem zadań.
+**Nowe pliki:**
+- `supabase/functions/challenge-daily-supervisor/index.ts`
+- `src/hooks/useChallengeAction.ts` — pomocniczy tracker akcji.
+- `src/components/challenge/TaskCard.tsx` — render zadania per typ z odpowiednim CTA.
+- `src/components/challenge/tasks/VideoWatchTask.tsx`, `ResourceViewTask.tsx`, `ExternalActionTask.tsx`, `ManualConfirmTask.tsx`.
+- `src/components/challenge/DayTasksList.tsx` — lista dzisiejszych zadań w `ChallengeDashboard`.
 
-### 7. Edge function CRON
+**Edycje (minimalne):**
+- `src/hooks/usePureBoxVisibility.ts` — dodanie sprawdzenia `has_challenge_access` dla klucza `challenge-90`.
+- Komponent rozwijanej listy PureBox w sidebarze — dodanie pozycji „Wyzwanie 90-dniowe" linkującej do `/wyzwanie-90`.
+- `src/components/challenge/ChallengeDashboard.tsx` — wpięcie `DayTasksList`.
+- (Opcjonalnie) `src/components/video/LazyVideoPlayer` — wywołanie `useChallengeAction('video_watch', { resource_id, watched_seconds })` jeśli wideo jest aktywnym zadaniem uczestnika; **bez zmiany domyślnego zachowania playera dla nie-uczestników**.
 
-`supabase/functions/challenge-daily-supervisor/index.ts`:
-- Codziennie o 06:00 Warszawa (przez `pg_cron` + `pg_net`, logika dat przez `warsawLocalToUtc`).
-- Dla każdego aktywnego uczestnika:
-  - przelicza `current_day` przez `calculate_challenge_day` (z wykluczeniami),
-  - auto-weryfikuje zadania `auto` na podstawie `evidence` (czas wideo, lekcja ukończona, plik pobrany),
-  - oznacza zadania `manual_admin` jako `pending` z notyfikacją w panelu admina,
-  - sumuje punkty do `total_points`, aktualizuje `current_streak`/`longest_streak`,
-  - przy `current_day > 90` → `status = 'completed'`, `completion_date = now()`,
-  - log do `cron_job_logs`.
+---
 
-### 8. Profesjonalny wygląd
+### 5. Czego NIE robimy w etapie 2
 
-- Dedykowany hero z gradientem opartym o `accent_color`, animowany pasek postępu.
-- Glassmorphism na kartach zadań, ikony per typ z `lucide-react`, kolorowe statusy.
-- `framer-motion`: puls przy zaliczeniu, konfetti po ukończeniu wszystkich zadań dnia.
-- Podium rankingu z 3D-cieniami i metalicznym akcentem (złoto/srebro/brąz).
-- Bento-grid statystyk admina.
-- Semantic tokens w `index.css`: `--challenge-primary`, `--challenge-accent`, `--challenge-gold`, `--challenge-silver`, `--challenge-bronze`.
+- Powiadomień push o nowym dniu / zaliczeniu (etap 3).
+- Edytora zadań w panelu admina (etap 3) — dziś zadania siedzą jako seed; admin może edytować przez SQL lub poczekać na UI.
+- Statystyk admina i rankingu uczestników (etap 4).
+- Logiki lidera (nadawanie dostępu z UI) — etap 5.
 
-### 9. Czego NIE robimy w etapie 1
-
-- Powiadomienia push/email per dzień (kolejny etap razem z `notification_event_types`).
-- Eksport rankingu do PDF/Excel.
-- i18n (na razie PL; struktura przygotowana pod tłumaczenia).
-- Certyfikaty/nagrody po ukończeniu.
-
-### Pliki
-
-**Migracja:** jedna z tabelami + enumy + RLS + GRANT + 5 funkcji security definer.
-
-**Seed (przez `supabase--insert`):** dostęp dla `sebastiansnopek87`.
-
-**Edge function:** `supabase/functions/challenge-daily-supervisor/index.ts` + wpis `pg_cron` przez `supabase--insert`.
-
-**Frontend nowe:**
-- `src/pages/ChallengePage.tsx`
-- `src/components/challenge/` (Onboarding, Dashboard, TaskCard, Progress, Ranking, Podium, Streak)
-- `src/components/admin/challenge/` (5 zakładek)
-- `src/components/leader/challenge/` (3 widoki)
-- `src/hooks/useChallengeAccess.ts`, `useChallengeParticipant.ts`, `useChallengeTasks.ts`, `useChallengeStats.ts`, `useChallengeRanking.ts`, `useChallengeLeaderGrant.ts`
-- `src/types/challenge.ts`
-
-**Frontend edycje (minimalne, bez zmiany istniejącej logiki):**
-- `src/App.tsx` — trasa `/wyzwanie-90`.
-- `src/components/admin/AdminPanel.tsx` — zakładka „Wyzwanie 90-dniowe".
-- panel lidera — zakładka „Wyzwanie 90-dniowe".
-- `src/components/layout/Sidebar.tsx` — warunkowa pozycja menu.
-- `src/index.css` — tokeny `--challenge-*`.
-
-Po akceptacji ruszam od migracji.
+Po akceptacji ruszam od migracji, potem seed, potem edge function + CRON, na końcu frontend.
