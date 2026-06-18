@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
   try {
     const { data: settings } = await client
       .from("challenge_settings")
-      .select("duration_days, excluded_weekdays, excluded_dates, is_enabled")
+      .select("duration_days, excluded_weekdays, excluded_dates, is_enabled, global_start_date")
       .eq("id", true)
       .maybeSingle();
     if (!settings?.is_enabled) {
