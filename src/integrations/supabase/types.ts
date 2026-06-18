@@ -1611,6 +1611,306 @@ export type Database = {
           },
         ]
       }
+      challenge_activity_log: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          participant_id: string | null
+          payload: Json
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          participant_id?: string | null
+          payload?: Json
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          participant_id?: string | null
+          payload?: Json
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_activity_log_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_activity_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_leader_permissions: {
+        Row: {
+          can_grant_access: boolean
+          can_view_structure_stats: boolean
+          created_at: string
+          leader_id: string
+          updated_at: string
+        }
+        Insert: {
+          can_grant_access?: boolean
+          can_view_structure_stats?: boolean
+          created_at?: string
+          leader_id: string
+          updated_at?: string
+        }
+        Update: {
+          can_grant_access?: boolean
+          can_view_structure_stats?: boolean
+          created_at?: string
+          leader_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      challenge_participants: {
+        Row: {
+          accepted_terms_at: string
+          completion_date: string | null
+          created_at: string
+          current_day: number
+          current_streak: number
+          excluded_dates: string[]
+          id: string
+          longest_streak: number
+          start_date: string
+          status: Database["public"]["Enums"]["challenge_participant_status"]
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_terms_at?: string
+          completion_date?: string | null
+          created_at?: string
+          current_day?: number
+          current_streak?: number
+          excluded_dates?: string[]
+          id?: string
+          longest_streak?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["challenge_participant_status"]
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_terms_at?: string
+          completion_date?: string | null
+          created_at?: string
+          current_day?: number
+          current_streak?: number
+          excluded_dates?: string[]
+          id?: string
+          longest_streak?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["challenge_participant_status"]
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      challenge_settings: {
+        Row: {
+          accent_color: string
+          banner_url: string | null
+          created_at: string
+          duration_days: number
+          excluded_dates: string[]
+          excluded_weekdays: number[]
+          id: boolean
+          instructions_html: string
+          is_enabled: boolean
+          ranking_visible_to_participants: boolean
+          subtitle: string | null
+          szybki_start_module_id: string | null
+          terms_html: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          banner_url?: string | null
+          created_at?: string
+          duration_days?: number
+          excluded_dates?: string[]
+          excluded_weekdays?: number[]
+          id?: boolean
+          instructions_html?: string
+          is_enabled?: boolean
+          ranking_visible_to_participants?: boolean
+          subtitle?: string | null
+          szybki_start_module_id?: string | null
+          terms_html?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          banner_url?: string | null
+          created_at?: string
+          duration_days?: number
+          excluded_dates?: string[]
+          excluded_weekdays?: number[]
+          id?: boolean
+          instructions_html?: string
+          is_enabled?: boolean
+          ranking_visible_to_participants?: boolean
+          subtitle?: string | null
+          szybki_start_module_id?: string | null
+          terms_html?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      challenge_task_completions: {
+        Row: {
+          completed_at: string
+          created_at: string
+          evidence: Json
+          id: string
+          participant_id: string
+          points_awarded: number
+          task_id: string
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["challenge_completion_status"]
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          participant_id: string
+          points_awarded?: number
+          task_id: string
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["challenge_completion_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          participant_id?: string
+          points_awarded?: number
+          task_id?: string
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["challenge_completion_status"]
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_task_completions_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_tasks: {
+        Row: {
+          created_at: string
+          day_number: number
+          description: string | null
+          id: string
+          is_active: boolean
+          points: number
+          required_to_advance: boolean
+          sort_order: number
+          target_ref: Json
+          task_type: Database["public"]["Enums"]["challenge_task_type"]
+          title: string
+          updated_at: string
+          verification_mode: Database["public"]["Enums"]["challenge_verification_mode"]
+        }
+        Insert: {
+          created_at?: string
+          day_number: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points?: number
+          required_to_advance?: boolean
+          sort_order?: number
+          target_ref?: Json
+          task_type?: Database["public"]["Enums"]["challenge_task_type"]
+          title: string
+          updated_at?: string
+          verification_mode?: Database["public"]["Enums"]["challenge_verification_mode"]
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          points?: number
+          required_to_advance?: boolean
+          sort_order?: number
+          target_ref?: Json
+          task_type?: Database["public"]["Enums"]["challenge_task_type"]
+          title?: string
+          updated_at?: string
+          verification_mode?: Database["public"]["Enums"]["challenge_verification_mode"]
+        }
+        Relationships: []
+      }
+      challenge_user_access: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_permissions: {
         Row: {
           allow_group: boolean | null
@@ -10945,8 +11245,20 @@ export type Database = {
         Args: { target_role: string; target_user_id: string }
         Returns: boolean
       }
+      calculate_challenge_day: {
+        Args: { _participant_id: string }
+        Returns: number
+      }
       can_initiate_chat: {
         Args: { sender_user_id: string; target_user_id: string }
+        Returns: boolean
+      }
+      can_leader_grant_challenge: {
+        Args: { _leader_id: string; _target_user_id: string }
+        Returns: boolean
+      }
+      can_leader_view_challenge_stats: {
+        Args: { _leader_id: string }
         Returns: boolean
       }
       can_send_to_role: {
@@ -11330,6 +11642,7 @@ export type Database = {
         Args: { _user_a: string; _user_b: string }
         Returns: boolean
       }
+      has_challenge_access: { Args: { _uid: string }; Returns: boolean }
       has_moderator_module: {
         Args: { _module: string; _user_id: string }
         Returns: boolean
@@ -11453,6 +11766,7 @@ export type Database = {
         Args: { p_interval_minutes: number; p_job_name: string }
         Returns: boolean
       }
+      user_completed_szybki_start: { Args: { _uid: string }; Returns: boolean }
       user_registered_event_ids: { Args: never; Returns: string[] }
     }
     Enums: {
@@ -11464,6 +11778,22 @@ export type Database = {
         | "user"
         | "moderator"
         | "guest"
+      challenge_completion_status: "pending" | "verified" | "rejected"
+      challenge_participant_status:
+        | "active"
+        | "paused"
+        | "completed"
+        | "abandoned"
+      challenge_task_type:
+        | "button_click"
+        | "link_visit"
+        | "file_download"
+        | "video_watch"
+        | "resource_view"
+        | "training_lesson"
+        | "manual_confirm"
+        | "external_action"
+      challenge_verification_mode: "auto" | "manual_admin"
       news_hub_bento_size: "s" | "m" | "l"
       news_hub_post_type:
         | "announcement"
@@ -11611,6 +11941,24 @@ export const Constants = {
         "moderator",
         "guest",
       ],
+      challenge_completion_status: ["pending", "verified", "rejected"],
+      challenge_participant_status: [
+        "active",
+        "paused",
+        "completed",
+        "abandoned",
+      ],
+      challenge_task_type: [
+        "button_click",
+        "link_visit",
+        "file_download",
+        "video_watch",
+        "resource_view",
+        "training_lesson",
+        "manual_confirm",
+        "external_action",
+      ],
+      challenge_verification_mode: ["auto", "manual_admin"],
       news_hub_bento_size: ["s", "m", "l"],
       news_hub_post_type: [
         "announcement",
