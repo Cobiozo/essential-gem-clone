@@ -13,6 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Trophy, ArrowLeft } from "lucide-react";
 import type { ChallengeSettings } from "@/types/challenge";
+import { TasksEditor } from "@/components/challenge/admin/TasksEditor";
+import { ParticipantsTable } from "@/components/challenge/admin/ParticipantsTable";
+import { AccessManager } from "@/components/challenge/admin/AccessManager";
+import { ChallengeStats } from "@/components/challenge/admin/ChallengeStats";
 
 export default function ChallengeAdminPage() {
   const { user } = useAuth();
