@@ -13,6 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Trophy, ArrowLeft } from "lucide-react";
 import type { ChallengeSettings } from "@/types/challenge";
+import { TasksEditor } from "@/components/challenge/admin/TasksEditor";
+import { ParticipantsTable } from "@/components/challenge/admin/ParticipantsTable";
+import { AccessManager } from "@/components/challenge/admin/AccessManager";
+import { ChallengeStats } from "@/components/challenge/admin/ChallengeStats";
 
 export default function ChallengeAdminPage() {
   const { user } = useAuth();
@@ -43,7 +47,7 @@ export default function ChallengeAdminPage() {
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("challenge_settings").update({
+    const { error } = await (supabase.from("challenge_settings") as any).update({
       title: settings.title,
       subtitle: settings.subtitle,
       terms_html: settings.terms_html,
@@ -54,6 +58,8 @@ export default function ChallengeAdminPage() {
       excluded_weekdays: settings.excluded_weekdays,
       ranking_visible_to_participants: settings.ranking_visible_to_participants,
       is_enabled: settings.is_enabled,
+      global_start_date: settings.global_start_date,
+      allow_late_join: settings.allow_late_join,
     }).eq("id", true);
     setSaving(false);
     if (error) toast.error(error.message);
@@ -104,6 +110,15 @@ export default function ChallengeAdminPage() {
                 <Label>Czas trwania (dni)</Label>
                 <Input type="number" min={1} value={settings.duration_days} onChange={(e) => updateField("duration_days", Number(e.target.value))} />
               </div>
+              <div className="space-y-2">
+                <Label>Globalna data startu wyzwania</Label>
+                <Input type="date" value={settings.global_start_date ?? ""} onChange={(e) => updateField("global_start_date", e.target.value || null)} />
+                <p className="text-xs text-muted-foreground">Wszyscy uczestnicy startują tego samego dnia. Puste = brak startu.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={settings.allow_late_join !== false} onCheckedChange={(v) => updateField("allow_late_join", v)} />
+                <Label>Pozwól dołączać po starcie</Label>
+              </div>
               <div className="flex items-center gap-3">
                 <Switch checked={settings.ranking_visible_to_participants} onCheckedChange={(v) => updateField("ranking_visible_to_participants", v)} />
                 <Label>Pokaż ranking uczestnikom</Label>
@@ -126,16 +141,16 @@ export default function ChallengeAdminPage() {
         </TabsContent>
 
         <TabsContent value="tasks">
-          <Card className="p-8 text-center text-muted-foreground">Edytor zadań pojawi się w kolejnym kroku.</Card>
+          <TasksEditor durationDays={settings.duration_days} />
         </TabsContent>
         <TabsContent value="participants">
-          <Card className="p-8 text-center text-muted-foreground">Tabela uczestników pojawi się w kolejnym kroku.</Card>
+          <ParticipantsTable />
         </TabsContent>
         <TabsContent value="access">
-          <Card className="p-8 text-center text-muted-foreground">Zarządzanie dostępem i uprawnieniami liderów pojawi się w kolejnym kroku.</Card>
+          <AccessManager />
         </TabsContent>
         <TabsContent value="stats">
-          <Card className="p-8 text-center text-muted-foreground">Szczegółowe statystyki pojawią się w kolejnym kroku.</Card>
+          <ChallengeStats />
         </TabsContent>
       </Tabs>
     </div>

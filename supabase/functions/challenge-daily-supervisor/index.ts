@@ -10,6 +10,7 @@ interface Settings {
   duration_days: number;
   excluded_weekdays: number[] | null;
   excluded_dates: string[] | null;
+  global_start_date: string | null;
 }
 
 interface Participant {
@@ -34,9 +35,11 @@ interface Task {
 }
 
 function calcCurrentDay(p: Participant, s: Settings): number {
-  const start = new Date(p.start_date + "T00:00:00Z");
+  if (!s.global_start_date) return 0;
+  const start = new Date(s.global_start_date + "T00:00:00Z");
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
+  if (today < start) return 0;
   const excluded = new Set<string>([
     ...(s.excluded_dates ?? []),
     ...(p.excluded_dates ?? []),
@@ -71,7 +74,7 @@ Deno.serve(async (req) => {
   try {
     const { data: settings } = await client
       .from("challenge_settings")
-      .select("duration_days, excluded_weekdays, excluded_dates, is_enabled")
+      .select("duration_days, excluded_weekdays, excluded_dates, is_enabled, global_start_date")
       .eq("id", true)
       .maybeSingle();
     if (!settings?.is_enabled) {
