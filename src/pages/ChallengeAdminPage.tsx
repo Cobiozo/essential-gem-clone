@@ -110,6 +110,15 @@ export default function ChallengeAdminPage() {
                 <Label>Czas trwania (dni)</Label>
                 <Input type="number" min={1} value={settings.duration_days} onChange={(e) => updateField("duration_days", Number(e.target.value))} />
               </div>
+              <div className="space-y-2">
+                <Label>Globalna data startu wyzwania</Label>
+                <Input type="date" value={settings.global_start_date ?? ""} onChange={(e) => updateField("global_start_date", e.target.value || null)} />
+                <p className="text-xs text-muted-foreground">Wszyscy uczestnicy startują tego samego dnia. Puste = brak startu.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={settings.allow_late_join !== false} onCheckedChange={(v) => updateField("allow_late_join", v)} />
+                <Label>Pozwól dołączać po starcie</Label>
+              </div>
               <div className="flex items-center gap-3">
                 <Switch checked={settings.ranking_visible_to_participants} onCheckedChange={(v) => updateField("ranking_visible_to_participants", v)} />
                 <Label>Pokaż ranking uczestnikom</Label>
