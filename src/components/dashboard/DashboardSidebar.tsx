@@ -431,7 +431,10 @@ export const DashboardSidebar: React.FC = () => {
       const pureBoxSubs = [
         { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
         { id: 'moje-testy', labelKey: 'Baza testów', path: '/moje-testy', icon: Heart },
-      ].filter(sub => isPureBoxVisible(sub.id));
+        ...(hasChallengeAccess && isPureBoxVisible('challenge-90')
+          ? [{ id: 'challenge-90', labelKey: 'Wyzwanie 90-dniowe', path: '/wyzwanie-90', icon: Trophy }]
+          : []),
+      ].filter(sub => sub.id === 'challenge-90' || isPureBoxVisible(sub.id));
       if (pureBoxSubs.length === 0) return [];
       return [{
         id: 'purebox',
