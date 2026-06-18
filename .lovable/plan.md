@@ -1,68 +1,154 @@
-## Diagnoza
+## Moduł "Wyzwanie 90-dniowe" — fundament
 
-Rozróżniam dwie ścieżki rejestracji na wydarzenie **bezpłatne**:
+Nowy moduł, który nie zmienia żadnej istniejącej funkcjonalności. Tworzymy podstawę pod rozbudowę krok po kroku.
 
-| Typ zapisującego się | Oczekiwana ścieżka |
-|---|---|
-| **Gość** (niezarejestrowany / `role = 'guest'`) | Auto‑potwierdzenie po kliknięciu maila → zielony „Bezpłatne — potwierdzone", bilet wysyłany od razu, bez akcji admina. |
-| **Partner** (zalogowany, `role ≠ 'guest'`) | Po kliknięciu maila → **żółte „Oczekuje"** (płatność do potwierdzenia ręcznie). Admin klika **„Oznacz jako opłacone"** → zielone **„Opłacone"** + przycisk **„Cofnij do oczekującego"**. Wtedy dopiero leci bilet. |
+### Zakres etapu 1
 
-Aktualnie (po poprzedniej zmianie) wszystkie zgłoszenia na `is_free` są traktowane jak „gościowe" — Sylwia (Partner) widnieje jako *Bezpłatne — potwierdzone*, bez możliwości cofnięcia, choć powinna iść normalną ścieżką płatności.
+1. Schemat bazy (tabele + RLS + GRANTy + enum + funkcje SECURITY DEFINER)
+2. Routing i widoczność (admin + uczestnik)
+3. Onboarding (regulamin + instrukcja + „Dołączam")
+4. Panel admina (ustawienia, zadania, uczestnicy, dostęp, statystyki)
+5. Widok uczestnika (dzisiejsze zadania, postęp, ranking/podium)
+6. CRON nadzorujący (codzienna weryfikacja, przesuwanie dni, wykluczenia)
+7. Profesjonalny wygląd z charakterem
+8. Lider — włączanie dostępu tylko dla osób z ukończonym „Szybkim Startem"
 
-Logika rozpoznawania audiencji już istnieje w panelu admina: `getAudience(s) ∈ { 'partner', 'platform_guest', 'guest' }` (`EventFormSubmissions.tsx`, l. 305–323). Wykorzystamy ją również w warstwie backend.
+---
 
-## Plan zmian
+### Decyzje (potwierdzone)
 
-### 1. Backend — `supabase/functions/confirm-event-form-email/index.ts`
+- **Czas wyzwania:** **kalendarzowy**, ale start liczony od `start_date` ustawionego per uczestnik (domyślnie data dołączenia, admin/lider może wybrać inny dzień). Globalnie i per uczestnik można wskazać **dni wykluczone** (`excluded_dates[]`) — te dni nie liczą się do 90 i nie generują zadań (np. święta, weekendy jeśli admin tak ustawi).
+- **Lider:** widzi **statystyki swojej struktury w dół**, ale tylko jeśli admin nadał mu uprawnienie `can_view_structure_stats`. Lider może **nadać dostęp tylko użytkownikom, którzy mają ukończony moduł „Szybki Start" w Akademii** (twardy warunek serwerowy).
+- **Ranking:** **globalny ranking widoczny dla uczestników** — podium (top 3) + lista pozostałych z punktami i pozycją. Admin widzi pełne statystyki szczegółowe (per dzień, per zadanie, retencja, drop-off, średni czas wykonania).
 
-W `ensureFreeOrderAndSendTicket` przed utworzeniem darmowego zamówienia sprawdzić audiencję na podstawie maila zgłaszającego:
+---
 
-```text
-- pobierz profile.user_id po sub.email
-- pobierz user_roles.role dla tego user_id
-- isPartnerSubmission = profile_exists AND role != 'guest'
-```
+### 1. Baza danych (jedna migracja)
 
-Jeśli `isPartnerSubmission === true`:
-- **NIE** twórz `paid_event_orders` ze statusem `paid`,
-- zamiast tego utwórz/zaktualizuj order z `status = 'awaiting_transfer'`, `total_amount = 0`, `email_confirmed_at = now()`, `ticket_code` (do późniejszego użycia, bez wysyłki),
-- zlinkuj do `event_form_submissions.submitted_data.order_id`,
-- `payment_status` **zostaje `pending`**, `email_status = 'confirmed'`,
-- **nie** wołaj `issueFreeTicketForOrder`.
+Enumy: `challenge_task_type` (`button_click`, `link_visit`, `file_download`, `video_watch`, `resource_view`, `training_lesson`, `manual_confirm`, `external_action`), `challenge_participant_status` (`active`/`paused`/`completed`/`abandoned`), `challenge_completion_status` (`pending`/`verified`/`rejected`).
 
-(Dla gości — ścieżka bez zmian: auto‑paid + ticket od razu.)
+Tabele w `public` (wszystkie z GRANT do `authenticated` + `service_role`, RLS ENABLED):
 
-### 2. Backend — `supabase/functions/admin-mark-event-payment/index.ts`
+- **`challenge_settings`** (singleton `id=true`) — nazwa, podtytuł, regulamin (HTML), instrukcja (HTML), banner URL, akcent kolorystyczny, czas trwania (default 90), globalne `excluded_weekdays[]` i `excluded_dates[]`, `ranking_visible_to_participants` (bool), `szybki_start_module_id` (referencja do `training_modules` — który moduł Akademii kwalifikuje).
+- **`challenge_user_access`** — `user_id`, `granted_by`, `granted_at`. Override per użytkownik (admin lub uprawniony lider).
+- **`challenge_leader_permissions`** — `leader_id`, `can_grant_access` (bool, default true gdy admin doda lidera), `can_view_structure_stats` (bool, default false — admin ręcznie nadaje).
+- **`challenge_participants`** — `user_id`, `start_date` (data kalendarzowa startu), `accepted_terms_at`, `current_day` (1–90, wyliczane dynamicznie), `total_points`, `current_streak`, `longest_streak`, `status`, `completion_date`, `excluded_dates[]` (override per uczestnik, np. urlop).
+- **`challenge_tasks`** — `day_number` (1–N), `title`, `description` (rich text), `task_type`, `target_ref` (JSONB — np. `{resource_id, lesson_id, video_id, url, file_path, required_seconds}`), `points`, `required_to_advance`, `verification_mode` (`auto`/`manual_admin`), `is_active`, `sort_order`.
+- **`challenge_task_completions`** — `participant_id`, `task_id`, `completed_at`, `verified_at`, `verified_by`, `verification_status`, `evidence` (JSONB), `points_awarded`. Unique `(participant_id, task_id)`.
+- **`challenge_activity_log`** — pełen audyt akcji uczestnika (typ akcji, ref, czas, IP).
 
-Obsłuży to istniejąca logika (l. 64–111): admin klika „Oznacz jako opłacone" → order flipowany na `paid` → `issueFreeTicketForOrder` wysyła bilet. Bez zmian.
+Funkcje SECURITY DEFINER (`SET search_path = public`):
 
-Drobny dodatek: jeśli zgłoszenie partnera nie ma jeszcze `order_id` (edge case starych rekordów), funkcja powinna utworzyć darmowy order ad‑hoc analogicznie do `ensureFreeOrderAndSendTicket`, ale od razu z `status = 'paid'`, i wysłać bilet.
+- `public.has_challenge_access(_uid uuid) returns boolean` — admin OR per-user override OR (lider w górę łańcucha ma `can_grant_access` i nadał ten dostęp przez `challenge_user_access`).
+- `public.user_completed_szybki_start(_uid uuid) returns boolean` — sprawdza `training_progress` dla `szybki_start_module_id` z `challenge_settings` (wszystkie lekcje ukończone).
+- `public.can_leader_grant_challenge(_leader_id uuid, _target_user_id uuid) returns boolean` — `_target_user_id` jest w strukturze w dół lidera AND `user_completed_szybki_start(_target_user_id)` AND lider ma `can_grant_access = true`.
+- `public.can_leader_view_challenge_stats(_leader_id uuid) returns boolean` — `challenge_leader_permissions.can_view_structure_stats = true`.
+- `public.calculate_challenge_day(_participant_id uuid) returns int` — liczy dni od `start_date` z wykluczeniem `excluded_weekdays` z settings + `excluded_dates` z settings + `excluded_dates` z participanta.
 
-### 3. Frontend — `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx`
+RLS:
+- `challenge_participants`: SELECT — sam siebie OR admin OR (lider z `can_view_structure_stats` widzi swoją strukturę).
+- `challenge_task_completions`: tak samo.
+- `challenge_tasks`: SELECT dla wszystkich z `has_challenge_access`; INSERT/UPDATE/DELETE tylko admin.
+- `challenge_settings`: SELECT dla wszystkich auth; UPDATE admin.
+- `challenge_user_access`: INSERT przez admina OR przez lidera tylko gdy `can_leader_grant_challenge`.
 
-Zmiana kryterium z `isFreeEvent` na **audiencję wiersza**:
+Seed: po migracji — `supabase--insert` z `INSERT INTO challenge_user_access (user_id, granted_by) SELECT id, id FROM profiles WHERE username = 'sebastiansnopek87' OR email LIKE 'sebastiansnopek87%' LIMIT 1;`
 
-- Komórka „Płatność" (`renderPaymentCell`):
-  - `cancelled` → czerwone „Anulowane" (bez zmian).
-  - `audience === 'partner'` lub event nie jest bezpłatny → standardowe `PAYMENT_LABELS` (**Opłacone / Oczekuje / Zwrot**) — tak jak było pierwotnie. Dla Sylwii: żółte „Oczekuje" do czasu zatwierdzenia, potem zielone „Opłacone".
-  - `audience !== 'partner'` (gość / gość PLC) i event `is_free` → „Bezpłatne — potwierdzone" / „Bezpłatne — czeka na potwierdzenie e‑mail" (jak teraz).
-- Akcje płatności:
-  - „Oznacz jako opłacone" — widoczne dla `audience === 'partner'` lub event nie‑bezpłatny, gdy `payment_status !== 'paid'`.
-  - „Cofnij do oczekującego" — widoczne dla tych samych przypadków, gdy `payment_status === 'paid'`.
-  - Ukryte tylko dla gości na bezpłatnym evencie.
-- Eksport Excel — ten sam podział: dla partnerów standardowe etykiety `PAYMENT_LABELS`, dla gości na free — „Bezpłatne — potwierdzone/oczekuje".
+### 2. Routing i widoczność
 
-### 4. Czego NIE zmieniam
-- RLS, schema bazy, `MyEventFormReferrals.tsx`, `issueFreeTicketForOrder`, `create-event-order`.
-- Logika dla gości na bezpłatnym evencie (aktualne zachowanie pozostaje).
+- `/wyzwanie-90` — strona uczestnika (gate `has_challenge_access`).
+- `/admin?tab=challenge` — zakładka admina (pod-zakładki: Ustawienia / Zadania / Uczestnicy / Dostęp / Statystyki).
+- `/panel-lidera?tab=challenge` — zakładka lidera (Moja struktura / Nadaj dostęp / Statystyki — ostatnia widoczna tylko gdy `can_view_structure_stats`).
+- Wpis do `KNOWN_APP_ROUTES`, brak `PUBLIC_PATHS` (auth-only).
+- Sidebar/menu: pozycja warunkowa na `has_challenge_access`.
 
-## Pliki
+### 3. Onboarding uczestnika
 
-- `supabase/functions/confirm-event-form-email/index.ts` — rozróżnienie partner vs gość, brak auto‑paid dla partnera.
-- `supabase/functions/admin-mark-event-payment/index.ts` — fallback tworzenia darmowego ordera dla starych partnerskich zgłoszeń bez `order_id`.
-- `src/components/admin/paid-events/event-forms/EventFormSubmissions.tsx` — komórka „Płatność", przyciski akcji, eksport Excel oparte o audiencję.
+`ChallengeOnboarding`:
+- Hero z banerem i nazwą.
+- Zakładki **Regulamin** i **Instrukcja** (HTML z settings).
+- Wybór `start_date` (domyślnie dziś, można przesunąć w przyszłość — np. „startuję od poniedziałku").
+- Checkbox „Akceptuję regulamin".
+- Przycisk **Dołączam** → tworzy `challenge_participants` z `accepted_terms_at = now()`.
 
-## Efekt dla widoku z screena
+### 4. Panel admina
 
-- **Sylwia Ha** (Partner) → żółte **„Oczekuje"** + przycisk **„Oznacz jako opłacone"** (po kliknięciu: zielone „Opłacone" + „Cofnij do oczekującego" + wysyłka biletu).
-- **Anna Olewińska** (Gość) → bez zmian, „Bezpłatne — czeka na potwierdzenie e‑mail" → automatycznie „Bezpłatne — potwierdzone" po kliknięciu w mail.
+`src/components/admin/challenge/`:
+- `ChallengeSettingsTab` — regulamin, instrukcja, banner, kolor, wybór modułu „Szybki Start", globalne wykluczenia dni.
+- `ChallengeTasksTab` — siatka 90 dni; per dzień lista zadań; modal dodawania z pickerem zasobu (re-use pickerów resources/lessons/videos/files/URL).
+- `ChallengeAccessTab` — `UserAccessPicker` + lista liderów z dwoma togglami: `can_grant_access`, `can_view_structure_stats`.
+- `ChallengeParticipantsTab` — tabela uczestników, postęp, punkty, status, akcje (reset, pauza, dodaj wykluczone dni, ręczna weryfikacja zadania).
+- `ChallengeStatsTab` — szczegółowe wykresy (Recharts): aktywni w czasie, retencja per dzień, drop-off, top/bottom zadania, średni czas wykonania, ranking pełny, heatmapa aktywności.
+
+### 5. Panel lidera
+
+`src/components/leader/challenge/`:
+- Lista użytkowników z mojej struktury z flagą „Szybki Start ukończony" (tylko ci mogą dostać dostęp).
+- Przycisk „Nadaj dostęp" — wywołuje `can_leader_grant_challenge` (server-side guard).
+- Zakładka „Statystyki struktury" — widoczna tylko gdy `can_view_structure_stats` (toggle przez admina).
+
+### 6. Widok uczestnika (po dołączeniu)
+
+- Hero: dzień `X/90`, pasek postępu, suma punktów, streak.
+- Karta **Dzisiejsze zadania** — lista z odpowiednimi interakcjami per `task_type`:
+  - `video_watch` → `LazyVideoPlayer` + tracking `watched_seconds`,
+  - `file_download` → przycisk + log,
+  - `link_visit`/`button_click` → przycisk z trackingiem,
+  - `resource_view`/`training_lesson` → link do modułu + sprawdzenie ukończenia w istniejących tabelach,
+  - `manual_confirm` → checkbox z opisem.
+- **Historia poprzednich dni** — podgląd, opcjonalnie „nadrób" jeśli `verification_mode = auto`.
+- **Ranking** (jeśli `ranking_visible_to_participants`): podium top 3 (z efektem złoto/srebro/brąz) + tabela pozostałych z pozycją i punktami, własna pozycja zawsze podświetlona.
+- **Streak** — dni z rzędu z kompletem zadań.
+
+### 7. Edge function CRON
+
+`supabase/functions/challenge-daily-supervisor/index.ts`:
+- Codziennie o 06:00 Warszawa (przez `pg_cron` + `pg_net`, logika dat przez `warsawLocalToUtc`).
+- Dla każdego aktywnego uczestnika:
+  - przelicza `current_day` przez `calculate_challenge_day` (z wykluczeniami),
+  - auto-weryfikuje zadania `auto` na podstawie `evidence` (czas wideo, lekcja ukończona, plik pobrany),
+  - oznacza zadania `manual_admin` jako `pending` z notyfikacją w panelu admina,
+  - sumuje punkty do `total_points`, aktualizuje `current_streak`/`longest_streak`,
+  - przy `current_day > 90` → `status = 'completed'`, `completion_date = now()`,
+  - log do `cron_job_logs`.
+
+### 8. Profesjonalny wygląd
+
+- Dedykowany hero z gradientem opartym o `accent_color`, animowany pasek postępu.
+- Glassmorphism na kartach zadań, ikony per typ z `lucide-react`, kolorowe statusy.
+- `framer-motion`: puls przy zaliczeniu, konfetti po ukończeniu wszystkich zadań dnia.
+- Podium rankingu z 3D-cieniami i metalicznym akcentem (złoto/srebro/brąz).
+- Bento-grid statystyk admina.
+- Semantic tokens w `index.css`: `--challenge-primary`, `--challenge-accent`, `--challenge-gold`, `--challenge-silver`, `--challenge-bronze`.
+
+### 9. Czego NIE robimy w etapie 1
+
+- Powiadomienia push/email per dzień (kolejny etap razem z `notification_event_types`).
+- Eksport rankingu do PDF/Excel.
+- i18n (na razie PL; struktura przygotowana pod tłumaczenia).
+- Certyfikaty/nagrody po ukończeniu.
+
+### Pliki
+
+**Migracja:** jedna z tabelami + enumy + RLS + GRANT + 5 funkcji security definer.
+
+**Seed (przez `supabase--insert`):** dostęp dla `sebastiansnopek87`.
+
+**Edge function:** `supabase/functions/challenge-daily-supervisor/index.ts` + wpis `pg_cron` przez `supabase--insert`.
+
+**Frontend nowe:**
+- `src/pages/ChallengePage.tsx`
+- `src/components/challenge/` (Onboarding, Dashboard, TaskCard, Progress, Ranking, Podium, Streak)
+- `src/components/admin/challenge/` (5 zakładek)
+- `src/components/leader/challenge/` (3 widoki)
+- `src/hooks/useChallengeAccess.ts`, `useChallengeParticipant.ts`, `useChallengeTasks.ts`, `useChallengeStats.ts`, `useChallengeRanking.ts`, `useChallengeLeaderGrant.ts`
+- `src/types/challenge.ts`
+
+**Frontend edycje (minimalne, bez zmiany istniejącej logiki):**
+- `src/App.tsx` — trasa `/wyzwanie-90`.
+- `src/components/admin/AdminPanel.tsx` — zakładka „Wyzwanie 90-dniowe".
+- panel lidera — zakładka „Wyzwanie 90-dniowe".
+- `src/components/layout/Sidebar.tsx` — warunkowa pozycja menu.
+- `src/index.css` — tokeny `--challenge-*`.
+
+Po akceptacji ruszam od migracji.
