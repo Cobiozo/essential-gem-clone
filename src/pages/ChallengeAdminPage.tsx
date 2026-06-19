@@ -81,8 +81,9 @@ export default function ChallengeAdminPage() {
       </div>
 
       <Tabs defaultValue="settings">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
+          <TabsTrigger value="banner">Baner</TabsTrigger>
           <TabsTrigger value="tasks">Zadania</TabsTrigger>
           <TabsTrigger value="participants">Uczestnicy</TabsTrigger>
           <TabsTrigger value="pairs">Pary</TabsTrigger>
