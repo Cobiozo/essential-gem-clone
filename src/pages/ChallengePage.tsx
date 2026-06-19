@@ -63,9 +63,12 @@ export default function ChallengePage() {
 
   if (!settings) return null;
 
-  if (!participant) {
-    return <ChallengeOnboarding settings={settings} onJoined={load} />;
-  }
-
-  return <ChallengeDashboard settings={settings} participant={participant} />;
+  return (
+    <>
+      {bannerConfig.enabled && bannerConfig.image_url ? <ChallengeBanner config={bannerConfig} /> : null}
+      {!participant
+        ? <ChallengeOnboarding settings={settings} onJoined={load} />
+        : <ChallengeDashboard settings={settings} participant={participant} />}
+    </>
+  );
 }
