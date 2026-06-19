@@ -14,12 +14,16 @@ interface Props {
 }
 
 export const ChallengeDashboard = ({ settings, participant }: Props) => {
+  const navigate = useNavigate();
   const accent = settings.accent_color || "#7c3aed";
   const day = Math.max(1, Math.min(participant.current_day, settings.duration_days));
   const pct = Math.round((day / settings.duration_days) * 100);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="-ml-2">
+        <ArrowLeft className="w-4 h-4 mr-1.5" /> Pulpit
+      </Button>
       <div className="relative overflow-hidden rounded-3xl p-8" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}aa 60%, hsl(var(--background)))` }}>
         <div className="relative text-white space-y-3">
           <ChallengeHeroBadge accent="#fff" />
