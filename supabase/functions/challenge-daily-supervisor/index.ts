@@ -189,23 +189,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log("[challenge-supervisor] summary", mode, summary);
     await client.from("cron_job_logs").insert({
       job_name: "challenge-daily-supervisor",
       status: "success",
-      message: `mode=${mode} ${JSON.stringify(summary)}`,
-      duration_ms: Date.now() - startedAt,
+      processed_count: summary.processed,
+      started_at: new Date(startedAt).toISOString(),
+      completed_at: new Date().toISOString(),
+      details: { mode, ...summary },
     });
 
     return new Response(JSON.stringify({ ok: true, mode, ...summary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("[challenge-supervisor] fatal", e);
     await client.from("cron_job_logs").insert({
       job_name: "challenge-daily-supervisor",
       status: "error",
-      message: String((e as Error).message ?? e),
-      duration_ms: Date.now() - startedAt,
+      error_message: String((e as Error).message ?? e),
+      started_at: new Date(startedAt).toISOString(),
+      completed_at: new Date().toISOString(),
+      details: { mode },
     });
+
     return new Response(JSON.stringify({ ok: false, error: String(e) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
