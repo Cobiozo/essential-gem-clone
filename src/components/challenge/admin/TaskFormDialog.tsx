@@ -278,6 +278,7 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
     if (!title.trim()) { toast.error("Wpisz tytuł zadania"); return; }
     setSaving(true);
     const evidenceRequired = requiresEvidence || template === "external_url" || template === "file_upload";
+    const finalVerificationMode = verificationModeOverride !== "auto" ? verificationModeOverride : built.verification_mode;
     const payload = {
       day_number: Number(dayNumber || 1),
       title: title.trim(),
@@ -286,7 +287,7 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
       target_ref: built.target_ref,
       points: Number(points || 0),
       required_to_advance: requiredToAdvance,
-      verification_mode: built.verification_mode,
+      verification_mode: finalVerificationMode,
       is_active: isActive,
       sort_order: Number(sortOrder || 0),
       requires_evidence: evidenceRequired,
