@@ -17,7 +17,7 @@ interface Props {
 
 export const DayTasksList = ({ participant, currentDay }: Props) => {
   const [tasks, setTasks] = useState<ChallengeTask[]>([]);
-  const [completions, setCompletions] = useState<Map<string, string>>(new Map());
+  const [completions, setCompletions] = useState<Map<string, { status: string; evidence: any }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -25,10 +25,10 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
     setLoading(true);
     const [tRes, cRes] = await Promise.all([
       supabase.from("challenge_tasks").select("*").eq("is_active", true).lte("day_number", currentDay).order("day_number").order("sort_order"),
-      supabase.from("challenge_task_completions").select("task_id, verification_status").eq("participant_id", participant.id),
+      supabase.from("challenge_task_completions").select("task_id, verification_status, evidence").eq("participant_id", participant.id),
     ]);
     setTasks((tRes.data ?? []) as any);
-    setCompletions(new Map((cRes.data ?? []).map((c: any) => [c.task_id, c.verification_status])));
+    setCompletions(new Map((cRes.data ?? []).map((c: any) => [c.task_id, { status: c.verification_status, evidence: c.evidence }])));
     setLoading(false);
   };
 
