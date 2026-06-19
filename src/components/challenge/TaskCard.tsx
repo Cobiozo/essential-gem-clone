@@ -164,7 +164,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
       // Peer task (manual_confirm + peer): mark pending, evidence optional
       if (check === "peer_review" || (isPeer && task.task_type === "manual_confirm")) {
         await ensureCompletionRow("pending");
-        toast.info("Po wykonaniu kliknij „Wyślij partnerowi do akceptacji".");
+        toast.info('Po wykonaniu kliknij „Wyślij partnerowi do akceptacji".');
         return;
       }
 
