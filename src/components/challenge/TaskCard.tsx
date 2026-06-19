@@ -45,7 +45,9 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
   const ref = (task.target_ref ?? {}) as Record<string, any>;
   const check = ref.check as string | undefined;
   const { log } = useChallengeAction();
+  const { trackActivity } = useActivityTracking();
   const [busy, setBusy] = useState(false);
+
 
   const cta = useMemo(() => renderCta(task, ref, check), [task, ref, check]);
 
