@@ -8,6 +8,8 @@ export type ActivityType =
   | 'certificate_download'
   | 'resource_view'
   | 'training_lesson_complete'
+  | 'training_lesson_completed'
+  | 'training_lesson_opened'
   | 'training_module_start'
   | 'file_upload'
   | 'profile_update'
