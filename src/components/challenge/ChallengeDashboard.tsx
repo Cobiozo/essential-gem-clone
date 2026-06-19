@@ -37,6 +37,8 @@ export const ChallengeDashboard = ({ settings, participant }: Props) => {
         </div>
       </div>
 
+      <PeerReviewInbox />
+
       <DayTasksList participant={participant} currentDay={day} />
     </div>
   );
