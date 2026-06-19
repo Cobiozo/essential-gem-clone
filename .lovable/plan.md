@@ -1,47 +1,49 @@
-## Co zmienić
+## Diagnoza: dlaczego zadania nie są zaliczane
 
-Zadania są w bazie (9 sztuk, dni 1–3) — problem jest taki, że w `ChallengeAdminPage.tsx` taby „Zadania", „Uczestnicy", „Dostęp", „Statystyki" pokazują tylko placeholdery „pojawi się w kolejnym kroku". Trzeba je rzeczywiście zbudować + przejść z indywidualnej daty startu na globalną.
+Po analizie kodu Edge Function `challenge-daily-supervisor`, funkcji SQL `challenge_count_action`, logów CRON i danych w bazie znalazłem **4 realne błędy**, przez które CRON nie weryfikuje większości zadań.
 
-### 1. Globalna data startu (admin decyduje)
+### 1. CRON loguje do `cron_job_logs` z nieistniejącymi kolumnami (silent fail)
+Edge Function wstawia `message` i `duration_ms`, a tabela ma `error_message` i `details`. Wstawienie się wywala → **brak jakichkolwiek logów** o uruchomieniach (potwierdzone: `SELECT * FROM cron_job_logs` = 0 wierszy), choć CRON się boots-uje co godzinę (logi Edge potwierdzają).
 
-**Migracja** — `challenge_settings`:
-- `global_start_date DATE` (nullable — gdy null, wyzwanie nie wystartowało)
-- `allow_late_join BOOLEAN DEFAULT true` (czy można dołączyć po starcie)
+### 2. `profile_completion_100` odwołuje się do nieistniejącej kolumny
+Funkcja `challenge_count_action` robi `SELECT profile_completion_percentage FROM profiles` — taka kolumna nie istnieje w `profiles`. RPC zwraca błąd → traktowane jako 0 → zadanie „Uzupełnij profil do 100%" **nigdy się nie zaliczy**.
 
-**Backend** — `supabase/functions/challenge-daily-supervisor/index.ts`:
-- `calcCurrentDay` używa `settings.global_start_date` zamiast `participant.start_date`.
-- Jeśli `global_start_date` w przyszłości lub null → `current_day = 0`, brak weryfikacji.
+### 3. `resource_view` nie loguje aktywności
+`TaskCard` dla typu `resource_view` robi tylko `window.open(...)` i NIE wywołuje `trackActivity('resource_view', { resource_id })`. CRON sprawdza `user_activity_log` po `resource_id`, ale nic tam nigdy nie trafia → zadanie „Przeczytaj zasób PURE KONTAKT" **nigdy się nie zaliczy** (stąd brak Zaliczone na zrzucie).
 
-**Frontend uczestnika** — `ChallengeOnboarding.tsx`:
-- Usunąć `<Input type="date">` i opis „możesz wystartować dziś…".
-- Pokazać info-box: data startu, ile dni zostało / „wyzwanie trwa, dzień X" / „termin wkrótce".
-- Insert do `challenge_participants` bez `start_date` (domyślnie = `global_start_date` przez DEFAULT lub trigger).
+### 4. `shared_resource_recipients` nie ma źródła zdarzeń
+CRON liczy wpisy `action_type='share_send'` w `challenge_activity_log`, ale nigdzie w aplikacji nie wstawiamy takich wpisów przy udostępnianiu zasobu. Zadanie „Udostępnij wideo 10 osobom" **nigdy się nie zaliczy**.
 
-### 2. Edytor zadań w admin panelu (tab „Zadania")
+### Status na zrzucie (potwierdzony danymi)
+- ✅ Dzień 1 / wideo powitalne — zaliczone (log + completion verified)
+- ❌ Dzień 1 / PURE KONTAKT — błąd #3
+- ⏳ Dzień 1 / profil 100% — pending, ale błąd #2 blokuje weryfikację
+- Streak = 0 bo dzień 1 nie ma wszystkich wymaganych zadań verified
 
-Pełny CRUD na `challenge_tasks`:
-- Lista pogrupowana po `day_number` (akordeon: Dzień 1, Dzień 2, …).
-- Dla każdego zadania: tytuł, opis, typ (`video_watch | resource_view | manual_confirm | external_action | button_click | training_lesson | link_visit | page_view`), punkty, wymagane do postępu, aktywne, `sort_order`.
-- Edytor `target_ref` (JSON) — uproszczone pola w zależności od typu (resource_id, lesson_id, required_seconds, count, check, page itd.) + raw JSON fallback.
-- Akcje: dodaj zadanie do dnia, edytuj, usuń, duplikuj na inny dzień, włącz/wyłącz.
+---
 
-### 3. Tab „Uczestnicy"
+## Plan naprawy
 
-Tabela: imię, email, status, current_day, current_streak, total_points, start_date, completion_date. Filtr po statusie + akcja „usuń z wyzwania" / „resetuj postęp".
+### A) Migracja SQL
+1. **Fix `challenge_count_action`** — gałąź `profile_completion_100`:
+   - usunąć referencję do `profile_completion_percentage`
+   - policzyć completion ad-hoc na podstawie istniejących pól `profiles` (mail/telefon/imię/avatar/itp.) lub po prostu sprawdzić zestaw kluczowych pól wypełnionych — zwrócić 1 gdy „kompletny".
+2. (Opcjonalnie) dodać gałąź `share_send` z fallbackiem na `team_contacts` × broadcast — albo zostawić jak jest, dopóki nie podepniemy logowania (patrz pkt C).
 
-### 4. Tab „Dostęp"
+### B) Edge Function `challenge-daily-supervisor`
+- Zamienić `message`/`duration_ms` na `error_message`/`details` + `started_at`/`completed_at`/`processed_count` zgodnie z faktycznym schematem `cron_job_logs`. Dzięki temu zaczniemy widzieć przebiegi.
+- Dodać try/catch wokół insertu logu i `console.log(summary)` aby było widać w Edge Logs nawet gdy DB insert zawiedzie.
 
-Lista `challenge_user_access` + dodawanie/usuwanie (autocomplete user). Drugi blok: `challenge_leader_permissions` (admin nadaje liderowi prawo zarządzania jego downline).
+### C) Frontend — `TaskCard.tsx`
+- Dla `resource_view`: przed `window.open` wywołać `useActivityTracking().trackActivity('resource_view', { resource_id }, '/knowledge')` + log do `challenge_activity_log` przez `useChallengeAction`.
+- Dla `training_lesson` / `training_lesson_opened`: dodać `trackActivity('training_module_start', { lesson_id })` przed `window.open`.
+- Dla `page_view`: dodać `trackActivity('page_view', {}, ref.page_path)` — żeby CRON miał co policzyć.
+- Dla `shared_resource_recipients`: na razie best-effort — bez integracji z modułem share zostawić tylko CTA + tooltip „akcja wymaga rzeczywistego udostępnienia w Bazie Wiedzy". (Pełna integracja w osobnym kroku.)
 
-### 5. Tab „Statystyki"
-
-Karty: liczba uczestników aktywnych / ukończonych / porzuconych, średni dzień, top 10 rankingu, % ukończenia zadań per dzień (od 1 do duration_days).
+### D) Weryfikacja po wdrożeniu
+- Ręcznie odpalić „Sprawdź postęp" → sprawdzić `cron_job_logs` (powinien pojawić się wiersz `success`) i `challenge_task_completions` (PURE KONTAKT + profil 100% powinny zostać `verified`).
 
 ### Pliki
-
-- Migracja: dodanie pól w `challenge_settings`.
-- `supabase/functions/challenge-daily-supervisor/index.ts` — global date.
-- `src/types/challenge.ts` — pola `global_start_date`, `allow_late_join`.
-- `src/components/challenge/ChallengeOnboarding.tsx` — usunięcie pickera.
-- `src/pages/ChallengeAdminPage.tsx` — wpięcie 4 nowych komponentów tabów.
-- Nowe: `src/components/challenge/admin/TasksEditor.tsx`, `TaskFormDialog.tsx`, `ParticipantsTable.tsx`, `AccessManager.tsx`, `ChallengeStats.tsx`.
+- `supabase/migrations/<new>.sql` — fix `challenge_count_action`
+- `supabase/functions/challenge-daily-supervisor/index.ts` — fix kolumn logu
+- `src/components/challenge/TaskCard.tsx` — dołożenie `trackActivity` w odpowiednich gałęziach
