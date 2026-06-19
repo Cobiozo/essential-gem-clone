@@ -6,11 +6,14 @@ export type ChallengeTaskType =
   | "resource_view"
   | "training_lesson"
   | "manual_confirm"
-  | "external_action";
+  | "external_action"
+  | "external_url"
+  | "file_upload"
+  | "quiz";
 
 export type ChallengeParticipantStatus = "active" | "paused" | "completed" | "abandoned";
-export type ChallengeCompletionStatus = "pending" | "verified" | "rejected";
-export type ChallengeVerificationMode = "auto" | "manual_admin" | "self_confirm";
+export type ChallengeCompletionStatus = "pending" | "verified" | "rejected" | "pending_review";
+export type ChallengeVerificationMode = "auto" | "manual_admin" | "self_confirm" | "peer" | "admin_review";
 
 export interface ChallengeSettings {
   id: boolean;
@@ -56,4 +59,27 @@ export interface ChallengeTask {
   verification_mode: ChallengeVerificationMode;
   is_active: boolean;
   sort_order: number;
+  requires_evidence?: boolean;
+  min_evidence_files?: number;
+  allowed_file_types?: string[];
+  deadline_hours_after_start?: number | null;
+  cooldown_minutes?: number;
+}
+
+export interface EvidenceFile {
+  url: string;
+  path: string;
+  name: string;
+  mime: string;
+  size: number;
+  uploaded_at: string;
+}
+
+export interface ChallengePeerPair {
+  id: string;
+  participant_a_id: string;
+  participant_b_id: string;
+  team_id: string | null;
+  created_by: string;
+  created_at: string;
 }
