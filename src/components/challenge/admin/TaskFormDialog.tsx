@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PlayCircle, GraduationCap, BookOpen, ExternalLink, Users, MessageSquare, Share2, UserCheck, ClipboardCheck } from "lucide-react";
+import { PlayCircle, GraduationCap, BookOpen, ExternalLink, Users, MessageSquare, Share2, UserCheck, ClipboardCheck, Link as LinkIcon, Upload, Handshake } from "lucide-react";
 import type { ChallengeTask } from "@/types/challenge";
 
 /** Template = a high-level admin choice. It maps to (task_type, target_ref, verification_mode). */
@@ -22,7 +22,10 @@ type TemplateKey =
   | "dm_threads"
   | "share_video"
   | "profile_100"
-  | "self_confirm";
+  | "self_confirm"
+  | "external_url"
+  | "file_upload"
+  | "peer_task";
 
 const TEMPLATES: { key: TemplateKey; label: string; desc: string; Icon: any }[] = [
   { key: "video_hk",     label: "Obejrzyj wideo z Bazy Wiedzy", desc: "Wskaż konkretne wideo. Użytkownik otworzy je jednym kliknięciem.", Icon: PlayCircle },
@@ -34,6 +37,9 @@ const TEMPLATES: { key: TemplateKey; label: string; desc: string; Icon: any }[] 
   { key: "share_video",  label: "Udostępnij wideo X osobom", desc: "Wskaż wideo + liczba odbiorców.", Icon: Share2 },
   { key: "profile_100",  label: "Uzupełnij profil do 100%", desc: "CRON sprawdza komplet danych profilu.", Icon: UserCheck },
   { key: "self_confirm", label: "Zadanie offline (samo-potwierdzenie)", desc: "Użytkownik sam potwierdzi przyciskiem na podstawie opisu.", Icon: ClipboardCheck },
+  { key: "external_url", label: "Zewnętrzny link + dowód", desc: "Admin podaje URL (np. ankieta). User wraca i wgrywa screen/PDF.", Icon: LinkIcon },
+  { key: "file_upload",  label: "Wgraj plik jako dowód", desc: "Użytkownik wgrywa PDF/DOC/XLS/PNG/JPG. Weryfikacja: peer lub admin.", Icon: Upload },
+  { key: "peer_task",    label: "Zadanie peer (wzajemne)", desc: "Wymaga sparowania uczestników. Partner zalicza zadanie.", Icon: Handshake },
 ];
 
 const APP_PAGES: { value: string; label: string }[] = [
@@ -72,6 +78,9 @@ const detectTemplate = (t: Partial<ChallengeTask> | null | undefined): TemplateK
   if (check === "new_dm_threads") return "dm_threads";
   if (check === "shared_resource_recipients") return "share_video";
   if (check === "profile_completion_100") return "profile_100";
+  if (t.task_type === "external_url") return "external_url";
+  if (t.task_type === "file_upload") return "file_upload";
+  if (t.verification_mode === "peer") return "peer_task";
   if (t.verification_mode === "self_confirm" || check === "self_confirm") return "self_confirm";
   return "self_confirm";
 };
@@ -107,6 +116,12 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
   const [shareResourceId, setShareResourceId] = useState("");
   const [shareCount, setShareCount] = useState<number>(10);
 
+  // external_url / file_upload / peer_task extras
+  const [externalUrl, setExternalUrl] = useState("");
+  const [requiresEvidence, setRequiresEvidence] = useState(false);
+  const [minEvidenceFiles, setMinEvidenceFiles] = useState<number>(1);
+  const [verificationModeOverride, setVerificationModeOverride] = useState<"auto" | "peer" | "admin_review" | "self_confirm" | "manual_admin">("auto");
+
   // ---- init from props ----
   useEffect(() => {
     if (!open) return;
@@ -135,6 +150,11 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
     setCount(Number(r.count ?? 5));
     setShareResourceId(r.resource_id ?? "");
     setShareCount(Number(r.min_recipients ?? 10));
+
+    setExternalUrl(String(r.external_url ?? ""));
+    setRequiresEvidence(!!t.requires_evidence);
+    setMinEvidenceFiles(Number(t.min_evidence_files ?? 1));
+    setVerificationModeOverride((t.verification_mode as any) ?? "auto");
   }, [open, initial, defaultDay]);
 
   // ---- load data lists per template ----
@@ -232,6 +252,22 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
         target_ref = { check: "self_confirm" };
         verification_mode = "self_confirm";
         break;
+      case "external_url":
+        if (!externalUrl) throw new Error("Podaj URL");
+        task_type = "external_url";
+        target_ref = { external_url: externalUrl, requires_evidence: true };
+        verification_mode = (verificationModeOverride === "auto" ? "peer" : verificationModeOverride) as any;
+        break;
+      case "file_upload":
+        task_type = "file_upload";
+        target_ref = { requires_evidence: true };
+        verification_mode = (verificationModeOverride === "auto" ? "peer" : verificationModeOverride) as any;
+        break;
+      case "peer_task":
+        task_type = "manual_confirm";
+        target_ref = { check: "peer_review" };
+        verification_mode = "peer";
+        break;
     }
     return { task_type, target_ref, verification_mode };
   };
@@ -241,6 +277,8 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
     try { built = buildPayload(); } catch (e: any) { toast.error(e.message); return; }
     if (!title.trim()) { toast.error("Wpisz tytuł zadania"); return; }
     setSaving(true);
+    const evidenceRequired = requiresEvidence || template === "external_url" || template === "file_upload";
+    const finalVerificationMode = verificationModeOverride !== "auto" ? verificationModeOverride : built.verification_mode;
     const payload = {
       day_number: Number(dayNumber || 1),
       title: title.trim(),
@@ -249,9 +287,11 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
       target_ref: built.target_ref,
       points: Number(points || 0),
       required_to_advance: requiredToAdvance,
-      verification_mode: built.verification_mode,
+      verification_mode: finalVerificationMode,
       is_active: isActive,
       sort_order: Number(sortOrder || 0),
+      requires_evidence: evidenceRequired,
+      min_evidence_files: evidenceRequired ? Math.max(1, Number(minEvidenceFiles || 1)) : 0,
     };
     const { error } = initial?.id
       ? await (supabase.from("challenge_tasks") as any).update(payload).eq("id", initial.id)
@@ -446,6 +486,53 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
               Użytkownik zobaczy przycisk „Potwierdzam wykonanie" i sam zaliczy zadanie na podstawie opisu. Brak weryfikacji CRON.
             </p>
           )}
+
+          {template === "external_url" && (
+            <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+              <div className="space-y-2">
+                <Label>Zewnętrzny URL</Label>
+                <Input value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://forms.google.com/..." />
+                <p className="text-[11px] text-muted-foreground">User kliknie i zostanie przeniesiony na ten link, po powrocie wgrywa dowód (screen/PDF).</p>
+              </div>
+            </div>
+          )}
+
+          {template === "file_upload" && (
+            <p className="text-sm text-muted-foreground rounded-lg border p-3 bg-muted/30">
+              Użytkownik wgrywa od razu plik/pliki jako dowód wykonania zadania (PDF, DOC, XLS, PNG, JPG). Weryfikacja: partner z pary lub admin.
+            </p>
+          )}
+
+          {template === "peer_task" && (
+            <p className="text-sm text-muted-foreground rounded-lg border p-3 bg-muted/30">
+              Zadanie wzajemne — user wykonuje, partner z pary potwierdza w sekcji „Do zatwierdzenia". Wymaga wcześniejszego sparowania w zakładce <strong>Pary kontrolne</strong>.
+            </p>
+          )}
+
+          {/* Weryfikacja + dowód plikowy (dla wszystkich typów) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border p-3 bg-muted/20">
+            <div className="space-y-2">
+              <Label>Tryb weryfikacji</Label>
+              <Select value={verificationModeOverride} onValueChange={(v) => setVerificationModeOverride(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (CRON)</SelectItem>
+                  <SelectItem value="self_confirm">Samo-potwierdzenie</SelectItem>
+                  <SelectItem value="peer">Partner (peer)</SelectItem>
+                  <SelectItem value="admin_review">Admin akceptuje</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 pt-6">
+              <Switch checked={requiresEvidence} onCheckedChange={setRequiresEvidence} />
+              <span className="text-sm">Wymagaj dowodu plikowego</span>
+            </label>
+            <div className="space-y-2">
+              <Label>Min. liczba plików</Label>
+              <Input type="number" min={1} value={minEvidenceFiles} onChange={(e) => setMinEvidenceFiles(Number(e.target.value))} disabled={!requiresEvidence && template !== "external_url" && template !== "file_upload"} />
+            </div>
+          </div>
+
 
           {/* footer settings */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">

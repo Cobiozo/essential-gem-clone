@@ -17,7 +17,7 @@ interface Props {
 
 export const DayTasksList = ({ participant, currentDay }: Props) => {
   const [tasks, setTasks] = useState<ChallengeTask[]>([]);
-  const [completions, setCompletions] = useState<Map<string, string>>(new Map());
+  const [completions, setCompletions] = useState<Map<string, { status: string; evidence: any }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -25,10 +25,10 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
     setLoading(true);
     const [tRes, cRes] = await Promise.all([
       supabase.from("challenge_tasks").select("*").eq("is_active", true).lte("day_number", currentDay).order("day_number").order("sort_order"),
-      supabase.from("challenge_task_completions").select("task_id, verification_status").eq("participant_id", participant.id),
+      supabase.from("challenge_task_completions").select("task_id, verification_status, evidence").eq("participant_id", participant.id),
     ]);
     setTasks((tRes.data ?? []) as any);
-    setCompletions(new Map((cRes.data ?? []).map((c: any) => [c.task_id, c.verification_status])));
+    setCompletions(new Map((cRes.data ?? []).map((c: any) => [c.task_id, { status: c.verification_status, evidence: c.evidence }])));
     setLoading(false);
   };
 
@@ -54,7 +54,12 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
 
   const today = tasks.filter(t => t.day_number === currentDay);
   const earlier = tasks.filter(t => t.day_number < currentDay);
-  const isVerified = (id: string) => completions.get(id) === "verified";
+  const isVerified = (id: string) => completions.get(id)?.status === "verified";
+  const statusOf = (id: string) => completions.get(id)?.status;
+  const evidenceOf = (id: string) => {
+    const e = completions.get(id)?.evidence;
+    return Array.isArray(e?.files) ? e.files : [];
+  };
 
   return (
     <div className="space-y-4">
@@ -81,7 +86,7 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
             <Card className="p-8 text-center text-muted-foreground">Brak zadań na dziś.</Card>
           )}
           {today.map(t => (
-            <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} />
+            <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} completionStatus={statusOf(t.id)} initialEvidence={evidenceOf(t.id)} />
           ))}
         </TabsContent>
         <TabsContent value="earlier" className="space-y-6 mt-4">
@@ -95,7 +100,7 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
                 <DayCountdown forDay={day} dayOffset={day - currentDay} compact />
               </div>
               {earlier.filter(t => t.day_number === day).map(t => (
-                <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} />
+                <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} completionStatus={statusOf(t.id)} initialEvidence={evidenceOf(t.id)} />
               ))}
             </div>
           ))}
