@@ -116,6 +116,12 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
   const [shareResourceId, setShareResourceId] = useState("");
   const [shareCount, setShareCount] = useState<number>(10);
 
+  // external_url / file_upload / peer_task extras
+  const [externalUrl, setExternalUrl] = useState("");
+  const [requiresEvidence, setRequiresEvidence] = useState(false);
+  const [minEvidenceFiles, setMinEvidenceFiles] = useState<number>(1);
+  const [verificationModeOverride, setVerificationModeOverride] = useState<"auto" | "peer" | "admin_review" | "self_confirm" | "manual_admin">("auto");
+
   // ---- init from props ----
   useEffect(() => {
     if (!open) return;
