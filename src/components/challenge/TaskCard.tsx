@@ -61,17 +61,23 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
         });
         toast.success("Zarejestrowano oglądanie — weryfikacja w kolejnym cyklu CRON.");
       } else if (task.task_type === "resource_view") {
+        await trackActivity("resource_view", { resource_id: ref.resource_id }, "/knowledge");
+        toast.success("Zarejestrowano otwarcie zasobu.");
         window.open(`/knowledge?resource=${ref.resource_id}`, "_blank");
       } else if (task.task_type === "training_lesson" || check === "training_lesson_opened") {
+        await trackActivity("training_module_start", { lesson_id: ref.lesson_id }, "/training");
         window.open(`/training?lesson=${ref.lesson_id}`, "_blank");
       } else if (check === "team_contacts_added") {
         window.open("/kontakty-prywatne", "_blank");
       } else if (check === "shared_resource_recipients") {
+        toast.info("Akcja zostanie zaliczona po faktycznym udostępnieniu zasobu odbiorcom.");
         window.open(`/zdrowa-wiedza?share=${ref.resource_id}`, "_blank");
       } else if (check === "new_dm_threads") {
         window.open("/wiadomosci", "_blank");
       } else if (check === "page_view") {
+        await trackActivity("page_view", {}, String(ref.page_path ?? "/dashboard"));
         window.open(String(ref.page_path ?? "/dashboard"), "_blank");
+
       } else if (task.task_type === "manual_confirm") {
         await (supabase.from("challenge_task_completions") as any).upsert({
           participant_id: participantId,
