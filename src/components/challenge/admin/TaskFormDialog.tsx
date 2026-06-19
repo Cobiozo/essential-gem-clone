@@ -252,6 +252,22 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
         target_ref = { check: "self_confirm" };
         verification_mode = "self_confirm";
         break;
+      case "external_url":
+        if (!externalUrl) throw new Error("Podaj URL");
+        task_type = "external_url";
+        target_ref = { external_url: externalUrl, requires_evidence: true };
+        verification_mode = (verificationModeOverride === "auto" ? "peer" : verificationModeOverride) as any;
+        break;
+      case "file_upload":
+        task_type = "file_upload";
+        target_ref = { requires_evidence: true };
+        verification_mode = (verificationModeOverride === "auto" ? "peer" : verificationModeOverride) as any;
+        break;
+      case "peer_task":
+        task_type = "manual_confirm";
+        target_ref = { check: "peer_review" };
+        verification_mode = "peer";
+        break;
     }
     return { task_type, target_ref, verification_mode };
   };
