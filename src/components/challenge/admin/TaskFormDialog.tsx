@@ -277,6 +277,7 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
     try { built = buildPayload(); } catch (e: any) { toast.error(e.message); return; }
     if (!title.trim()) { toast.error("Wpisz tytuł zadania"); return; }
     setSaving(true);
+    const evidenceRequired = requiresEvidence || template === "external_url" || template === "file_upload";
     const payload = {
       day_number: Number(dayNumber || 1),
       title: title.trim(),
@@ -288,6 +289,8 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
       verification_mode: built.verification_mode,
       is_active: isActive,
       sort_order: Number(sortOrder || 0),
+      requires_evidence: evidenceRequired,
+      min_evidence_files: evidenceRequired ? Math.max(1, Number(minEvidenceFiles || 1)) : 0,
     };
     const { error } = initial?.id
       ? await (supabase.from("challenge_tasks") as any).update(payload).eq("id", initial.id)
