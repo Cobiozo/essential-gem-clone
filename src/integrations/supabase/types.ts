@@ -1966,18 +1966,21 @@ export type Database = {
         Row: {
           granted_at: string
           granted_by: string | null
+          granted_by_role: string
           id: string
           user_id: string
         }
         Insert: {
           granted_at?: string
           granted_by?: string | null
+          granted_by_role?: string
           id?: string
           user_id: string
         }
         Update: {
           granted_at?: string
           granted_by?: string | null
+          granted_by_role?: string
           id?: string
           user_id?: string
         }
@@ -5397,6 +5400,7 @@ export type Database = {
           can_host_private_meetings: boolean | null
           can_manage_auto_webinar_access: boolean | null
           can_manage_certificates: boolean | null
+          can_manage_challenge_access: boolean
           can_manage_daily_signal: boolean | null
           can_manage_event_registrations: boolean | null
           can_manage_important_info: boolean | null
@@ -5437,6 +5441,7 @@ export type Database = {
           can_host_private_meetings?: boolean | null
           can_manage_auto_webinar_access?: boolean | null
           can_manage_certificates?: boolean | null
+          can_manage_challenge_access?: boolean
           can_manage_daily_signal?: boolean | null
           can_manage_event_registrations?: boolean | null
           can_manage_important_info?: boolean | null
@@ -5477,6 +5482,7 @@ export type Database = {
           can_host_private_meetings?: boolean | null
           can_manage_auto_webinar_access?: boolean | null
           can_manage_certificates?: boolean | null
+          can_manage_challenge_access?: boolean
           can_manage_daily_signal?: boolean | null
           can_manage_event_registrations?: boolean | null
           can_manage_important_info?: boolean | null
@@ -11776,12 +11782,26 @@ export type Database = {
           user_id: string
         }[]
       }
+      leader_get_team_challenge_access: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          granted_by: string
+          granted_by_role: string
+          has_access: boolean
+          has_szybki_start_cert: boolean
+          user_id: string
+        }[]
+      }
       leader_reject_user: {
         Args: { rejection_reason?: string; target_user_id: string }
         Returns: boolean
       }
       leader_unblock_user: { Args: { p_block_id: string }; Returns: boolean }
       leader_update_auto_webinar_access: {
+        Args: { p_grant_access: boolean; p_target_user_id: string }
+        Returns: boolean
+      }
+      leader_update_challenge_access: {
         Args: { p_grant_access: boolean; p_target_user_id: string }
         Returns: boolean
       }
