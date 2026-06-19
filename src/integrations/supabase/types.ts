@@ -1731,6 +1731,48 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_peer_pairs: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          participant_a_id: string
+          participant_b_id: string
+          team_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          participant_a_id: string
+          participant_b_id: string
+          team_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          participant_a_id?: string
+          participant_b_id?: string
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_peer_pairs_participant_a_id_fkey"
+            columns: ["participant_a_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_peer_pairs_participant_b_id_fkey"
+            columns: ["participant_b_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       challenge_settings: {
         Row: {
           accent_color: string
@@ -1799,8 +1841,11 @@ export type Database = {
           id: string
           participant_id: string
           points_awarded: number
+          reviewer_comment: string | null
           task_id: string
+          task_started_at: string | null
           updated_at: string
+          verification_source: string | null
           verification_status: Database["public"]["Enums"]["challenge_completion_status"]
           verified_at: string | null
           verified_by: string | null
@@ -1812,8 +1857,11 @@ export type Database = {
           id?: string
           participant_id: string
           points_awarded?: number
+          reviewer_comment?: string | null
           task_id: string
+          task_started_at?: string | null
           updated_at?: string
+          verification_source?: string | null
           verification_status?: Database["public"]["Enums"]["challenge_completion_status"]
           verified_at?: string | null
           verified_by?: string | null
@@ -1825,8 +1873,11 @@ export type Database = {
           id?: string
           participant_id?: string
           points_awarded?: number
+          reviewer_comment?: string | null
           task_id?: string
+          task_started_at?: string | null
           updated_at?: string
+          verification_source?: string | null
           verification_status?: Database["public"]["Enums"]["challenge_completion_status"]
           verified_at?: string | null
           verified_by?: string | null
@@ -1850,13 +1901,18 @@ export type Database = {
       }
       challenge_tasks: {
         Row: {
+          allowed_file_types: string[]
+          cooldown_minutes: number
           created_at: string
           day_number: number
+          deadline_hours_after_start: number | null
           description: string | null
           id: string
           is_active: boolean
+          min_evidence_files: number
           points: number
           required_to_advance: boolean
+          requires_evidence: boolean
           sort_order: number
           target_ref: Json
           task_type: Database["public"]["Enums"]["challenge_task_type"]
@@ -1865,13 +1921,18 @@ export type Database = {
           verification_mode: Database["public"]["Enums"]["challenge_verification_mode"]
         }
         Insert: {
+          allowed_file_types?: string[]
+          cooldown_minutes?: number
           created_at?: string
           day_number: number
+          deadline_hours_after_start?: number | null
           description?: string | null
           id?: string
           is_active?: boolean
+          min_evidence_files?: number
           points?: number
           required_to_advance?: boolean
+          requires_evidence?: boolean
           sort_order?: number
           target_ref?: Json
           task_type?: Database["public"]["Enums"]["challenge_task_type"]
@@ -1880,13 +1941,18 @@ export type Database = {
           verification_mode?: Database["public"]["Enums"]["challenge_verification_mode"]
         }
         Update: {
+          allowed_file_types?: string[]
+          cooldown_minutes?: number
           created_at?: string
           day_number?: number
+          deadline_hours_after_start?: number | null
           description?: string | null
           id?: string
           is_active?: boolean
+          min_evidence_files?: number
           points?: number
           required_to_advance?: boolean
+          requires_evidence?: boolean
           sort_order?: number
           target_ref?: Json
           task_type?: Database["public"]["Enums"]["challenge_task_type"]
@@ -11276,6 +11342,7 @@ export type Database = {
         Args: { _action_key: string; _params?: Json; _participant_id: string }
         Returns: number
       }
+      challenge_get_peer: { Args: { _user_id: string }; Returns: string }
       check_event_conflicts: {
         Args: {
           p_end_time: string
@@ -11788,7 +11855,11 @@ export type Database = {
         | "user"
         | "moderator"
         | "guest"
-      challenge_completion_status: "pending" | "verified" | "rejected"
+      challenge_completion_status:
+        | "pending"
+        | "verified"
+        | "rejected"
+        | "pending_review"
       challenge_participant_status:
         | "active"
         | "paused"
@@ -11803,7 +11874,14 @@ export type Database = {
         | "training_lesson"
         | "manual_confirm"
         | "external_action"
-      challenge_verification_mode: "auto" | "manual_admin"
+        | "quiz"
+        | "external_url"
+        | "file_upload"
+      challenge_verification_mode:
+        | "auto"
+        | "manual_admin"
+        | "peer"
+        | "admin_review"
       news_hub_bento_size: "s" | "m" | "l"
       news_hub_post_type:
         | "announcement"
@@ -11951,7 +12029,12 @@ export const Constants = {
         "moderator",
         "guest",
       ],
-      challenge_completion_status: ["pending", "verified", "rejected"],
+      challenge_completion_status: [
+        "pending",
+        "verified",
+        "rejected",
+        "pending_review",
+      ],
       challenge_participant_status: [
         "active",
         "paused",
@@ -11967,8 +12050,16 @@ export const Constants = {
         "training_lesson",
         "manual_confirm",
         "external_action",
+        "quiz",
+        "external_url",
+        "file_upload",
       ],
-      challenge_verification_mode: ["auto", "manual_admin"],
+      challenge_verification_mode: [
+        "auto",
+        "manual_admin",
+        "peer",
+        "admin_review",
+      ],
       news_hub_bento_size: ["s", "m", "l"],
       news_hub_post_type: [
         "announcement",
