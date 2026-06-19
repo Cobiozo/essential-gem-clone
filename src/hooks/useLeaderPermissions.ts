@@ -186,6 +186,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
   const hasCertificates = data?.hasCertificates ?? false;
   const hasLandingPage = data?.hasLandingPage ?? false;
   const hasAutoWebinarAccess = data?.hasAutoWebinarAccess ?? false;
+  const hasChallengeAccessMgmt = data?.hasChallengeAccessMgmt ?? false;
 
   return {
     hasMeetings,
@@ -210,12 +211,13 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
     hasCertificates,
     hasLandingPage,
     hasAutoWebinarAccess,
+    hasChallengeAccessMgmt,
     isAnyLeaderFeatureEnabled:
       hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc ||
       hasOrgTree || hasApprovalPermission || hasTeamEvents || hasEventRegistrations ||
       hasTeamTrainingMgmt || hasKnowledgeBase || hasTeamNotifications || hasTeamEmails ||
       hasTeamPush || hasTeamContacts || hasTeamContactsMgmt || hasDailySignal ||
-      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage || hasAutoWebinarAccess,
+      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage || hasAutoWebinarAccess || hasChallengeAccessMgmt,
     leaderPermission: data?.leaderPermission ?? null,
     loading: isLoading,
   };
