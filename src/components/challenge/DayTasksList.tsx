@@ -100,7 +100,7 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
                 <DayCountdown forDay={day} dayOffset={day - currentDay} compact />
               </div>
               {earlier.filter(t => t.day_number === day).map(t => (
-                <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} />
+                <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} completionStatus={statusOf(t.id)} initialEvidence={evidenceOf(t.id)} />
               ))}
             </div>
           ))}
