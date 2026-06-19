@@ -199,6 +199,8 @@ const LeaderPanel: React.FC = () => {
         return <Suspense fallback={<LazyFallback />}><LeaderLandingEditorView /></Suspense>;
       case 'auto-webinar':
         return <Suspense fallback={<LazyFallback />}><LeaderAutoWebinarAccessView /></Suspense>;
+      case 'challenge-access':
+        return <Suspense fallback={<LazyFallback />}><LeaderChallengeAccessView /></Suspense>;
       default:
         return null;
     }
