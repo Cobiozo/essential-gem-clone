@@ -17,6 +17,7 @@ import { TasksEditor } from "@/components/challenge/admin/TasksEditor";
 import { ParticipantsTable } from "@/components/challenge/admin/ParticipantsTable";
 import { AccessManager } from "@/components/challenge/admin/AccessManager";
 import { ChallengeStats } from "@/components/challenge/admin/ChallengeStats";
+import { PeerPairsTab } from "@/components/challenge/admin/PeerPairsTab";
 
 export default function ChallengeAdminPage() {
   const { user } = useAuth();
