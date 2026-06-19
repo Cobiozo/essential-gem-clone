@@ -486,6 +486,53 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
             </p>
           )}
 
+          {template === "external_url" && (
+            <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+              <div className="space-y-2">
+                <Label>Zewnętrzny URL</Label>
+                <Input value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://forms.google.com/..." />
+                <p className="text-[11px] text-muted-foreground">User kliknie i zostanie przeniesiony na ten link, po powrocie wgrywa dowód (screen/PDF).</p>
+              </div>
+            </div>
+          )}
+
+          {template === "file_upload" && (
+            <p className="text-sm text-muted-foreground rounded-lg border p-3 bg-muted/30">
+              Użytkownik wgrywa od razu plik/pliki jako dowód wykonania zadania (PDF, DOC, XLS, PNG, JPG). Weryfikacja: partner z pary lub admin.
+            </p>
+          )}
+
+          {template === "peer_task" && (
+            <p className="text-sm text-muted-foreground rounded-lg border p-3 bg-muted/30">
+              Zadanie wzajemne — user wykonuje, partner z pary potwierdza w sekcji „Do zatwierdzenia". Wymaga wcześniejszego sparowania w zakładce <strong>Pary kontrolne</strong>.
+            </p>
+          )}
+
+          {/* Weryfikacja + dowód plikowy (dla wszystkich typów) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border p-3 bg-muted/20">
+            <div className="space-y-2">
+              <Label>Tryb weryfikacji</Label>
+              <Select value={verificationModeOverride} onValueChange={(v) => setVerificationModeOverride(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (CRON)</SelectItem>
+                  <SelectItem value="self_confirm">Samo-potwierdzenie</SelectItem>
+                  <SelectItem value="peer">Partner (peer)</SelectItem>
+                  <SelectItem value="admin_review">Admin akceptuje</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2 pt-6">
+              <Switch checked={requiresEvidence} onCheckedChange={setRequiresEvidence} />
+              <span className="text-sm">Wymagaj dowodu plikowego</span>
+            </label>
+            <div className="space-y-2">
+              <Label>Min. liczba plików</Label>
+              <Input type="number" min={1} value={minEvidenceFiles} onChange={(e) => setMinEvidenceFiles(Number(e.target.value))} disabled={!requiresEvidence && template !== "external_url" && template !== "file_upload"} />
+            </div>
+          </div>
+
+
           {/* footer settings */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">
             <div className="space-y-2">
