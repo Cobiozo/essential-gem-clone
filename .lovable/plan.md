@@ -1,49 +1,71 @@
-## Diagnoza: dlaczego zadania nie są zaliczane
+## Cel
 
-Po analizie kodu Edge Function `challenge-daily-supervisor`, funkcji SQL `challenge_count_action`, logów CRON i danych w bazie znalazłem **4 realne błędy**, przez które CRON nie weryfikuje większości zadań.
-
-### 1. CRON loguje do `cron_job_logs` z nieistniejącymi kolumnami (silent fail)
-Edge Function wstawia `message` i `duration_ms`, a tabela ma `error_message` i `details`. Wstawienie się wywala → **brak jakichkolwiek logów** o uruchomieniach (potwierdzone: `SELECT * FROM cron_job_logs` = 0 wierszy), choć CRON się boots-uje co godzinę (logi Edge potwierdzają).
-
-### 2. `profile_completion_100` odwołuje się do nieistniejącej kolumny
-Funkcja `challenge_count_action` robi `SELECT profile_completion_percentage FROM profiles` — taka kolumna nie istnieje w `profiles`. RPC zwraca błąd → traktowane jako 0 → zadanie „Uzupełnij profil do 100%" **nigdy się nie zaliczy**.
-
-### 3. `resource_view` nie loguje aktywności
-`TaskCard` dla typu `resource_view` robi tylko `window.open(...)` i NIE wywołuje `trackActivity('resource_view', { resource_id })`. CRON sprawdza `user_activity_log` po `resource_id`, ale nic tam nigdy nie trafia → zadanie „Przeczytaj zasób PURE KONTAKT" **nigdy się nie zaliczy** (stąd brak Zaliczone na zrzucie).
-
-### 4. `shared_resource_recipients` nie ma źródła zdarzeń
-CRON liczy wpisy `action_type='share_send'` w `challenge_activity_log`, ale nigdzie w aplikacji nie wstawiamy takich wpisów przy udostępnianiu zasobu. Zadanie „Udostępnij wideo 10 osobom" **nigdy się nie zaliczy**.
-
-### Status na zrzucie (potwierdzony danymi)
-- ✅ Dzień 1 / wideo powitalne — zaliczone (log + completion verified)
-- ❌ Dzień 1 / PURE KONTAKT — błąd #3
-- ⏳ Dzień 1 / profil 100% — pending, ale błąd #2 blokuje weryfikację
-- Streak = 0 bo dzień 1 nie ma wszystkich wymaganych zadań verified
+Zlikwidować JSON-y w formularzu zadań. Admin wybiera zadanie z gotowych szablonów + wskazuje konkretny zasób z platformy klikając w listę (nie wpisując UUID). Użytkownik klika przycisk, który prowadzi go bezpośrednio do tego miejsca w aplikacji. CRON automatycznie zalicza, albo użytkownik sam potwierdza, jeżeli zadania nie da się zweryfikować automatem. Dodać zegar odliczający do 22:00 dnia następnego.
 
 ---
 
-## Plan naprawy
+## 1. Nowy kreator zadań (TaskFormDialog) — zero JSON
 
-### A) Migracja SQL
-1. **Fix `challenge_count_action`** — gałąź `profile_completion_100`:
-   - usunąć referencję do `profile_completion_percentage`
-   - policzyć completion ad-hoc na podstawie istniejących pól `profiles` (mail/telefon/imię/avatar/itp.) lub po prostu sprawdzić zestaw kluczowych pól wypełnionych — zwrócić 1 gdy „kompletny".
-2. (Opcjonalnie) dodać gałąź `share_send` z fallbackiem na `team_contacts` × broadcast — albo zostawić jak jest, dopóki nie podepniemy logowania (patrz pkt C).
+Zamiast jednego pola „Typ + JSON" – wybór z gotowych kafelków-szablonów. Każdy szablon ma własne, proste pola formularza:
 
-### B) Edge Function `challenge-daily-supervisor`
-- Zamienić `message`/`duration_ms` na `error_message`/`details` + `started_at`/`completed_at`/`processed_count` zgodnie z faktycznym schematem `cron_job_logs`. Dzięki temu zaczniemy widzieć przebiegi.
-- Dodać try/catch wokół insertu logu i `console.log(summary)` aby było widać w Edge Logs nawet gdy DB insert zawiedzie.
+**Szablony do wyboru przez admina:**
 
-### C) Frontend — `TaskCard.tsx`
-- Dla `resource_view`: przed `window.open` wywołać `useActivityTracking().trackActivity('resource_view', { resource_id }, '/knowledge')` + log do `challenge_activity_log` przez `useChallengeAction`.
-- Dla `training_lesson` / `training_lesson_opened`: dodać `trackActivity('training_module_start', { lesson_id })` przed `window.open`.
-- Dla `page_view`: dodać `trackActivity('page_view', {}, ref.page_path)` — żeby CRON miał co policzyć.
-- Dla `shared_resource_recipients`: na razie best-effort — bez integracji z modułem share zostawić tylko CTA + tooltip „akcja wymaga rzeczywistego udostępnienia w Bazie Wiedzy". (Pełna integracja w osobnym kroku.)
+| Szablon | Co wybiera admin | Jak CRON zalicza |
+|---|---|---|
+| 🎬 **Obejrzyj wideo z Bazy Wiedzy** | dropdown z listą wideo (z Bazy Wiedzy) + opcja: „liczy się klik" lub „wymagaj X sekund" (domyślnie = długość wideo) | klik (event) lub user_activity_log `video_progress` ≥ X s |
+| 📚 **Ukończ lekcję w Akademii** | dropdown moduł → dropdown lekcja + opcja: „klik / pełne ukończenie" | event `training_lesson_opened` lub `training_lesson_completed` |
+| 📄 **Odwiedź zasób PURE / PDF** | dropdown z listy zasobów | event `resource_view` |
+| 🔗 **Wejdź na podstronę aplikacji** | dropdown ze znanymi ścieżkami (/dashboard, /crm, /akademia, …) | event `page_view` z matching path |
+| 👥 **Dodaj N kontaktów do CRM** | tylko liczba N | count `team_contacts_added` |
+| 💬 **Wyślij N nowych wiadomości DM** | tylko liczba N | count `new_dm_threads` |
+| 📤 **Udostępnij wideo X osobom** | dropdown wideo + liczba odbiorców | count `share_send` per resource_id |
+| ✅ **Uzupełnij profil do 100%** | nic | profile completion check |
+| 📝 **Zadanie offline (samo-potwierdzenie)** | tylko tytuł + opis | przycisk „Potwierdzam wykonanie" w karcie zadania → wpis do `challenge_task_completions` jako `verified` natychmiast |
 
-### D) Weryfikacja po wdrożeniu
-- Ręcznie odpalić „Sprawdź postęp" → sprawdzić `cron_job_logs` (powinien pojawić się wiersz `success`) i `challenge_task_completions` (PURE KONTAKT + profil 100% powinny zostać `verified`).
+Pole „Punkty", „Aktywne", „Wymagane do streak" zostają. Pole „Tryb (Auto/Manual)" znika — wynika ze szablonu. Pole JSON znika całkowicie (zapis do `target_ref` dzieje się pod maską na podstawie wyborów admina).
 
-### Pliki
-- `supabase/migrations/<new>.sql` — fix `challenge_count_action`
-- `supabase/functions/challenge-daily-supervisor/index.ts` — fix kolumn logu
-- `src/components/challenge/TaskCard.tsx` — dołożenie `trackActivity` w odpowiednich gałęziach
+**Edycja istniejącego zadania:** dialog odczytuje `task_type` + `target_ref` i wypełnia odpowiedni formularz szablonu. Jeśli stary rekord ma nieznane parametry — fallback do trybu „advanced" z surowym JSON-em (ukryty, tylko dla istniejących).
+
+---
+
+## 2. Karta zadania (TaskCard) — bezpośrednie przejście + samo-potwierdzenie
+
+- 🎬 wideo z Bazy Wiedzy → przycisk „Oglądaj wideo" otwiera `/baza-wiedzy/odtwarzacz/<id>` z auto-play. Po `required_seconds` sekundach `useVideoProgress` loguje `video_progress` → CRON zalicza.
+- 📚 lekcja Akademii → przycisk „Otwórz lekcję" prowadzi do `/akademia/lekcja/<id>` (lub równoważnego routu) z `trackActivity('training_lesson_opened')`.
+- 📄 zasób → przycisk „Otwórz zasób" loguje `resource_view` i otwiera URL.
+- 🔗 podstrona → przycisk „Przejdź" robi `navigate(path)` + log `page_view`.
+- 👥/💬/📤 → przycisk „Przejdź do CRM/DM/Udostępnij" prowadzi w odpowiednie miejsce; licznik aktualizuje wskaźnik „X / N".
+- ✅ profil 100% → przycisk „Uzupełnij profil" → `/profil`.
+- 📝 zadanie offline → przycisk **„Potwierdzam wykonanie"** (z dialogiem potwierdzającym). Klik wstawia `challenge_task_completions` ze statusem `verified` i `verification_source='self'` — bez CRON-a.
+
+---
+
+## 3. Zegar odliczania (deadline 22:00 dnia następnego)
+
+W nagłówku karty „Zadania" oraz przy banerze dnia: komponent `<DayCountdown />`.
+
+- Logika: deadline = **jutro 22:00** w strefie `Europe/Warsaw` (przez `warsawLocalToUtc`).
+- Format: „Pozostało: 1d 04:23:12 do zaliczenia Dnia 1".
+- Tick co 1 s (cleanup on unmount).
+- Po przekroczeniu: czerwony badge „Czas minął — Dzień zamknięty".
+
+---
+
+## 4. Backend (bez zmian schematu)
+
+`challenge_tasks.target_ref` dalej JSONB — wypełniany przez kreator. Edge function `challenge-daily-supervisor` i RPC `challenge_count_action` już obsługują wszystkie checks z tabeli (po wcześniejszych fixach). Brak nowej migracji.
+
+**Wyjątek — szablon „samo-potwierdzenie":** dodać do `verification_mode` ścieżkę `self_confirm`. Insert robi frontend (RLS już pozwala uczestnikowi pisać własne completions). CRON omija takie zadania.
+
+---
+
+## Pliki do zmiany
+
+- `src/components/challenge/admin/TaskFormDialog.tsx` — przepisać na kreator z szablonami (selecty + pickery z bazy).
+- `src/components/challenge/admin/pickers/` (nowe) — `VideoPicker`, `LessonPicker`, `ResourcePicker`, `RoutePicker` (każdy pobiera listę z Supabase i zwraca id + label).
+- `src/components/challenge/TaskCard.tsx` — proper redirecty per typ + przycisk „Potwierdzam wykonanie" dla `self_confirm`.
+- `src/components/challenge/DayCountdown.tsx` (nowy) — zegar do 22:00 next day.
+- `src/pages/ChallengePage.tsx` — osadzić `<DayCountdown />`.
+- `src/types/challenge.ts` — dodać `'self_confirm'` do `verification_mode`.
+
+Brak migracji DB, brak zmian w edge function.
