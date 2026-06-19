@@ -144,6 +144,9 @@ export default function ChallengeAdminPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="banner">
+          <ChallengeBannerEditor />
+        </TabsContent>
         <TabsContent value="tasks">
           <TasksEditor durationDays={settings.duration_days} />
         </TabsContent>
