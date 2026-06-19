@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useActivityTracking } from "@/hooks/useActivityTracking";
 import { toast } from "sonner";
 import {
   CheckCircle2, Circle, PlayCircle, BookOpen, Share2, ExternalLink,
-  GraduationCap, ClipboardCheck, Loader2, Users as UsersIcon, MessageSquare, UserCheck,
+  GraduationCap, ClipboardCheck, Loader2, Users as UsersIcon, MessageSquare, UserCheck, Hourglass,
 } from "lucide-react";
 import type { ChallengeTask } from "@/types/challenge";
 
@@ -39,6 +39,21 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
   const ref = (task.target_ref ?? {}) as Record<string, any>;
   const check = ref.check as string | undefined;
   const isSelfConfirm = task.verification_mode === "self_confirm" || check === "self_confirm";
+  const pendingKey = `challenge_pending_${task.id}`;
+  const [pendingSince, setPendingSince] = useState<number | null>(() => {
+    try { const v = localStorage.getItem(pendingKey); return v ? Number(v) : null; } catch { return null; }
+  });
+  useEffect(() => {
+    if (isCompleted) {
+      try { localStorage.removeItem(pendingKey); } catch {/* noop */}
+      setPendingSince(null);
+    }
+  }, [isCompleted, pendingKey]);
+  const markPending = () => {
+    const ts = Date.now();
+    try { localStorage.setItem(pendingKey, String(ts)); } catch {/* noop */}
+    setPendingSince(ts);
+  };
   const { log } = useChallengeAction();
   const { trackActivity } = useActivityTracking();
   const navigate = useNavigate();
@@ -138,6 +153,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
     } catch (e: any) {
       toast.error(e.message ?? "Błąd");
     } finally {
+      if (!isSelfConfirm) markPending();
       setBusy(false);
     }
   };
@@ -155,10 +171,20 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
           </div>
           {task.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
           {!isCompleted && (
-            <Button size="sm" onClick={handleAction} disabled={busy} className="mt-1">
-              {busy && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-              {cta}
-            </Button>
+            <div className="space-y-2">
+              <Button size="sm" onClick={handleAction} disabled={busy} className="mt-1">
+                {busy && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                {cta}
+              </Button>
+              {pendingSince && !isSelfConfirm && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                  <Hourglass className="w-3.5 h-3.5 mt-0.5 shrink-0 animate-pulse" />
+                  <span>
+                    <strong>Weryfikacja w toku.</strong> Sprawdzamy zaliczenie automatycznie co 15 minut — możesz spokojnie kontynuować, zadanie zaliczy się samo, gdy spełnisz warunki.
+                  </span>
+                </div>
+              )}
+            </div>
           )}
           {isCompleted && (
             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">✓ Zaliczone</p>

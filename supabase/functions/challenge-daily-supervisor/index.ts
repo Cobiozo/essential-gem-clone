@@ -141,48 +141,45 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (mode === "daily" || newDay !== p.current_day) {
-          // Recompute totals + streak only on daily run or when day changes
-          const { data: fresh } = await client
-            .from("challenge_task_completions")
-            .select("task_id, points_awarded, verification_status")
-            .eq("participant_id", p.id);
-          const totalPoints = (fresh ?? [])
+        // ALWAYS recompute totals + streak (every run), so points stay accurate
+        const { data: fresh } = await client
+          .from("challenge_task_completions")
+          .select("task_id, points_awarded, verification_status")
+          .eq("participant_id", p.id);
+        const totalPoints = (fresh ?? [])
+          .filter((c: any) => c.verification_status === "verified")
+          .reduce((s: number, c: any) => s + (c.points_awarded ?? 0), 0);
+
+        const verifiedSet = new Set(
+          (fresh ?? [])
             .filter((c: any) => c.verification_status === "verified")
-            .reduce((s: number, c: any) => s + (c.points_awarded ?? 0), 0);
-
-          // Streak: consecutive days (1..newDay) where ALL required tasks verified
-          const verifiedSet = new Set(
-            (fresh ?? [])
-              .filter((c: any) => c.verification_status === "verified")
-              .map((c: any) => c.task_id),
+            .map((c: any) => c.task_id),
+        );
+        let streak = 0;
+        for (let d = newDay; d >= 1; d--) {
+          const required = (tasks as Task[]).filter(
+            (t) => t.day_number === d && t.required_to_advance,
           );
-          let streak = 0;
-          for (let d = newDay; d >= 1; d--) {
-            const required = (tasks as Task[]).filter(
-              (t) => t.day_number === d && t.required_to_advance,
-            );
-            if (required.length === 0) continue;
-            const allOk = required.every((t) => verifiedSet.has(t.id));
-            if (allOk) streak += 1;
-            else break;
-          }
-
-          const longest = Math.max(p.longest_streak ?? 0, streak);
-          const isCompleted = newDay > (settings as Settings).duration_days;
-
-          await client.from("challenge_participants").update({
-            current_day: Math.min(newDay, (settings as Settings).duration_days),
-            current_streak: streak,
-            longest_streak: longest,
-            total_points: totalPoints,
-            ...(isCompleted
-              ? { status: "completed", completion_date: new Date().toISOString() }
-              : {}),
-          }).eq("id", p.id);
-
-          if (isCompleted) summary.completed += 1;
+          if (required.length === 0) continue;
+          const allOk = required.every((t) => verifiedSet.has(t.id));
+          if (allOk) streak += 1;
+          else break;
         }
+
+        const longest = Math.max(p.longest_streak ?? 0, streak);
+        const isCompleted = newDay > (settings as Settings).duration_days;
+
+        await client.from("challenge_participants").update({
+          current_day: Math.min(newDay, (settings as Settings).duration_days),
+          current_streak: streak,
+          longest_streak: longest,
+          total_points: totalPoints,
+          ...(isCompleted
+            ? { status: "completed", completion_date: new Date().toISOString() }
+            : {}),
+        }).eq("id", p.id);
+
+        if (isCompleted) summary.completed += 1;
       } catch (e) {
         summary.errors += 1;
         console.error("Participant error", p.id, e);
