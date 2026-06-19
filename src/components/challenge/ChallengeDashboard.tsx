@@ -1,10 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { ChallengeHeroBadge } from "./ChallengeHeroBadge";
 import { DayTasksList } from "./DayTasksList";
 import { PeerReviewInbox } from "./PeerReviewInbox";
 import type { ChallengeParticipant, ChallengeSettings } from "@/types/challenge";
-import { Flame, Star, Calendar } from "lucide-react";
+import { Flame, Star, Calendar, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   settings: ChallengeSettings;
