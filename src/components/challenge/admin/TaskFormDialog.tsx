@@ -78,6 +78,9 @@ const detectTemplate = (t: Partial<ChallengeTask> | null | undefined): TemplateK
   if (check === "new_dm_threads") return "dm_threads";
   if (check === "shared_resource_recipients") return "share_video";
   if (check === "profile_completion_100") return "profile_100";
+  if (t.task_type === "external_url") return "external_url";
+  if (t.task_type === "file_upload") return "file_upload";
+  if (t.verification_mode === "peer") return "peer_task";
   if (t.verification_mode === "self_confirm" || check === "self_confirm") return "self_confirm";
   return "self_confirm";
 };
