@@ -2,10 +2,21 @@ import { useEffect, useState } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
 
 /**
- * Countdown to 22:00 Europe/Warsaw on the day AFTER `forDay`'s start date
- * (i.e. deadline = next day at 22:00 local Warsaw time).
+ * Countdown to 22:00 Europe/Warsaw, deadline relative to a specific challenge day.
+ *
+ * - dayOffset = 0 (default, current day) → deadline = TOMORROW 22:00 Warsaw
+ * - dayOffset = -1 (previous day) → deadline = TODAY 22:00 Warsaw
+ * - dayOffset = -2 → deadline = YESTERDAY 22:00 Warsaw (always expired)
  */
-export const DayCountdown = ({ forDay }: { forDay: number }) => {
+export const DayCountdown = ({
+  forDay,
+  dayOffset = 0,
+  compact = false,
+}: {
+  forDay: number;
+  dayOffset?: number;
+  compact?: boolean;
+}) => {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -13,14 +24,13 @@ export const DayCountdown = ({ forDay }: { forDay: number }) => {
     return () => clearInterval(t);
   }, []);
 
-  // Compute deadline: today's date in Warsaw at 22:00 + 1 day
-  const deadline = computeDeadline();
+  const deadline = computeDeadline(dayOffset);
   const diff = deadline - now;
   const expired = diff <= 0;
 
   const fmt = formatRemaining(Math.max(0, diff));
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
+    <div className={`inline-flex items-center gap-2 ${compact ? "px-2 py-1 text-[11px]" : "px-3 py-1.5 text-xs"} rounded-full font-medium border ${
       expired ? "bg-destructive/10 text-destructive border-destructive/30"
       : diff < 3 * 3600 * 1000 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
       : "bg-muted text-muted-foreground border-border"
@@ -33,17 +43,15 @@ export const DayCountdown = ({ forDay }: { forDay: number }) => {
   );
 };
 
-function computeDeadline(): number {
-  // Get current Warsaw date components, then deadline = tomorrow 22:00 Warsaw
+function computeDeadline(dayOffset: number): number {
+  // Compute Warsaw "now" wall-clock, then deadline = (today + 1 + dayOffset) at 22:00 Warsaw.
   const nowInWarsawStr = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
   const warsawNow = new Date(nowInWarsawStr);
-  const tomorrow = new Date(warsawNow);
-  tomorrow.setDate(warsawNow.getDate() + 1);
-  tomorrow.setHours(22, 0, 0, 0);
-  // Convert the "Warsaw wall-clock" date back to a real UTC timestamp
-  // by computing the difference between local and Warsaw representations of "now".
+  const deadline = new Date(warsawNow);
+  deadline.setDate(warsawNow.getDate() + 1 + dayOffset);
+  deadline.setHours(22, 0, 0, 0);
   const driftMs = warsawNow.getTime() - Date.now();
-  return tomorrow.getTime() - driftMs;
+  return deadline.getTime() - driftMs;
 }
 
 function formatRemaining(ms: number) {
