@@ -148,6 +148,9 @@ export default function ChallengeAdminPage() {
         <TabsContent value="participants">
           <ParticipantsTable />
         </TabsContent>
+        <TabsContent value="pairs">
+          <PeerPairsTab />
+        </TabsContent>
         <TabsContent value="access">
           <AccessManager />
         </TabsContent>
