@@ -54,7 +54,12 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
 
   const today = tasks.filter(t => t.day_number === currentDay);
   const earlier = tasks.filter(t => t.day_number < currentDay);
-  const isVerified = (id: string) => completions.get(id) === "verified";
+  const isVerified = (id: string) => completions.get(id)?.status === "verified";
+  const statusOf = (id: string) => completions.get(id)?.status;
+  const evidenceOf = (id: string) => {
+    const e = completions.get(id)?.evidence;
+    return Array.isArray(e?.files) ? e.files : [];
+  };
 
   return (
     <div className="space-y-4">
