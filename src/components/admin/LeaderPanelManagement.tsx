@@ -177,6 +177,7 @@ export const LeaderPanelManagement: React.FC = () => {
           can_manage_certificates: perm?.can_manage_certificates || false,
           can_customize_landing_page: perm?.can_customize_landing_page || false,
           can_manage_auto_webinar_access: perm?.can_manage_auto_webinar_access || false,
+          can_manage_challenge_access: perm?.can_manage_challenge_access || false,
           permission_id: perm?.id,
           has_influencer_calc: calcAccess?.has_access || false,
           has_specialist_calc: specAccess?.has_access || false,
