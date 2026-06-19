@@ -18,7 +18,7 @@ import {
   CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound,
   TreePine, UserCheck, Users, Pencil, ShieldX,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
-  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio,
+  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio, Trophy,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
@@ -41,6 +41,7 @@ const LeaderReportsView = lazy(() => import('@/components/leader/LeaderReportsVi
 const LeaderCertificatesView = lazy(() => import('@/components/leader/LeaderCertificatesView'));
 const LeaderLandingEditorView = lazy(() => import('@/components/leader/LeaderLandingEditorView'));
 const LeaderAutoWebinarAccessView = lazy(() => import('@/components/leader/LeaderAutoWebinarAccessView'));
+const LeaderChallengeAccessView = lazy(() => import('@/components/leader/LeaderChallengeAccessView'));
 
 
 const LazyFallback = () => (
@@ -74,6 +75,7 @@ const LeaderPanel: React.FC = () => {
     hasCertificates,
     hasLandingPage,
     hasAutoWebinarAccess,
+    hasChallengeAccessMgmt,
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
   } = useLeaderPermissions();
@@ -147,6 +149,7 @@ const LeaderPanel: React.FC = () => {
     ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
     ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0 }] : []),
     ...(hasAutoWebinarAccess ? [{ id: 'auto-webinar', label: 'Auto-Webinary', icon: Radio, badge: 0 }] : []),
+    ...(hasChallengeAccessMgmt ? [{ id: 'challenge-access', label: 'Wyzwanie 90', icon: Trophy, badge: 0 }] : []),
   ];
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
@@ -196,6 +199,8 @@ const LeaderPanel: React.FC = () => {
         return <Suspense fallback={<LazyFallback />}><LeaderLandingEditorView /></Suspense>;
       case 'auto-webinar':
         return <Suspense fallback={<LazyFallback />}><LeaderAutoWebinarAccessView /></Suspense>;
+      case 'challenge-access':
+        return <Suspense fallback={<LazyFallback />}><LeaderChallengeAccessView /></Suspense>;
       default:
         return null;
     }
