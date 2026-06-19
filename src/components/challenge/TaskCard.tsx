@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useChallengeAction } from "@/hooks/useChallengeAction";
+import { useActivityTracking } from "@/hooks/useActivityTracking";
+
 import { toast } from "sonner";
 import {
   CheckCircle2,
