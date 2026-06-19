@@ -12,7 +12,7 @@ import { Users, Shuffle, Trash2, Link as LinkIcon } from "lucide-react";
 interface Participant {
   id: string;
   user_id: string;
-  profile?: { full_name?: string | null; email?: string | null } | null;
+  profile?: { first_name?: string | null; last_name?: string | null; email?: string | null; eq_id?: string | null } | null;
 }
 
 interface Pair {
@@ -35,7 +35,7 @@ export const PeerPairsTab = () => {
     const [pRes, prRes, profRes] = await Promise.all([
       supabase.from("challenge_participants").select("id, user_id").eq("status", "active"),
       supabase.from("challenge_peer_pairs").select("*").order("created_at", { ascending: false }),
-      supabase.from("profiles").select("user_id, full_name, email"),
+      supabase.from("profiles").select("user_id, first_name, last_name, email, eq_id"),
     ]);
     const profMap = new Map((profRes.data ?? []).map((p: any) => [p.user_id, p]));
     const list = (pRes.data ?? []).map((p: any) => ({ ...p, profile: profMap.get(p.user_id) ?? null }));
@@ -88,15 +88,18 @@ export const PeerPairsTab = () => {
     load();
   };
 
+  const displayName = (p?: Participant["profile"]) =>
+    [p?.first_name, p?.last_name].filter(Boolean).join(" ").trim() || p?.email || "";
+
   const name = (id: string) => {
     const p = participants.find(x => x.id === id);
-    return p?.profile?.full_name || p?.profile?.email || id.slice(0, 8);
+    return displayName(p?.profile) || id.slice(0, 8);
   };
 
   const filtered = participants.filter(p => {
     if (!search) return true;
     const s = search.toLowerCase();
-    return (p.profile?.full_name ?? "").toLowerCase().includes(s) || (p.profile?.email ?? "").toLowerCase().includes(s);
+    return displayName(p.profile).toLowerCase().includes(s) || (p.profile?.email ?? "").toLowerCase().includes(s) || (p.profile?.eq_id ?? "").toLowerCase().includes(s);
   });
 
   if (loading) return <div className="flex justify-center py-8"><LoadingSpinner /></div>;
@@ -150,7 +153,7 @@ export const PeerPairsTab = () => {
                     isSel ? "border-primary bg-primary/10" : isPaired ? "opacity-60" : "hover:bg-muted/50"
                   }`}
                 >
-                  <span>{p.profile?.full_name || p.profile?.email || p.user_id.slice(0, 8)}</span>
+                  <span>{displayName(p.profile) || p.user_id.slice(0, 8)}{p.profile?.eq_id ? <span className="text-xs text-muted-foreground ml-2">EQ {p.profile.eq_id}</span> : null}</span>
                   {isPaired ? <Badge variant="secondary">Sparowany</Badge> : isSel ? <Badge>Zaznaczony</Badge> : null}
                 </button>
               </li>

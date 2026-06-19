@@ -3,9 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Search } from "lucide-react";
+import { Trash2, Search, Info } from "lucide-react";
 
 interface Row {
   id: string;
@@ -17,7 +18,7 @@ interface Row {
   status: string;
   start_date: string;
   completion_date: string | null;
-  profile: { full_name: string | null; email: string | null } | null;
+  profile: { first_name: string | null; last_name: string | null; email: string | null; eq_id: string | null } | null;
 }
 
 export const ParticipantsTable = () => {
@@ -34,10 +35,13 @@ export const ParticipantsTable = () => {
     const ids = (parts ?? []).map((p: any) => p.user_id);
     let profiles: any[] = [];
     if (ids.length) {
-      const { data } = await supabase.from("profiles").select("id, full_name, email").in("id", ids);
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name, email, eq_id")
+        .in("user_id", ids);
       profiles = data ?? [];
     }
-    const map = new Map(profiles.map((p: any) => [p.id, p]));
+    const map = new Map(profiles.map((p: any) => [p.user_id, p]));
     setRows(((parts ?? []) as any[]).map((p) => ({ ...p, profile: map.get(p.user_id) ?? null })));
     setLoading(false);
   }, []);
@@ -63,18 +67,28 @@ export const ParticipantsTable = () => {
     load();
   };
 
+  const fullName = (p: Row["profile"]) => {
+    const name = [p?.first_name, p?.last_name].filter(Boolean).join(" ").trim();
+    return name || "—";
+  };
+
   const filtered = rows.filter(r => {
     if (!q.trim()) return true;
     const s = q.toLowerCase();
-    return (r.profile?.full_name ?? "").toLowerCase().includes(s) || (r.profile?.email ?? "").toLowerCase().includes(s);
+    return (
+      fullName(r.profile).toLowerCase().includes(s) ||
+      (r.profile?.email ?? "").toLowerCase().includes(s) ||
+      (r.profile?.eq_id ?? "").toLowerCase().includes(s)
+    );
   });
 
   return (
+    <TooltipProvider>
     <Card className="p-4 space-y-4">
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Szukaj po imieniu lub email…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="pl-9" placeholder="Szukaj po imieniu, EQ ID lub email…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <Badge variant="secondary">{filtered.length}/{rows.length}</Badge>
       </div>
@@ -84,9 +98,20 @@ export const ParticipantsTable = () => {
             <thead className="text-xs text-muted-foreground border-b">
               <tr>
                 <th className="text-left p-2">Uczestnik</th>
+                <th className="text-left p-2">EQ ID</th>
                 <th className="text-left p-2">Status</th>
                 <th className="text-right p-2">Dzień</th>
-                <th className="text-right p-2">Streak</th>
+                <th className="text-right p-2 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    Streak (akt./najd.)
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info className="w-3 h-3 opacity-60" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-xs">
+                        Aktualna seria dni pod rząd z kompletem wymaganych zadań / najdłuższa zarejestrowana seria. Dni bez zadań wymaganych są pomijane, pierwszy dzień bez kompletu przerywa serię.
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </th>
                 <th className="text-right p-2">Punkty</th>
                 <th className="text-left p-2">Start</th>
                 <th className="text-right p-2">Akcje</th>
@@ -96,9 +121,10 @@ export const ParticipantsTable = () => {
               {filtered.map((r) => (
                 <tr key={r.id} className="border-b hover:bg-muted/30">
                   <td className="p-2">
-                    <div className="font-medium">{r.profile?.full_name ?? "—"}</div>
+                    <div className="font-medium">{fullName(r.profile)}</div>
                     <div className="text-xs text-muted-foreground">{r.profile?.email ?? r.user_id}</div>
                   </td>
+                  <td className="p-2 text-xs">{r.profile?.eq_id ?? "—"}</td>
                   <td className="p-2"><Badge variant="outline">{r.status}</Badge></td>
                   <td className="p-2 text-right">{r.current_day}</td>
                   <td className="p-2 text-right">{r.current_streak} / {r.longest_streak}</td>
@@ -110,11 +136,12 @@ export const ParticipantsTable = () => {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={7} className="text-center text-muted-foreground p-6">Brak uczestników</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground p-6">Brak uczestników</td></tr>}
             </tbody>
           </table>
         </div>
       )}
     </Card>
+    </TooltipProvider>
   );
 };
