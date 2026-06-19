@@ -81,13 +81,16 @@ Deno.serve(async (req) => {
       await client.from("cron_job_logs").insert({
         job_name: "challenge-daily-supervisor",
         status: "skipped",
-        message: "Module disabled",
-        duration_ms: Date.now() - startedAt,
+        error_message: "Module disabled",
+        started_at: new Date(startedAt).toISOString(),
+        completed_at: new Date().toISOString(),
+        details: { mode },
       });
       return new Response(JSON.stringify({ ok: true, skipped: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
 
     const { data: participants } = await client
       .from("challenge_participants")
