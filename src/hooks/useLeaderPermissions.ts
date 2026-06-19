@@ -131,6 +131,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const hasCertificates = leaderPerm?.can_manage_certificates === true;
       const hasLandingPage = leaderPerm?.can_customize_landing_page === true;
       const hasAutoWebinarAccess = leaderPerm?.can_manage_auto_webinar_access === true;
+      const hasChallengeAccessMgmt = (leaderPerm as any)?.can_manage_challenge_access === true;
 
       return {
         leaderPermission: leaderPerm,
