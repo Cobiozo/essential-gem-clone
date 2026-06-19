@@ -10,7 +10,7 @@ export type ChallengeTaskType =
 
 export type ChallengeParticipantStatus = "active" | "paused" | "completed" | "abandoned";
 export type ChallengeCompletionStatus = "pending" | "verified" | "rejected";
-export type ChallengeVerificationMode = "auto" | "manual_admin";
+export type ChallengeVerificationMode = "auto" | "manual_admin" | "self_confirm";
 
 export interface ChallengeSettings {
   id: boolean;
