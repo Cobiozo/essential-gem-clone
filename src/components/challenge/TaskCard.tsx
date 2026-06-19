@@ -39,6 +39,21 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
   const ref = (task.target_ref ?? {}) as Record<string, any>;
   const check = ref.check as string | undefined;
   const isSelfConfirm = task.verification_mode === "self_confirm" || check === "self_confirm";
+  const pendingKey = `challenge_pending_${task.id}`;
+  const [pendingSince, setPendingSince] = useState<number | null>(() => {
+    try { const v = localStorage.getItem(pendingKey); return v ? Number(v) : null; } catch { return null; }
+  });
+  useEffect(() => {
+    if (isCompleted) {
+      try { localStorage.removeItem(pendingKey); } catch {/* noop */}
+      setPendingSince(null);
+    }
+  }, [isCompleted, pendingKey]);
+  const markPending = () => {
+    const ts = Date.now();
+    try { localStorage.setItem(pendingKey, String(ts)); } catch {/* noop */}
+    setPendingSince(ts);
+  };
   const { log } = useChallengeAction();
   const { trackActivity } = useActivityTracking();
   const navigate = useNavigate();
