@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useActivityTracking } from "@/hooks/useActivityTracking";
 import { toast } from "sonner";
 import {
   CheckCircle2, Circle, PlayCircle, BookOpen, Share2, ExternalLink,
-  GraduationCap, ClipboardCheck, Loader2, Users as UsersIcon, MessageSquare, UserCheck,
+  GraduationCap, ClipboardCheck, Loader2, Users as UsersIcon, MessageSquare, UserCheck, Hourglass,
 } from "lucide-react";
 import type { ChallengeTask } from "@/types/challenge";
 
