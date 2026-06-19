@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PlayCircle, GraduationCap, BookOpen, ExternalLink, Users, MessageSquare, Share2, UserCheck, ClipboardCheck } from "lucide-react";
+import { PlayCircle, GraduationCap, BookOpen, ExternalLink, Users, MessageSquare, Share2, UserCheck, ClipboardCheck, Link as LinkIcon, Upload, Handshake } from "lucide-react";
 import type { ChallengeTask } from "@/types/challenge";
 
 /** Template = a high-level admin choice. It maps to (task_type, target_ref, verification_mode). */
@@ -22,7 +22,10 @@ type TemplateKey =
   | "dm_threads"
   | "share_video"
   | "profile_100"
-  | "self_confirm";
+  | "self_confirm"
+  | "external_url"
+  | "file_upload"
+  | "peer_task";
 
 const TEMPLATES: { key: TemplateKey; label: string; desc: string; Icon: any }[] = [
   { key: "video_hk",     label: "Obejrzyj wideo z Bazy Wiedzy", desc: "Wskaż konkretne wideo. Użytkownik otworzy je jednym kliknięciem.", Icon: PlayCircle },
@@ -34,6 +37,9 @@ const TEMPLATES: { key: TemplateKey; label: string; desc: string; Icon: any }[] 
   { key: "share_video",  label: "Udostępnij wideo X osobom", desc: "Wskaż wideo + liczba odbiorców.", Icon: Share2 },
   { key: "profile_100",  label: "Uzupełnij profil do 100%", desc: "CRON sprawdza komplet danych profilu.", Icon: UserCheck },
   { key: "self_confirm", label: "Zadanie offline (samo-potwierdzenie)", desc: "Użytkownik sam potwierdzi przyciskiem na podstawie opisu.", Icon: ClipboardCheck },
+  { key: "external_url", label: "Zewnętrzny link + dowód", desc: "Admin podaje URL (np. ankieta). User wraca i wgrywa screen/PDF.", Icon: LinkIcon },
+  { key: "file_upload",  label: "Wgraj plik jako dowód", desc: "Użytkownik wgrywa PDF/DOC/XLS/PNG/JPG. Weryfikacja: peer lub admin.", Icon: Upload },
+  { key: "peer_task",    label: "Zadanie peer (wzajemne)", desc: "Wymaga sparowania uczestników. Partner zalicza zadanie.", Icon: Handshake },
 ];
 
 const APP_PAGES: { value: string; label: string }[] = [
