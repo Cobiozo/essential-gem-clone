@@ -18,6 +18,7 @@ import { ParticipantsTable } from "@/components/challenge/admin/ParticipantsTabl
 import { AccessManager } from "@/components/challenge/admin/AccessManager";
 import { ChallengeStats } from "@/components/challenge/admin/ChallengeStats";
 import { PeerPairsTab } from "@/components/challenge/admin/PeerPairsTab";
+import { ChallengeBannerEditor } from "@/components/challenge/admin/ChallengeBannerEditor";
 
 export default function ChallengeAdminPage() {
   const { user } = useAuth();
@@ -80,8 +81,9 @@ export default function ChallengeAdminPage() {
       </div>
 
       <Tabs defaultValue="settings">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="settings">Ustawienia</TabsTrigger>
+          <TabsTrigger value="banner">Baner</TabsTrigger>
           <TabsTrigger value="tasks">Zadania</TabsTrigger>
           <TabsTrigger value="participants">Uczestnicy</TabsTrigger>
           <TabsTrigger value="pairs">Pary</TabsTrigger>
@@ -142,6 +144,9 @@ export default function ChallengeAdminPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="banner">
+          <ChallengeBannerEditor />
+        </TabsContent>
         <TabsContent value="tasks">
           <TasksEditor durationDays={settings.duration_days} />
         </TabsContent>

@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChallengeAccess } from "@/hooks/useChallengeAccess";
 import { ChallengeOnboarding } from "@/components/challenge/ChallengeOnboarding";
 import { ChallengeDashboard } from "@/components/challenge/ChallengeDashboard";
+import { ChallengeBanner } from "@/components/challenge/ChallengeBanner";
+import { useChallengeBanner } from "@/hooks/useChallengeBanner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { ChallengeParticipant, ChallengeSettings } from "@/types/challenge";
 
@@ -12,6 +14,7 @@ export default function ChallengePage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { data: hasAccess, isLoading: accessLoading } = useChallengeAccess();
+  const { config: bannerConfig } = useChallengeBanner();
   const [settings, setSettings] = useState<ChallengeSettings | null>(null);
   const [participant, setParticipant] = useState<ChallengeParticipant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +63,12 @@ export default function ChallengePage() {
 
   if (!settings) return null;
 
-  if (!participant) {
-    return <ChallengeOnboarding settings={settings} onJoined={load} />;
-  }
-
-  return <ChallengeDashboard settings={settings} participant={participant} />;
+  return (
+    <>
+      {bannerConfig.enabled && bannerConfig.image_url ? <ChallengeBanner config={bannerConfig} /> : null}
+      {!participant
+        ? <ChallengeOnboarding settings={settings} onJoined={load} />
+        : <ChallengeDashboard settings={settings} participant={participant} />}
+    </>
+  );
 }

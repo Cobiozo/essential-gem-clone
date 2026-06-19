@@ -1659,6 +1659,69 @@ export type Database = {
           },
         ]
       }
+      challenge_banner_config: {
+        Row: {
+          cta_label: string | null
+          cta_url: string | null
+          enabled: boolean
+          fit: string
+          height: number
+          id: boolean
+          image_url: string | null
+          overlay_color: string
+          overlay_gradient: boolean
+          overlay_opacity: number
+          position: string
+          subtitle: string | null
+          subtitle_color: string
+          text_align: string
+          title: string | null
+          title_color: string
+          title_size: number
+          updated_at: string
+        }
+        Insert: {
+          cta_label?: string | null
+          cta_url?: string | null
+          enabled?: boolean
+          fit?: string
+          height?: number
+          id?: boolean
+          image_url?: string | null
+          overlay_color?: string
+          overlay_gradient?: boolean
+          overlay_opacity?: number
+          position?: string
+          subtitle?: string | null
+          subtitle_color?: string
+          text_align?: string
+          title?: string | null
+          title_color?: string
+          title_size?: number
+          updated_at?: string
+        }
+        Update: {
+          cta_label?: string | null
+          cta_url?: string | null
+          enabled?: boolean
+          fit?: string
+          height?: number
+          id?: boolean
+          image_url?: string | null
+          overlay_color?: string
+          overlay_gradient?: boolean
+          overlay_opacity?: number
+          position?: string
+          subtitle?: string | null
+          subtitle_color?: string
+          text_align?: string
+          title?: string | null
+          title_color?: string
+          title_size?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       challenge_leader_permissions: {
         Row: {
           can_grant_access: boolean
