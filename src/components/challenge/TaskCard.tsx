@@ -171,10 +171,20 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
           </div>
           {task.description && <p className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
           {!isCompleted && (
-            <Button size="sm" onClick={handleAction} disabled={busy} className="mt-1">
-              {busy && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-              {cta}
-            </Button>
+            <div className="space-y-2">
+              <Button size="sm" onClick={handleAction} disabled={busy} className="mt-1">
+                {busy && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                {cta}
+              </Button>
+              {pendingSince && !isSelfConfirm && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                  <Hourglass className="w-3.5 h-3.5 mt-0.5 shrink-0 animate-pulse" />
+                  <span>
+                    <strong>Weryfikacja w toku.</strong> Sprawdzamy zaliczenie automatycznie co 15 minut — możesz spokojnie kontynuować, zadanie zaliczy się samo, gdy spełnisz warunki.
+                  </span>
+                </div>
+              )}
+            </div>
           )}
           {isCompleted && (
             <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">✓ Zaliczone</p>
