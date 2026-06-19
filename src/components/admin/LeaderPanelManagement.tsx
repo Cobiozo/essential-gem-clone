@@ -67,6 +67,7 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'can_manage_team_contacts', 'can_manage_daily_signal', 'can_manage_important_info',
   'can_manage_team_reflinks', 'can_view_team_reports', 'can_manage_certificates',
   'can_customize_landing_page', 'can_manage_auto_webinar_access',
+  'can_manage_challenge_access',
 ];
 
 interface ColumnDef {
