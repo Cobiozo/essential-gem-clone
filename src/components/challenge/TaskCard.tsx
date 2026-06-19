@@ -153,6 +153,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged }: Props)
     } catch (e: any) {
       toast.error(e.message ?? "Błąd");
     } finally {
+      if (!isSelfConfirm) markPending();
       setBusy(false);
     }
   };
