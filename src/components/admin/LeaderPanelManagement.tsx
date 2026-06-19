@@ -42,6 +42,7 @@ interface PartnerLeaderData {
   can_manage_certificates: boolean;
   can_customize_landing_page: boolean;
   can_manage_auto_webinar_access: boolean;
+  can_manage_challenge_access: boolean;
   permission_id?: string;
   has_influencer_calc: boolean;
   has_specialist_calc: boolean;
