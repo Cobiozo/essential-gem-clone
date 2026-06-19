@@ -209,7 +209,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
         return;
       }
 
-      if (check === "team_contacts_added") { navigate("/kontakty-prywatne"); return; }
+      if (check === "team_contacts_added") { navigate("/my-account?tab=n"); return; }
       if (check === "new_dm_threads") { navigate("/messages"); return; }
       if (check === "shared_resource_recipients") {
         toast.info("Akcja zostanie zaliczona po udostępnieniu zasobu odbiorcom.");
