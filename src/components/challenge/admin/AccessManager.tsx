@@ -45,8 +45,8 @@ export const AccessManager = () => {
     const moduleId = (settings as any)?.szybki_start_module_id ?? null;
     setSsModuleId(moduleId);
 
-    const { data: access } = await supabase
-      .from("challenge_user_access")
+    const { data: access } = await (supabase
+      .from("challenge_user_access") as any)
       .select("id, user_id, granted_by, granted_at, granted_by_role")
       .order("granted_at", { ascending: false });
 
