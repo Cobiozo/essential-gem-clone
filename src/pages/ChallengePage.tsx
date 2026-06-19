@@ -14,6 +14,7 @@ export default function ChallengePage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { data: hasAccess, isLoading: accessLoading } = useChallengeAccess();
+  const { config: bannerConfig } = useChallengeBanner();
   const [settings, setSettings] = useState<ChallengeSettings | null>(null);
   const [participant, setParticipant] = useState<ChallengeParticipant | null>(null);
   const [loading, setLoading] = useState(true);
