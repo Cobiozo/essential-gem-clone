@@ -8,6 +8,7 @@ import { TaskCard } from "./TaskCard";
 import type { ChallengeParticipant, ChallengeTask } from "@/types/challenge";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { DayCountdown } from "./DayCountdown";
 
 interface Props {
   participant: ChallengeParticipant;
@@ -58,7 +59,10 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-xl font-bold">Zadania</h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-xl font-bold">Zadania</h2>
+          <DayCountdown forDay={currentDay} />
+        </div>
         <Button size="sm" variant="outline" onClick={triggerCron} disabled={refreshing}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} /> Sprawdź postęp
         </Button>
