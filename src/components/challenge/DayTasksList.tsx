@@ -63,9 +63,12 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
           <h2 className="text-xl font-bold">Zadania</h2>
           <DayCountdown forDay={currentDay} />
         </div>
-        <Button size="sm" variant="outline" onClick={triggerCron} disabled={refreshing}>
-          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} /> Sprawdź postęp
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button size="sm" variant="outline" onClick={triggerCron} disabled={refreshing}>
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} /> Sprawdź postęp
+          </Button>
+          <span className="text-[10px] text-muted-foreground">Automatyczna weryfikacja co 15 min</span>
+        </div>
       </div>
 
       <Tabs defaultValue="today">
@@ -87,7 +90,10 @@ export const DayTasksList = ({ participant, currentDay }: Props) => {
           )}
           {Array.from(new Set(earlier.map(t => t.day_number))).sort((a, b) => b - a).map(day => (
             <div key={day} className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Dzień {day}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-muted-foreground">Dzień {day}</h3>
+                <DayCountdown forDay={day} dayOffset={day - currentDay} compact />
+              </div>
               {earlier.filter(t => t.day_number === day).map(t => (
                 <TaskCard key={t.id} task={t} isCompleted={isVerified(t.id)} participantId={participant.id} onChanged={load} />
               ))}
