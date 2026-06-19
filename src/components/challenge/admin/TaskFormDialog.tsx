@@ -150,6 +150,11 @@ export const TaskFormDialog = ({ open, onOpenChange, initial, defaultDay, onSave
     setCount(Number(r.count ?? 5));
     setShareResourceId(r.resource_id ?? "");
     setShareCount(Number(r.min_recipients ?? 10));
+
+    setExternalUrl(String(r.external_url ?? ""));
+    setRequiresEvidence(!!t.requires_evidence);
+    setMinEvidenceFiles(Number(t.min_evidence_files ?? 1));
+    setVerificationModeOverride((t.verification_mode as any) ?? "auto");
   }, [open, initial, defaultDay]);
 
   // ---- load data lists per template ----
