@@ -114,11 +114,22 @@ export const AccessManager = () => {
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,eq_id.ilike.%${q}%`)
         .limit(8);
       const existing = new Set(rows.map(r => r.user_id));
-      setSearchResults((data ?? []).filter((p: any) => !existing.has(p.user_id)));
+      const filteredProfiles = (data ?? []).filter((p: any) => !existing.has(p.user_id));
+      const profileIds = filteredProfiles.map((p: any) => p.user_id);
+      let certSet = new Set<string>();
+      if (ssModuleId && profileIds.length) {
+        const { data: certs } = await supabase
+          .from("certificates")
+          .select("user_id")
+          .eq("module_id", ssModuleId)
+          .in("user_id", profileIds);
+        certSet = new Set((certs ?? []).map((c: any) => c.user_id));
+      }
+      setSearchResults(filteredProfiles.map((p: any) => ({ ...p, has_certificate: certSet.has(p.user_id) })));
       setSearching(false);
     }, 250);
     return () => clearTimeout(t);
-  }, [q, rows]);
+  }, [q, rows, ssModuleId]);
 
   const grant = async (uid: string) => {
     setSaving(uid);
@@ -191,12 +202,25 @@ export const AccessManager = () => {
                 Dodaj nowy dostęp
               </div>
               {searchResults.map((p) => (
-                <div key={p.user_id} className="flex items-center justify-between p-3 hover:bg-muted/30">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {p.first_name} {p.last_name}
-                      {p.eq_id && <span className="ml-2 text-xs text-muted-foreground">EQ: {p.eq_id}</span>}
-                    </p>
+                <div key={p.user_id} className="flex items-center justify-between p-3 hover:bg-muted/30 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium truncate">
+                        {p.first_name} {p.last_name}
+                      </p>
+                      {p.eq_id && <span className="text-xs text-muted-foreground">EQ: {p.eq_id}</span>}
+                      {!ssModuleId ? (
+                        <Badge variant="outline" className="text-[10px]">Szybki Start: nie skonfigurowano</Badge>
+                      ) : p.has_certificate ? (
+                        <Badge className="bg-emerald-600/15 text-emerald-700 border-emerald-300 text-[10px]">
+                          <GraduationCap className="w-3 h-3 mr-1" /> Szybki Start: zaliczony
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600">
+                          Brak Szybki Start
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                   </div>
                   <Button size="sm" onClick={() => grant(p.user_id)} disabled={saving === p.user_id}>
