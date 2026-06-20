@@ -60,6 +60,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
   });
   const [evidence, setEvidence] = useState<EvidenceFile[]>(initialEvidence ?? []);
   const [submitting, setSubmitting] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isCompleted) {
