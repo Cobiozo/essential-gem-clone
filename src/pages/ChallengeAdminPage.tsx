@@ -28,6 +28,8 @@ export default function ChallengeAdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<ChallengeSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
+
 
   useEffect(() => {
     (async () => {
