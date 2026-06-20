@@ -70,6 +70,9 @@ const VIDEO_COMPLETION_THRESHOLD = 1.0;
 
 const TrainingModule = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
+  const [searchParams] = useSearchParams();
+  const isChallengeMode = searchParams.get("challenge") === "1";
+  const challengeParticipantId = searchParams.get("participant");
   const [module, setModule] = useState<TrainingModule | null>(null);
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
