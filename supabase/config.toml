@@ -314,3 +314,6 @@ verify_jwt = false
 
 [functions.guest-redeem-invite]
 verify_jwt = false
+
+[functions.challenge-archive-edition]
+verify_jwt = true
