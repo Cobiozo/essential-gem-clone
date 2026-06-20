@@ -97,7 +97,7 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
   };
 
   const resetTask = async (task: Task) => {
-    if (!confirm(`Zresetować zaliczenie zadania „${task.title}"?`)) return;
+    if (!confirm(`Zresetować zaliczenie zadania „${task.title}" dla tego dnia?\n\nInne dni i zadania nie zostaną zmienione — przeliczone zostaną tylko punkty i streak tego uczestnika.`)) return;
     setBusyId(task.id);
     const { error } = await supabase
       .from("challenge_task_completions")
@@ -115,6 +115,7 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
     onChanged?.();
     setBusyId(null);
   };
+
 
   // group tasks by day
   const byDay = new Map<number, Task[]>();
