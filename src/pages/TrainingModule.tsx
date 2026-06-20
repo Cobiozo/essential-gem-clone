@@ -276,19 +276,41 @@ const TrainingModule = () => {
         setLessons(mappedLessons);
 
         if (user) {
-          const { data: progressData, error: progressError } = await supabase
-            .from('training_progress')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('lesson_id', lessonsData.map(l => l.id));
+          let progressMap: Record<string, LessonProgress> = {};
 
-          if (!mounted) return;
-          if (progressError) throw progressError;
+          if (isChallengeMode && challengeParticipantId) {
+            // CHALLENGE MODE: load progress from isolated challenge_lesson_progress.
+            // Academy completion status is NEVER shown here.
+            const { data: clpData } = await (supabase.from('challenge_lesson_progress') as any)
+              .select('lesson_id, completed_at, dwell_seconds, watched_seconds, started_at')
+              .eq('participant_id', challengeParticipantId)
+              .in('lesson_id', lessonsData.map(l => l.id));
+            progressMap = (clpData ?? []).reduce((acc: any, p: any) => {
+              acc[p.lesson_id] = {
+                lesson_id: p.lesson_id,
+                time_spent_seconds: p.dwell_seconds ?? 0,
+                video_position_seconds: p.watched_seconds ?? 0,
+                is_completed: !!p.completed_at,
+                started_at: p.started_at,
+                completed_at: p.completed_at,
+              };
+              return acc;
+            }, {});
+          } else {
+            const { data: progressData, error: progressError } = await supabase
+              .from('training_progress')
+              .select('*')
+              .eq('user_id', user.id)
+              .in('lesson_id', lessonsData.map(l => l.id));
 
-          const progressMap = progressData.reduce((acc, p) => {
-            acc[p.lesson_id] = p;
-            return acc;
-          }, {} as Record<string, LessonProgress>);
+            if (!mounted) return;
+            if (progressError) throw progressError;
+
+            progressMap = progressData.reduce((acc, p) => {
+              acc[p.lesson_id] = p;
+              return acc;
+            }, {} as Record<string, LessonProgress>);
+          }
 
           // Auto-create training_assignment if missing
           const { data: existingAssignment } = await supabase
