@@ -97,7 +97,7 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
   };
 
   const resetTask = async (task: Task) => {
-    if (!confirm(`Zresetować zaliczenie zadania „${task.title}"?`)) return;
+    if (!confirm(`Zresetować zaliczenie zadania „${task.title}" dla tego dnia?\n\nInne dni i zadania nie zostaną zmienione — przeliczone zostaną tylko punkty i streak tego uczestnika.`)) return;
     setBusyId(task.id);
     const { error } = await supabase
       .from("challenge_task_completions")
@@ -115,6 +115,7 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
     onChanged?.();
     setBusyId(null);
   };
+
 
   // group tasks by day
   const byDay = new Map<number, Task[]>();
@@ -192,13 +193,14 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
                                 <span className="hidden sm:inline">Zalicz</span>
                               </Button>
                             )}
-                            {status === "verified" && (
+                            {comp && (
                               <Button size="sm" variant="ghost" onClick={() => resetTask(task)} disabled={busy}>
                                 <RotateCcw className="w-3.5 h-3.5 sm:mr-1 text-destructive" />
                                 <span className="hidden sm:inline">Reset</span>
                               </Button>
                             )}
                           </div>
+
                         </div>
                       );
                     })}
