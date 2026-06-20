@@ -19,6 +19,7 @@ import { AccessManager } from "@/components/challenge/admin/AccessManager";
 import { ChallengeStats } from "@/components/challenge/admin/ChallengeStats";
 import { PeerPairsTab } from "@/components/challenge/admin/PeerPairsTab";
 import { ChallengeBannerEditor } from "@/components/challenge/admin/ChallengeBannerEditor";
+import { ChallengeArchivePanel } from "@/components/challenge/admin/ChallengeArchivePanel";
 
 export default function ChallengeAdminPage() {
   const { user } = useAuth();
