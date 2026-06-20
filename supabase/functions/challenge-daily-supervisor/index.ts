@@ -64,9 +64,14 @@ Deno.serve(async (req) => {
   );
 
   let mode = "hourly";
+  let onlyParticipantId: string | null = null;
   try {
     const body = await req.json().catch(() => ({}));
     if (body?.mode === "daily") mode = "daily";
+    if (body?.participant_id && typeof body.participant_id === "string") {
+      onlyParticipantId = body.participant_id;
+      mode = "adhoc";
+    }
   } catch (_) { /* noop */ }
 
   const summary = { processed: 0, verified: 0, completed: 0, errors: 0 };
@@ -91,11 +96,12 @@ Deno.serve(async (req) => {
       });
     }
 
-
-    const { data: participants } = await client
+    let q = client
       .from("challenge_participants")
       .select("*")
       .eq("status", "active");
+    if (onlyParticipantId) q = q.eq("id", onlyParticipantId);
+    const { data: participants } = await q;
 
     const { data: tasks } = await client
       .from("challenge_tasks")
@@ -193,7 +199,7 @@ Deno.serve(async (req) => {
       processed_count: summary.processed,
       started_at: new Date(startedAt).toISOString(),
       completed_at: new Date().toISOString(),
-      details: { mode, ...summary },
+      details: { mode, ...summary, participant_id: onlyParticipantId },
     });
 
     return new Response(JSON.stringify({ ok: true, mode, ...summary }), {
@@ -224,6 +230,7 @@ async function verifyTask(
 ): Promise<boolean> {
   const ref = t.target_ref || {};
   const check = (ref as any).check as string | undefined;
+  const startTs = new Date(p.start_date + "T00:00:00Z").toISOString();
 
   switch (t.task_type) {
     case "video_watch": {
@@ -232,11 +239,12 @@ async function verifyTask(
       if (!resourceId) return false;
       const { data } = await client
         .from("challenge_activity_log")
-        .select("payload")
+        .select("payload, created_at")
         .eq("participant_id", p.id)
         .eq("action_type", "video_watch")
+        .gte("created_at", startTs)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       const max = (data ?? [])
         .filter((r: any) => r.payload?.resource_id === resourceId)
         .reduce(
@@ -246,14 +254,16 @@ async function verifyTask(
       return max >= required;
     }
     case "training_lesson": {
+      // ISOLATION: count only completions registered in CHALLENGE context
+      // (challenge_lesson_progress), never reuse pre-existing Academy completion.
       const lessonId = (ref as any).lesson_id as string | undefined;
       if (!lessonId) return false;
       const { count } = await client
-        .from("training_progress")
+        .from("challenge_lesson_progress")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", p.user_id)
+        .eq("participant_id", p.id)
         .eq("lesson_id", lessonId)
-        .eq("is_completed", true);
+        .not("completed_at", "is", null);
       return (count ?? 0) > 0;
     }
     case "resource_view":
