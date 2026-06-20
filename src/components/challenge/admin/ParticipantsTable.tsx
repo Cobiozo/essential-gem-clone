@@ -31,10 +31,14 @@ export const ParticipantsTable = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: parts } = await supabase
-      .from("challenge_participants")
-      .select("id, user_id, current_day, total_points, current_streak, longest_streak, status, start_date, completion_date")
-      .order("total_points", { ascending: false });
+    const [{ data: parts }, { data: settings }] = await Promise.all([
+      supabase
+        .from("challenge_participants")
+        .select("id, user_id, current_day, total_points, current_streak, longest_streak, status, start_date, completion_date")
+        .order("total_points", { ascending: false }),
+      supabase.from("challenge_settings").select("duration_days").eq("id", true).maybeSingle(),
+    ]);
+    if (settings?.duration_days) setDurationDays(settings.duration_days);
     const ids = (parts ?? []).map((p: any) => p.user_id);
     let profiles: any[] = [];
     if (ids.length) {
