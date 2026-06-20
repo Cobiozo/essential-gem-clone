@@ -166,7 +166,12 @@ export default function ChallengeAdminPage() {
         <TabsContent value="stats">
           <ChallengeStats />
         </TabsContent>
-      </Tabs>
+        </Tabs>
+        </div>
+        <aside className="hidden lg:block">
+          <ChallengeArchivePanel />
+        </aside>
+      </div>
     </div>
   );
 }
