@@ -37,11 +37,16 @@ export default function ChallengeAdminPage() {
       const { data } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
       setIsAdmin(!!data);
       if (data) {
-        const { data: s } = await supabase.from("challenge_settings").select("*").eq("id", true).maybeSingle();
+        const [{ data: s }, { data: mods }] = await Promise.all([
+          supabase.from("challenge_settings").select("*").eq("id", true).maybeSingle(),
+          supabase.from("training_modules").select("id, title").eq("is_active", true).order("position"),
+        ]);
         setSettings(s as any);
+        setModules((mods ?? []) as any);
       }
     })();
   }, [user?.id]);
+
 
   if (isAdmin === null) return <div className="min-h-[60vh] flex items-center justify-center"><LoadingSpinner /></div>;
   if (!isAdmin) {
