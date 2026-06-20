@@ -144,6 +144,24 @@ export default function ChallengeAdminPage() {
                 <Switch checked={settings.is_enabled} onCheckedChange={(v) => updateField("is_enabled", v)} />
                 <Label>Moduł aktywny</Label>
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Moduł Akademii: „Szybki Start"</Label>
+                <Select
+                  value={settings.szybki_start_module_id ?? "none"}
+                  onValueChange={(v) => updateField("szybki_start_module_id", v === "none" ? null : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Wybierz moduł szkoleniowy…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— nie wybrano —</SelectItem>
+                    {modules.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Wskazuje, który moduł Akademii musi być ukończony (certyfikat), aby uznać użytkownika za posiadającego „Szybki Start". To warunek niezależny od zadań w Wyzwaniu — liderzy mogą nadawać dostęp tylko użytkownikom z ukończonym tym modułem.
+                </p>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Regulamin (HTML)</Label>
