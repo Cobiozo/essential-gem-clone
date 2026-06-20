@@ -125,24 +125,48 @@ export const ParticipantsTable = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b hover:bg-muted/30">
-                  <td className="p-2">
-                    <div className="font-medium">{fullName(r.profile)}</div>
-                    <div className="text-xs text-muted-foreground">{r.profile?.email ?? r.user_id}</div>
-                  </td>
-                  <td className="p-2 text-xs">{r.profile?.eq_id ?? "—"}</td>
-                  <td className="p-2"><Badge variant="outline">{r.status}</Badge></td>
-                  <td className="p-2 text-right">{r.current_day}</td>
-                  <td className="p-2 text-right">{r.current_streak} / {r.longest_streak}</td>
-                  <td className="p-2 text-right font-semibold">{r.total_points}</td>
-                  <td className="p-2 text-xs">{r.start_date}</td>
-                  <td className="p-2 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => reset(r.id)}>Reset</Button>
-                    <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const isOpen = expanded === r.id;
+                return (
+                  <Fragment key={r.id}>
+                    <tr className="border-b hover:bg-muted/30">
+                      <td className="p-2">
+                        <button
+                          className="flex items-start gap-2 text-left w-full"
+                          onClick={() => setExpanded(isOpen ? null : r.id)}
+                        >
+                          {isOpen ? <ChevronDown className="w-4 h-4 mt-1 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 mt-1 text-muted-foreground" />}
+                          <span>
+                            <div className="font-medium">{fullName(r.profile)}</div>
+                            <div className="text-xs text-muted-foreground">{r.profile?.email ?? r.user_id}</div>
+                          </span>
+                        </button>
+                      </td>
+                      <td className="p-2 text-xs">{r.profile?.eq_id ?? "—"}</td>
+                      <td className="p-2"><Badge variant="outline">{r.status}</Badge></td>
+                      <td className="p-2 text-right">{r.current_day}</td>
+                      <td className="p-2 text-right">{r.current_streak} / {r.longest_streak}</td>
+                      <td className="p-2 text-right font-semibold">{r.total_points}</td>
+                      <td className="p-2 text-xs">{r.start_date}</td>
+                      <td className="p-2 text-right">
+                        <Button size="sm" variant="ghost" onClick={() => reset(r.id)}>Reset</Button>
+                        <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={8} className="p-0">
+                          <ParticipantTasksPanel
+                            participantId={r.id}
+                            durationDays={durationDays}
+                            onChanged={load}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
               {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground p-6">Brak uczestników</td></tr>}
             </tbody>
           </table>
