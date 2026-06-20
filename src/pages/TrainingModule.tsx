@@ -533,6 +533,24 @@ const TrainingModule = () => {
     
     const attemptUpsert = async (attempt: number): Promise<boolean> => {
       try {
+        // CHALLENGE MODE: write ONLY to challenge_lesson_progress, never touch Academy.
+        if (isChallengeMode && challengeParticipantId) {
+          const { error } = await (supabase.from('challenge_lesson_progress') as any).upsert({
+            participant_id: challengeParticipantId,
+            lesson_id: currentLesson.id,
+            module_id: moduleId,
+            completed_at: new Date().toISOString(),
+            watched_seconds: hasVideo ? Math.floor(videoPositionRef.current) : 0,
+            dwell_seconds: effectiveTime,
+          }, { onConflict: 'participant_id,lesson_id' });
+          if (error) throw error;
+          // Trigger immediate challenge verification
+          supabase.functions.invoke('challenge-daily-supervisor', {
+            body: { participant_id: challengeParticipantId },
+          }).catch(() => {});
+          return true;
+        }
+
         const { error } = await supabase.from('training_progress').upsert({
           user_id: user.id,
           lesson_id: currentLesson.id,
