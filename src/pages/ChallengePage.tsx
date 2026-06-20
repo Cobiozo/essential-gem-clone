@@ -67,9 +67,21 @@ export default function ChallengePage() {
   return (
     <>
       {bannerConfig.enabled && bannerConfig.image_url ? <ChallengeBanner config={bannerConfig} /> : null}
-      {!participant
-        ? <ChallengeOnboarding settings={settings} onJoined={load} />
-        : <ChallengeDashboard settings={settings} participant={participant} />}
+      {!participant ? (
+        <ChallengeOnboarding settings={settings} onJoined={load} />
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 py-2 grid lg:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="min-w-0">
+            <ChallengeDashboard settings={settings} participant={participant} />
+          </div>
+          <div className="lg:pt-8">
+            <ChallengeStatsSidebar
+              currentParticipantId={participant.id}
+              showRanking={settings.ranking_visible_to_participants !== false}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
