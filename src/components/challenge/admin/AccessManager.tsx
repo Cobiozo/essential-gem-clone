@@ -235,7 +235,19 @@ export const AccessManager = () => {
                     <th className="text-left px-3 py-2">EQ ID</th>
                     <th className="text-left px-3 py-2">Email</th>
                     <th className="text-left px-3 py-2">Rola</th>
-                    <th className="text-left px-3 py-2">Szybki Start</th>
+                    <th className="text-left px-3 py-2">
+                      <TooltipProvider>
+                        <span className="inline-flex items-center gap-1">
+                          Szybki Start
+                          <Tooltip>
+                            <TooltipTrigger asChild><Info className="w-3 h-3 opacity-60" /></TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-xs">
+                              Czy użytkownik ma ukończony moduł „Szybki Start" w Akademii (certyfikat). Status pobierany z certyfikatu — niezależny od zadań Wyzwania.
+                            </TooltipContent>
+                          </Tooltip>
+                        </span>
+                      </TooltipProvider>
+                    </th>
                     <th className="text-left px-3 py-2">Nadane przez</th>
                     <th className="text-left px-3 py-2">Data</th>
                     <th className="text-right px-3 py-2">Akcja</th>
