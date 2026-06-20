@@ -1722,6 +1722,54 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_editions_archive: {
+        Row: {
+          archived_by: string | null
+          completed_count: number
+          created_at: string
+          duration_days: number
+          end_date: string
+          id: string
+          participants_count: number
+          snapshot: Json
+          start_date: string
+          title: string
+          top_pairs: Json
+          top_participants: Json
+          total_points_awarded: number
+        }
+        Insert: {
+          archived_by?: string | null
+          completed_count?: number
+          created_at?: string
+          duration_days: number
+          end_date: string
+          id?: string
+          participants_count?: number
+          snapshot?: Json
+          start_date: string
+          title: string
+          top_pairs?: Json
+          top_participants?: Json
+          total_points_awarded?: number
+        }
+        Update: {
+          archived_by?: string | null
+          completed_count?: number
+          created_at?: string
+          duration_days?: number
+          end_date?: string
+          id?: string
+          participants_count?: number
+          snapshot?: Json
+          start_date?: string
+          title?: string
+          top_pairs?: Json
+          top_participants?: Json
+          total_points_awarded?: number
+        }
+        Relationships: []
+      }
       challenge_leader_permissions: {
         Row: {
           can_grant_access: boolean
@@ -1745,6 +1793,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      challenge_lesson_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          dwell_seconds: number
+          id: string
+          lesson_id: string
+          module_id: string | null
+          participant_id: string
+          started_at: string
+          updated_at: string
+          watched_seconds: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          dwell_seconds?: number
+          id?: string
+          lesson_id: string
+          module_id?: string | null
+          participant_id: string
+          started_at?: string
+          updated_at?: string
+          watched_seconds?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          dwell_seconds?: number
+          id?: string
+          lesson_id?: string
+          module_id?: string | null
+          participant_id?: string
+          started_at?: string
+          updated_at?: string
+          watched_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_lesson_progress_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_participants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       challenge_participants: {
         Row: {

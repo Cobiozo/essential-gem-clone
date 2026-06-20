@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ChallengeTask, EvidenceFile } from "@/types/challenge";
 import { EvidenceUploader } from "./EvidenceUploader";
+import { ShareToContactsDialog } from "./ShareToContactsDialog";
 
 interface Props {
   task: ChallengeTask;
@@ -59,6 +60,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
   });
   const [evidence, setEvidence] = useState<EvidenceFile[]>(initialEvidence ?? []);
   const [submitting, setSubmitting] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
     if (isCompleted) {
@@ -182,15 +184,17 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
         return;
       }
 
-      // Training lesson
+      // Training lesson — CHALLENGE MODE: writes to challenge_lesson_progress only,
+      // does NOT touch training_progress / academy certificates.
       if (task.task_type === "training_lesson") {
         await trackActivity(
           ref.check === "training_lesson_completed" ? "training_lesson_completed" : "training_lesson_opened",
-          { lesson_id: ref.lesson_id, module_id: ref.module_id },
+          { lesson_id: ref.lesson_id, module_id: ref.module_id, challenge: 1 },
           "/training",
         );
-        if (ref.module_id) navigate(`/training/${ref.module_id}#lesson-${ref.lesson_id ?? ""}`);
-        else navigate("/training");
+        const qs = `?challenge=1&participant=${participantId}`;
+        if (ref.module_id) navigate(`/training/${ref.module_id}${qs}#lesson-${ref.lesson_id ?? ""}`);
+        else navigate(`/training${qs}`);
         return;
       }
 
@@ -212,8 +216,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
       if (check === "team_contacts_added") { navigate("/my-account?tab=n"); return; }
       if (check === "new_dm_threads") { navigate("/messages"); return; }
       if (check === "shared_resource_recipients") {
-        toast.info("Akcja zostanie zaliczona po udostępnieniu zasobu odbiorcom.");
-        navigate(`/zdrowa-wiedza?share=${ref.resource_id ?? ""}`);
+        setShareDialogOpen(true);
         return;
       }
       if (check === "profile_completion_100") { navigate("/my-account"); return; }
@@ -302,6 +305,16 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
           )}
         </div>
       </div>
+      {check === "shared_resource_recipients" && (
+        <ShareToContactsDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          resourceId={String(ref.resource_id ?? "")}
+          resourceTitle={task.title}
+          minRecipients={Number(ref.min_recipients ?? ref.count ?? 10)}
+          onDone={onChanged}
+        />
+      )}
     </Card>
   );
 };

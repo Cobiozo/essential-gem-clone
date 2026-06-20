@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +70,9 @@ const VIDEO_COMPLETION_THRESHOLD = 1.0;
 
 const TrainingModule = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
+  const [searchParams] = useSearchParams();
+  const isChallengeMode = searchParams.get("challenge") === "1";
+  const challengeParticipantId = searchParams.get("participant");
   const [module, setModule] = useState<TrainingModule | null>(null);
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
@@ -273,19 +276,41 @@ const TrainingModule = () => {
         setLessons(mappedLessons);
 
         if (user) {
-          const { data: progressData, error: progressError } = await supabase
-            .from('training_progress')
-            .select('*')
-            .eq('user_id', user.id)
-            .in('lesson_id', lessonsData.map(l => l.id));
+          let progressMap: Record<string, LessonProgress> = {};
 
-          if (!mounted) return;
-          if (progressError) throw progressError;
+          if (isChallengeMode && challengeParticipantId) {
+            // CHALLENGE MODE: load progress from isolated challenge_lesson_progress.
+            // Academy completion status is NEVER shown here.
+            const { data: clpData } = await (supabase.from('challenge_lesson_progress') as any)
+              .select('lesson_id, completed_at, dwell_seconds, watched_seconds, started_at')
+              .eq('participant_id', challengeParticipantId)
+              .in('lesson_id', lessonsData.map(l => l.id));
+            progressMap = (clpData ?? []).reduce((acc: any, p: any) => {
+              acc[p.lesson_id] = {
+                lesson_id: p.lesson_id,
+                time_spent_seconds: p.dwell_seconds ?? 0,
+                video_position_seconds: p.watched_seconds ?? 0,
+                is_completed: !!p.completed_at,
+                started_at: p.started_at,
+                completed_at: p.completed_at,
+              };
+              return acc;
+            }, {});
+          } else {
+            const { data: progressData, error: progressError } = await supabase
+              .from('training_progress')
+              .select('*')
+              .eq('user_id', user.id)
+              .in('lesson_id', lessonsData.map(l => l.id));
 
-          const progressMap = progressData.reduce((acc, p) => {
-            acc[p.lesson_id] = p;
-            return acc;
-          }, {} as Record<string, LessonProgress>);
+            if (!mounted) return;
+            if (progressError) throw progressError;
+
+            progressMap = progressData.reduce((acc, p) => {
+              acc[p.lesson_id] = p;
+              return acc;
+            }, {} as Record<string, LessonProgress>);
+          }
 
           // Auto-create training_assignment if missing
           const { data: existingAssignment } = await supabase
@@ -456,6 +481,8 @@ const TrainingModule = () => {
   useEffect(() => {
     const saveCurrentPosition = async () => {
       if (!user) return;
+      // In challenge mode, skip writes to Academy progress table.
+      if (isChallengeMode) return;
       const currentLessonData = lessonsRef.current[currentLessonIndexRef.current];
       if (!currentLessonData || progressRef.current[currentLessonData.id]?.is_completed) return;
 
@@ -530,6 +557,24 @@ const TrainingModule = () => {
     
     const attemptUpsert = async (attempt: number): Promise<boolean> => {
       try {
+        // CHALLENGE MODE: write ONLY to challenge_lesson_progress, never touch Academy.
+        if (isChallengeMode && challengeParticipantId) {
+          const { error } = await (supabase.from('challenge_lesson_progress') as any).upsert({
+            participant_id: challengeParticipantId,
+            lesson_id: currentLesson.id,
+            module_id: moduleId,
+            completed_at: new Date().toISOString(),
+            watched_seconds: hasVideo ? Math.floor(videoPositionRef.current) : 0,
+            dwell_seconds: effectiveTime,
+          }, { onConflict: 'participant_id,lesson_id' });
+          if (error) throw error;
+          // Trigger immediate challenge verification
+          supabase.functions.invoke('challenge-daily-supervisor', {
+            body: { participant_id: challengeParticipantId },
+          }).catch(() => {});
+          return true;
+        }
+
         const { error } = await supabase.from('training_progress').upsert({
           user_id: user.id,
           lesson_id: currentLesson.id,
@@ -610,20 +655,22 @@ const TrainingModule = () => {
         description: `Pomyślnie zaliczyłeś lekcję "${currentLesson.title}"`,
       });
 
-      // Check if all lessons are now completed
-      const allCompleted = lessons.every(l => 
-        l.id === currentLesson.id ? true : progressRef.current[l.id]?.is_completed
-      );
-      if (allCompleted && lessons.length > 0 && moduleId) {
-        await supabase.from('training_assignments').update({
-          is_completed: true,
-          completed_at: new Date().toISOString()
-        }).eq('user_id', user.id).eq('module_id', moduleId).eq('is_completed', false);
-        
-        toast({
-          title: "🎓 Moduł ukończony!",
-          description: "Gratulacje! Ukończyłeś szkolenie. Możesz wygenerować certyfikat na stronie Akademii.",
-        });
+      // Check if all lessons are now completed (Academy only — never in challenge mode)
+      if (!isChallengeMode) {
+        const allCompleted = lessons.every(l =>
+          l.id === currentLesson.id ? true : progressRef.current[l.id]?.is_completed
+        );
+        if (allCompleted && lessons.length > 0 && moduleId) {
+          await supabase.from('training_assignments').update({
+            is_completed: true,
+            completed_at: new Date().toISOString()
+          }).eq('user_id', user.id).eq('module_id', moduleId).eq('is_completed', false);
+
+          toast({
+            title: "🎓 Moduł ukończony!",
+            description: "Gratulacje! Ukończyłeś szkolenie. Możesz wygenerować certyfikat na stronie Akademii.",
+          });
+        }
       }
     } catch (error) {
       console.error('[TrainingModule] Failed to complete lesson:', error);
@@ -635,7 +682,7 @@ const TrainingModule = () => {
     } finally {
       setIsCompleting(false);
     }
-  }, [user, currentLesson, textLessonTime, lessons, moduleId, toast, isCompleting]);
+  }, [user, currentLesson, textLessonTime, lessons, moduleId, toast, isCompleting, isChallengeMode, challengeParticipantId]);
 
   // Lightweight video time update (no auto-save, just track position)
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
@@ -983,6 +1030,11 @@ const TrainingModule = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {isChallengeMode && (
+        <div className="bg-amber-500/15 border-b border-amber-500/40 text-amber-900 dark:text-amber-200 text-sm px-4 py-2 text-center">
+          <strong>Tryb Wyzwania 90-dniowego</strong> — postęp z Akademii pozostaje nietknięty. Tę lekcję musisz przejść od początku do końca, by zaliczyć ją w wyzwaniu.
+        </div>
+      )}
       <header className="border-b bg-card sticky top-[env(safe-area-inset-top)] z-50">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-wrap items-center gap-2 sm:gap-4">
           <Button 
