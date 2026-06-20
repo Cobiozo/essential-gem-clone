@@ -312,7 +312,7 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
           resourceId={String(ref.resource_id ?? "")}
           resourceTitle={task.title}
           minRecipients={Number(ref.min_recipients ?? ref.count ?? 10)}
-          onChanged={onChanged as any}
+          onDone={onChanged}
         />
       )}
     </Card>
