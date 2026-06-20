@@ -202,12 +202,25 @@ export const AccessManager = () => {
                 Dodaj nowy dostęp
               </div>
               {searchResults.map((p) => (
-                <div key={p.user_id} className="flex items-center justify-between p-3 hover:bg-muted/30">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {p.first_name} {p.last_name}
-                      {p.eq_id && <span className="ml-2 text-xs text-muted-foreground">EQ: {p.eq_id}</span>}
-                    </p>
+                <div key={p.user_id} className="flex items-center justify-between p-3 hover:bg-muted/30 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium truncate">
+                        {p.first_name} {p.last_name}
+                      </p>
+                      {p.eq_id && <span className="text-xs text-muted-foreground">EQ: {p.eq_id}</span>}
+                      {!ssModuleId ? (
+                        <Badge variant="outline" className="text-[10px]">Szybki Start: nie skonfigurowano</Badge>
+                      ) : p.has_certificate ? (
+                        <Badge className="bg-emerald-600/15 text-emerald-700 border-emerald-300 text-[10px]">
+                          <GraduationCap className="w-3 h-3 mr-1" /> Szybki Start: zaliczony
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-600">
+                          Brak Szybki Start
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                   </div>
                   <Button size="sm" onClick={() => grant(p.user_id)} disabled={saving === p.user_id}>
