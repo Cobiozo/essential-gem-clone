@@ -1006,6 +1006,11 @@ const TrainingModule = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {isChallengeMode && (
+        <div className="bg-amber-500/15 border-b border-amber-500/40 text-amber-900 dark:text-amber-200 text-sm px-4 py-2 text-center">
+          <strong>Tryb Wyzwania 90-dniowego</strong> — postęp z Akademii pozostaje nietknięty. Tę lekcję musisz przejść od początku do końca, by zaliczyć ją w wyzwaniu.
+        </div>
+      )}
       <header className="border-b bg-card sticky top-[env(safe-area-inset-top)] z-50">
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-wrap items-center gap-2 sm:gap-4">
           <Button 
