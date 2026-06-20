@@ -70,7 +70,7 @@ export default function ChallengeAdminPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/admin")}><ArrowLeft className="w-4 h-4 mr-1" /> Admin</Button>
@@ -80,6 +80,9 @@ export default function ChallengeAdminPage() {
           </div>
         </div>
       </div>
+
+      <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
+        <div className="min-w-0">
 
       <Tabs defaultValue="settings">
         <TabsList className="grid w-full grid-cols-7">
