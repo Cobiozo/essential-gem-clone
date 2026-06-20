@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ChallengeTask, EvidenceFile } from "@/types/challenge";
 import { EvidenceUploader } from "./EvidenceUploader";
+import { ShareToContactsDialog } from "./ShareToContactsDialog";
 
 interface Props {
   task: ChallengeTask;
