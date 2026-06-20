@@ -481,6 +481,8 @@ const TrainingModule = () => {
   useEffect(() => {
     const saveCurrentPosition = async () => {
       if (!user) return;
+      // In challenge mode, skip writes to Academy progress table.
+      if (isChallengeMode) return;
       const currentLessonData = lessonsRef.current[currentLessonIndexRef.current];
       if (!currentLessonData || progressRef.current[currentLessonData.id]?.is_completed) return;
 
