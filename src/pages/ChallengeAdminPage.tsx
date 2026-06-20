@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +28,8 @@ export default function ChallengeAdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [settings, setSettings] = useState<ChallengeSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [modules, setModules] = useState<Array<{ id: string; title: string }>>([]);
+
 
   useEffect(() => {
     (async () => {
@@ -34,11 +37,16 @@ export default function ChallengeAdminPage() {
       const { data } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
       setIsAdmin(!!data);
       if (data) {
-        const { data: s } = await supabase.from("challenge_settings").select("*").eq("id", true).maybeSingle();
+        const [{ data: s }, { data: mods }] = await Promise.all([
+          supabase.from("challenge_settings").select("*").eq("id", true).maybeSingle(),
+          supabase.from("training_modules").select("id, title").eq("is_active", true).order("position"),
+        ]);
         setSettings(s as any);
+        setModules((mods ?? []) as any);
       }
     })();
   }, [user?.id]);
+
 
   if (isAdmin === null) return <div className="min-h-[60vh] flex items-center justify-center"><LoadingSpinner /></div>;
   if (!isAdmin) {
@@ -63,6 +71,7 @@ export default function ChallengeAdminPage() {
       is_enabled: settings.is_enabled,
       global_start_date: settings.global_start_date,
       allow_late_join: settings.allow_late_join,
+      szybki_start_module_id: settings.szybki_start_module_id,
     }).eq("id", true);
     setSaving(false);
     if (error) toast.error(error.message);
@@ -134,6 +143,24 @@ export default function ChallengeAdminPage() {
               <div className="flex items-center gap-3">
                 <Switch checked={settings.is_enabled} onCheckedChange={(v) => updateField("is_enabled", v)} />
                 <Label>Moduł aktywny</Label>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Moduł Akademii: „Szybki Start"</Label>
+                <Select
+                  value={settings.szybki_start_module_id ?? "none"}
+                  onValueChange={(v) => updateField("szybki_start_module_id", v === "none" ? null : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Wybierz moduł szkoleniowy…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— nie wybrano —</SelectItem>
+                    {modules.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Wskazuje, który moduł Akademii musi być ukończony (certyfikat), aby uznać użytkownika za posiadającego „Szybki Start". To warunek niezależny od zadań w Wyzwaniu — liderzy mogą nadawać dostęp tylko użytkownikom z ukończonym tym modułem.
+                </p>
               </div>
             </div>
             <div className="space-y-2">
