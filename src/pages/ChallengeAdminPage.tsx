@@ -71,6 +71,7 @@ export default function ChallengeAdminPage() {
       is_enabled: settings.is_enabled,
       global_start_date: settings.global_start_date,
       allow_late_join: settings.allow_late_join,
+      szybki_start_module_id: settings.szybki_start_module_id,
     }).eq("id", true);
     setSaving(false);
     if (error) toast.error(error.message);
