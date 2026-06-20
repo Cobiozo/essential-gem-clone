@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Search, Info } from "lucide-react";
+import { Trash2, Search, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { ParticipantTasksPanel } from "./ParticipantTasksPanel";
 
 interface Row {
   id: string;
@@ -25,13 +26,19 @@ export const ParticipantsTable = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [durationDays, setDurationDays] = useState(90);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: parts } = await supabase
-      .from("challenge_participants")
-      .select("id, user_id, current_day, total_points, current_streak, longest_streak, status, start_date, completion_date")
-      .order("total_points", { ascending: false });
+    const [{ data: parts }, { data: settings }] = await Promise.all([
+      supabase
+        .from("challenge_participants")
+        .select("id, user_id, current_day, total_points, current_streak, longest_streak, status, start_date, completion_date")
+        .order("total_points", { ascending: false }),
+      supabase.from("challenge_settings").select("duration_days").eq("id", true).maybeSingle(),
+    ]);
+    if (settings?.duration_days) setDurationDays(settings.duration_days);
     const ids = (parts ?? []).map((p: any) => p.user_id);
     let profiles: any[] = [];
     if (ids.length) {
@@ -118,24 +125,48 @@ export const ParticipantsTable = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b hover:bg-muted/30">
-                  <td className="p-2">
-                    <div className="font-medium">{fullName(r.profile)}</div>
-                    <div className="text-xs text-muted-foreground">{r.profile?.email ?? r.user_id}</div>
-                  </td>
-                  <td className="p-2 text-xs">{r.profile?.eq_id ?? "—"}</td>
-                  <td className="p-2"><Badge variant="outline">{r.status}</Badge></td>
-                  <td className="p-2 text-right">{r.current_day}</td>
-                  <td className="p-2 text-right">{r.current_streak} / {r.longest_streak}</td>
-                  <td className="p-2 text-right font-semibold">{r.total_points}</td>
-                  <td className="p-2 text-xs">{r.start_date}</td>
-                  <td className="p-2 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => reset(r.id)}>Reset</Button>
-                    <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((r) => {
+                const isOpen = expanded === r.id;
+                return (
+                  <Fragment key={r.id}>
+                    <tr className="border-b hover:bg-muted/30">
+                      <td className="p-2">
+                        <button
+                          className="flex items-start gap-2 text-left w-full"
+                          onClick={() => setExpanded(isOpen ? null : r.id)}
+                        >
+                          {isOpen ? <ChevronDown className="w-4 h-4 mt-1 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 mt-1 text-muted-foreground" />}
+                          <span>
+                            <div className="font-medium">{fullName(r.profile)}</div>
+                            <div className="text-xs text-muted-foreground">{r.profile?.email ?? r.user_id}</div>
+                          </span>
+                        </button>
+                      </td>
+                      <td className="p-2 text-xs">{r.profile?.eq_id ?? "—"}</td>
+                      <td className="p-2"><Badge variant="outline">{r.status}</Badge></td>
+                      <td className="p-2 text-right">{r.current_day}</td>
+                      <td className="p-2 text-right">{r.current_streak} / {r.longest_streak}</td>
+                      <td className="p-2 text-right font-semibold">{r.total_points}</td>
+                      <td className="p-2 text-xs">{r.start_date}</td>
+                      <td className="p-2 text-right">
+                        <Button size="sm" variant="ghost" onClick={() => reset(r.id)}>Reset</Button>
+                        <Button size="icon" variant="ghost" onClick={() => remove(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={8} className="p-0">
+                          <ParticipantTasksPanel
+                            participantId={r.id}
+                            durationDays={durationDays}
+                            onChanged={load}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
               {filtered.length === 0 && <tr><td colSpan={8} className="text-center text-muted-foreground p-6">Brak uczestników</td></tr>}
             </tbody>
           </table>
