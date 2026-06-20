@@ -193,13 +193,14 @@ export const ParticipantTasksPanel = ({ participantId, durationDays, onChanged }
                                 <span className="hidden sm:inline">Zalicz</span>
                               </Button>
                             )}
-                            {status === "verified" && (
+                            {comp && (
                               <Button size="sm" variant="ghost" onClick={() => resetTask(task)} disabled={busy}>
                                 <RotateCcw className="w-3.5 h-3.5 sm:mr-1 text-destructive" />
                                 <span className="hidden sm:inline">Reset</span>
                               </Button>
                             )}
                           </div>
+
                         </div>
                       );
                     })}
