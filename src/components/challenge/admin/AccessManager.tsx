@@ -7,7 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Trash2, UserPlus, Search, Loader2, GraduationCap, ShieldCheck } from "lucide-react";
+import { Trash2, UserPlus, Search, Loader2, GraduationCap, ShieldCheck, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Row {
   user_id: string;
