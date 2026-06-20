@@ -114,11 +114,22 @@ export const AccessManager = () => {
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,eq_id.ilike.%${q}%`)
         .limit(8);
       const existing = new Set(rows.map(r => r.user_id));
-      setSearchResults((data ?? []).filter((p: any) => !existing.has(p.user_id)));
+      const filteredProfiles = (data ?? []).filter((p: any) => !existing.has(p.user_id));
+      const profileIds = filteredProfiles.map((p: any) => p.user_id);
+      let certSet = new Set<string>();
+      if (ssModuleId && profileIds.length) {
+        const { data: certs } = await supabase
+          .from("certificates")
+          .select("user_id")
+          .eq("module_id", ssModuleId)
+          .in("user_id", profileIds);
+        certSet = new Set((certs ?? []).map((c: any) => c.user_id));
+      }
+      setSearchResults(filteredProfiles.map((p: any) => ({ ...p, has_certificate: certSet.has(p.user_id) })));
       setSearching(false);
     }, 250);
     return () => clearTimeout(t);
-  }, [q, rows]);
+  }, [q, rows, ssModuleId]);
 
   const grant = async (uid: string) => {
     setSaving(uid);
