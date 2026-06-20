@@ -26,6 +26,8 @@ export const ParticipantsTable = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [durationDays, setDurationDays] = useState(90);
 
   const load = useCallback(async () => {
     setLoading(true);
