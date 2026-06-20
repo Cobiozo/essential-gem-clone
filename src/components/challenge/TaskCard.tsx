@@ -305,6 +305,16 @@ export const TaskCard = ({ task, isCompleted, participantId, onChanged, completi
           )}
         </div>
       </div>
+      {check === "shared_resource_recipients" && (
+        <ShareToContactsDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          resourceId={String(ref.resource_id ?? "")}
+          resourceTitle={task.title}
+          minRecipients={Number(ref.min_recipients ?? ref.count ?? 10)}
+          onChanged={onChanged as any}
+        />
+      )}
     </Card>
   );
 };
