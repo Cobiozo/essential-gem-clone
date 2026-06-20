@@ -317,3 +317,7 @@ verify_jwt = false
 
 [functions.challenge-archive-edition]
 verify_jwt = true
+
+[functions.ensure-challenge-evidence-bucket]
+verify_jwt = false
+
