@@ -631,20 +631,22 @@ const TrainingModule = () => {
         description: `Pomyślnie zaliczyłeś lekcję "${currentLesson.title}"`,
       });
 
-      // Check if all lessons are now completed
-      const allCompleted = lessons.every(l => 
-        l.id === currentLesson.id ? true : progressRef.current[l.id]?.is_completed
-      );
-      if (allCompleted && lessons.length > 0 && moduleId) {
-        await supabase.from('training_assignments').update({
-          is_completed: true,
-          completed_at: new Date().toISOString()
-        }).eq('user_id', user.id).eq('module_id', moduleId).eq('is_completed', false);
-        
-        toast({
-          title: "🎓 Moduł ukończony!",
-          description: "Gratulacje! Ukończyłeś szkolenie. Możesz wygenerować certyfikat na stronie Akademii.",
-        });
+      // Check if all lessons are now completed (Academy only — never in challenge mode)
+      if (!isChallengeMode) {
+        const allCompleted = lessons.every(l =>
+          l.id === currentLesson.id ? true : progressRef.current[l.id]?.is_completed
+        );
+        if (allCompleted && lessons.length > 0 && moduleId) {
+          await supabase.from('training_assignments').update({
+            is_completed: true,
+            completed_at: new Date().toISOString()
+          }).eq('user_id', user.id).eq('module_id', moduleId).eq('is_completed', false);
+
+          toast({
+            title: "🎓 Moduł ukończony!",
+            description: "Gratulacje! Ukończyłeś szkolenie. Możesz wygenerować certyfikat na stronie Akademii.",
+          });
+        }
       }
     } catch (error) {
       console.error('[TrainingModule] Failed to complete lesson:', error);
@@ -656,7 +658,7 @@ const TrainingModule = () => {
     } finally {
       setIsCompleting(false);
     }
-  }, [user, currentLesson, textLessonTime, lessons, moduleId, toast, isCompleting]);
+  }, [user, currentLesson, textLessonTime, lessons, moduleId, toast, isCompleting, isChallengeMode, challengeParticipantId]);
 
   // Lightweight video time update (no auto-save, just track position)
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
