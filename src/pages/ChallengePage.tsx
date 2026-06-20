@@ -6,6 +6,7 @@ import { useChallengeAccess } from "@/hooks/useChallengeAccess";
 import { ChallengeOnboarding } from "@/components/challenge/ChallengeOnboarding";
 import { ChallengeDashboard } from "@/components/challenge/ChallengeDashboard";
 import { ChallengeBanner } from "@/components/challenge/ChallengeBanner";
+import { ChallengeStatsSidebar } from "@/components/challenge/ChallengeStatsSidebar";
 import { useChallengeBanner } from "@/hooks/useChallengeBanner";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { ChallengeParticipant, ChallengeSettings } from "@/types/challenge";
