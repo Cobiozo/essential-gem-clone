@@ -534,6 +534,7 @@ const Admin = () => {
   // User management functions
   const fetchUsers = async () => {
     if (activeTab !== 'users') return;
+    if (!isAdmin && !canAction('users', 'view')) return;
     
     setUsersLoading(true);
     try {
