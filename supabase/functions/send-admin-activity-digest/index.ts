@@ -134,41 +134,30 @@ serve(async (req) => {
       .order('created_at', { ascending: false });
 
     if (logsError) throw logsError;
-    if (!logs || logs.length === 0) {
-      return new Response(JSON.stringify({ message: 'No activity in last 24h' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
-    // Get admin profiles
-    const adminIds = [...new Set(logs.map(l => l.admin_user_id))];
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('user_id, first_name, last_name, email')
-      .in('user_id', adminIds);
+    const allLogs = logs || [];
+    const adminLogsAll = allLogs.filter((l: any) => (l.actor_role || 'admin') === 'admin');
+    const modLogsAll = allLogs.filter((l: any) => l.actor_role === 'moderator');
+
+    // Profiles for actors
+    const actorIds = [...new Set(allLogs.map((l: any) => l.admin_user_id))];
+    const { data: profiles } = actorIds.length
+      ? await supabase.from('profiles').select('user_id, first_name, last_name, email').in('user_id', actorIds)
+      : { data: [] as any[] };
 
     const profileMap: Record<string, any> = {};
-    profiles?.forEach(p => { profileMap[p.user_id] = p; });
+    profiles?.forEach((p: any) => { profileMap[p.user_id] = p; });
 
-    // Get admin emails to send to
+    // Recipients: all admins + always sebastiansnopek87@gmail.com
     const { data: adminRoles } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .eq('role', 'admin');
-
-    const adminUserIds = adminRoles?.map(r => r.user_id) || [];
-    const { data: adminProfiles } = await supabase
-      .from('profiles')
-      .select('email')
-      .in('user_id', adminUserIds)
-      .not('email', 'is', null);
-
-    const adminEmails = adminProfiles?.map(p => p.email).filter(Boolean) || [];
-    if (adminEmails.length === 0) {
-      return new Response(JSON.stringify({ message: 'No admin emails found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+      .from('user_roles').select('user_id').eq('role', 'admin');
+    const adminUserIds = adminRoles?.map((r: any) => r.user_id) || [];
+    const { data: adminProfiles } = adminUserIds.length
+      ? await supabase.from('profiles').select('email').in('user_id', adminUserIds).not('email', 'is', null)
+      : { data: [] as any[] };
+    const recipients = new Set<string>((adminProfiles || []).map((p: any) => p.email).filter(Boolean));
+    recipients.add('sebastiansnopek87@gmail.com');
+    const adminEmails = Array.from(recipients);
 
     // SMTP settings
     const smtpSettings: SmtpSettings = {
@@ -180,60 +169,70 @@ serve(async (req) => {
       sender_name: 'Pure Life Center',
     };
 
-    // Build HTML
     const formatDate = (d: string) => new Date(d).toLocaleString('pl-PL', {
       timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
-
-    const getAdminName = (id: string) => {
+    const getName = (id: string) => {
       const p = profileMap[id];
-      return p ? `${p.first_name || ''} ${p.last_name || ''}`.trim() : id.slice(0, 8);
+      if (!p) return id.slice(0, 8);
+      const full = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+      return full || p.email || id.slice(0, 8);
     };
 
-    // Group by admin
-    const byAdmin: Record<string, typeof logs> = {};
-    logs.forEach(l => {
-      if (!byAdmin[l.admin_user_id]) byAdmin[l.admin_user_id] = [];
-      byAdmin[l.admin_user_id].push(l);
-    });
-
-    let tableRows = '';
-    for (const [adminId, adminLogs] of Object.entries(byAdmin)) {
-      tableRows += `<tr><td colspan="4" style="background:#f5f5f5;padding:8px 12px;font-weight:bold;border-bottom:1px solid #e0e0e0;">
-        👤 ${getAdminName(adminId)} (${adminLogs.length} akcji)
-      </td></tr>`;
-      for (const log of adminLogs) {
-        tableRows += `<tr>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;color:#666;">${formatDate(log.created_at)}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${log.action_type}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${log.action_description}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;color:#999;">${log.target_table || '—'}</td>
-        </tr>`;
+    const buildSection = (title: string, list: any[], accent: string) => {
+      if (list.length === 0) {
+        return `<h2 style="color:${accent};font-size:16px;margin-top:24px;">${title}</h2>
+          <p style="color:#666;font-size:13px;">Brak aktywności w ostatnich 24 h.</p>`;
       }
-    }
-
-    const reportDate = new Date().toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw' });
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;background:#fff;color:#333;">
-      <div style="max-width:800px;margin:0 auto;padding:20px;">
-        <h1 style="color:#C5A059;font-size:20px;">📋 Dziennik działań administratorów</h1>
-        <p style="color:#666;font-size:14px;">Raport za okres: ${reportDate} (ostatnie 24h) · Łącznie: ${logs.length} akcji</p>
-        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+      const byActor: Record<string, any[]> = {};
+      list.forEach((l: any) => {
+        (byActor[l.admin_user_id] = byActor[l.admin_user_id] || []).push(l);
+      });
+      let rows = '';
+      for (const [aid, items] of Object.entries(byActor)) {
+        const p = profileMap[aid];
+        const email = p?.email ? ` &lt;${p.email}&gt;` : '';
+        rows += `<tr><td colspan="4" style="background:#f5f5f5;padding:8px 12px;font-weight:bold;border-bottom:1px solid #e0e0e0;">
+          👤 ${getName(aid)}${email} (${items.length} akcji)
+        </td></tr>`;
+        for (const log of items) {
+          const details = log.details && Object.keys(log.details).length
+            ? `<div style="font-size:11px;color:#888;margin-top:2px;">${JSON.stringify(log.details).slice(0, 200)}</div>`
+            : '';
+          rows += `<tr>
+            <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;color:#666;white-space:nowrap;">${formatDate(log.created_at)}</td>
+            <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${log.action_type}</td>
+            <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${log.action_description}${details}</td>
+            <td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;color:#999;">${log.target_table || '—'}</td>
+          </tr>`;
+        }
+      }
+      return `<h2 style="color:${accent};font-size:16px;margin-top:24px;">${title} (${list.length})</h2>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
           <thead><tr style="background:#333;color:#fff;">
             <th style="padding:8px 12px;text-align:left;font-size:13px;">Data</th>
             <th style="padding:8px 12px;text-align:left;font-size:13px;">Typ</th>
             <th style="padding:8px 12px;text-align:left;font-size:13px;">Opis</th>
             <th style="padding:8px 12px;text-align:left;font-size:13px;">Tabela</th>
           </tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
+          <tbody>${rows}</tbody>
+        </table>`;
+    };
+
+    const reportDate = new Date().toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw' });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;background:#fff;color:#333;">
+      <div style="max-width:900px;margin:0 auto;padding:20px;">
+        <h1 style="color:#C5A059;font-size:20px;">📋 Dziennik działań (Admin + Moderatorzy)</h1>
+        <p style="color:#666;font-size:14px;">Raport za okres: ${reportDate} (ostatnie 24h) · Łącznie: ${allLogs.length} akcji (Admin: ${adminLogsAll.length}, Moderator: ${modLogsAll.length})</p>
+        ${buildSection('👑 Akcje administratorów', adminLogsAll, '#C5A059')}
+        ${buildSection('🛡️ Akcje moderatorów', modLogsAll, '#2563eb')}
         <p style="margin-top:24px;font-size:12px;color:#999;">Wiadomość wygenerowana automatycznie przez Pure Life Center.</p>
       </div>
     </body></html>`;
 
-    const subject = `📋 Dziennik admina — ${reportDate} (${logs.length} akcji)`;
+    const subject = `📋 Dziennik działań — ${reportDate} (${allLogs.length} akcji · mod: ${modLogsAll.length})`;
 
-    // Send to each admin
     let sentCount = 0;
     for (const email of adminEmails) {
       const result = await sendSmtpEmail(smtpSettings, email, subject, html);
@@ -243,8 +242,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `Digest sent to ${sentCount}/${adminEmails.length} admins`,
-      logCount: logs.length,
+      message: `Digest sent to ${sentCount}/${adminEmails.length} recipients`,
+      adminLogs: adminLogsAll.length,
+      moderatorLogs: modLogsAll.length,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
