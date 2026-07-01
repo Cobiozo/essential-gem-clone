@@ -2137,7 +2137,7 @@ const Admin = () => {
     if (activeTab === 'pages' && isAdmin) {
       fetchPages();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, isModerator]);
 
 
   useEffect(() => {
