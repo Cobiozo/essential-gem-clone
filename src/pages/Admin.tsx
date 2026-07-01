@@ -2130,9 +2130,9 @@ const Admin = () => {
        loadHeaderImageSize();
        loadPageSettings();
      }
-    if (activeTab === 'users' && isAdmin) {
+    if (activeTab === 'users' && (isAdmin || canAction('users', 'view'))) {
       fetchUsers();
-      fetchEmailTemplates();
+      if (isAdmin) fetchEmailTemplates();
     }
     if (activeTab === 'pages' && isAdmin) {
       fetchPages();
