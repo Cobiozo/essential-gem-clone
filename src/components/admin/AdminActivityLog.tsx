@@ -149,6 +149,16 @@ export const AdminActivityLog: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filterActorRole} onValueChange={v => { setFilterActorRole(v); setPage(0); }}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Rola" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Admin + Moderator</SelectItem>
+              <SelectItem value="admin">Tylko admin</SelectItem>
+              <SelectItem value="moderator">Tylko moderator</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
