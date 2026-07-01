@@ -184,7 +184,7 @@ const Admin = () => {
   };
 
   const { user, isAdmin, signOut, loading: authLoading, rolesReady } = useAuth();
-  const { isModerator, hasAnyAdminAccess, loading: modLoading } = useModeratorAccess();
+  const { isModerator, hasAnyAdminAccess, loading: modLoading, canAction, can } = useModeratorAccess();
   const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
   const { t } = useLanguage();
   const navigate = useNavigate();
