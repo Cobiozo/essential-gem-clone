@@ -184,7 +184,7 @@ const Admin = () => {
   };
 
   const { user, isAdmin, signOut, loading: authLoading, rolesReady } = useAuth();
-  const { isModerator, hasAnyAdminAccess, loading: modLoading } = useModeratorAccess();
+  const { isModerator, hasAnyAdminAccess, loading: modLoading, canAction, can } = useModeratorAccess();
   const [gateUnlocked, setGateUnlocked] = useState<boolean>(() => isAdminGateUnlocked());
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -534,6 +534,7 @@ const Admin = () => {
   // User management functions
   const fetchUsers = async () => {
     if (activeTab !== 'users') return;
+    if (!isAdmin && !canAction('users', 'view')) return;
     
     setUsersLoading(true);
     try {
@@ -2129,14 +2130,14 @@ const Admin = () => {
        loadHeaderImageSize();
        loadPageSettings();
      }
-    if (activeTab === 'users' && isAdmin) {
+    if (activeTab === 'users' && (isAdmin || canAction('users', 'view'))) {
       fetchUsers();
-      fetchEmailTemplates();
+      if (isAdmin) fetchEmailTemplates();
     }
     if (activeTab === 'pages' && isAdmin) {
       fetchPages();
     }
-  }, [activeTab, isAdmin]);
+  }, [activeTab, isAdmin, isModerator]);
 
 
   useEffect(() => {

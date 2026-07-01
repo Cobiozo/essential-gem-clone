@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 
 interface LogActionParams {
   actionType: string;
@@ -12,6 +13,7 @@ interface LogActionParams {
 
 export const useAdminActivityLog = () => {
   const { user, isAdmin } = useAuth();
+  const { isModerator } = useModeratorAccess();
 
   const logAction = useCallback(async ({
     actionType,
@@ -20,7 +22,8 @@ export const useAdminActivityLog = () => {
     targetId,
     details = {},
   }: LogActionParams) => {
-    if (!user || !isAdmin) return;
+    if (!user) return;
+    if (!isAdmin && !isModerator) return;
 
     try {
       await supabase.from('admin_activity_log').insert({
@@ -30,11 +33,12 @@ export const useAdminActivityLog = () => {
         target_table: targetTable || null,
         target_id: targetId || null,
         details,
-      });
+        actor_role: isAdmin ? 'admin' : 'moderator',
+      } as any);
     } catch (err) {
       console.error('[AdminActivityLog] Failed to log action:', err);
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, isModerator]);
 
   return { logAction };
 };

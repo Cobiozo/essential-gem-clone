@@ -72,6 +72,7 @@ export type Database = {
         Row: {
           action_description: string
           action_type: string
+          actor_role: string
           admin_user_id: string
           created_at: string
           details: Json | null
@@ -82,6 +83,7 @@ export type Database = {
         Insert: {
           action_description: string
           action_type: string
+          actor_role?: string
           admin_user_id: string
           created_at?: string
           details?: Json | null
@@ -92,6 +94,7 @@ export type Database = {
         Update: {
           action_description?: string
           action_type?: string
+          actor_role?: string
           admin_user_id?: string
           created_at?: string
           details?: Json | null

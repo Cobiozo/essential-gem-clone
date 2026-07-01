@@ -15,6 +15,7 @@ export const AdminActivityLog: React.FC = () => {
   const [page, setPage] = useState(0);
   const [filterAdminId, setFilterAdminId] = useState<string>('all');
   const [filterActionType, setFilterActionType] = useState<string>('all');
+  const [filterActorRole, setFilterActorRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch admins for filter
@@ -51,7 +52,7 @@ export const AdminActivityLog: React.FC = () => {
 
   // Fetch logs
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['admin-activity-log', page, filterAdminId, filterActionType, searchQuery],
+    queryKey: ['admin-activity-log', page, filterAdminId, filterActionType, filterActorRole, searchQuery],
     queryFn: async () => {
       let query = supabase
         .from('admin_activity_log')
@@ -64,6 +65,9 @@ export const AdminActivityLog: React.FC = () => {
       }
       if (filterActionType !== 'all') {
         query = query.eq('action_type', filterActionType);
+      }
+      if (filterActorRole !== 'all') {
+        query = (query as any).eq('actor_role', filterActorRole);
       }
       if (searchQuery.trim()) {
         query = query.ilike('action_description', `%${searchQuery.trim()}%`);
@@ -145,6 +149,16 @@ export const AdminActivityLog: React.FC = () => {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filterActorRole} onValueChange={v => { setFilterActorRole(v); setPage(0); }}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Rola" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Admin + Moderator</SelectItem>
+              <SelectItem value="admin">Tylko admin</SelectItem>
+              <SelectItem value="moderator">Tylko moderator</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
@@ -165,13 +179,20 @@ export const AdminActivityLog: React.FC = () => {
                   <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Ładowanie...</td></tr>
                 ) : logsData?.logs.length === 0 ? (
                   <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Brak wpisów</td></tr>
-                ) : logsData?.logs.map(log => (
+                ) : logsData?.logs.map((log: any) => (
                   <tr key={log.id} className="border-t hover:bg-muted/30 transition-colors">
                     <td className="p-3 whitespace-nowrap text-muted-foreground text-xs">
                       {formatDate(log.created_at)}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      {getAdminName(log.admin_user_id)}
+                      <div className="flex items-center gap-2">
+                        <span>{getAdminName(log.admin_user_id)}</span>
+                        {log.actor_role === 'moderator' ? (
+                          <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px]">MOD</Badge>
+                        ) : (
+                          <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px]">ADMIN</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       <Badge variant="outline" className="text-xs">{log.action_type}</Badge>
