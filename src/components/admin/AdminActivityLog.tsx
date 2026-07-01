@@ -52,7 +52,7 @@ export const AdminActivityLog: React.FC = () => {
 
   // Fetch logs
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['admin-activity-log', page, filterAdminId, filterActionType, searchQuery],
+    queryKey: ['admin-activity-log', page, filterAdminId, filterActionType, filterActorRole, searchQuery],
     queryFn: async () => {
       let query = supabase
         .from('admin_activity_log')
@@ -65,6 +65,9 @@ export const AdminActivityLog: React.FC = () => {
       }
       if (filterActionType !== 'all') {
         query = query.eq('action_type', filterActionType);
+      }
+      if (filterActorRole !== 'all') {
+        query = (query as any).eq('actor_role', filterActorRole);
       }
       if (searchQuery.trim()) {
         query = query.ilike('action_description', `%${searchQuery.trim()}%`);
