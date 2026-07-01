@@ -15,6 +15,7 @@ export const AdminActivityLog: React.FC = () => {
   const [page, setPage] = useState(0);
   const [filterAdminId, setFilterAdminId] = useState<string>('all');
   const [filterActionType, setFilterActionType] = useState<string>('all');
+  const [filterActorRole, setFilterActorRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch admins for filter
