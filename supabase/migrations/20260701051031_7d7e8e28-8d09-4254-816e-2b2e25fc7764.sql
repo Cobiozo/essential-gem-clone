@@ -1,0 +1,2 @@
+ALTER TABLE public.team_contacts DROP CONSTRAINT team_contacts_priority_level_range;
+ALTER TABLE public.team_contacts ADD CONSTRAINT team_contacts_priority_level_range CHECK (priority_level >= 0 AND priority_level <= 25);
