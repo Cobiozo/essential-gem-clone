@@ -179,13 +179,20 @@ export const AdminActivityLog: React.FC = () => {
                   <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Ładowanie...</td></tr>
                 ) : logsData?.logs.length === 0 ? (
                   <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Brak wpisów</td></tr>
-                ) : logsData?.logs.map(log => (
+                ) : logsData?.logs.map((log: any) => (
                   <tr key={log.id} className="border-t hover:bg-muted/30 transition-colors">
                     <td className="p-3 whitespace-nowrap text-muted-foreground text-xs">
                       {formatDate(log.created_at)}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      {getAdminName(log.admin_user_id)}
+                      <div className="flex items-center gap-2">
+                        <span>{getAdminName(log.admin_user_id)}</span>
+                        {log.actor_role === 'moderator' ? (
+                          <Badge className="bg-blue-600 hover:bg-blue-600 text-white text-[10px]">MOD</Badge>
+                        ) : (
+                          <Badge className="bg-amber-600 hover:bg-amber-600 text-white text-[10px]">ADMIN</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       <Badge variant="outline" className="text-xs">{log.action_type}</Badge>
