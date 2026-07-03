@@ -1094,15 +1094,6 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                             onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Etykieta (opcjonalnie)</Label>
-                          <Input
-                            disabled={isSent}
-                            placeholder="np. Przypomnienie 24h"
-                            value={c.label}
-                            onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
-                          />
-                        </div>
                       </div>
 
                       <div className="rounded-md border border-dashed p-3 space-y-2 bg-background/40">
