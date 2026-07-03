@@ -68,10 +68,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
         
         if (!hasIncrementedViewRef.current) {
           hasIncrementedViewRef.current = true;
-          await supabase
-            .from('healthy_knowledge')
-            .update({ view_count: (data as HealthyKnowledge).view_count + 1 })
-            .eq('id', id);
+          await supabase.rpc('increment_hk_view', { _material_id: id });
         }
       } catch (error) {
         console.error('Error fetching material:', error);

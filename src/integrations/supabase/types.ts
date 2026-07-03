@@ -11906,6 +11906,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      increment_hk_view: { Args: { _material_id: string }; Returns: undefined }
       increment_partner_link_click: {
         Args: { _ref_code: string }
         Returns: Json
