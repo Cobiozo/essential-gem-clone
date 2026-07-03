@@ -180,6 +180,19 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           .order('scheduled_at', { ascending: true });
         if (data && data.length > 0) {
           setCampaignEnabled(true);
+          // Fetch display labels for test recipients
+          const testUserIds = Array.from(new Set(data.map((c: any) => c.test_recipient_user_id).filter(Boolean)));
+          let labelMap: Record<string, string> = {};
+          if (testUserIds.length > 0) {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name, email')
+              .in('user_id', testUserIds);
+            (profs ?? []).forEach((p: any) => {
+              const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+              labelMap[p.user_id] = name ? `${name} (${p.email})` : (p.email || p.user_id);
+            });
+          }
           setCampaigns(data.map((c: any) => ({
             id: c.id,
             mode: c.mode,
@@ -190,6 +203,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             status: c.status,
             sent_at: c.sent_at,
             recipients_count: c.recipients_count ?? 0,
+            test_mode: !!c.test_mode,
+            test_recipient_user_id: c.test_recipient_user_id ?? null,
+            test_recipient_label: c.test_recipient_user_id ? (labelMap[c.test_recipient_user_id] ?? null) : null,
           })));
           setInitialCampaignIds(data.map((c: any) => c.id));
         } else {
