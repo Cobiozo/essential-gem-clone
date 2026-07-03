@@ -96,6 +96,21 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const [saving, setSaving] = useState(false);
   const [conflictData, setConflictData] = useState<Array<{ id: string; title: string; event_type: string; host_name: string | null; conflict_start: string; conflict_end: string; team_registered_count: number }> | null>(null);
   const [pendingSaveCallback, setPendingSaveCallback] = useState<(() => Promise<void>) | null>(null);
+
+  // Email campaign state
+  type CampaignRow = {
+    id?: string;
+    mode: 'immediate' | 'scheduled';
+    scheduledLocal: string; // datetime-local input value in Warsaw time
+    label: string;
+    status?: string;
+    sent_at?: string | null;
+    recipients_count?: number;
+  };
+  const [campaignEnabled, setCampaignEnabled] = useState(false);
+  const [campaignsOpen, setCampaignsOpen] = useState(true);
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  const [initialCampaignIds, setInitialCampaignIds] = useState<string[]>([]);
   
   // Multi-occurrence state
   const [isMultiOccurrence, setIsMultiOccurrence] = useState(false);
