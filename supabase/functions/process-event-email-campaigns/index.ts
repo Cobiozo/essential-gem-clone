@@ -89,7 +89,8 @@ function buildEmailHtml(event: any): { subject: string; html: string } {
   // Pages redirect unauthenticated users to /auth?n=<targetPath> and Auth.tsx returns them here after login.
   const cta = target;
   const when = formatWarsawDateTime(event.start_time);
-  const desc = (event.description ?? "").replace(/\s+/g, " ").trim().slice(0, 400);
+  const desc = sanitizeDescription(event.description ?? "");
+  const descHtml = renderDescriptionHtml(desc);
   const preheader = `${event.title} — ${when}`;
 
   const image = event.image_url
