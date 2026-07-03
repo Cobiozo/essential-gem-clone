@@ -321,3 +321,6 @@ verify_jwt = true
 [functions.ensure-challenge-evidence-bucket]
 verify_jwt = false
 
+
+[functions.process-event-email-campaigns]
+verify_jwt = false
