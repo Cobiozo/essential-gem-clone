@@ -412,7 +412,16 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   };
 
   const persistEmailCampaigns = async (eventId: string) => {
-    // Delete campaigns removed from the UI (only if not sent yet)
+    // Validate: test_mode requires a recipient
+    if (campaignEnabled) {
+      for (let i = 0; i < campaigns.length; i++) {
+        const c = campaigns[i];
+        if (c.test_mode && !c.test_recipient_user_id) {
+          throw new Error(`Tura ${i + 1}: tryb testowy wymaga wskazania użytkownika-odbiorcy.`);
+        }
+      }
+    }
+
     const currentIds = campaigns.map(c => c.id).filter(Boolean) as string[];
     const removed = initialCampaignIds.filter(id => !currentIds.includes(id));
     if (removed.length > 0) {
