@@ -45,41 +45,68 @@ function routeForEventType(eventType: string): string {
 function buildEmailHtml(event: any): { subject: string; html: string } {
   const targetPath = `${routeForEventType(event.event_type)}?event=${event.id}&utm=email_invite`;
   const target = `${APP_ORIGIN}${targetPath}`;
-  const loginRedirect = `${APP_ORIGIN}/auth?returnTo=${encodeURIComponent(targetPath)}`;
-  const cta = target; // /auth already redirects to target if not logged in via ProtectedRoute
+  // Pages redirect unauthenticated users to /auth?n=<targetPath> and Auth.tsx returns them here after login.
+  const cta = target;
   const when = formatWarsawDateTime(event.start_time);
-  const desc = (event.description ?? "").slice(0, 500);
-  const image = event.image_url ? `<img src="${escapeHtml(event.image_url)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:16px;" />` : "";
-  const host = event.host_name ? `<p style="margin:4px 0;color:#4b5563;"><strong>Prowadzący:</strong> ${escapeHtml(event.host_name)}</p>` : "";
-  const location = event.location ? `<p style="margin:4px 0;color:#4b5563;"><strong>Miejsce:</strong> ${escapeHtml(event.location)}</p>` : "";
+  const desc = (event.description ?? "").replace(/\s+/g, " ").trim().slice(0, 400);
+  const preheader = `${event.title} — ${when}`;
+
+  const image = event.image_url
+    ? `<img src="${escapeHtml(event.image_url)}" alt="" width="560" style="display:block;width:100%;max-width:560px;height:auto;border:0;border-radius:12px;margin:0 0 20px 0;" />`
+    : "";
+
+  const infoRow = (emoji: string, label: string, value: string) => `
+    <tr>
+      <td style="padding:6px 0;font-size:15px;color:#374151;">
+        <span style="display:inline-block;width:22px;">${emoji}</span>
+        <strong style="color:#111827;">${label}:</strong> ${escapeHtml(value)}
+      </td>
+    </tr>`;
+
+  const infoRows = [
+    infoRow("📅", "Termin", when),
+    event.host_name ? infoRow("👤", "Prowadzący", event.host_name) : "",
+    event.location ? infoRow("📍", "Miejsce", event.location) : "",
+  ].join("");
 
   const subject = `Zaproszenie: ${event.title}`;
   const html = `<!doctype html>
 <html lang="pl">
-<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:24px 0;">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111827;">
+  <span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;">${escapeHtml(preheader)}</span>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 12px;">
     <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:32px;max-width:600px;">
-        <tr><td>
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;max-width:560px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <tr><td style="background:#eab308;height:6px;line-height:6px;font-size:0;">&nbsp;</td></tr>
+        <tr><td style="padding:32px 32px 28px 32px;">
           ${image}
-          <h1 style="margin:0 0 12px 0;font-size:22px;color:#111827;">${escapeHtml(event.title)}</h1>
-          <p style="margin:4px 0;color:#4b5563;"><strong>Termin:</strong> ${escapeHtml(when)}</p>
-          ${host}
-          ${location}
-          ${desc ? `<p style="margin:16px 0;color:#374151;line-height:1.5;white-space:pre-wrap;">${escapeHtml(desc)}</p>` : ""}
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
-            <tr><td align="center" style="background:#eab308;border-radius:8px;">
-              <a href="${cta}" style="display:inline-block;padding:14px 28px;color:#111827;text-decoration:none;font-weight:700;font-size:16px;">
+          <h1 style="margin:0 0 16px 0;font-size:24px;line-height:1.3;color:#111827;font-weight:700;">${escapeHtml(event.title)}</h1>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
+            ${infoRows}
+          </table>
+          ${desc ? `<p style="margin:0 0 28px 0;color:#4b5563;line-height:1.6;font-size:15px;">${escapeHtml(desc)}</p>` : ""}
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td align="center" style="padding:8px 0 4px 0;">
+              <a href="${cta}" style="display:inline-block;background:#eab308;color:#111827;text-decoration:none;font-weight:700;font-size:17px;padding:16px 44px;border-radius:10px;letter-spacing:0.2px;">
                 Zapisz się
               </a>
             </td></tr>
+            <tr><td align="center" style="padding:14px 0 0 0;">
+              <a href="${cta}" style="color:#6b7280;font-size:13px;text-decoration:underline;">Zobacz szczegóły wydarzenia</a>
+            </td></tr>
           </table>
-          <p style="margin:16px 0 0 0;color:#6b7280;font-size:13px;">
-            Jeżeli przycisk nie działa, skopiuj link: <br/>
-            <a href="${cta}" style="color:#2563eb;word-break:break-all;">${cta}</a>
-          </p>
-          <p style="margin:8px 0 0 0;color:#9ca3af;font-size:12px;">
-            Nie jesteś zalogowany? <a href="${loginRedirect}" style="color:#2563eb;">Zaloguj się i przejdź do wydarzenia</a>.
+        </td></tr>
+        <tr><td style="padding:20px 32px 28px 32px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;text-align:center;">
+            Otrzymujesz tę wiadomość, ponieważ jesteś członkiem Pure Life Center.<br/>
+            Jeśli przycisk nie działa, wklej ten adres w przeglądarce:<br/>
+            <a href="${cta}" style="color:#9ca3af;word-break:break-all;">${cta}</a>
           </p>
         </td></tr>
       </table>
