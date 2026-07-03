@@ -58,6 +58,90 @@ const durationOptions = [
   { value: 180, label: '180 min' },
 ];
 
+type TestRecipientPickerProps = {
+  userId: string | null | undefined;
+  label: string | null | undefined;
+  disabled?: boolean;
+  onSelect: (userId: string, label: string) => void;
+  onClear: () => void;
+};
+
+const CampaignTestRecipientPicker: React.FC<TestRecipientPickerProps> = ({ userId, label, disabled, onSelect, onClear }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Array<{ user_id: string; first_name: string | null; last_name: string | null; email: string | null }>>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query || query.trim().length < 2) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      const term = `%${query.trim()}%`;
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .eq('is_active', true)
+        .or(`first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term}`)
+        .limit(8);
+      setResults(data || []);
+      setOpen(true);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  if (userId) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm">
+        <span className="font-medium text-amber-800 dark:text-amber-300">TEST →</span>
+        <span className="truncate">{label || userId}</span>
+        <Button type="button" variant="ghost" size="sm" disabled={disabled} className="ml-auto h-7 px-2" onClick={onClear}>
+          Zmień
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        placeholder="Szukaj użytkownika (imię, nazwisko, e-mail)…"
+        value={query}
+        disabled={disabled}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-20 mt-1 left-0 right-0 max-h-56 overflow-auto rounded-md border bg-popover shadow-lg">
+          {results.map((r) => {
+            const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim();
+            const displayLabel = name ? `${name} (${r.email || ''})` : (r.email || r.user_id);
+            return (
+              <button
+                key={r.user_id}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                onClick={() => {
+                  onSelect(r.user_id, displayLabel);
+                  setQuery('');
+                  setResults([]);
+                  setOpen(false);
+                }}
+              >
+                {displayLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {open && !loading && query.trim().length >= 2 && results.length === 0 && (
+        <p className="text-xs text-muted-foreground mt-1">Brak wyników</p>
+      )}
+    </div>
+  );
+};
+
+
+
 export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   editingTraining,
   onSave,
