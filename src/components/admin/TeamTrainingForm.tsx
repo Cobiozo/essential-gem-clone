@@ -1035,6 +1035,11 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                     <div key={c.id ?? `new-${idx}`} className="border rounded-lg p-3 space-y-2 bg-muted/20">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-sm font-medium">Tura {idx + 1}</span>
+                        {c.test_mode && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-medium">
+                            TEST
+                          </span>
+                        )}
                         {c.status && (
                           <span className={`text-xs px-2 py-0.5 rounded ${c.status === 'sent' ? 'bg-green-500/20 text-green-700 dark:text-green-300' : c.status === 'processing' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300' : c.status === 'failed' ? 'bg-red-500/20 text-red-700 dark:text-red-300' : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300'}`}>
                             {c.status === 'sent' ? `Wysłano (${c.recipients_count ?? 0})` : c.status === 'processing' ? 'Wysyłka...' : c.status === 'failed' ? 'Błąd' : 'Oczekuje'}
@@ -1052,6 +1057,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                           </Button>
                         </div>
                       </div>
+
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
