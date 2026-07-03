@@ -76,14 +76,26 @@ const WebinarsPage: React.FC = () => {
         
         {upcomingEvents.length > 0 ? (
           <div className="space-y-2">
-            {upcomingEvents.map((event) => (
-              <EventCardCompact 
-                key={event.id} 
-                event={event} 
-                onRegister={refetch}
-                defaultOpen={event.id === highlightedEventId}
-              />
-            ))}
+            {upcomingEvents.map((event) => {
+              const isTarget = event.id === highlightedEventId;
+              return (
+                <div
+                  key={event.id}
+                  ref={isTarget ? highlightRef : undefined}
+                  className={
+                    isTarget && highlightPulse
+                      ? 'rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-background transition-all'
+                      : 'transition-all'
+                  }
+                >
+                  <EventCardCompact
+                    event={event}
+                    onRegister={refetch}
+                    defaultOpen={isTarget}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12 bg-muted/30 rounded-lg border border-dashed">
