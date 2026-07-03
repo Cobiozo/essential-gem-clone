@@ -447,7 +447,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             mode: c.mode,
             scheduled_at: scheduledIso,
             label: c.label || null,
-          })
+            test_mode: !!c.test_mode,
+            test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+          } as any)
           .eq('id', c.id)
           .in('status', ['pending', 'failed']);
       } else {
@@ -457,7 +459,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           scheduled_at: scheduledIso,
           label: c.label || null,
           created_by: user?.id ?? null,
-        });
+          test_mode: !!c.test_mode,
+          test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+        } as any);
       }
     }
   };
