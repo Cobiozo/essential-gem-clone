@@ -392,6 +392,57 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     }
   };
 
+  const persistEmailCampaigns = async (eventId: string) => {
+    // Delete campaigns removed from the UI (only if not sent yet)
+    const currentIds = campaigns.map(c => c.id).filter(Boolean) as string[];
+    const removed = initialCampaignIds.filter(id => !currentIds.includes(id));
+    if (removed.length > 0) {
+      await supabase
+        .from('event_email_campaigns')
+        .delete()
+        .in('id', removed)
+        .in('status', ['pending', 'failed']);
+    }
+
+    if (!campaignEnabled || campaigns.length === 0) {
+      if (currentIds.length > 0) {
+        // User disabled campaigns; remove pending ones
+        await supabase
+          .from('event_email_campaigns')
+          .delete()
+          .in('id', currentIds)
+          .in('status', ['pending', 'failed']);
+      }
+      return;
+    }
+
+    for (const c of campaigns) {
+      const scheduledIso = c.mode === 'immediate'
+        ? new Date().toISOString()
+        : fromZonedTime(c.scheduledLocal, DEFAULT_EVENT_TIMEZONE).toISOString();
+      if (c.id) {
+        // Update only if still pending/failed
+        await supabase
+          .from('event_email_campaigns')
+          .update({
+            mode: c.mode,
+            scheduled_at: scheduledIso,
+            label: c.label || null,
+          })
+          .eq('id', c.id)
+          .in('status', ['pending', 'failed']);
+      } else {
+        await supabase.from('event_email_campaigns').insert({
+          event_id: eventId,
+          mode: c.mode,
+          scheduled_at: scheduledIso,
+          label: c.label || null,
+          created_by: user?.id ?? null,
+        });
+      }
+    }
+  };
+
   return (
     <>
     <Card className="border-muted">
