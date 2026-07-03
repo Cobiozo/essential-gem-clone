@@ -3558,6 +3558,8 @@ export type Database = {
           scheduled_at: string
           sent_at: string | null
           status: string
+          test_mode: boolean
+          test_recipient_user_id: string | null
           updated_at: string
         }
         Insert: {
@@ -3572,6 +3574,8 @@ export type Database = {
           scheduled_at: string
           sent_at?: string | null
           status?: string
+          test_mode?: boolean
+          test_recipient_user_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -3586,6 +3590,8 @@ export type Database = {
           scheduled_at?: string
           sent_at?: string | null
           status?: string
+          test_mode?: boolean
+          test_recipient_user_id?: string | null
           updated_at?: string
         }
         Relationships: [
