@@ -1,71 +1,21 @@
-## Cel
+## Diagnoza
 
-1. Dodać **tryb testowy kampanii** — możliwość wysłania zaproszenia „Zapisz się" tylko do wskazanego użytkownika (np. sam admin), bez ruszania reszty bazy.
-2. Zmienić logikę kolejnych tur — kolejne wysyłki mają iść do **wszystkich, którzy nadal nie są zapisani**, nawet jeśli otrzymali poprzednią turę. Wykluczamy tylko zapisanych i tych, którzy dostali maila **w tej samej turze/kampanii**.
+Sprawdziłem bazę i logi:
 
----
+- **Kampania testowa istnieje** i jest w statusie `pending`, `test_mode = true`, odbiorca `Sebastian Snopek`, `scheduled_at = 20:52`. Wszystko poprawnie zapisane.
+- **CRON `process-event-email-campaigns-every-5min`** działa co 5 min i wywołuje URL edge functiona.
+- **Wywołanie zwraca HTTP 404** (widoczne w `net._http_response`) — a `edge_function_logs` dla `process-event-email-campaigns` są **puste**.
 
-## Zmiany w bazie
+Wniosek: **edge function `process-event-email-campaigns` nie został wdrożony (deployed)** na Supabase. Kod jest w repo (`supabase/functions/process-event-email-campaigns/index.ts`) i wpis w `config.toml` istnieje, ale sam deploy nie został wykonany, więc URL zwraca 404 i żaden mail (ani testowy, ani produkcyjny) nigdy nie wychodzi.
 
-Migracja modyfikująca istniejące tabele:
+## Plan naprawy
 
-- `event_email_campaigns`:
-  - `test_mode boolean not null default false`
-  - `test_recipient_user_id uuid null references profiles(user_id)`
-- `event_email_recipients`:
-  - usunąć `UNIQUE (event_id, user_id)`
-  - dodać `UNIQUE (campaign_id, user_id)` — dedup w obrębie jednej tury, nie całego wydarzenia.
+1. **Wdrożyć edge function** `process-event-email-campaigns` (aktualny kod z repo, obsługujący `test_mode`).
+2. **Wyzwolić ręcznie** funkcję jeden raz zaraz po deployu, żeby nie czekać do 5 min na kolejny tick CRON — istniejąca kampania (Tura 1, TEST → Sebastian) zostanie od razu przetworzona.
+3. **Zweryfikować**:
+   - `edge_function_logs` pokażą wpisy `[campaigns] tick`, `test=true eligible=1 batch=1`.
+   - Rekord w `event_email_campaigns` przejdzie na `status = 'sent'`, `recipients_count = 1`.
+   - Pojawi się wpis w `event_email_recipients` (campaign_id = tej kampanii, user_id = Sebastian).
+   - W `email_send_log` będzie wysłany mail „Zaproszenie: …" na `sebastiansnopek87@gmail.com`.
 
-Backfill: istniejące wiersze mają `campaign_id` — unique zadziała.
-
----
-
-## Zmiany w edge function `process-event-email-campaigns`
-
-- Wybór odbiorców:
-  - Jeżeli `campaign.test_mode = true` → jedyny kandydat to profil o `user_id = test_recipient_user_id` (aktywny, niezablokowany, z e-mailem). Ignorujemy `event_registrations` i `event_email_recipients` — test ma się zawsze wysłać.
-  - W przeciwnym razie: aktywni, niezablokowani, z e-mailem, **NOT registered** (`event_registrations`), **NOT** wysłani **w tej samej kampanii** (`event_email_recipients.campaign_id = camp.id`). Nie filtrujemy już po całym `event_id` — użytkownik, który dostał 1. turę i się nie zapisał, dostanie 2. turę.
-- Dedup w obrębie tury zapewnia nowe `UNIQUE (campaign_id, user_id)` — nawet przy retry ta sama tura nie wyśle dwa razy do tej samej osoby.
-
----
-
-## Zmiany w UI admina (`TeamTrainingForm.tsx`, sekcja „Kampania e-mail")
-
-Dla każdej tury dodać:
-
-- Toggle **„Tryb testowy — wyślij tylko do wskazanego użytkownika"**.
-- Gdy włączony: pole wyszukiwarki użytkownika (reużywamy wzorca z `AdminUserSearch` — search po imieniu/nazwisku/e-mailu, `is_active = true`). Wybrany user zapisywany jako `test_recipient_user_id`.
-- Wizualne oznaczenie tury testowej (badge „TEST") i licznik odbiorców po wysyłce (powinien być `1`).
-- Walidacja przy zapisie: `test_mode = true` wymaga wybranego użytkownika.
-
----
-
-## Instrukcja krok po kroku dla użytkownika (po wdrożeniu)
-
-1. Wejdź w **Admin → Zdarzenia**, otwórz istniejące wydarzenie (np. „Spotkanie zespołu") lub utwórz nowe.
-2. Rozwiń sekcję **„Kampania e-mail: zaproszenie do zapisu"** i włącz toggle „Wyślij zaproszenie".
-3. Dodaj nową turę, wybierz tryb **„Natychmiast po utworzeniu"** (lub konkretną datę w przyszłości, jeśli chcesz sprawdzić harmonogram).
-4. Włącz toggle **„Tryb testowy"** dla tej tury i w wyszukiwarce wybierz użytkownika, do którego ma pójść mail (np. własne konto admin lub konto testowe).
-5. Nadaj etykietę np. „TEST — jan.kowalski@example.com" i zapisz wydarzenie.
-6. Poczekaj do 5 minut (CRON) lub wywołaj ręcznie edge function `process-event-email-campaigns` z panelu Supabase → Edge Functions.
-7. Sprawdź skrzynkę wybranego użytkownika — powinien dostać dokładnie 1 e-mail „Zapisz się". Status tury w formularzu zmieni się na **sent** z licznikiem `1`.
-8. Aby przetestować drugą turę: dodaj kolejną turę (też w trybie testowym z tym samym lub innym userem) i powtórz.
-
----
-
-## Instrukcja: kolejne tury dla niezalogowanych (produkcyjnie)
-
-Po nowej logice: dodaj kilka tur (np. „Zaproszenie", „Przypomnienie 24h", „Ostatnia szansa 2h"). Każda kolejna tura automatycznie pominie tych, którzy się już zapisali, ale **ponownie napisze** do tych, którzy dostali poprzedni mail i nadal nie kliknęli „Zapisz się".
-
----
-
-## Pliki do zmiany
-
-- `supabase/migrations/…` — nowa migracja z ALTER TABLE (kolumny + zmiana unique).
-- `supabase/functions/process-event-email-campaigns/index.ts` — nowa logika kandydatów.
-- `src/components/admin/TeamTrainingForm.tsx` — UI trybu testowego + wyszukiwarki użytkownika.
-
-## Poza zakresem
-
-- Nie zmieniamy szablonu e-maila ani deep-linku.
-- Nie dotykamy `paid_events` ani auto-webinarów.
+Nie zmieniam kodu funkcji — logika testowego trybu jest już poprawna, brakuje tylko wdrożenia.
