@@ -3545,6 +3545,101 @@ export type Database = {
         }
         Relationships: []
       }
+      event_email_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error: string | null
+          event_id: string
+          id: string
+          label: string | null
+          mode: string
+          recipients_count: number
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          event_id: string
+          id?: string
+          label?: string | null
+          mode: string
+          recipients_count?: number
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          event_id?: string
+          id?: string
+          label?: string | null
+          mode?: string
+          recipients_count?: number
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_email_campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_email_recipients: {
+        Row: {
+          campaign_id: string | null
+          email: string
+          event_id: string
+          id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          email: string
+          event_id: string
+          id?: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          email?: string
+          event_id?: string
+          id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_email_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "event_email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_email_recipients_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_form_submissions: {
         Row: {
           account_deleted_action: string | null
