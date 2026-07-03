@@ -1094,10 +1094,53 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                             onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
                           />
                         </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Etykieta (opcjonalnie)</Label>
+                          <Input
+                            disabled={isSent}
+                            placeholder="np. Przypomnienie 24h"
+                            value={c.label}
+                            onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-md border border-dashed p-3 space-y-2 bg-background/40">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            checked={!!c.test_mode}
+                            disabled={isSent}
+                            onCheckedChange={(checked) => setCampaigns(prev => prev.map((r, i) => i === idx ? {
+                              ...r,
+                              test_mode: checked,
+                              test_recipient_user_id: checked ? r.test_recipient_user_id ?? null : null,
+                              test_recipient_label: checked ? r.test_recipient_label ?? null : null,
+                            } : r))}
+                          />
+                          <Label className="text-sm">
+                            Tryb testowy — wyślij tylko do wskazanego użytkownika
+                          </Label>
+                        </div>
+                        {c.test_mode && (
+                          <>
+                            <p className="text-xs text-muted-foreground">
+                              W trybie testowym e-mail „Zapisz się" trafi wyłącznie do wybranej osoby.
+                              Pozostali użytkownicy są pomijani (idealne do sprawdzenia treści przed prawdziwą wysyłką).
+                            </p>
+                            <CampaignTestRecipientPicker
+                              userId={c.test_recipient_user_id}
+                              label={c.test_recipient_label}
+                              disabled={isSent}
+                              onSelect={(uid, lbl) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, test_recipient_user_id: uid, test_recipient_label: lbl } : r))}
+                              onClear={() => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, test_recipient_user_id: null, test_recipient_label: null } : r))}
+                            />
+                          </>
+                        )}
                       </div>
                     </div>
                   );
                 })}
+
 
                 <Button
                   type="button"
