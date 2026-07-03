@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS public.event_registrations_event_user_date_time_key;
+DROP INDEX IF EXISTS public.event_registrations_event_user_no_date_key;
