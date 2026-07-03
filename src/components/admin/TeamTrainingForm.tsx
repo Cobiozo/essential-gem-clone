@@ -58,6 +58,90 @@ const durationOptions = [
   { value: 180, label: '180 min' },
 ];
 
+type TestRecipientPickerProps = {
+  userId: string | null | undefined;
+  label: string | null | undefined;
+  disabled?: boolean;
+  onSelect: (userId: string, label: string) => void;
+  onClear: () => void;
+};
+
+const CampaignTestRecipientPicker: React.FC<TestRecipientPickerProps> = ({ userId, label, disabled, onSelect, onClear }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Array<{ user_id: string; first_name: string | null; last_name: string | null; email: string | null }>>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query || query.trim().length < 2) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      const term = `%${query.trim()}%`;
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email')
+        .eq('is_active', true)
+        .or(`first_name.ilike.${term},last_name.ilike.${term},email.ilike.${term}`)
+        .limit(8);
+      setResults(data || []);
+      setOpen(true);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  if (userId) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm">
+        <span className="font-medium text-amber-800 dark:text-amber-300">TEST →</span>
+        <span className="truncate">{label || userId}</span>
+        <Button type="button" variant="ghost" size="sm" disabled={disabled} className="ml-auto h-7 px-2" onClick={onClear}>
+          Zmień
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        placeholder="Szukaj użytkownika (imię, nazwisko, e-mail)…"
+        value={query}
+        disabled={disabled}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-20 mt-1 left-0 right-0 max-h-56 overflow-auto rounded-md border bg-popover shadow-lg">
+          {results.map((r) => {
+            const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim();
+            const displayLabel = name ? `${name} (${r.email || ''})` : (r.email || r.user_id);
+            return (
+              <button
+                key={r.user_id}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-accent text-sm"
+                onClick={() => {
+                  onSelect(r.user_id, displayLabel);
+                  setQuery('');
+                  setResults([]);
+                  setOpen(false);
+                }}
+              >
+                {displayLabel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {open && !loading && query.trim().length >= 2 && results.length === 0 && (
+        <p className="text-xs text-muted-foreground mt-1">Brak wyników</p>
+      )}
+    </div>
+  );
+};
+
+
+
 export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   editingTraining,
   onSave,
@@ -106,6 +190,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     status?: string;
     sent_at?: string | null;
     recipients_count?: number;
+    test_mode?: boolean;
+    test_recipient_user_id?: string | null;
+    test_recipient_label?: string | null; // display label for chosen user (cached)
   };
   const [campaignEnabled, setCampaignEnabled] = useState(false);
   const [campaignsOpen, setCampaignsOpen] = useState(true);
@@ -177,6 +264,19 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           .order('scheduled_at', { ascending: true });
         if (data && data.length > 0) {
           setCampaignEnabled(true);
+          // Fetch display labels for test recipients
+          const testUserIds = Array.from(new Set(data.map((c: any) => c.test_recipient_user_id).filter(Boolean)));
+          let labelMap: Record<string, string> = {};
+          if (testUserIds.length > 0) {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name, email')
+              .in('user_id', testUserIds);
+            (profs ?? []).forEach((p: any) => {
+              const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+              labelMap[p.user_id] = name ? `${name} (${p.email})` : (p.email || p.user_id);
+            });
+          }
           setCampaigns(data.map((c: any) => ({
             id: c.id,
             mode: c.mode,
@@ -187,6 +287,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             status: c.status,
             sent_at: c.sent_at,
             recipients_count: c.recipients_count ?? 0,
+            test_mode: !!c.test_mode,
+            test_recipient_user_id: c.test_recipient_user_id ?? null,
+            test_recipient_label: c.test_recipient_user_id ? (labelMap[c.test_recipient_user_id] ?? null) : null,
           })));
           setInitialCampaignIds(data.map((c: any) => c.id));
         } else {
@@ -393,7 +496,16 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   };
 
   const persistEmailCampaigns = async (eventId: string) => {
-    // Delete campaigns removed from the UI (only if not sent yet)
+    // Validate: test_mode requires a recipient
+    if (campaignEnabled) {
+      for (let i = 0; i < campaigns.length; i++) {
+        const c = campaigns[i];
+        if (c.test_mode && !c.test_recipient_user_id) {
+          throw new Error(`Tura ${i + 1}: tryb testowy wymaga wskazania użytkownika-odbiorcy.`);
+        }
+      }
+    }
+
     const currentIds = campaigns.map(c => c.id).filter(Boolean) as string[];
     const removed = initialCampaignIds.filter(id => !currentIds.includes(id));
     if (removed.length > 0) {
@@ -428,7 +540,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             mode: c.mode,
             scheduled_at: scheduledIso,
             label: c.label || null,
-          })
+            test_mode: !!c.test_mode,
+            test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+          } as any)
           .eq('id', c.id)
           .in('status', ['pending', 'failed']);
       } else {
@@ -438,7 +552,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           scheduled_at: scheduledIso,
           label: c.label || null,
           created_by: user?.id ?? null,
-        });
+          test_mode: !!c.test_mode,
+          test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+        } as any);
       }
     }
   };
@@ -919,6 +1035,11 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                     <div key={c.id ?? `new-${idx}`} className="border rounded-lg p-3 space-y-2 bg-muted/20">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-sm font-medium">Tura {idx + 1}</span>
+                        {c.test_mode && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-medium">
+                            TEST
+                          </span>
+                        )}
                         {c.status && (
                           <span className={`text-xs px-2 py-0.5 rounded ${c.status === 'sent' ? 'bg-green-500/20 text-green-700 dark:text-green-300' : c.status === 'processing' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300' : c.status === 'failed' ? 'bg-red-500/20 text-red-700 dark:text-red-300' : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300'}`}>
                             {c.status === 'sent' ? `Wysłano (${c.recipients_count ?? 0})` : c.status === 'processing' ? 'Wysyłka...' : c.status === 'failed' ? 'Błąd' : 'Oczekuje'}
@@ -936,6 +1057,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                           </Button>
                         </div>
                       </div>
+
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="space-y-1">
@@ -973,9 +1095,43 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                           />
                         </div>
                       </div>
+
+                      <div className="rounded-md border border-dashed p-3 space-y-2 bg-background/40">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            checked={!!c.test_mode}
+                            disabled={isSent}
+                            onCheckedChange={(checked) => setCampaigns(prev => prev.map((r, i) => i === idx ? {
+                              ...r,
+                              test_mode: checked,
+                              test_recipient_user_id: checked ? r.test_recipient_user_id ?? null : null,
+                              test_recipient_label: checked ? r.test_recipient_label ?? null : null,
+                            } : r))}
+                          />
+                          <Label className="text-sm">
+                            Tryb testowy — wyślij tylko do wskazanego użytkownika
+                          </Label>
+                        </div>
+                        {c.test_mode && (
+                          <>
+                            <p className="text-xs text-muted-foreground">
+                              W trybie testowym e-mail „Zapisz się" trafi wyłącznie do wybranej osoby.
+                              Pozostali użytkownicy są pomijani (idealne do sprawdzenia treści przed prawdziwą wysyłką).
+                            </p>
+                            <CampaignTestRecipientPicker
+                              userId={c.test_recipient_user_id}
+                              label={c.test_recipient_label}
+                              disabled={isSent}
+                              onSelect={(uid, lbl) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, test_recipient_user_id: uid, test_recipient_label: lbl } : r))}
+                              onClear={() => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, test_recipient_user_id: null, test_recipient_label: null } : r))}
+                            />
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+
 
                 <Button
                   type="button"

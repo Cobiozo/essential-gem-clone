@@ -141,33 +141,62 @@ serve(async (req) => {
       continue;
     }
 
-    // Candidates: active profiles, not blocked, with email, not already sent for this event, not registered yet
-    const { data: profiles, error: pErr } = await supabase
-      .from("profiles")
-      .select("user_id,email")
-      .eq("is_active", true)
-      .is("blocked_at", null)
-      .not("email", "is", null)
-      .limit(5000);
+    // Candidates
+    let eligible: Array<{ user_id: string; email: string }> = [];
 
-    if (pErr) {
-      await supabase.from("event_email_campaigns").update({ status: "failed", error: pErr.message }).eq("id", camp.id);
-      continue;
+    if (camp.test_mode) {
+      if (!camp.test_recipient_user_id) {
+        await supabase.from("event_email_campaigns").update({ status: "failed", error: "test_mode without test_recipient_user_id" }).eq("id", camp.id);
+        continue;
+      }
+      const { data: testProfile, error: tpErr } = await supabase
+        .from("profiles")
+        .select("user_id,email")
+        .eq("user_id", camp.test_recipient_user_id)
+        .eq("is_active", true)
+        .is("blocked_at", null)
+        .not("email", "is", null)
+        .maybeSingle();
+      if (tpErr || !testProfile) {
+        await supabase.from("event_email_campaigns").update({ status: "failed", error: `test recipient not found/inactive: ${tpErr?.message ?? "n/a"}` }).eq("id", camp.id);
+        continue;
+      }
+      // Skip already-sent in THIS campaign (idempotency on retry)
+      const { data: alreadyInCamp } = await supabase
+        .from("event_email_recipients")
+        .select("user_id")
+        .eq("campaign_id", camp.id)
+        .eq("user_id", testProfile.user_id);
+      if ((alreadyInCamp ?? []).length === 0) {
+        eligible = [{ user_id: testProfile.user_id, email: testProfile.email as string }];
+      }
+    } else {
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("user_id,email")
+        .eq("is_active", true)
+        .is("blocked_at", null)
+        .not("email", "is", null)
+        .limit(5000);
+      if (pErr) {
+        await supabase.from("event_email_campaigns").update({ status: "failed", error: pErr.message }).eq("id", camp.id);
+        continue;
+      }
+      const userIds = (profiles ?? []).map((p: any) => p.user_id);
+      // Exclude: registered for event OR already sent within THIS campaign (not the whole event)
+      const [{ data: sentInCamp }, { data: alreadyReg }] = await Promise.all([
+        supabase.from("event_email_recipients").select("user_id").eq("campaign_id", camp.id),
+        supabase.from("event_registrations").select("user_id").eq("event_id", camp.event_id).in("user_id", userIds),
+      ]);
+      const excluded = new Set<string>([
+        ...(sentInCamp ?? []).map((r: any) => r.user_id),
+        ...(alreadyReg ?? []).map((r: any) => r.user_id),
+      ]);
+      eligible = (profiles ?? []).filter((p: any) => !excluded.has(p.user_id) && !!p.email) as any;
     }
 
-    const userIds = (profiles ?? []).map((p: any) => p.user_id);
-    const [{ data: alreadySent }, { data: alreadyReg }] = await Promise.all([
-      supabase.from("event_email_recipients").select("user_id").eq("event_id", camp.event_id),
-      supabase.from("event_registrations").select("user_id").eq("event_id", camp.event_id).in("user_id", userIds),
-    ]);
-    const excluded = new Set<string>([
-      ...(alreadySent ?? []).map((r: any) => r.user_id),
-      ...(alreadyReg ?? []).map((r: any) => r.user_id),
-    ]);
-
-    const eligible = (profiles ?? []).filter((p: any) => !excluded.has(p.user_id) && !!p.email);
     const batch = eligible.slice(0, BATCH_LIMIT);
-    console.log(`[campaigns] ${camp.id} eligible=${eligible.length} batch=${batch.length}`);
+    console.log(`[campaigns] ${camp.id} test=${!!camp.test_mode} eligible=${eligible.length} batch=${batch.length}`);
 
     const { subject, html } = buildEmailHtml(ev);
 
