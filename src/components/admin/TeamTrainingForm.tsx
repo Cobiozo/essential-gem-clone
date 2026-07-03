@@ -326,20 +326,35 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           };
 
           let error;
+          let savedEventId: string | null = editingTraining?.id ?? null;
           if (editingTraining) {
             ({ error } = await supabase
               .from('events')
               .update(trainingData)
               .eq('id', editingTraining.id));
           } else {
-            ({ error } = await supabase
+            const { data: inserted, error: insErr } = await supabase
               .from('events')
-              .insert({ ...trainingData, created_by: user.id, host_user_id: user.id }));
+              .insert({ ...trainingData, created_by: user.id, host_user_id: user.id })
+              .select('id')
+              .single();
+            error = insErr;
+            savedEventId = inserted?.id ?? null;
           }
 
           if (error) {
             toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
             return;
+          }
+
+          // Persist email campaigns
+          if (savedEventId) {
+            try {
+              await persistEmailCampaigns(savedEventId);
+            } catch (e: any) {
+              console.error('[campaigns] persist error', e);
+              toast({ title: 'Uwaga', description: 'Wydarzenie zapisano, ale kampanię e-mail nie udało się zapisać: ' + (e?.message || e), variant: 'destructive' });
+            }
           }
 
           toast({ 
