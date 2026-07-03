@@ -882,6 +882,117 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Email invitation campaign */}
+        <Collapsible open={campaignsOpen} onOpenChange={setCampaignsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start gap-2 h-10 px-3 hover:bg-muted">
+              <Mail className="h-4 w-4" />
+              <span className="font-medium">Zaproszenia e-mail „Zapisz się"</span>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pl-6 pt-3 space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={campaignEnabled}
+                onCheckedChange={(checked) => {
+                  setCampaignEnabled(checked);
+                  if (checked && campaigns.length === 0) {
+                    setCampaigns([{ mode: 'immediate', scheduledLocal: '', label: 'Pierwsze zaproszenie' }]);
+                  }
+                }}
+              />
+              <Label className="text-muted-foreground">
+                Wyślij zaproszenie e-mail do wszystkich aktywnych, niezablokowanych użytkowników
+              </Label>
+            </div>
+
+            {campaignEnabled && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Każdy odbiorca otrzyma zaproszenie na dane wydarzenie tylko raz.
+                  Kolejne tury wysyłają wiadomość wyłącznie do osób, które jeszcze go nie otrzymały i nie są zapisane.
+                </p>
+
+                {campaigns.map((c, idx) => {
+                  const isSent = c.status === 'sent' || c.status === 'processing';
+                  return (
+                    <div key={c.id ?? `new-${idx}`} className="border rounded-lg p-3 space-y-2 bg-muted/20">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium">Tura {idx + 1}</span>
+                        {c.status && (
+                          <span className={`text-xs px-2 py-0.5 rounded ${c.status === 'sent' ? 'bg-green-500/20 text-green-700 dark:text-green-300' : c.status === 'processing' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300' : c.status === 'failed' ? 'bg-red-500/20 text-red-700 dark:text-red-300' : 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300'}`}>
+                            {c.status === 'sent' ? `Wysłano (${c.recipients_count ?? 0})` : c.status === 'processing' ? 'Wysyłka...' : c.status === 'failed' ? 'Błąd' : 'Oczekuje'}
+                          </span>
+                        )}
+                        <div className="ml-auto">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isSent}
+                            onClick={() => setCampaigns(prev => prev.filter((_, i) => i !== idx))}
+                          >
+                            Usuń
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Tryb</Label>
+                          <Select
+                            value={c.mode}
+                            disabled={isSent}
+                            onValueChange={(v) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, mode: v as 'immediate' | 'scheduled' } : r))}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="immediate">Natychmiast po zapisie</SelectItem>
+                              <SelectItem value="scheduled">Data i godzina</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {c.mode === 'scheduled' && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Kiedy (czas warszawski)</Label>
+                            <Input
+                              type="datetime-local"
+                              disabled={isSent}
+                              value={c.scheduledLocal}
+                              onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, scheduledLocal: e.target.value } : r))}
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Etykieta (opcjonalnie)</Label>
+                          <Input
+                            disabled={isSent}
+                            placeholder="np. Przypomnienie 24h"
+                            value={c.label}
+                            onChange={(e) => setCampaigns(prev => prev.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={campaigns.length >= 5}
+                  onClick={() => setCampaigns(prev => [...prev, { mode: 'scheduled', scheduledLocal: '', label: '' }])}
+                >
+                  + Dodaj kolejny termin ({campaigns.length}/5)
+                </Button>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+
+
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
           <Button 
