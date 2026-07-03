@@ -1,5 +1,5 @@
-import React from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventCardCompact } from '@/components/events/EventCardCompact';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
