@@ -18,6 +18,47 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Strip HTML tags and inline styles from event description; keep paragraph breaks.
+function sanitizeDescription(raw: string): string {
+  if (!raw) return "";
+  let s = String(raw);
+  // Remove style/script blocks entirely
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  // Block-level -> newlines
+  s = s.replace(/<\s*br\s*\/?\s*>/gi, "\n");
+  s = s.replace(/<\/\s*(p|div|li|h[1-6]|tr)\s*>/gi, "\n\n");
+  s = s.replace(/<\s*li[^>]*>/gi, "• ");
+  // Drop all remaining tags
+  s = s.replace(/<[^>]+>/g, "");
+  // Decode common entities
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&hellip;/gi, "…");
+  // Collapse whitespace, keep double newlines as paragraph markers
+  s = s.replace(/[ \t]+/g, " ");
+  s = s.replace(/\n{3,}/g, "\n\n");
+  s = s.split("\n").map((l) => l.trim()).join("\n").trim();
+  if (s.length > 600) s = s.slice(0, 600).replace(/\s+\S*$/, "") + "…";
+  return s;
+}
+
+function renderDescriptionHtml(text: string): string {
+  if (!text) return "";
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return paragraphs
+    .map(
+      (p) =>
+        `<p style="margin:0 0 12px 0;color:#4b5563;line-height:1.6;font-size:15px;">${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`,
+    )
+    .join("");
+}
+
 function formatWarsawDateTime(iso: string): string {
   try {
     const d = new Date(iso);
