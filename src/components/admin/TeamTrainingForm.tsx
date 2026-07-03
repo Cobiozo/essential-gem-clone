@@ -167,6 +167,34 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       setZoomMeetingId(trainingAny.zoom_meeting_id || null);
       setZoomStartUrl(trainingAny.zoom_start_url || null);
       setZoomPassword(trainingAny.zoom_password || null);
+
+      // Load email campaigns for this event
+      (async () => {
+        const { data } = await supabase
+          .from('event_email_campaigns')
+          .select('*')
+          .eq('event_id', editingTraining.id)
+          .order('scheduled_at', { ascending: true });
+        if (data && data.length > 0) {
+          setCampaignEnabled(true);
+          setCampaigns(data.map((c: any) => ({
+            id: c.id,
+            mode: c.mode,
+            scheduledLocal: c.mode === 'immediate'
+              ? ''
+              : formatInTimeZone(new Date(c.scheduled_at), DEFAULT_EVENT_TIMEZONE, "yyyy-MM-dd'T'HH:mm"),
+            label: c.label || '',
+            status: c.status,
+            sent_at: c.sent_at,
+            recipients_count: c.recipients_count ?? 0,
+          })));
+          setInitialCampaignIds(data.map((c: any) => c.id));
+        } else {
+          setCampaignEnabled(false);
+          setCampaigns([]);
+          setInitialCampaignIds([]);
+        }
+      })();
     }
   }, [editingTraining]);
 
