@@ -106,6 +106,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     status?: string;
     sent_at?: string | null;
     recipients_count?: number;
+    test_mode?: boolean;
+    test_recipient_user_id?: string | null;
+    test_recipient_label?: string | null; // display label for chosen user (cached)
   };
   const [campaignEnabled, setCampaignEnabled] = useState(false);
   const [campaignsOpen, setCampaignsOpen] = useState(true);
