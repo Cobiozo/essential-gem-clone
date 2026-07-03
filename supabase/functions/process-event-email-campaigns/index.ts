@@ -131,7 +131,7 @@ function buildEmailHtml(event: any): { subject: string; html: string } {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px 0;">
             ${infoRows}
           </table>
-          ${desc ? `<p style="margin:0 0 28px 0;color:#4b5563;line-height:1.6;font-size:15px;">${escapeHtml(desc)}</p>` : ""}
+          ${descHtml ? `<div style="margin:0 0 28px 0;">${descHtml}</div>` : ""}
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding:8px 0 4px 0;">
