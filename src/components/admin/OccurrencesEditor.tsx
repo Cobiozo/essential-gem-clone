@@ -40,6 +40,7 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
   occurrences,
   onChange,
   defaultDuration = 60,
+  mainZoomLink = null,
 }) => {
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('10:00');
