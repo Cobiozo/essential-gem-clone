@@ -1199,7 +1199,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                   variant="outline"
                   size="sm"
                   disabled={campaigns.length >= 5}
-                  onClick={() => setCampaigns(prev => [...prev, { mode: 'scheduled', scheduledLocal: '', label: '' }])}
+                  onClick={() => setCampaigns(prev => [...prev, { mode: 'scheduled', scheduledLocal: '', label: '', target_roles: DEFAULT_TARGET_ROLES }])}
                 >
                   + Dodaj kolejny termin ({campaigns.length}/5)
                 </Button>
