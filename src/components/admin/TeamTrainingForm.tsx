@@ -1149,6 +1149,46 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                           </>
                         )}
                       </div>
+
+                      {!c.test_mode && (
+                        <div className="rounded-md border border-dashed p-3 space-y-2 bg-background/40">
+                          <Label className="text-sm font-medium">Wyślij do ról</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Wybierz role użytkowników, którzy otrzymają zaproszenie. Wymagana jest co najmniej jedna rola.
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {ROLE_OPTIONS.map((role) => {
+                              const currentRoles = c.target_roles ?? DEFAULT_TARGET_ROLES;
+                              const checked = currentRoles.includes(role.value);
+                              return (
+                                <label
+                                  key={role.value}
+                                  className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${checked ? 'border-primary bg-primary/5' : 'border-border'}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="accent-primary"
+                                    checked={checked}
+                                    disabled={isSent}
+                                    onChange={(e) => {
+                                      const isChecked = e.target.checked;
+                                      setCampaigns(prev => prev.map((r, i) => {
+                                        if (i !== idx) return r;
+                                        const rolesNow = r.target_roles ?? DEFAULT_TARGET_ROLES;
+                                        const next = isChecked
+                                          ? Array.from(new Set([...rolesNow, role.value]))
+                                          : rolesNow.filter((x) => x !== role.value);
+                                        return { ...r, target_roles: next };
+                                      }));
+                                    }}
+                                  />
+                                  {role.label}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
