@@ -1,48 +1,93 @@
-## Problem 1 — Treść maila wygląda tragicznie
+## Cel
 
-W mailu w polu „opis" ląduje surowy HTML z opisu wydarzenia (`<span style="--tw-scale-x: 1; ...">…`). Funkcja `buildEmailHtml` bierze `event.description` i jedynie escape'uje HTML — więc wszystkie znaczniki i inline-style Tailwinda pokazują się jako tekst.
+Trzy poprawki wokół kampanii e-mail „Zapisz się":
 
-**Fix (`supabase/functions/process-event-email-campaigns/index.ts`):**
-- Przed wstawieniem opisu do maila usunąć HTML:
-  1. Usunąć `<style>…</style>` i `<script>…</script>` (wraz z zawartością).
-  2. Zamienić `<br>`, `</p>`, `</div>`, `</li>` na `\n`.
-  3. Usunąć wszystkie pozostałe tagi `<[^>]+>`.
-  4. Zdekodować podstawowe encje (`&nbsp;`, `&amp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`).
-  5. Zredukować wielokrotne spacje/nowe linie, przyciąć do 500 znaków.
-- Wynik renderować z zachowaniem akapitów: split po `\n\n` → osobne `<p>`, pojedyncze `\n` → `<br/>`.
-- Zdeployować funkcję (`supabase--deploy_edge_functions`).
+1. Po zalogowaniu użytkownik ma trafić dokładnie na wydarzenie z maila.
+2. Przycisk **Usuń** przy turze ma działać zawsze (twarde, nieodwracalne usunięcie).
+3. Przy tworzeniu/edycji zdarzenia z zaproszeniami e-mail admin ma wybrać, do których ról ma trafić wysyłka (admin / partner / klient / specjalista).
 
-## Problem 2 — „duplicate key … event_registrations_event_user_no_date_key" przy ponownej rejestracji
+---
 
-W bazie na `public.event_registrations` istnieją TRZY unikalne indeksy, które sobie przeczą:
+## 1. Przekierowanie po logowaniu z linku e-mail
 
-```
-unique_user_event_occurrence_stable
-  (user_id, event_id, COALESCE(occurrence_date,''), COALESCE(occurrence_time,''))
-  WHERE status = 'registered'            ← poprawny, uwzględnia status
+Problem: link w mailu prowadzi do `/events/team-meetings?event=<id>&utm=email_invite`. Strona przekierowuje niezalogowanego na `/auth?returnTo=<zakodowany URL>`, ale po zalogowaniu użytkownik ląduje na `/` (dashboard), nie na wydarzeniu.
 
-event_registrations_event_user_date_time_key
-  (event_id, user_id, occurrence_date, occurrence_time)   ← BEZ filtra statusu
+Przyczyny do naprawy:
+- W `src/pages/Auth.tsx` `returnTo` gubi się między krokami (MFA / hasło tymczasowe / OTP e-mail) — po tych krokach `navigate(returnTo)` już nie odpala.
+- `sessionStorage` nie jest używany jako fallback, więc każdy reset stanu Auth (przeładowanie po OTP, MFA challenge) traci parametr URL.
 
-event_registrations_event_user_no_date_key
-  (event_id, user_id) WHERE occurrence_date IS NULL AND occurrence_time IS NULL   ← BEZ filtra statusu
-```
+Zmiany (tylko frontend):
+- Na wejściu do `Auth.tsx`, jeśli `returnTo` istnieje w URL, zapisać go do `sessionStorage.setItem('postLoginReturnTo', returnTo)`. Przy każdym kroku (login, MFA challenge, hasło tymczasowe, OTP e-mail) przekazywać parametr dalej w URL, a jako fallback czytać `sessionStorage`.
+- Po pełnym zalogowaniu (`user && rolesReady && !mfaPending && !mustChangeTempPassword`) czytać `postLoginReturnTo` z sessionStorage, jeśli w URL już go nie ma, i nawigować do niego, a potem czyścić klucz.
+- Analogicznie w `ChangeTempPassword.tsx` / komponentach MFA — jeżeli po sukcesie przekierowują do `/dashboard`, zmienić na: `sessionStorage.getItem('postLoginReturnTo') || '/dashboard'`.
+- `TeamMeetingsPage.tsx` i `WebinarsPage.tsx` — zostaje bez zmian (już przekazują `returnTo`), tylko upewnić się, że `event` param nadal wywołuje `defaultOpen` i pulsujący scroll (już jest).
 
-Wypisanie się ustawia `status='cancelled'` (soft delete — wiersz zostaje). Przy ponownym zapisie kod próbuje `INSERT` nowego wiersza (bo wyszukiwanie istniejącego wiersza filtruje po `occurrence_index`, więc czasem go nie znajduje) — i wpada na jeden z dwóch „twardych" indeksów, które nie patrzą na status. Stąd błąd `event_registrations_event_user_no_date_key`.
+---
 
-**Fix — migracja SQL:**
+## 2. Przycisk „Usuń" tury — zawsze aktywny, twarde usunięcie
+
+W `src/components/admin/TeamTrainingForm.tsx` (linia ~1049):
+
+- Usunąć `disabled={isSent}` z przycisku Usuń.
+- Podpiąć `AlertDialog` (shadcn) z treścią:
+  „Usunąć turę? Operacja jest nieodwracalna. Kampania zostanie usunięta z bazy wraz z historią odbiorców tej tury."
+- Po potwierdzeniu:
+  - Jeśli tura ma `c.id` (istnieje w DB): wywołać `supabase.from('event_email_campaigns').delete().eq('id', c.id)` oraz `supabase.from('event_email_recipients').delete().eq('campaign_id', c.id)` (twarde, bez soft-delete).
+  - Usunąć wpis z lokalnego stanu `campaigns`.
+  - Toast „Tura została usunięta".
+- Ostrzeżenie wizualne dla tury już wysłanej (badge „Wysłano") pozostaje — sama możliwość usunięcia jest odblokowana.
+
+RLS `event_email_campaigns` / `event_email_recipients` już pozwala adminowi na `DELETE` (weryfikacja: `supabase--read_query` przed edycją; jeśli nie — dorzucę policy w migracji).
+
+---
+
+## 3. Wybór ról odbiorców dla kampanii
+
+### Migracja DB
+
+Dodać kolumnę:
 
 ```sql
-DROP INDEX IF EXISTS public.event_registrations_event_user_date_time_key;
-DROP INDEX IF EXISTS public.event_registrations_event_user_no_date_key;
--- zostaje wyłącznie unique_user_event_occurrence_stable (partial WHERE status='registered'),
--- która pozwala mieć wiele rekordów 'cancelled' obok jednej aktywnej rejestracji.
+ALTER TABLE public.event_email_campaigns
+  ADD COLUMN IF NOT EXISTS target_roles text[]
+  NOT NULL DEFAULT ARRAY['admin','partner','client','specjalista']::text[];
 ```
 
-To odblokowuje ponowną rejestrację po wypisaniu się — zarówno dla wydarzeń zwykłych, jak i cyklicznych (occurrence_date/time) — bez utraty historii anulowanych rejestracji (dalej trzymamy je do statystyk/CRM).
+(Domyślnie wszystkie role — zgodność wsteczna dla już utworzonych kampanii.)
 
-Nie ruszam logiki rejestracji w komponentach — problem jest po stronie schematu, nie kodu klienta.
+### UI (`TeamTrainingForm.tsx`)
+
+W bloku każdej tury, poniżej pola „Etykieta", dodać sekcję **„Wyślij do ról"** z 4 checkboxami: Admin / Partner / Klient / Specjalista. Domyślnie wszystkie zaznaczone. Walidacja: co najmniej jedna rola musi być zaznaczona przed zapisem.
+
+Wartości zapisywane w `event_email_campaigns.target_roles` przy insert/update (analogicznie do reszty pól kampanii w istniejącej funkcji `persist campaigns`).
+
+### Edge function `process-event-email-campaigns`
+
+W bloku ładowania odbiorców (część `!camp.test_mode`) po pobraniu profili dorobić filtrację po rolach z `user_roles`:
+
+```ts
+const roles = camp.target_roles ?? ['admin','partner','client','specjalista'];
+const { data: usersInRoles } = await supabase
+  .from('user_roles')
+  .select('user_id')
+  .in('role', roles)
+  .in('user_id', userIds);
+const allowed = new Set(usersInRoles?.map(r => r.user_id) ?? []);
+eligible = eligible.filter(p => allowed.has(p.user_id));
+```
+
+Tryb testowy (`test_mode`) ignoruje `target_roles` — nadal wysyła tylko do wskazanego użytkownika testowego.
+
+Redeploy funkcji po zmianach.
+
+---
 
 ## Pliki do zmiany
-- `supabase/functions/process-event-email-campaigns/index.ts` — sanitizacja opisu + redeploy
-- migracja SQL — DROP dwóch nadmiarowych unique indexów na `event_registrations`
+
+- `src/pages/Auth.tsx` — persystencja `returnTo` w sessionStorage + użycie po MFA/temp password.
+- `src/pages/ChangeTempPassword.tsx` (i ewentualnie komponent MFA challenge) — respekt `postLoginReturnTo`.
+- `src/components/admin/TeamTrainingForm.tsx` — odblokowany „Usuń" z AlertDialog + checkboxy ról w każdej turze + zapis `target_roles`.
+- `supabase/migrations/*` — dodanie kolumny `target_roles`.
+- `supabase/functions/process-event-email-campaigns/index.ts` — filtracja odbiorców po `target_roles`.
+
+Backend zmieniamy tylko tam, gdzie jest to bezpośrednio wymagane przez prośbę (persistencja target_roles + filtracja). Reszta logiki kampanii bez zmian.
