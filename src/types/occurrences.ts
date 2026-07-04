@@ -7,6 +7,7 @@ export interface EventOccurrence {
   date: string;          // "2026-01-20" (YYYY-MM-DD)
   time: string;          // "10:00" (HH:MM)
   duration_minutes: number;
+  zoom_link?: string | null;  // Optional per-occurrence Zoom link; empty/null = use event's main link
 }
 
 export interface ExpandedOccurrence extends EventOccurrence {

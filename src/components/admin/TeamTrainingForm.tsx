@@ -642,6 +642,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             occurrences={occurrences}
             onChange={setOccurrences}
             defaultDuration={form.duration_minutes}
+            mainZoomLink={form.use_internal_meeting ? null : form.zoom_link}
           />
         ) : (
           /* Date/Time and Type row (single occurrence mode) */

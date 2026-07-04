@@ -138,6 +138,18 @@ export const useOccurrences = (event: EventWithRegistration | null) => {
 };
 
 /**
+ * Resolve the join link for a specific occurrence, falling back to the event's main link.
+ */
+export const getOccurrenceJoinLink = (
+  event: { zoom_link?: string | null },
+  occurrence?: { zoom_link?: string | null } | null
+): string | null => {
+  const perOcc = occurrence?.zoom_link?.trim();
+  if (perOcc) return perOcc;
+  return event.zoom_link || null;
+};
+
+/**
  * Expand multi-occurrence events for calendar display
  * Each occurrence becomes a separate "virtual" event entry
  */
@@ -158,13 +170,17 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
         // won't drift to new dates - only exact date+time matches count
         const registrationKey = `${event.id}:${occ.date}:${occ.time}`;
         const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
-        
+
+        // Per-occurrence Zoom link overrides event's main link when provided
+        const perOccurrenceZoomLink = occ.zoom_link?.trim() ? occ.zoom_link.trim() : event.zoom_link;
+
         result.push({
           ...event,
           // Override start/end times with occurrence times
           start_time: occ.start_datetime.toISOString(),
           end_time: occ.end_datetime.toISOString(),
           duration_minutes: occ.duration_minutes,
+          zoom_link: perOccurrenceZoomLink,
           // Set per-occurrence registration status
           is_registered: isRegisteredForOccurrence,
           // Add occurrence tracking
