@@ -3558,6 +3558,7 @@ export type Database = {
           scheduled_at: string
           sent_at: string | null
           status: string
+          target_roles: string[]
           test_mode: boolean
           test_recipient_user_id: string | null
           updated_at: string
@@ -3574,6 +3575,7 @@ export type Database = {
           scheduled_at: string
           sent_at?: string | null
           status?: string
+          target_roles?: string[]
           test_mode?: boolean
           test_recipient_user_id?: string | null
           updated_at?: string
@@ -3590,6 +3592,7 @@ export type Database = {
           scheduled_at?: string
           sent_at?: string | null
           status?: string
+          target_roles?: string[]
           test_mode?: boolean
           test_recipient_user_id?: string | null
           updated_at?: string
