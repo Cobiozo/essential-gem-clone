@@ -516,14 +516,24 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       }
     }
 
+    // Validate: target_roles requires at least one role
+    if (campaignEnabled) {
+      for (let i = 0; i < campaigns.length; i++) {
+        const c = campaigns[i];
+        const roles = c.target_roles ?? DEFAULT_TARGET_ROLES;
+        if (!c.test_mode && roles.length === 0) {
+          throw new Error(`Tura ${i + 1}: wybierz co najmniej jedną rolę odbiorców.`);
+        }
+      }
+    }
+
     const currentIds = campaigns.map(c => c.id).filter(Boolean) as string[];
     const removed = initialCampaignIds.filter(id => !currentIds.includes(id));
     if (removed.length > 0) {
       await supabase
         .from('event_email_campaigns')
         .delete()
-        .in('id', removed)
-        .in('status', ['pending', 'failed']);
+        .in('id', removed);
     }
 
     if (!campaignEnabled || campaigns.length === 0) {
