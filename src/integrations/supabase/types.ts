@@ -5778,6 +5778,36 @@ export type Database = {
         }
         Relationships: []
       }
+      leader_zoom_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          updated_at: string
+          user_id: string
+          zoom_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          updated_at?: string
+          user_id: string
+          zoom_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          updated_at?: string
+          user_id?: string
+          zoom_url?: string
+        }
+        Relationships: []
+      }
       login_audit_log: {
         Row: {
           anomaly_type: string | null
