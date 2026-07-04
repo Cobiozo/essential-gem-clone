@@ -34,6 +34,7 @@ import type { EventOccurrence } from '@/types/occurrences';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ZoomMeetingGenerator } from './ZoomMeetingGenerator';
 import { OccurrencesEditor } from './OccurrencesEditor';
+import { useAllLeaderZoomLinks } from '@/hooks/useLeaderZoomLinks';
 
 interface TeamTrainingFormProps {
   editingTraining: DbEvent | null;
@@ -150,6 +151,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const { t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { links: leaderZoomLinks } = useAllLeaderZoomLinks(true);
 
   const [form, setForm] = useState<TeamTrainingFormData>({
     title: '',
@@ -643,7 +645,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             onChange={setOccurrences}
             defaultDuration={form.duration_minutes}
             mainZoomLink={form.use_internal_meeting ? null : form.zoom_link}
+            leaderZoomLinks={leaderZoomLinks}
           />
+
         ) : (
           /* Date/Time and Type row (single occurrence mode) */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
