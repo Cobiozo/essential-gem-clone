@@ -1272,6 +1272,45 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <AlertDialog open={deleteCampaignIdx !== null} onOpenChange={(open) => { if (!open) setDeleteCampaignIdx(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Usunąć turę?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Operacja jest nieodwracalna. Kampania e-mail zostanie usunięta z bazy wraz z historią jej odbiorców.
+            Jeżeli tura była już wysłana, jej odbiorcy będą mogli otrzymać ponowne zaproszenie w kolejnych turach.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Anuluj</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={async () => {
+              const idx = deleteCampaignIdx;
+              if (idx === null) return;
+              const c = campaigns[idx];
+              try {
+                if (c?.id) {
+                  await supabase.from('event_email_recipients').delete().eq('campaign_id', c.id);
+                  const { error } = await supabase.from('event_email_campaigns').delete().eq('id', c.id);
+                  if (error) throw error;
+                  setInitialCampaignIds(prev => prev.filter(x => x !== c.id));
+                }
+                setCampaigns(prev => prev.filter((_, i) => i !== idx));
+                toast({ title: 'Tura została usunięta' });
+              } catch (e: any) {
+                toast({ title: 'Nie udało się usunąć tury', description: e?.message ?? String(e), variant: 'destructive' });
+              } finally {
+                setDeleteCampaignIdx(null);
+              }
+            }}
+          >
+            Usuń nieodwracalnie
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 };
