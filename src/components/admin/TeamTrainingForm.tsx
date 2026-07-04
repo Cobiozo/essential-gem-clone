@@ -151,6 +151,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const { t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { links: leaderZoomLinks } = useAllLeaderZoomLinks(true);
 
   const [form, setForm] = useState<TeamTrainingFormData>({
     title: '',
