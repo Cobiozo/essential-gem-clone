@@ -193,7 +193,16 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     test_mode?: boolean;
     test_recipient_user_id?: string | null;
     test_recipient_label?: string | null; // display label for chosen user (cached)
+    target_roles?: string[];
   };
+  const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'partner', label: 'Partner' },
+    { value: 'client', label: 'Klient' },
+    { value: 'specjalista', label: 'Specjalista' },
+  ];
+  const DEFAULT_TARGET_ROLES = ROLE_OPTIONS.map(r => r.value);
+  const [deleteCampaignIdx, setDeleteCampaignIdx] = useState<number | null>(null);
   const [campaignEnabled, setCampaignEnabled] = useState(false);
   const [campaignsOpen, setCampaignsOpen] = useState(true);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
