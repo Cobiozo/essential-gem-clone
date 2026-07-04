@@ -262,9 +262,17 @@ const Auth = () => {
     // Check URL parameters - single declaration for all uses
     const urlParams = new URLSearchParams(window.location.search);
     const isActivated = urlParams.get('activated') === 'true';
-    const returnTo = urlParams.get('returnTo');
+    const returnToParam = urlParams.get('returnTo');
     const isPreviewMode = urlParams.get('preview') === 'true';
-    
+
+    // Persist returnTo across MFA / temp password / reloads
+    if (returnToParam) {
+      try { sessionStorage.setItem('postLoginReturnTo', returnToParam); } catch {}
+    }
+    const returnTo = returnToParam || (() => {
+      try { return sessionStorage.getItem('postLoginReturnTo'); } catch { return null; }
+    })();
+
     if (isActivated) {
       toast({
         title: t('auth.toast.accountActivated'),
@@ -285,6 +293,7 @@ const Auth = () => {
     // BUT skip redirect if in preview mode (viewing reflink in iframe)
     if (user && rolesReady && !isPreviewMode) {
       console.log('[Auth] user + rolesReady, navigating to:', redirectPath);
+      try { sessionStorage.removeItem('postLoginReturnTo'); } catch {}
       navigate(redirectPath);
     }
   }, [user, navigate, showEmailConfirmDialog, toast, rolesReady, t]);
