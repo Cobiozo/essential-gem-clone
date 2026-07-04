@@ -24,6 +24,7 @@ interface OccurrencesEditorProps {
   occurrences: EventOccurrence[];
   onChange: (occurrences: EventOccurrence[]) => void;
   defaultDuration?: number;
+  mainZoomLink?: string | null;
 }
 
 const durationOptions = [
