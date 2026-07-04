@@ -138,6 +138,18 @@ export const useOccurrences = (event: EventWithRegistration | null) => {
 };
 
 /**
+ * Resolve the join link for a specific occurrence, falling back to the event's main link.
+ */
+export const getOccurrenceJoinLink = (
+  event: { zoom_link?: string | null },
+  occurrence?: { zoom_link?: string | null } | null
+): string | null => {
+  const perOcc = occurrence?.zoom_link?.trim();
+  if (perOcc) return perOcc;
+  return event.zoom_link || null;
+};
+
+/**
  * Expand multi-occurrence events for calendar display
  * Each occurrence becomes a separate "virtual" event entry
  */
