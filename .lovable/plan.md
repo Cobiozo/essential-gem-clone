@@ -1,77 +1,48 @@
-## Cel
+## Problem 1: Bug — nie można włączyć własnego linku Zoom
 
-Umożliwić adminowi przypisanie osobnego linku Zoom dla każdego terminu w wydarzeniu wieloterminowym. Dla każdego terminu możliwy jest wybór: „użyj głównego linku wydarzenia" (domyślnie) lub własny link dla tego konkretnego terminu.
+W `OccurrencesEditor.tsx` `hasCustomLink` wymaga niepustego stringa po `trim()`, ale po włączeniu przełącznika ustawiamy `zoom_link: ''`. Efekt: przełącznik natychmiast wraca do "off" i pole `<Input>` nigdy się nie pojawia.
 
-## Zmiany
+**Fix:** rozdzielić stan "tryb własnego linku" od "wartość URL". Użyć osobnego lokalnego stanu `customEnabled[index]` (albo sentinel — `zoom_link === null` = użyj głównego, `''` lub string = własny). Najczystsze: traktować `zoom_link !== null && zoom_link !== undefined` jako "custom mode włączony" (nawet pusty string). Wtedy `hasCustomLink = occ.zoom_link !== null && occ.zoom_link !== undefined`, a switch przełącza między `null` a `''`.
 
-### 1) Model danych (`src/types/occurrences.ts`)
+## Problem 2: Biblioteka linków Zoom liderów + wybór w terminie
 
-Rozszerzyć `EventOccurrence` o opcjonalne pole:
+### Baza danych
+Nowa tabela `leader_zoom_links`:
+- `user_id` (właściciel — lider)
+- `label` (np. "Główny pokój", "Spotkania 1:1")
+- `zoom_url`
+- `is_default` (opcjonalnie)
+- RLS: lider zarządza swoimi; admin czyta wszystkie; specialist/klient bez dostępu.
 
-```ts
-export interface EventOccurrence {
-  date: string;
-  time: string;
-  duration_minutes: number;
-  zoom_link?: string | null;   // NEW: pusty/null = użyj głównego linku wydarzenia
-}
-```
+### Panel Lidera — nowa zakładka "Moje linki Zoom"
+Nowy komponent `LeaderZoomLinks.tsx` dodany do routingu Panelu Lidera (lista + dodaj/edytuj/usuń). Zwykły CRUD na `leader_zoom_links` z filtrem `user_id = auth.uid()`.
 
-Pole jest przechowywane w istniejącej kolumnie `events.occurrences` (JSONB) — **brak migracji DB**. Główny `events.zoom_link` pozostaje fallbackiem.
+### Edytor terminu w Zdarzeniach (admin)
+W `OccurrencesEditor` zamiast pojedynczego switcha — Select "Źródło linku Zoom":
+1. **Główny link wydarzenia** (domyślnie) → `zoom_link: null`
+2. **Własny link dla tego terminu** → `zoom_link: '<url>'` + pole Input
+3. **Link lidera** → `zoom_link: '<url wybrany z listy>'` + `zoom_link_source: 'leader:<user_id>:<link_id>'` (dla śledzenia)
 
-### 2) Edytor terminów (`src/components/admin/OccurrencesEditor.tsx`)
+Aby odróżnić "custom URL" vs "leader link" po zapisie, dodać opcjonalne pole `zoom_link_source?: 'custom' | 'main' | { leader_user_id: string; link_id: string }` w `EventOccurrence` (JSONB, nie wymaga migracji `events`).
 
-Dla każdego wiersza terminu dodać w rozwijanej sekcji „Link Zoom":
+Admin ładuje listę linków wszystkich liderów przez query do `leader_zoom_links` (z joinem do `profiles` dla imion). Nowy hook `useLeaderZoomLinks()`.
 
-- Radio / toggle: **„Użyj głównego linku wydarzenia"** (default) vs **„Własny link dla tego terminu"**
-- Gdy wybrano „Własny": pole tekstowe `Input type="url"` na link Zoom (walidacja podstawowa)
-- Podpowiedź pod polem: jeśli główny link nie jest ustawiony i wybrano „główny" → subtelny hint „Główny link wydarzenia jest pusty"
-- Aktualizacja przez `onChange` całej tablicy occurrences (analogicznie do istniejącego kodu)
+### Wybór linku lidera — UI
+W wierszu terminu, gdy wybrane "Link lidera": pokazać `<Combobox>`/`<Select>` z opcjami zgrupowanymi po liderze: "Jan Kowalski — Główny pokój (https://...)". Po wyborze zapisuje się URL do `zoom_link` + metadane do `zoom_link_source`.
 
-Formularz dodawania nowego terminu też dostaje opcjonalne pole „Link Zoom (opcjonalnie)".
-
-### 3) Consumer linku — logika wyboru
-
-Wszędzie, gdzie renderowany jest przycisk „Dołącz" dla wydarzenia wieloterminowego z konkretną instancją terminu (`ExpandedOccurrence`), wybieramy link według reguły:
-
-```
-occurrence.zoom_link?.trim() || event.zoom_link
-```
-
-Miejsca do zaktualizowania (tylko multi-occurrence, single-event nie zmieniamy):
-- `src/components/events/EventCard.tsx`
-- `src/components/events/EventCardCompact.tsx`
-- `src/components/events/EventDetailsDialog.tsx`
-- `src/components/events/UpcomingMeetings.tsx`
-- `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
-- `src/components/dashboard/widgets/CalendarWidget.tsx`
-
-Dodać helper w `src/hooks/useOccurrences.ts`:
-
-```ts
-export const getOccurrenceJoinLink = (
-  event: { zoom_link?: string | null },
-  occurrence?: { zoom_link?: string | null } | null
-): string | null =>
-  (occurrence?.zoom_link?.trim() || event.zoom_link || null);
-```
-
-i użyć go w powyższych komponentach zamiast bezpośredniego `event.zoom_link`.
-
-### 4) Zapis w formularzach
-
-W `TeamTrainingForm.tsx` i `WebinarForm.tsx` — brak zmian logiki zapisu; `occurrences` już zapisuje pełną tablicę przez `JSON.parse(JSON.stringify(occurrences))`, więc nowe pole `zoom_link` na obiekt terminu zostanie zapisane automatycznie do JSONB.
-
-### 5) Kompatybilność wsteczna
-
-- Istniejące terminy bez `zoom_link` → traktowane jak „użyj głównego" (fallback).
-- `useAutoWebinar`/`use_internal_meeting` nietknięte — pole per-occurrence ignorowane, gdy `use_internal_meeting = true`.
+### Consumers
+`getOccurrenceJoinLink()` w `useOccurrences.ts` nie zmienia się — nadal czyta `occurrence.zoom_link || event.zoom_link`. Źródło (main/custom/leader) to tylko metadana admina.
 
 ## Pliki do zmiany
 
-- `src/types/occurrences.ts` — dodać opcjonalne `zoom_link`
-- `src/components/admin/OccurrencesEditor.tsx` — UI wyboru linku per termin
-- `src/hooks/useOccurrences.ts` — helper `getOccurrenceJoinLink`
-- 6 komponentów-konsumentów (lista wyżej) — użycie helpera dla multi-occurrence
+- `supabase/migrations/...sql` — nowa tabela `leader_zoom_links` + GRANT + RLS + trigger `updated_at`
+- `src/types/occurrences.ts` — dodać opcjonalne `zoom_link_source`
+- `src/components/admin/OccurrencesEditor.tsx` — fix bug (null vs empty), zmiana z Switch na Select 3-opcjowy + wybór linku lidera; przyjmuje prop `leaderLinks`
+- `src/components/admin/TeamTrainingForm.tsx` — załadować i przekazać `leaderLinks`
+- `src/hooks/useLeaderZoomLinks.ts` — nowy hook (fetch + CRUD)
+- `src/components/leader/LeaderZoomLinks.tsx` — nowy komponent zakładki
+- Routing/menu Panelu Lidera — dorzucić zakładkę "Linki Zoom" (potrzebuję potwierdzić którą stronę/plik menu edytować — sprawdzę w build mode)
 
-Brak migracji DB, brak zmian w edge functions.
+## Pytania
+
+Czy każdy lider może mieć wiele linków Zoom (np. różne pokoje), czy tylko jeden? Zakładam **wiele** z etykietami — potwierdź jeśli inaczej.
