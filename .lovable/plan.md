@@ -1,93 +1,77 @@
 ## Cel
 
-Trzy poprawki wokół kampanii e-mail „Zapisz się":
+Umożliwić adminowi przypisanie osobnego linku Zoom dla każdego terminu w wydarzeniu wieloterminowym. Dla każdego terminu możliwy jest wybór: „użyj głównego linku wydarzenia" (domyślnie) lub własny link dla tego konkretnego terminu.
 
-1. Po zalogowaniu użytkownik ma trafić dokładnie na wydarzenie z maila.
-2. Przycisk **Usuń** przy turze ma działać zawsze (twarde, nieodwracalne usunięcie).
-3. Przy tworzeniu/edycji zdarzenia z zaproszeniami e-mail admin ma wybrać, do których ról ma trafić wysyłka (admin / partner / klient / specjalista).
+## Zmiany
 
----
+### 1) Model danych (`src/types/occurrences.ts`)
 
-## 1. Przekierowanie po logowaniu z linku e-mail
-
-Problem: link w mailu prowadzi do `/events/team-meetings?event=<id>&utm=email_invite`. Strona przekierowuje niezalogowanego na `/auth?returnTo=<zakodowany URL>`, ale po zalogowaniu użytkownik ląduje na `/` (dashboard), nie na wydarzeniu.
-
-Przyczyny do naprawy:
-- W `src/pages/Auth.tsx` `returnTo` gubi się między krokami (MFA / hasło tymczasowe / OTP e-mail) — po tych krokach `navigate(returnTo)` już nie odpala.
-- `sessionStorage` nie jest używany jako fallback, więc każdy reset stanu Auth (przeładowanie po OTP, MFA challenge) traci parametr URL.
-
-Zmiany (tylko frontend):
-- Na wejściu do `Auth.tsx`, jeśli `returnTo` istnieje w URL, zapisać go do `sessionStorage.setItem('postLoginReturnTo', returnTo)`. Przy każdym kroku (login, MFA challenge, hasło tymczasowe, OTP e-mail) przekazywać parametr dalej w URL, a jako fallback czytać `sessionStorage`.
-- Po pełnym zalogowaniu (`user && rolesReady && !mfaPending && !mustChangeTempPassword`) czytać `postLoginReturnTo` z sessionStorage, jeśli w URL już go nie ma, i nawigować do niego, a potem czyścić klucz.
-- Analogicznie w `ChangeTempPassword.tsx` / komponentach MFA — jeżeli po sukcesie przekierowują do `/dashboard`, zmienić na: `sessionStorage.getItem('postLoginReturnTo') || '/dashboard'`.
-- `TeamMeetingsPage.tsx` i `WebinarsPage.tsx` — zostaje bez zmian (już przekazują `returnTo`), tylko upewnić się, że `event` param nadal wywołuje `defaultOpen` i pulsujący scroll (już jest).
-
----
-
-## 2. Przycisk „Usuń" tury — zawsze aktywny, twarde usunięcie
-
-W `src/components/admin/TeamTrainingForm.tsx` (linia ~1049):
-
-- Usunąć `disabled={isSent}` z przycisku Usuń.
-- Podpiąć `AlertDialog` (shadcn) z treścią:
-  „Usunąć turę? Operacja jest nieodwracalna. Kampania zostanie usunięta z bazy wraz z historią odbiorców tej tury."
-- Po potwierdzeniu:
-  - Jeśli tura ma `c.id` (istnieje w DB): wywołać `supabase.from('event_email_campaigns').delete().eq('id', c.id)` oraz `supabase.from('event_email_recipients').delete().eq('campaign_id', c.id)` (twarde, bez soft-delete).
-  - Usunąć wpis z lokalnego stanu `campaigns`.
-  - Toast „Tura została usunięta".
-- Ostrzeżenie wizualne dla tury już wysłanej (badge „Wysłano") pozostaje — sama możliwość usunięcia jest odblokowana.
-
-RLS `event_email_campaigns` / `event_email_recipients` już pozwala adminowi na `DELETE` (weryfikacja: `supabase--read_query` przed edycją; jeśli nie — dorzucę policy w migracji).
-
----
-
-## 3. Wybór ról odbiorców dla kampanii
-
-### Migracja DB
-
-Dodać kolumnę:
-
-```sql
-ALTER TABLE public.event_email_campaigns
-  ADD COLUMN IF NOT EXISTS target_roles text[]
-  NOT NULL DEFAULT ARRAY['admin','partner','client','specjalista']::text[];
-```
-
-(Domyślnie wszystkie role — zgodność wsteczna dla już utworzonych kampanii.)
-
-### UI (`TeamTrainingForm.tsx`)
-
-W bloku każdej tury, poniżej pola „Etykieta", dodać sekcję **„Wyślij do ról"** z 4 checkboxami: Admin / Partner / Klient / Specjalista. Domyślnie wszystkie zaznaczone. Walidacja: co najmniej jedna rola musi być zaznaczona przed zapisem.
-
-Wartości zapisywane w `event_email_campaigns.target_roles` przy insert/update (analogicznie do reszty pól kampanii w istniejącej funkcji `persist campaigns`).
-
-### Edge function `process-event-email-campaigns`
-
-W bloku ładowania odbiorców (część `!camp.test_mode`) po pobraniu profili dorobić filtrację po rolach z `user_roles`:
+Rozszerzyć `EventOccurrence` o opcjonalne pole:
 
 ```ts
-const roles = camp.target_roles ?? ['admin','partner','client','specjalista'];
-const { data: usersInRoles } = await supabase
-  .from('user_roles')
-  .select('user_id')
-  .in('role', roles)
-  .in('user_id', userIds);
-const allowed = new Set(usersInRoles?.map(r => r.user_id) ?? []);
-eligible = eligible.filter(p => allowed.has(p.user_id));
+export interface EventOccurrence {
+  date: string;
+  time: string;
+  duration_minutes: number;
+  zoom_link?: string | null;   // NEW: pusty/null = użyj głównego linku wydarzenia
+}
 ```
 
-Tryb testowy (`test_mode`) ignoruje `target_roles` — nadal wysyła tylko do wskazanego użytkownika testowego.
+Pole jest przechowywane w istniejącej kolumnie `events.occurrences` (JSONB) — **brak migracji DB**. Główny `events.zoom_link` pozostaje fallbackiem.
 
-Redeploy funkcji po zmianach.
+### 2) Edytor terminów (`src/components/admin/OccurrencesEditor.tsx`)
 
----
+Dla każdego wiersza terminu dodać w rozwijanej sekcji „Link Zoom":
+
+- Radio / toggle: **„Użyj głównego linku wydarzenia"** (default) vs **„Własny link dla tego terminu"**
+- Gdy wybrano „Własny": pole tekstowe `Input type="url"` na link Zoom (walidacja podstawowa)
+- Podpowiedź pod polem: jeśli główny link nie jest ustawiony i wybrano „główny" → subtelny hint „Główny link wydarzenia jest pusty"
+- Aktualizacja przez `onChange` całej tablicy occurrences (analogicznie do istniejącego kodu)
+
+Formularz dodawania nowego terminu też dostaje opcjonalne pole „Link Zoom (opcjonalnie)".
+
+### 3) Consumer linku — logika wyboru
+
+Wszędzie, gdzie renderowany jest przycisk „Dołącz" dla wydarzenia wieloterminowego z konkretną instancją terminu (`ExpandedOccurrence`), wybieramy link według reguły:
+
+```
+occurrence.zoom_link?.trim() || event.zoom_link
+```
+
+Miejsca do zaktualizowania (tylko multi-occurrence, single-event nie zmieniamy):
+- `src/components/events/EventCard.tsx`
+- `src/components/events/EventCardCompact.tsx`
+- `src/components/events/EventDetailsDialog.tsx`
+- `src/components/events/UpcomingMeetings.tsx`
+- `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+- `src/components/dashboard/widgets/CalendarWidget.tsx`
+
+Dodać helper w `src/hooks/useOccurrences.ts`:
+
+```ts
+export const getOccurrenceJoinLink = (
+  event: { zoom_link?: string | null },
+  occurrence?: { zoom_link?: string | null } | null
+): string | null =>
+  (occurrence?.zoom_link?.trim() || event.zoom_link || null);
+```
+
+i użyć go w powyższych komponentach zamiast bezpośredniego `event.zoom_link`.
+
+### 4) Zapis w formularzach
+
+W `TeamTrainingForm.tsx` i `WebinarForm.tsx` — brak zmian logiki zapisu; `occurrences` już zapisuje pełną tablicę przez `JSON.parse(JSON.stringify(occurrences))`, więc nowe pole `zoom_link` na obiekt terminu zostanie zapisane automatycznie do JSONB.
+
+### 5) Kompatybilność wsteczna
+
+- Istniejące terminy bez `zoom_link` → traktowane jak „użyj głównego" (fallback).
+- `useAutoWebinar`/`use_internal_meeting` nietknięte — pole per-occurrence ignorowane, gdy `use_internal_meeting = true`.
 
 ## Pliki do zmiany
 
-- `src/pages/Auth.tsx` — persystencja `returnTo` w sessionStorage + użycie po MFA/temp password.
-- `src/pages/ChangeTempPassword.tsx` (i ewentualnie komponent MFA challenge) — respekt `postLoginReturnTo`.
-- `src/components/admin/TeamTrainingForm.tsx` — odblokowany „Usuń" z AlertDialog + checkboxy ról w każdej turze + zapis `target_roles`.
-- `supabase/migrations/*` — dodanie kolumny `target_roles`.
-- `supabase/functions/process-event-email-campaigns/index.ts` — filtracja odbiorców po `target_roles`.
+- `src/types/occurrences.ts` — dodać opcjonalne `zoom_link`
+- `src/components/admin/OccurrencesEditor.tsx` — UI wyboru linku per termin
+- `src/hooks/useOccurrences.ts` — helper `getOccurrenceJoinLink`
+- 6 komponentów-konsumentów (lista wyżej) — użycie helpera dla multi-occurrence
 
-Backend zmieniamy tylko tam, gdzie jest to bezpośrednio wymagane przez prośbę (persistencja target_roles + filtracja). Reszta logiki kampanii bez zmian.
+Brak migracji DB, brak zmian w edge functions.
