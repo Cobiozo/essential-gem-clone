@@ -1071,8 +1071,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            disabled={isSent}
-                            onClick={() => setCampaigns(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteCampaignIdx(idx)}
                           >
                             Usuń
                           </Button>
