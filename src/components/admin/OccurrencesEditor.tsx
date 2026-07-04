@@ -153,60 +153,104 @@ export const OccurrencesEditor: React.FC<OccurrencesEditorProps> = ({
 
       {/* Existing occurrences list */}
       {occurrences.length > 0 && (
-        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
           {occurrences.map((occ, index) => {
             const isPast = isPastOccurrence(occ.date, occ.time, occ.duration_minutes);
+            const hasCustomLink = !!(occ.zoom_link && occ.zoom_link.trim());
+            const updateThisOccurrence = (patch: Partial<EventOccurrence>) => {
+              const updated = occurrences.map((o, i) => (i === index ? { ...o, ...patch } : o));
+              onChange(updated);
+            };
             return (
               <div
                 key={`${occ.date}-${occ.time}-${index}`}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
-                  isPast ? 'bg-muted/50 opacity-60' : 'bg-card'
-                }`}
+                className={`p-3 rounded-lg border ${isPast ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
               >
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium text-sm">
-                      {formatOccurrenceDate(occ.date)}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {occ.time} ({occ.duration_minutes} min)
-                      {isPast && (
-                        <Badge variant="secondary" className="text-xs">
-                          Zakończone
-                        </Badge>
-                      )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="font-medium text-sm">
+                        {formatOccurrenceDate(occ.date)}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {occ.time} ({occ.duration_minutes} min)
+                        {isPast && (
+                          <Badge variant="secondary" className="text-xs">
+                            Zakończone
+                          </Badge>
+                        )}
+                        {hasCustomLink && !isPast && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <Video className="h-3 w-3" /> Własny link
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDuplicateOccurrence(occ)}
+                      title="Skopiuj ustawienia"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveOccurrence(index)}
+                      title="Usuń termin"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleDuplicateOccurrence(occ)}
-                    title="Skopiuj ustawienia"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => handleRemoveOccurrence(index)}
-                    title="Usuń termin"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+
+                {/* Per-occurrence Zoom link */}
+                {!isPast && (
+                  <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label className="text-xs flex items-center gap-2 text-muted-foreground">
+                        <Video className="h-3.5 w-3.5" />
+                        Własny link Zoom dla tego terminu
+                      </Label>
+                      <Switch
+                        checked={hasCustomLink}
+                        onCheckedChange={(checked) =>
+                          updateThisOccurrence({ zoom_link: checked ? (occ.zoom_link || '') : null })
+                        }
+                      />
+                    </div>
+                    {hasCustomLink ? (
+                      <Input
+                        type="url"
+                        placeholder="https://zoom.us/j/..."
+                        value={occ.zoom_link || ''}
+                        onChange={(e) => updateThisOccurrence({ zoom_link: e.target.value })}
+                        className="h-9 text-sm"
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {mainZoomLink
+                          ? <>Używa głównego linku wydarzenia: <span className="text-foreground/80 break-all">{mainZoomLink}</span></>
+                          : 'Używa głównego linku wydarzenia (główny link nie jest jeszcze ustawiony).'}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
 
       {/* Add new occurrence form */}
       <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
