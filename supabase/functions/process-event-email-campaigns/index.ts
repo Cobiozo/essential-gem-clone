@@ -261,7 +261,29 @@ serve(async (req) => {
         ...(sentInCamp ?? []).map((r: any) => r.user_id),
         ...(alreadyReg ?? []).map((r: any) => r.user_id),
       ]);
-      eligible = (profiles ?? []).filter((p: any) => !excluded.has(p.user_id) && !!p.email) as any;
+
+      // Role targeting — only users with any of camp.target_roles
+      const targetRoles: string[] = Array.isArray((camp as any).target_roles) && (camp as any).target_roles.length > 0
+        ? (camp as any).target_roles
+        : ["admin", "partner", "client", "specjalista"];
+      let allowedByRole: Set<string> | null = null;
+      if (userIds.length > 0) {
+        const { data: rolesRows, error: rolesErr } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .in("role", targetRoles)
+          .in("user_id", userIds);
+        if (rolesErr) {
+          console.error("[campaigns] roles filter error", rolesErr);
+        }
+        allowedByRole = new Set<string>((rolesRows ?? []).map((r: any) => r.user_id));
+      }
+
+      eligible = (profiles ?? []).filter((p: any) =>
+        !excluded.has(p.user_id)
+        && !!p.email
+        && (allowedByRole ? allowedByRole.has(p.user_id) : true)
+      ) as any;
     }
 
     const batch = eligible.slice(0, BATCH_LIMIT);

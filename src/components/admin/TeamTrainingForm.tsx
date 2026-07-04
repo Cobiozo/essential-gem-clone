@@ -193,7 +193,16 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     test_mode?: boolean;
     test_recipient_user_id?: string | null;
     test_recipient_label?: string | null; // display label for chosen user (cached)
+    target_roles?: string[];
   };
+  const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'partner', label: 'Partner' },
+    { value: 'client', label: 'Klient' },
+    { value: 'specjalista', label: 'Specjalista' },
+  ];
+  const DEFAULT_TARGET_ROLES = ROLE_OPTIONS.map(r => r.value);
+  const [deleteCampaignIdx, setDeleteCampaignIdx] = useState<number | null>(null);
   const [campaignEnabled, setCampaignEnabled] = useState(false);
   const [campaignsOpen, setCampaignsOpen] = useState(true);
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
@@ -290,6 +299,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             test_mode: !!c.test_mode,
             test_recipient_user_id: c.test_recipient_user_id ?? null,
             test_recipient_label: c.test_recipient_user_id ? (labelMap[c.test_recipient_user_id] ?? null) : null,
+            target_roles: Array.isArray(c.target_roles) && c.target_roles.length > 0 ? c.target_roles : DEFAULT_TARGET_ROLES,
           })));
           setInitialCampaignIds(data.map((c: any) => c.id));
         } else {
@@ -506,14 +516,24 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       }
     }
 
+    // Validate: target_roles requires at least one role
+    if (campaignEnabled) {
+      for (let i = 0; i < campaigns.length; i++) {
+        const c = campaigns[i];
+        const roles = c.target_roles ?? DEFAULT_TARGET_ROLES;
+        if (!c.test_mode && roles.length === 0) {
+          throw new Error(`Tura ${i + 1}: wybierz co najmniej jedną rolę odbiorców.`);
+        }
+      }
+    }
+
     const currentIds = campaigns.map(c => c.id).filter(Boolean) as string[];
     const removed = initialCampaignIds.filter(id => !currentIds.includes(id));
     if (removed.length > 0) {
       await supabase
         .from('event_email_campaigns')
         .delete()
-        .in('id', removed)
-        .in('status', ['pending', 'failed']);
+        .in('id', removed);
     }
 
     if (!campaignEnabled || campaigns.length === 0) {
@@ -542,9 +562,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             label: c.label || null,
             test_mode: !!c.test_mode,
             test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+            target_roles: c.target_roles ?? DEFAULT_TARGET_ROLES,
           } as any)
-          .eq('id', c.id)
-          .in('status', ['pending', 'failed']);
+          .eq('id', c.id);
       } else {
         await supabase.from('event_email_campaigns').insert({
           event_id: eventId,
@@ -554,6 +574,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           created_by: user?.id ?? null,
           test_mode: !!c.test_mode,
           test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+          target_roles: c.target_roles ?? DEFAULT_TARGET_ROLES,
         } as any);
       }
     }
@@ -1050,8 +1071,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            disabled={isSent}
-                            onClick={() => setCampaigns(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteCampaignIdx(idx)}
                           >
                             Usuń
                           </Button>
@@ -1128,6 +1149,46 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                           </>
                         )}
                       </div>
+
+                      {!c.test_mode && (
+                        <div className="rounded-md border border-dashed p-3 space-y-2 bg-background/40">
+                          <Label className="text-sm font-medium">Wyślij do ról</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Wybierz role użytkowników, którzy otrzymają zaproszenie. Wymagana jest co najmniej jedna rola.
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {ROLE_OPTIONS.map((role) => {
+                              const currentRoles = c.target_roles ?? DEFAULT_TARGET_ROLES;
+                              const checked = currentRoles.includes(role.value);
+                              return (
+                                <label
+                                  key={role.value}
+                                  className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${checked ? 'border-primary bg-primary/5' : 'border-border'}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="accent-primary"
+                                    checked={checked}
+                                    disabled={isSent}
+                                    onChange={(e) => {
+                                      const isChecked = e.target.checked;
+                                      setCampaigns(prev => prev.map((r, i) => {
+                                        if (i !== idx) return r;
+                                        const rolesNow = r.target_roles ?? DEFAULT_TARGET_ROLES;
+                                        const next = isChecked
+                                          ? Array.from(new Set([...rolesNow, role.value]))
+                                          : rolesNow.filter((x) => x !== role.value);
+                                        return { ...r, target_roles: next };
+                                      }));
+                                    }}
+                                  />
+                                  {role.label}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1138,7 +1199,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                   variant="outline"
                   size="sm"
                   disabled={campaigns.length >= 5}
-                  onClick={() => setCampaigns(prev => [...prev, { mode: 'scheduled', scheduledLocal: '', label: '' }])}
+                  onClick={() => setCampaigns(prev => [...prev, { mode: 'scheduled', scheduledLocal: '', label: '', target_roles: DEFAULT_TARGET_ROLES }])}
                 >
                   + Dodaj kolejny termin ({campaigns.length}/5)
                 </Button>
@@ -1207,6 +1268,45 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           <AlertDialogCancel>Anuluj</AlertDialogCancel>
           <AlertDialogAction onClick={() => { setConflictData(null); pendingSaveCallback?.(); setPendingSaveCallback(null); }}>
             Zapisz mimo kolizji
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={deleteCampaignIdx !== null} onOpenChange={(open) => { if (!open) setDeleteCampaignIdx(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Usunąć turę?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Operacja jest nieodwracalna. Kampania e-mail zostanie usunięta z bazy wraz z historią jej odbiorców.
+            Jeżeli tura była już wysłana, jej odbiorcy będą mogli otrzymać ponowne zaproszenie w kolejnych turach.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Anuluj</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={async () => {
+              const idx = deleteCampaignIdx;
+              if (idx === null) return;
+              const c = campaigns[idx];
+              try {
+                if (c?.id) {
+                  await supabase.from('event_email_recipients').delete().eq('campaign_id', c.id);
+                  const { error } = await supabase.from('event_email_campaigns').delete().eq('id', c.id);
+                  if (error) throw error;
+                  setInitialCampaignIds(prev => prev.filter(x => x !== c.id));
+                }
+                setCampaigns(prev => prev.filter((_, i) => i !== idx));
+                toast({ title: 'Tura została usunięta' });
+              } catch (e: any) {
+                toast({ title: 'Nie udało się usunąć tury', description: e?.message ?? String(e), variant: 'destructive' });
+              } finally {
+                setDeleteCampaignIdx(null);
+              }
+            }}
+          >
+            Usuń nieodwracalnie
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
