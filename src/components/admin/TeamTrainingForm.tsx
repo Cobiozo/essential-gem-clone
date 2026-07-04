@@ -562,9 +562,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             label: c.label || null,
             test_mode: !!c.test_mode,
             test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+            target_roles: c.target_roles ?? DEFAULT_TARGET_ROLES,
           } as any)
-          .eq('id', c.id)
-          .in('status', ['pending', 'failed']);
+          .eq('id', c.id);
       } else {
         await supabase.from('event_email_campaigns').insert({
           event_id: eventId,
@@ -574,6 +574,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           created_by: user?.id ?? null,
           test_mode: !!c.test_mode,
           test_recipient_user_id: c.test_mode ? (c.test_recipient_user_id ?? null) : null,
+          target_roles: c.target_roles ?? DEFAULT_TARGET_ROLES,
         } as any);
       }
     }
