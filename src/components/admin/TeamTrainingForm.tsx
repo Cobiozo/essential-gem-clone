@@ -299,6 +299,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             test_mode: !!c.test_mode,
             test_recipient_user_id: c.test_recipient_user_id ?? null,
             test_recipient_label: c.test_recipient_user_id ? (labelMap[c.test_recipient_user_id] ?? null) : null,
+            target_roles: Array.isArray(c.target_roles) && c.target_roles.length > 0 ? c.target_roles : DEFAULT_TARGET_ROLES,
           })));
           setInitialCampaignIds(data.map((c: any) => c.id));
         } else {
