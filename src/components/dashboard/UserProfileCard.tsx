@@ -67,14 +67,15 @@ export const UserProfileCard: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.user_id}-${Date.now()}.${fileExt}`;
+      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const rand = Math.random().toString(36).slice(2, 8);
+      const fileName = `${profile.user_id}-${Date.now()}-${rand}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Upload to Supabase Storage
+      // Upload to Supabase Storage (no upsert – UPDATE policy on cms-images is admin-only)
       const { error: uploadError } = await supabase.storage
         .from('cms-images')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        .upload(filePath, file, { cacheControl: '3600', upsert: false, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
@@ -91,9 +92,13 @@ export const UserProfileCard: React.FC = () => {
 
       await refreshProfile();
       toast({ title: t('toast.success'), description: t('myAccount.avatarUpdated') });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Avatar upload error:', error);
-      toast({ title: t('toast.error'), description: t('error.uploadFailed'), variant: 'destructive' });
+      toast({
+        title: t('toast.error'),
+        description: error?.message || error?.error_description || t('error.uploadFailed'),
+        variant: 'destructive',
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
