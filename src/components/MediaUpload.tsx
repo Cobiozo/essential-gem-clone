@@ -70,16 +70,57 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       mediaType = 'other';
     }
 
-    // Ostrzeżenie o formacie MOV - może powodować problemy z odtwarzaniem
+    // Walidacja kompatybilności wideo z iPhone/Safari.
+    // Safari nie odtwarza WebM/MKV/AVI/WMV/FLV oraz HEVC/H.265 w kontenerze MP4/MOV.
     const fileName = file.name.toLowerCase();
-    if (isVideo && fileName.endsWith('.mov')) {
-      toast({
-        title: "Uwaga: Format MOV",
-        description: "Pliki MOV mogą powodować problemy z buforowaniem. Zalecamy konwersję do MP4 z opcją 'Web Optimized' (FastStart).",
-        variant: "destructive",
-      });
-      // Kontynuuj upload, ale użytkownik został ostrzeżony
+    if (isVideo) {
+      const ext = fileName.split('.').pop() || '';
+      const hardBlocked = ['webm', 'mkv', 'avi', 'wmv', 'flv', 'ogv'];
+      if (hardBlocked.includes(ext)) {
+        toast({
+          title: `Format .${ext} nieobsługiwany na iPhone`,
+          description: "Safari nie odtworzy tego pliku. Skonwertuj do MP4 (H.264 + AAC), np. w HandBrake lub ffmpeg: ffmpeg -i input -c:v libx264 -c:a aac -movflags +faststart output.mp4",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (ext === 'mov') {
+        toast({
+          title: "Uwaga: Format MOV",
+          description: "Pliki MOV z iPhone są często zapisane w HEVC/H.265 — Safari na starszych iPhone'ach ich nie odtworzy. Zalecana konwersja do MP4 H.264 + AAC z opcją 'Web Optimized' (FastStart).",
+          variant: "destructive",
+        });
+      }
+      // Test dekodera przeglądarki — jeśli lokalna Safari/Chrome nie potrafi zdekodować, ostrzeż admina.
+      try {
+        const ok = await new Promise<boolean>((resolve) => {
+          const v = document.createElement('video');
+          v.preload = 'metadata';
+          v.muted = true;
+          const url = URL.createObjectURL(file);
+          const cleanup = () => { URL.revokeObjectURL(url); };
+          v.onloadedmetadata = () => {
+            const good = v.videoWidth > 0 && v.videoHeight > 0;
+            cleanup();
+            resolve(good);
+          };
+          v.onerror = () => { cleanup(); resolve(false); };
+          setTimeout(() => { cleanup(); resolve(true); }, 4000); // niepewne = daj przejść
+          v.src = url;
+        });
+        if (!ok) {
+          toast({
+            title: "Plik prawdopodobnie w HEVC/H.265",
+            description: "Twoja przeglądarka nie zdołała odczytać metadanych. Safari na iPhone również nie odtworzy tego wideo. Skonwertuj do MP4 H.264 + AAC przed publikacją.",
+            variant: "destructive",
+          });
+          // nie blokujemy — admin zdecyduje, ale ostrzegamy
+        }
+      } catch {
+        // ignore
+      }
     }
+
 
     // Check allowed types
     if (allowedTypes && allowedTypes.length > 0) {
