@@ -100,6 +100,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
   const [showTapToResume, setShowTapToResume] = useState(false); // iOS: tap-to-resume overlay
+  const [nativeError, setNativeError] = useState<null | { code: number; message: string }>(null); // Błąd dekodowania w gałęzi native controls (Zdrowa Wiedza / iPhone)
   
   // NEW: Debounced spinner state - spinner appears only after delay without pausing video
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
