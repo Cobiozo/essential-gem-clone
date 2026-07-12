@@ -556,6 +556,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setShowBufferingSpinner(false);
     // NEW: Reset videoReady so old frame is hidden until new video loads
     setVideoReady(false);
+    setNativeError(null);
     if (spinnerTimeoutRef.current) {
       clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = undefined;
