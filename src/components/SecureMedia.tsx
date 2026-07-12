@@ -18,6 +18,7 @@ import {
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
+import { videoMime } from '@/lib/videoMime';
 
 interface NoteMarker {
   id: string;
