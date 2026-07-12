@@ -18,6 +18,7 @@ import {
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
+import { videoMime } from '@/lib/videoMime';
 
 interface NoteMarker {
   id: string;
@@ -100,6 +101,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
   const [showTapToResume, setShowTapToResume] = useState(false); // iOS: tap-to-resume overlay
+  const [nativeError, setNativeError] = useState<null | { code: number; message: string }>(null); // Błąd dekodowania w gałęzi native controls (Zdrowa Wiedza / iPhone)
   
   // NEW: Debounced spinner state - spinner appears only after delay without pausing video
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
@@ -555,6 +557,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setShowBufferingSpinner(false);
     // NEW: Reset videoReady so old frame is hidden until new video loads
     setVideoReady(false);
+    setNativeError(null);
     if (spinnerTimeoutRef.current) {
       clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = undefined;
@@ -2231,24 +2234,98 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       );
     }
     
-    // Regular video with native controls for completed lessons
+    // Regular video with native controls (Zdrowa Wiedza, materiały wideo bez trybu restricted/secure)
+    // Uwaga: Safari na iPhone potrafi po cichu odrzucić plik (HEVC/H.265, WebM, .mov z nietypowym codekiem).
+    // Dlatego jawnie podajemy <source type>, obserwujemy onError i pokazujemy zrozumiały komunikat zamiast wiecznego spinnera.
+    if (nativeError) {
+      return (
+        <div className={`relative w-full aspect-video bg-muted rounded-lg flex flex-col items-center justify-center gap-3 p-6 text-center ${className || ''}`}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="space-y-1 max-w-md">
+            <h3 className="font-semibold text-foreground">Nie można odtworzyć tego wideo</h3>
+            <p className="text-sm text-muted-foreground">
+              Twoja przeglądarka (najczęściej Safari na iPhone) nie obsługuje formatu tego pliku.
+              Wymagany format: <strong>MP4 · H.264 · AAC</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Skontaktuj się z administratorem i poproś o ponowne wgranie materiału w kompatybilnym formacie.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap justify-center">
+            <button
+              onClick={() => {
+                setNativeError(null);
+                setVideoReady(false);
+                // wymuś ponowne załadowanie źródła
+                const v = videoRef.current;
+                if (v) {
+                  try { v.load(); } catch {}
+                }
+              }}
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Spróbuj ponownie
+            </button>
+            {signedUrl && (
+              <a
+                href={signedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 text-sm font-medium border border-border rounded-md hover:bg-muted transition-colors"
+              >
+                Otwórz plik bezpośrednio
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
         <video
           ref={videoRefCallback}
           {...securityProps}
-          src={signedUrl}
           controls
           controlsList="nodownload"
           className="absolute inset-0 w-full h-full object-contain rounded-lg"
           style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-          preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
+          preload="metadata"
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
+          // @ts-ignore - AirPlay dla iOS
+          x-webkit-airplay="allow"
+          onLoadedMetadata={() => {
+            setNativeError(null);
+            setVideoReady(true);
+          }}
+          onCanPlay={() => setVideoReady(true)}
+          onError={(e) => {
+            const el = e.currentTarget as HTMLVideoElement;
+            const err = el.error;
+            const code = err?.code ?? 0;
+            // 3 = MEDIA_ERR_DECODE, 4 = MEDIA_ERR_SRC_NOT_SUPPORTED
+            if (code === 3 || code === 4) {
+              console.warn('[SecureMedia] Native video error', { code, message: err?.message, src: signedUrl });
+              setNativeError({ code, message: err?.message || 'Format nieobsługiwany' });
+            }
+          }}
           // Only use crossOrigin for Supabase storage URLs (which support CORS)
           {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
         >
+          {signedUrl && (
+            <source
+              src={signedUrl}
+              type={videoMime(signedUrl)}
+              onError={() => {
+                console.warn('[SecureMedia] <source> onError – Safari odrzuciło strumień');
+                setNativeError({ code: 4, message: 'Źródło odrzucone przez przeglądarkę' });
+              }}
+            />
+          )}
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
         {/* Buffering spinner overlay for native controls */}
