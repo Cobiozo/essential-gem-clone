@@ -1793,31 +1793,79 @@ export const EventRegistrationsManagement: React.FC = () => {
                               })()}
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Badge variant={registration.confirmation_sent ? "default" : "outline"} className="text-xs">
+                              <div className="flex flex-wrap gap-1 items-center">
+                                <Badge
+                                  variant={registration.confirmation_sent ? 'default' : 'outline'}
+                                  className="text-xs"
+                                  title={registration.confirmation_sent ? 'Potwierdzenie wysłane' : 'Brak potwierdzenia'}
+                                >
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
-                                <Badge variant={registration.reminder_sent ? "default" : "outline"} className="text-xs">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {registration.reminder_sent ? '✓' : '✗'}
-                                </Badge>
+                                {REMINDER_TYPES.map((t) => {
+                                  const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
+                                  return (
+                                    <Badge
+                                      key={t}
+                                      variant={sentAt ? 'default' : 'outline'}
+                                      className={`text-[10px] px-1.5 ${sentAt ? 'bg-green-600 hover:bg-green-600' : ''}`}
+                                      title={sentAt ? `${t} wysłane: ${format(new Date(sentAt), 'dd.MM.yyyy HH:mm', { locale: pl })}` : `${t}: brak wpisu`}
+                                    >
+                                      {REMINDER_LABEL[t]} {sentAt ? '✓' : '✗'}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSendReminder(registration)}
-                                disabled={sendingReminder === registration.id}
-                              >
-                                {sendingReminder === registration.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Mail className="h-4 w-4" />
-                                )}
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSendReminder(registration)}
+                                  disabled={sendingReminder === registration.id}
+                                  title="Wyślij potwierdzenie rejestracji"
+                                >
+                                  {sendingReminder === registration.id ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Mail className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={!!sendingPerGuest && sendingPerGuest.startsWith(registration.id)}
+                                      title="Ponów konkretne przypomnienie"
+                                    >
+                                      {sendingPerGuest && sendingPerGuest.startsWith(registration.id) ? (
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Clock className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {REMINDER_TYPES.map((t) => {
+                                      const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
+                                      return (
+                                        <DropdownMenuItem
+                                          key={t}
+                                          onClick={() => handleResendReminderTyped(registration, t)}
+                                        >
+                                          <Send className="h-4 w-4 mr-2" />
+                                          Wyślij {t}
+                                          {sentAt && <span className="ml-auto text-[10px] text-muted-foreground">✓</span>}
+                                        </DropdownMenuItem>
+                                      );
+                                    })}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </TableCell>
+
                           </TableRow>
                         ))}
                       </TableBody>
