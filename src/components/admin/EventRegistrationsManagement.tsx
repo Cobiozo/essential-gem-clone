@@ -1961,6 +1961,12 @@ export const EventRegistrationsManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      <MissingJoinLinkDetailsDialog
+        alertId={detailsAlertId}
+        open={!!detailsAlertId}
+        onOpenChange={(o) => { if (!o) setDetailsAlertId(null); }}
+        onResolved={() => { fetchMissingLinkAlerts(); setDetailsAlertId(null); }}
+      />
     </div>
     </>
   );
