@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EventRegistrationReport } from './EventRegistrationReport';
+import { MissingJoinLinkDetailsDialog } from './MissingJoinLinkDetailsDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -178,7 +179,8 @@ export const EventRegistrationsManagement: React.FC = () => {
   };
   const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
   // email(lower) -> unresolved missing-link alert id
-  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, string>>({});
+  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, { id: string; attempt_count: number; max_attempts: number; last_error: string | null }>>({});
+  const [detailsAlertId, setDetailsAlertId] = useState<string | null>(null);
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
   const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
@@ -437,14 +439,19 @@ export const EventRegistrationsManagement: React.FC = () => {
   const fetchMissingLinkAlerts = React.useCallback(async () => {
     if (!selectedEventId) { setMissingLinkAlerts({}); return; }
     const { data, error } = await (supabase.from('missing_join_link_alerts' as any) as any)
-      .select('id, recipient_email')
+      .select('id, recipient_email, attempt_count, max_attempts, last_error')
       .eq('event_id', selectedEventId)
       .is('resolved_at', null);
     if (error) { setMissingLinkAlerts({}); return; }
-    const map: Record<string, string> = {};
+    const map: Record<string, { id: string; attempt_count: number; max_attempts: number; last_error: string | null }> = {};
     for (const row of (data || []) as any[]) {
       const em = (row.recipient_email || '').toLowerCase();
-      if (em && !map[em]) map[em] = row.id;
+      if (em && !map[em]) map[em] = {
+        id: row.id,
+        attempt_count: row.attempt_count ?? 0,
+        max_attempts: row.max_attempts ?? 5,
+        last_error: row.last_error ?? null,
+      };
     }
     setMissingLinkAlerts(map);
   }, [selectedEventId]);
@@ -657,7 +664,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
         // Resolve missing-link alert if this was a link-carrying reminder
         if ((type === '15min' || type === '1h' || type === '2h')) {
-          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()];
+          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()]?.id;
           if (alertId) {
             try {
               await (supabase.from('missing_join_link_alerts' as any) as any)
@@ -1792,18 +1799,18 @@ export const EventRegistrationsManagement: React.FC = () => {
                     Brak rejestracji gości dla tego wydarzenia
                   </div>
                 ) : (
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
+                  <div className="border rounded-lg overflow-x-auto max-w-full">
+                    <Table className="min-w-[1100px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Imię i nazwisko</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Telefon</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Data rejestracji</TableHead>
-                          <TableHead>Zaproszony przez</TableHead>
-                          <TableHead>Powiadomienia</TableHead>
-                          <TableHead>Akcje</TableHead>
+                          <TableHead className="min-w-[160px]">Imię i nazwisko</TableHead>
+                          <TableHead className="min-w-[220px]">Email</TableHead>
+                          <TableHead className="min-w-[140px] whitespace-nowrap">Telefon</TableHead>
+                          <TableHead className="min-w-[160px]">Status</TableHead>
+                          <TableHead className="min-w-[140px] whitespace-nowrap">Data rejestracji</TableHead>
+                          <TableHead className="min-w-[160px]">Zaproszony przez</TableHead>
+                          <TableHead className="min-w-[200px]">Powiadomienia</TableHead>
+                          <TableHead className="sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)] min-w-[110px]">Akcje</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1864,15 +1871,26 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
-                                {missingLinkAlerts[(registration.email || '').toLowerCase()] && (
-                                  <Badge
-                                    variant="destructive"
-                                    className="text-[10px] px-1.5 animate-pulse"
-                                    title="Gość zarejestrował się tuż przed startem, ale nie otrzymał emaila z linkiem. Kliknij ikonę zegara → Wyślij 15min, żeby wysłać link teraz."
-                                  >
-                                    ⚠ brak linku
-                                  </Badge>
-                                )}
+                                {(() => {
+                                  const a = missingLinkAlerts[(registration.email || '').toLowerCase()];
+                                  if (!a) return null;
+                                  const exhausted = a.attempt_count >= a.max_attempts;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDetailsAlertId(a.id)}
+                                      className="inline-flex"
+                                      title={`Kliknij, aby zobaczyć szczegóły. Próby: ${a.attempt_count}/${a.max_attempts}${a.last_error ? `\nOstatni błąd: ${a.last_error}` : ''}`}
+                                    >
+                                      <Badge
+                                        variant="destructive"
+                                        className={`text-[10px] px-1.5 ${exhausted ? '' : 'animate-pulse'} cursor-pointer`}
+                                      >
+                                        ⚠ brak linku ({a.attempt_count}/{a.max_attempts})
+                                      </Badge>
+                                    </button>
+                                  );
+                                })()}
                                 {REMINDER_TYPES.map((t) => {
                                   const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
                                   return (
@@ -1888,7 +1906,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                                 })}
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]">
                               <div className="flex gap-1">
                                 <Button
                                   variant="outline"
@@ -1955,6 +1973,12 @@ export const EventRegistrationsManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      <MissingJoinLinkDetailsDialog
+        alertId={detailsAlertId}
+        open={!!detailsAlertId}
+        onOpenChange={(o) => { if (!o) setDetailsAlertId(null); }}
+        onResolved={() => { fetchMissingLinkAlerts(); setDetailsAlertId(null); }}
+      />
     </div>
     </>
   );

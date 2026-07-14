@@ -82,7 +82,8 @@ const handler = async (req: Request): Promise<Response> => {
     const p: Payload = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1. Persist alert (dedupe on unique index)
+    // 1. Persist alert (dedupe on unique index). Initialize retry schedule.
+    const initialNextRetry = new Date(Date.now() + 2 * 60000).toISOString(); // first retry in 2 min
     const { data: alert, error: alertErr } = await supabase
       .from('missing_join_link_alerts')
       .insert({
@@ -92,12 +93,31 @@ const handler = async (req: Request): Promise<Response> => {
         recipient_name: [p.firstName, p.lastName].filter(Boolean).join(' ') || null,
         event_title: p.eventTitle,
         reason: p.reason,
+        attempt_count: 1,
+        last_attempt_at: new Date().toISOString(),
+        last_error: p.errorMessage || (p.reason === 'no_link' ? 'Brak linku Zoom przy pierwszej próbie' : 'Błąd SMTP przy pierwszej próbie'),
+        next_retry_at: initialNextRetry,
       })
       .select('id')
       .maybeSingle();
 
     if (alertErr && !alertErr.message?.includes('duplicate')) {
       console.warn('[notify-admins-missing-join-link] insert alert failed:', alertErr.message);
+    }
+
+    // Log the initial failure as attempt #1 in retry log
+    if (alert?.id) {
+      try {
+        await supabase.from('join_link_retry_log').insert({
+          alert_id: alert.id,
+          attempt_no: 1,
+          outcome: p.reason === 'no_link' ? 'no_link' : 'smtp_error',
+          error_message: p.errorMessage || null,
+          triggered_by: 'cron',
+        });
+      } catch (e) {
+        console.warn('[notify-admins-missing-join-link] retry_log insert failed:', e);
+      }
     }
 
     // 2. Fetch admins
