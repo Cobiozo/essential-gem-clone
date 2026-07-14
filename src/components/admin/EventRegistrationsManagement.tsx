@@ -217,15 +217,18 @@ export const EventRegistrationsManagement: React.FC = () => {
     setSelectedOccurrenceIndex(bestIdx);
   }, [eventOccurrences]);
 
-  // Term datetime (for display + filtering reminders log)
-  const termDatetimeIso = useMemo<string | null>(() => {
+  // Human-readable label of the currently selected term (for headings/tooltips)
+  const termLabel = useMemo<string>(() => {
     if (selectedOccurrenceIndex !== null && eventOccurrences[selectedOccurrenceIndex]) {
       const o = eventOccurrences[selectedOccurrenceIndex];
-      return new Date(`${o.date}T${o.time}:00`).toISOString();
+      return `${o.date} ${o.time}`;
     }
-    if (selectedEvent?.start_time) return new Date(selectedEvent.start_time).toISOString();
-    return null;
+    if (selectedEvent?.start_time) {
+      return format(new Date(selectedEvent.start_time), 'dd.MM.yyyy HH:mm', { locale: pl });
+    }
+    return '';
   }, [selectedOccurrenceIndex, eventOccurrences, selectedEvent]);
+
 
 
   // Fetch events for dropdown - only webinars and team_training
