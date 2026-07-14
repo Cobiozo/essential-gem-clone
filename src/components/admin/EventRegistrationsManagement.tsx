@@ -178,7 +178,8 @@ export const EventRegistrationsManagement: React.FC = () => {
   };
   const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
   // email(lower) -> unresolved missing-link alert id
-  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, string>>({});
+  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, { id: string; attempt_count: number; max_attempts: number; last_error: string | null }>>({});
+  const [detailsAlertId, setDetailsAlertId] = useState<string | null>(null);
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
   const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
