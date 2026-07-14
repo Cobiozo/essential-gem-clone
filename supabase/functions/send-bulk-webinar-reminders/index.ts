@@ -544,11 +544,15 @@ serve(async (req) => {
       }
     }
 
-    // Filter guests in test mode
+    // Filter guests in test/targeted mode
     let filteredGuests = guests || [];
     if (isTestMode && guests) {
-      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
+      filteredGuests = filteredGuests.filter(g => test_emails!.includes(g.email));
     }
+    if (isTargetedMode) {
+      filteredGuests = filteredGuests.filter(g => targetedEmailsLower.has((g.email || '').toLowerCase()));
+    }
+
 
     // ==========================================
     // 8. Build unified recipient list, excluding already sent
