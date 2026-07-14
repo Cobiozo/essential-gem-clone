@@ -1693,7 +1693,38 @@ export const EventRegistrationsManagement: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Search & filter bar */}
+                {/* Occurrence picker (cyclic events) + current term info */}
+                {eventOccurrences.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Termin przypomnień:</span>
+                    <Select
+                      value={selectedOccurrenceIndex !== null ? String(selectedOccurrenceIndex) : ''}
+                      onValueChange={(v) => setSelectedOccurrenceIndex(Number(v))}
+                    >
+                      <SelectTrigger className="w-[240px]">
+                        <SelectValue placeholder="Wybierz termin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eventOccurrences.map((o, idx) => (
+                          <SelectItem key={idx} value={String(idx)}>
+                            {o.date} {o.time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      Statusy 24h/12h/2h/1h/15m dotyczą wybranego terminu.
+                    </span>
+                  </div>
+                )}
+                {eventOccurrences.length === 0 && termLabel && (
+                  <div className="text-xs text-muted-foreground">
+                    Termin: <strong>{termLabel}</strong>
+                  </div>
+                )}
+
+
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative flex-1 min-w-[220px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
