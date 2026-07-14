@@ -251,12 +251,18 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, reminder_type, occurrence_index, occurrence_datetime, test_emails }: BulkReminderRequest = await req.json();
+    const { event_id, reminder_type, occurrence_index, occurrence_datetime, test_emails, recipient_emails, force }: BulkReminderRequest = await req.json();
     const isTestMode = Array.isArray(test_emails) && test_emails.length > 0;
+    const isTargetedMode = Array.isArray(recipient_emails) && recipient_emails.length > 0;
+    const targetedEmailsLower = new Set((recipient_emails || []).map((e) => e.toLowerCase()));
 
     if (isTestMode) {
       console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses`);
     }
+    if (isTargetedMode) {
+      console.log(`[bulk-reminders] 🎯 TARGETED MODE: sending only to ${targetedEmailsLower.size} address(es), force=${!!force}`);
+    }
+
 
     if (!event_id) {
       return new Response(
