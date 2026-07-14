@@ -146,6 +146,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const currentTimeStateRef = useRef<number>(0);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
   const isBufferingRef = useRef<boolean>(false);
@@ -1264,6 +1265,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
   useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
   useEffect(() => { forceHideBufferingRef.current = forceHideBuffering; }, [forceHideBuffering]); // FIX A
+  useEffect(() => { currentTimeStateRef.current = currentTime; }, [currentTime]);
 
   // iOS/WebKit fallback: `timeupdate` may stop firing while audio keeps playing.
   // Keep Academy counters/progress synced from the actual media clock during playback.
@@ -1275,7 +1277,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (!video.paused && Number.isFinite(video.currentTime)) {
         const nextTime = video.currentTime;
         const lastTime = lastValidTimeRef.current;
-        if (nextTime > 0 && Math.abs(nextTime - currentTime) >= 0.15) {
+        if (nextTime > 0 && Math.abs(nextTime - currentTimeStateRef.current) >= 0.15) {
           setCurrentTime(nextTime);
           onTimeUpdateRef.current?.(nextTime);
         }
@@ -1293,7 +1295,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         iosClockTickRef.current = undefined;
       }
     };
-  }, [mediaType, videoElement, currentTime]);
+  }, [mediaType, videoElement]);
 
   // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
