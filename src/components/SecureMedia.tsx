@@ -775,6 +775,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         console.log('[SecureMedia] iOS: Ignoring waiting event - forceHideBuffering active');
         return;
       }
+      if (isIOSDevice() && !video.paused && video.currentTime > 0 && video.readyState >= 2) {
+        const bufferedAheadNow = getBufferedAhead(video);
+        if (bufferedAheadNow >= VIDEO_BUFFER_CONFIG.ios.minBufferAheadForNoSpinner) {
+          setVideoReady(true);
+          setShowBufferingSpinner(false);
+          setIsBuffering(false);
+          isBufferingRef.current = false;
+          lastValidTimeRef.current = Math.max(lastValidTimeRef.current, video.currentTime);
+          onTimeUpdateRef.current?.(video.currentTime);
+          console.log('[SecureMedia] iOS: Ignoring waiting - playback clock has enough buffered data');
+          return;
+        }
+      }
       
       const bufferedAheadValue = getBufferedAhead(video);
       const networkQualityNow = getNetworkQuality();
@@ -858,6 +871,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // CHANGE 2: Debounced stalled handler - prevents false buffering from browser stalled events
     const handleStalled = () => {
       console.log('[SecureMedia] Video stalled event received');
+      if (isIOSDevice() && !video.paused && video.readyState >= 2 && video.currentTime > 0) {
+        console.log('[SecureMedia] iOS: Ignoring transient stalled event while media clock is alive');
+        return;
+      }
       
       // Clear previous stalled timeout
       if (stalledTimeoutRef.current) {
@@ -1023,6 +1040,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handleError = (e: Event) => {
       const errorType = getVideoErrorType(video);
       console.error('[SecureMedia] Video error:', errorType, e);
+      if (errorType === VIDEO_ERROR_TYPES.DECODE || errorType === VIDEO_ERROR_TYPES.SRC_NOT_SUPPORTED) {
+        setNativeError({ code: video.error?.code ?? 0, message: video.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
+        return;
+      }
       
       const maxRetries = bufferConfigRef.current.maxRetries;
       
