@@ -1432,6 +1432,41 @@ export const EventRegistrationsManagement: React.FC = () => {
                       </DropdownMenu>
                     </>
                   )}
+                  {activeTab === 'guests' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" disabled={!!sendingBulkType}>
+                          {sendingBulkType ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Clock className="h-4 w-4 mr-2" />
+                          )}
+                          Ponów przypomnienia
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        {REMINDER_TYPES.map((t) => (
+                          <React.Fragment key={t}>
+                            <DropdownMenuItem onClick={() => handleBulkSendType(t, false)}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              {t} — tylko brakującym
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (confirm(`Wysłać ponownie ${t} do WSZYSTKICH gości (nawet tych, którzy już dostali)?`)) {
+                                  handleBulkSendType(t, true);
+                                }
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              {t} — do wszystkich (force)
+                            </DropdownMenuItem>
+                          </React.Fragment>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <Button
                     onClick={() => setFollowUpDialogOpen(true)}
                     variant="default"
@@ -1440,6 +1475,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                     <Send className="h-4 w-4 mr-2" />
                     Email po webinarze
                   </Button>
+
                   <Button 
                     onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
                     variant="outline" 
