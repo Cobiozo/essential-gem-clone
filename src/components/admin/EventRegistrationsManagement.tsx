@@ -170,10 +170,63 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [resetRoleTarget, setResetRoleTarget] = useState<string>('');
   const [isResetting, setIsResetting] = useState(false);
 
+  // Per-guest reminder status map: emailLower -> { '24h'|'12h'|'2h'|'1h'|'15min' -> ISO date }
+  type ReminderType = '24h' | '12h' | '2h' | '1h' | '15min';
+  const REMINDER_TYPES: ReminderType[] = ['24h', '12h', '2h', '1h', '15min'];
+  const REMINDER_LABEL: Record<ReminderType, string> = {
+    '24h': '24h', '12h': '12h', '2h': '2h', '1h': '1h', '15min': '15m',
+  };
+  const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
+  const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
+  const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
+
   const selectedEvent = useMemo(() =>
-    events.find(e => e.id === selectedEventId), 
+    events.find(e => e.id === selectedEventId),
     [events, selectedEventId]
   );
+
+  // Parsed occurrences array (if cyclic)
+  const eventOccurrences = useMemo<Array<{ date: string; time: string }>>(() => {
+    const raw = selectedEvent?.occurrences;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as any[];
+    try { return JSON.parse(raw as unknown as string); } catch { return []; }
+  }, [selectedEvent]);
+
+  // Pick default occurrence: nearest future (else latest)
+  useEffect(() => {
+    if (!eventOccurrences.length) { setSelectedOccurrenceIndex(null); return; }
+    const now = Date.now();
+    let bestIdx = 0;
+    let bestDelta = -Infinity;
+    eventOccurrences.forEach((o, idx) => {
+      const t = new Date(`${o.date}T${o.time}:00`).getTime();
+      const delta = t - now;
+      if (delta >= 0 && (bestDelta < 0 || delta < bestDelta)) { bestIdx = idx; bestDelta = delta; }
+    });
+    if (bestDelta < 0) {
+      // no future — pick most recent past
+      let latestIdx = 0; let latestT = -Infinity;
+      eventOccurrences.forEach((o, idx) => {
+        const t = new Date(`${o.date}T${o.time}:00`).getTime();
+        if (t > latestT) { latestT = t; latestIdx = idx; }
+      });
+      bestIdx = latestIdx;
+    }
+    setSelectedOccurrenceIndex(bestIdx);
+  }, [eventOccurrences]);
+
+  // Term datetime (for display + filtering reminders log)
+  const termDatetimeIso = useMemo<string | null>(() => {
+    if (selectedOccurrenceIndex !== null && eventOccurrences[selectedOccurrenceIndex]) {
+      const o = eventOccurrences[selectedOccurrenceIndex];
+      return new Date(`${o.date}T${o.time}:00`).toISOString();
+    }
+    if (selectedEvent?.start_time) return new Date(selectedEvent.start_time).toISOString();
+    return null;
+  }, [selectedOccurrenceIndex, eventOccurrences, selectedEvent]);
+
 
   // Fetch events for dropdown - only webinars and team_training
   useEffect(() => {
