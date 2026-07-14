@@ -397,6 +397,41 @@ export const EventRegistrationsManagement: React.FC = () => {
     fetchGuestRegistrations();
   }, [selectedEventId, toast]);
 
+  // Fetch reminder-log rows for the selected event + occurrence
+  const fetchRemindersMap = React.useCallback(async () => {
+    if (!selectedEventId) { setRemindersMap({}); return; }
+    let q = supabase
+      .from('occurrence_reminders_sent')
+      .select('recipient_email, reminder_type, created_at, occurrence_index')
+      .eq('event_id', selectedEventId);
+    if (selectedOccurrenceIndex !== null) {
+      q = q.eq('occurrence_index', selectedOccurrenceIndex);
+    } else {
+      q = q.is('occurrence_index', null);
+    }
+    const { data, error } = await q;
+    if (error) {
+      console.error('[reminders-map] fetch error', error);
+      setRemindersMap({});
+      return;
+    }
+    const map: Record<string, Partial<Record<ReminderType, string>>> = {};
+    for (const row of (data || []) as any[]) {
+      const email = (row.recipient_email || '').toLowerCase();
+      if (!email) continue;
+      const t = row.reminder_type as ReminderType;
+      if (!REMINDER_TYPES.includes(t)) continue;
+      const cur = map[email] || {};
+      const existing = cur[t];
+      if (!existing || new Date(row.created_at) > new Date(existing)) cur[t] = row.created_at;
+      map[email] = cur;
+    }
+    setRemindersMap(map);
+  }, [selectedEventId, selectedOccurrenceIndex]);
+
+  useEffect(() => { fetchRemindersMap(); }, [fetchRemindersMap]);
+
+
   // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
     const uniqueUsers = new Set(registrations.map(r => r.user_id));
