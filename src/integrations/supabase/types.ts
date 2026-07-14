@@ -6338,6 +6338,56 @@ export type Database = {
         }
         Relationships: []
       }
+      missing_join_link_alerts: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_title: string | null
+          id: string
+          occurrence_datetime: string | null
+          reason: string
+          recipient_email: string
+          recipient_name: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_title?: string | null
+          id?: string
+          occurrence_datetime?: string | null
+          reason: string
+          recipient_email: string
+          recipient_name?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_title?: string | null
+          id?: string
+          occurrence_datetime?: string | null
+          reason?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_join_link_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mobile_bottom_nav_items: {
         Row: {
           created_at: string
