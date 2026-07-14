@@ -177,6 +177,8 @@ export const EventRegistrationsManagement: React.FC = () => {
     '24h': '24h', '12h': '12h', '2h': '2h', '1h': '1h', '15min': '15m',
   };
   const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
+  // email(lower) -> unresolved missing-link alert id
+  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, string>>({});
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
   const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
@@ -431,6 +433,24 @@ export const EventRegistrationsManagement: React.FC = () => {
 
   useEffect(() => { fetchRemindersMap(); }, [fetchRemindersMap]);
 
+  // Fetch unresolved "missing join link" alerts for this event
+  const fetchMissingLinkAlerts = React.useCallback(async () => {
+    if (!selectedEventId) { setMissingLinkAlerts({}); return; }
+    const { data, error } = await (supabase.from('missing_join_link_alerts' as any) as any)
+      .select('id, recipient_email')
+      .eq('event_id', selectedEventId)
+      .is('resolved_at', null);
+    if (error) { setMissingLinkAlerts({}); return; }
+    const map: Record<string, string> = {};
+    for (const row of (data || []) as any[]) {
+      const em = (row.recipient_email || '').toLowerCase();
+      if (em && !map[em]) map[em] = row.id;
+    }
+    setMissingLinkAlerts(map);
+  }, [selectedEventId]);
+
+  useEffect(() => { fetchMissingLinkAlerts(); }, [fetchMissingLinkAlerts]);
+
 
   // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
@@ -635,7 +655,18 @@ export const EventRegistrationsManagement: React.FC = () => {
       if (error) throw error;
       if ((data as any)?.sent > 0) {
         toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
-        await fetchRemindersMap();
+        // Resolve missing-link alert if this was a link-carrying reminder
+        if ((type === '15min' || type === '1h' || type === '2h')) {
+          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()];
+          if (alertId) {
+            try {
+              await (supabase.from('missing_join_link_alerts' as any) as any)
+                .update({ resolved_at: new Date().toISOString() })
+                .eq('id', alertId);
+            } catch (e) { console.warn('resolve alert failed', e); }
+          }
+        }
+        await Promise.all([fetchRemindersMap(), fetchMissingLinkAlerts()]);
       } else {
         toast({
           title: 'Nie wysłano',
@@ -1833,6 +1864,15 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
+                                {missingLinkAlerts[(registration.email || '').toLowerCase()] && (
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px] px-1.5 animate-pulse"
+                                    title="Gość zarejestrował się tuż przed startem, ale nie otrzymał emaila z linkiem. Kliknij ikonę zegara → Wyślij 15min, żeby wysłać link teraz."
+                                  >
+                                    ⚠ brak linku
+                                  </Badge>
+                                )}
                                 {REMINDER_TYPES.map((t) => {
                                   const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
                                   return (

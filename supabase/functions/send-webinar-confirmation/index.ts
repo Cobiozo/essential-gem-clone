@@ -729,110 +729,158 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log(`[send-webinar-confirmation] ${emailType} email sent to ${email}`);
 
-      // === IMMEDIATE REMINDER: If registration is < 15 min before start, send zoom link immediately ===
+      // === IMMEDIATE REMINDER: If registration is <60 min before start, send zoom link immediately ===
+      // <=15 min  → urgent "join_now" template ("Pokój już otwarty")
+      // 15–60 min → standard "reminder_15min" template
       if (!isReminder && eventId && !isAutoWebinar && !isPartnerInvite) {
         try {
           const { data: eventData } = await supabase
             .from("events")
-            .select("start_time, zoom_link, location")
+            .select("start_time, zoom_link, location, occurrences")
             .eq("id", eventId)
             .single();
 
           if (eventData) {
-            const eventStartTime = new Date(eventData.start_time);
-            const minutesUntilStart = (eventStartTime.getTime() - Date.now()) / 60000;
+            // Resolve which occurrence the guest registered for + its zoom link
+            let targetStart: Date = new Date(eventData.start_time);
+            let occurrenceZoomLink: string | null = null;
+            let occurrenceIsoForLog: string | null = null;
 
-            if (minutesUntilStart > 0 && minutesUntilStart <= 60) {
-              console.log(`[send-webinar-confirmation] Registration < 60 min before start (${Math.round(minutesUntilStart)} min). Sending immediate reminder with zoom link.`);
+            const passedDate = eventDate ? new Date(eventDate) : null;
+            if (passedDate && !isNaN(passedDate.getTime())) {
+              targetStart = passedDate;
+              occurrenceIsoForLog = passedDate.toISOString();
 
-              const immediateZoomLink = eventData.zoom_link || eventData.location || '';
-              if (!immediateZoomLink) {
-                // Warn admins: event has no join link
-                console.warn(`[send-webinar-confirmation] Event "${eventTitle}" has no zoom_link or location. Notifying admins.`);
-                try {
-                  const { data: admins } = await supabase
-                    .from('user_roles')
-                    .select('user_id')
-                    .eq('role', 'admin');
-                  if (admins?.length) {
-                    await supabase.from('user_notifications').insert(
-                      admins.map((a: any) => ({
-                        user_id: a.user_id,
-                        notification_type: 'system',
-                        source_module: 'events',
-                        title: '⚠️ Brak linku do wydarzenia!',
-                        message: `Wydarzenie "${eventTitle}" nie ma skonfigurowanego linku Zoom ani lokalizacji. Uczestnik ${firstName} (${email}) zarejestrował się < 60 min przed startem, ale nie otrzymał linku do dołączenia.`,
-                        link: '/admin/events',
-                        metadata: { event_id: eventId, severity: 'warning', registered_email: email }
-                      }))
-                    );
-                  }
-                } catch (warnErr) {
-                  console.error("[send-webinar-confirmation] Failed to warn admins about missing link:", warnErr);
-                }
+              const occurrences = Array.isArray((eventData as any).occurrences) ? (eventData as any).occurrences : [];
+              if (occurrences.length > 0) {
+                // Find matching occurrence by date+time
+                const y = passedDate.getFullYear();
+                const m = String(passedDate.getMonth() + 1).padStart(2, '0');
+                const d = String(passedDate.getDate()).padStart(2, '0');
+                const hh = String(passedDate.getHours()).padStart(2, '0');
+                const mm = String(passedDate.getMinutes()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
+                const timeStr = `${hh}:${mm}`;
+                const match = occurrences.find((o: any) => o?.date === dateStr && (o?.time === timeStr || o?.time === `${hh}:${mm}:00`));
+                if (match?.zoom_link) occurrenceZoomLink = String(match.zoom_link);
               }
-              if (immediateZoomLink) {
-                // Send immediate reminder with zoom link
-                await supabase.functions.invoke("send-webinar-email", {
-                  body: {
-                    type: "reminder_15min",
-                    email: email,
-                    firstName: firstName,
-                    eventTitle: eventTitle,
-                    eventDate: displayDate,
-                    eventTime: displayTime || eventTime || '',
-                    zoomLink: immediateZoomLink,
-                    hostName: hostName || eventHost || 'Zespół Pure Life',
-                    eventId: eventId,
+            }
+
+            const minutesUntilStart = (targetStart.getTime() - Date.now()) / 60000;
+            // Trigger up to 60 min before start AND up to 30 min after start (room might still be open)
+            if (minutesUntilStart <= 60 && minutesUntilStart >= -30) {
+              const immediateZoomLink = occurrenceZoomLink || eventData.zoom_link || eventData.location || '';
+              const isUrgent = minutesUntilStart <= 15;
+              const emailType = isUrgent ? 'join_now' : 'reminder_15min';
+
+              console.log(`[send-webinar-confirmation] Immediate ${emailType}: minutesUntilStart=${Math.round(minutesUntilStart)}, hasLink=${!!immediateZoomLink}`);
+
+              if (!immediateZoomLink) {
+                // No link → alert admins via dedicated function (in-app + email)
+                console.warn(`[send-webinar-confirmation] No zoom link for event "${eventTitle}" (${email}). Alerting admins.`);
+                try {
+                  await supabase.functions.invoke('notify-admins-missing-join-link', {
+                    body: {
+                      email,
+                      firstName,
+                      lastName: lastName || '',
+                      eventId,
+                      eventTitle,
+                      occurrenceDatetime: occurrenceIsoForLog,
+                      reason: 'no_link',
+                    },
+                  });
+                } catch (alertErr) {
+                  console.error("[send-webinar-confirmation] Failed to alert admins about missing link:", alertErr);
+                }
+              } else {
+                // Send the immediate email (join_now or reminder_15min)
+                let sendOk = false;
+                let sendErrMsg = '';
+                try {
+                  const { data: sendData, error: sendErr } = await supabase.functions.invoke("send-webinar-email", {
+                    body: {
+                      type: emailType,
+                      email,
+                      firstName,
+                      eventTitle,
+                      eventDate: displayDate,
+                      eventTime: displayTime || eventTime || '',
+                      zoomLink: immediateZoomLink,
+                      hostName: hostName || eventHost || 'Zespół Pure Life',
+                      eventId,
+                    }
+                  });
+                  if (sendErr) throw sendErr;
+                  sendOk = (sendData as any)?.success !== false;
+                  if (!sendOk) sendErrMsg = (sendData as any)?.error || 'unknown';
+                } catch (e: any) {
+                  sendOk = false;
+                  sendErrMsg = e?.message || String(e);
+                }
+
+                if (!sendOk) {
+                  console.error(`[send-webinar-confirmation] Immediate ${emailType} send failed: ${sendErrMsg}. Alerting admins.`);
+                  try {
+                    await supabase.functions.invoke('notify-admins-missing-join-link', {
+                      body: {
+                        email, firstName, lastName: lastName || '',
+                        eventId, eventTitle,
+                        occurrenceDatetime: occurrenceIsoForLog,
+                        reason: 'send_failed', errorMessage: sendErrMsg,
+                      },
+                    });
+                  } catch (alertErr) {
+                    console.error("[send-webinar-confirmation] Failed to alert admins about send failure:", alertErr);
                   }
-                });
-
-                // Mark all reminder flags as sent to prevent CRON duplicates — GUEST registrations
-                await supabase
-                  .from('guest_event_registrations')
-                  .update({
-                    reminder_sent: true,
-                    reminder_sent_at: new Date().toISOString(),
-                    reminder_12h_sent: true,
-                    reminder_12h_sent_at: new Date().toISOString(),
-                    reminder_2h_sent: true,
-                    reminder_2h_sent_at: new Date().toISOString(),
-                    reminder_1h_sent: true,
-                    reminder_1h_sent_at: new Date().toISOString(),
-                    reminder_15min_sent: true,
-                    reminder_15min_sent_at: new Date().toISOString(),
-                  })
-                  .eq('event_id', eventId)
-                  .eq('email', email);
-
-                // Mark all reminder flags as sent — REGISTERED USER registrations (if applicable)
-                // This covers logged-in users who register close to start time
-                const { data: authUser } = await supabase
-                  .from('profiles')
-                  .select('user_id')
-                  .eq('email', email)
-                  .maybeSingle();
-
-                if (authUser?.user_id) {
+                } else {
+                  // Mark dedupe flags to prevent CRON duplicates — GUEST registrations
+                  const nowIso = new Date().toISOString();
                   await supabase
-                    .from('event_registrations')
+                    .from('guest_event_registrations')
                     .update({
                       reminder_sent: true,
-                      reminder_12h_sent: true,
-                      reminder_12h_sent_at: new Date().toISOString(),
-                      reminder_2h_sent: true,
-                      reminder_2h_sent_at: new Date().toISOString(),
-                      reminder_1h_sent: true,
-                      reminder_1h_sent_at: new Date().toISOString(),
-                      reminder_15min_sent: true,
-                      reminder_15min_sent_at: new Date().toISOString(),
+                      reminder_sent_at: nowIso,
+                      reminder_12h_sent: true, reminder_12h_sent_at: nowIso,
+                      reminder_2h_sent: true, reminder_2h_sent_at: nowIso,
+                      reminder_1h_sent: true, reminder_1h_sent_at: nowIso,
+                      reminder_15min_sent: true, reminder_15min_sent_at: nowIso,
                     })
                     .eq('event_id', eventId)
-                    .eq('user_id', authUser.user_id);
-                  console.log(`[send-webinar-confirmation] Also marked event_registrations flags for user ${authUser.user_id}`);
-                }
+                    .eq('email', email);
 
-                console.log(`[send-webinar-confirmation] Immediate reminder with link sent to ${email}`);
+                  // REGISTERED USER dedupe
+                  const { data: authUser } = await supabase.from('profiles').select('user_id').eq('email', email).maybeSingle();
+                  if (authUser?.user_id) {
+                    await supabase
+                      .from('event_registrations')
+                      .update({
+                        reminder_sent: true,
+                        reminder_12h_sent: true, reminder_12h_sent_at: nowIso,
+                        reminder_2h_sent: true, reminder_2h_sent_at: nowIso,
+                        reminder_1h_sent: true, reminder_1h_sent_at: nowIso,
+                        reminder_15min_sent: true, reminder_15min_sent_at: nowIso,
+                      })
+                      .eq('event_id', eventId)
+                      .eq('user_id', authUser.user_id);
+                  }
+
+                  // Occurrence-level dedupe (feeds admin panel status grid + bulk CRON)
+                  if (occurrenceIsoForLog) {
+                    try {
+                      await supabase.from('occurrence_reminders_sent').upsert({
+                        event_id: eventId,
+                        occurrence_datetime: occurrenceIsoForLog,
+                        reminder_type: '15min',
+                        recipient_email: email,
+                      } as any, { onConflict: 'event_id,occurrence_datetime,reminder_type,recipient_email' });
+                    } catch (occErr) {
+                      console.warn('[send-webinar-confirmation] occurrence_reminders_sent upsert failed:', occErr);
+                    }
+                  }
+
+                  console.log(`[send-webinar-confirmation] Immediate ${emailType} with link sent to ${email}`);
+                }
               }
             }
           }
