@@ -13,7 +13,10 @@ interface BulkReminderRequest {
   occurrence_index?: number | null; // specific occurrence for cyclic events
   occurrence_datetime?: string; // ISO datetime of the specific term
   test_emails?: string[];
+  recipient_emails?: string[]; // send only to these specific emails (guest/user filter)
+  force?: boolean; // if true, skip already-sent deduplication
 }
+
 
 interface SmtpSettings {
   host: string;
