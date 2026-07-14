@@ -677,9 +677,8 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
-  };
-
   // Update guest status
+
   const handleUpdateGuestStatus = async (registrationId: string, newStatus: string) => {
     try {
       const updates: Record<string, any> = { status: newStatus };
