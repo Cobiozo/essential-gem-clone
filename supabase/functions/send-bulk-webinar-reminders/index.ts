@@ -399,8 +399,11 @@ serve(async (req) => {
       .eq("reminder_type", resolvedType as string)
       .eq("occurrence_datetime", termDatetime.toISOString());
 
-    const alreadySentEmails = new Set((alreadySent || []).map(r => r.recipient_email.toLowerCase()));
-    console.log(`[bulk-reminders] Already sent ${resolvedType} to ${alreadySentEmails.size} recipients for this term`);
+    const alreadySentEmails = new Set(
+      force ? [] : (alreadySent || []).map(r => r.recipient_email.toLowerCase())
+    );
+    console.log(`[bulk-reminders] Already sent ${resolvedType} to ${alreadySentEmails.size} recipients for this term (force=${!!force})`);
+
 
     // ==========================================
     // 7a. Get GUEST registrations
