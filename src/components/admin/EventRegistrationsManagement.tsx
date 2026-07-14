@@ -620,6 +620,65 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
+  // Invoke send-bulk-webinar-reminders for one guest (force=true)
+  const handleResendReminderTyped = async (guest: GuestRegistration, type: ReminderType) => {
+    setSendingPerGuest(`${guest.id}:${type}`);
+    try {
+      const body: Record<string, any> = {
+        event_id: selectedEventId,
+        reminder_type: type,
+        recipient_emails: [guest.email],
+        force: true,
+      };
+      if (selectedOccurrenceIndex !== null) body.occurrence_index = selectedOccurrenceIndex;
+      const { data, error } = await supabase.functions.invoke('send-bulk-webinar-reminders', { body });
+      if (error) throw error;
+      if ((data as any)?.sent > 0) {
+        toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
+        await fetchRemindersMap();
+      } else {
+        toast({
+          title: 'Nie wysłano',
+          description: (data as any)?.error || 'Odbiorca nie pasuje do wybranego terminu lub brak w bazie.',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      console.error('resend reminder failed', e);
+      toast({ title: 'Błąd', description: e.message || 'Nie udało się wysłać przypomnienia', variant: 'destructive' });
+    } finally {
+      setSendingPerGuest(null);
+    }
+  };
+
+  // Bulk: send a reminder type to all guests missing it (force=false) or force to all (force=true)
+  const handleBulkSendType = async (type: ReminderType, force: boolean) => {
+    setSendingBulkType(type);
+    try {
+      const body: Record<string, any> = {
+        event_id: selectedEventId,
+        reminder_type: type,
+        force,
+      };
+      if (selectedOccurrenceIndex !== null) body.occurrence_index = selectedOccurrenceIndex;
+      const { data, error } = await supabase.functions.invoke('send-bulk-webinar-reminders', { body });
+      if (error) throw error;
+      const d: any = data || {};
+      toast({
+        title: `Wysyłka ${type} zakończona`,
+        description: `Wysłano: ${d.sent ?? 0} • Błędy: ${d.failed ?? 0} • Razem: ${d.total ?? 0}`,
+      });
+      await fetchRemindersMap();
+    } catch (e: any) {
+      console.error('bulk resend failed', e);
+      toast({ title: 'Błąd', description: e.message || 'Nie udało się uruchomić wysyłki', variant: 'destructive' });
+    } finally {
+      setSendingBulkType(null);
+    }
+  };
+
+  };
+
   // Update guest status
   const handleUpdateGuestStatus = async (registrationId: string, newStatus: string) => {
     try {
