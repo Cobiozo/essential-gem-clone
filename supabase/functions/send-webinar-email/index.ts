@@ -327,10 +327,13 @@ const handler = async (req: Request): Promise<Response> => {
     let finalBody = replaceTemplateVariables(template.body_html, templateVariables);
 
     // Fallback: if type requires zoom link but template doesn't contain it, append CTA
-    const linkTypes = ['reminder_2h', 'reminder_1h', 'reminder_15min'];
+    const linkTypes = ['reminder_2h', 'reminder_1h', 'reminder_15min', 'join_now'];
     if (linkTypes.includes(type) && zoomLink && !template.body_html.includes('{{zoom_link}}')) {
       console.log(`[send-webinar-email] Template missing {{zoom_link}} placeholder, appending fallback CTA`);
-      const fallbackHtml = `<div style="text-align:center;margin:30px 0;"><a href="${zoomLink}" style="display:inline-block;background:#16a34a;color:white;padding:16px 32px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:18px;">🚀 DOŁĄCZ DO ZOOM</a></div><p style="color:#666;font-size:14px;text-align:center;">Link: <a href="${zoomLink}" style="color:#16a34a;">${zoomLink}</a></p>`;
+      const urgent = type === 'join_now';
+      const btnBg = urgent ? '#dc2626' : '#16a34a';
+      const btnLabel = urgent ? '🚀 DOŁĄCZ TERAZ — POKÓJ OTWARTY' : '🚀 DOŁĄCZ DO ZOOM';
+      const fallbackHtml = `<div style="text-align:center;margin:30px 0;"><a href="${zoomLink}" style="display:inline-block;background:${btnBg};color:white;padding:16px 32px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:18px;">${btnLabel}</a></div><p style="color:#666;font-size:14px;text-align:center;">Link: <a href="${zoomLink}" style="color:${btnBg};">${zoomLink}</a></p>`;
       finalBody += fallbackHtml;
     }
 
