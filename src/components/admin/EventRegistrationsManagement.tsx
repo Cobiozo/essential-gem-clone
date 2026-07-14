@@ -655,7 +655,18 @@ export const EventRegistrationsManagement: React.FC = () => {
       if (error) throw error;
       if ((data as any)?.sent > 0) {
         toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
-        await fetchRemindersMap();
+        // Resolve missing-link alert if this was a link-carrying reminder
+        if ((type === '15min' || type === '1h' || type === '2h')) {
+          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()];
+          if (alertId) {
+            try {
+              await (supabase.from('missing_join_link_alerts' as any) as any)
+                .update({ resolved_at: new Date().toISOString() })
+                .eq('id', alertId);
+            } catch (e) { console.warn('resolve alert failed', e); }
+          }
+        }
+        await Promise.all([fetchRemindersMap(), fetchMissingLinkAlerts()]);
       } else {
         toast({
           title: 'Nie wysłano',
