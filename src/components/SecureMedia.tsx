@@ -1830,6 +1830,54 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     recoverPlayback('manual-retry');
   }, [recoverPlayback]);
 
+  // iOS/WebKit watchdog: if media time advances but rendered frames stop, recover the video pipeline.
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement || !isIOSDevice()) return;
+
+    const video = videoElement as HTMLVideoElement & {
+      requestVideoFrameCallback?: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
+    };
+    let cancelled = false;
+
+    if (video.requestVideoFrameCallback) {
+      const watchFrame = (_now: number, metadata: { mediaTime: number }) => {
+        if (cancelled) return;
+        lastVideoFrameAtRef.current = Date.now();
+        lastFrameWatchTimeRef.current = metadata.mediaTime || video.currentTime || 0;
+        video.requestVideoFrameCallback?.(watchFrame);
+      };
+      video.requestVideoFrameCallback(watchFrame);
+    } else {
+      lastVideoFrameAtRef.current = Date.now();
+      lastFrameWatchTimeRef.current = video.currentTime || 0;
+    }
+
+    frameWatchdogRef.current = setInterval(() => {
+      if (cancelled || video.paused || document.hidden) return;
+      if (!video.requestVideoFrameCallback) return;
+
+      const now = Date.now();
+      const timeAdvanced = video.currentTime - lastFrameWatchTimeRef.current;
+      const framesStaleFor = now - lastVideoFrameAtRef.current;
+      const cooldownElapsed = now - lastFrameRecoveryAtRef.current > 15000;
+
+      if (video.currentTime > 2 && timeAdvanced > 2 && framesStaleFor > 4500 && cooldownElapsed) {
+        console.warn('[SecureMedia] iOS frame watchdog: video frames appear frozen while audio/time advances');
+        lastFrameRecoveryAtRef.current = now;
+        resumeCheckpointRef.current = video.currentTime;
+        recoverPlayback('ios-frame-watchdog');
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      if (frameWatchdogRef.current) {
+        clearInterval(frameWatchdogRef.current);
+        frameWatchdogRef.current = undefined;
+      }
+    };
+  }, [mediaType, videoElement, recoverPlayback]);
+
   // NEW: Auto-recovery for stuck playback detection
   useEffect(() => {
     if (mediaType !== 'video' || !disableInteraction || !videoElement) return;
