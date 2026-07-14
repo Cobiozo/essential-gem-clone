@@ -1265,6 +1265,84 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
   useEffect(() => { forceHideBufferingRef.current = forceHideBuffering; }, [forceHideBuffering]); // FIX A
 
+  // iOS/WebKit fallback: `timeupdate` may stop firing while audio keeps playing.
+  // Keep Academy counters/progress synced from the actual media clock during playback.
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement || !isIOSDevice()) return;
+
+    const syncClock = () => {
+      const video = videoElement;
+      if (!video.paused && Number.isFinite(video.currentTime)) {
+        const nextTime = video.currentTime;
+        const lastTime = lastValidTimeRef.current;
+        if (nextTime > 0 && Math.abs(nextTime - currentTime) >= 0.15) {
+          setCurrentTime(nextTime);
+          onTimeUpdateRef.current?.(nextTime);
+        }
+        if (nextTime >= lastTime || Math.abs(nextTime - lastTime) < VIDEO_BUFFER_CONFIG.ios.timeDiffTolerance) {
+          lastValidTimeRef.current = Math.max(lastTime, nextTime);
+        }
+        resumeCheckpointRef.current = nextTime;
+      }
+    };
+
+    iosClockTickRef.current = setInterval(syncClock, 500);
+    return () => {
+      if (iosClockTickRef.current) {
+        clearInterval(iosClockTickRef.current);
+        iosClockTickRef.current = undefined;
+      }
+    };
+  }, [mediaType, videoElement, currentTime]);
+
+  // iOS/WebKit watchdog: if media time advances but rendered frames stop, recover the video pipeline.
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement || !isIOSDevice()) return;
+
+    const video = videoElement as HTMLVideoElement & {
+      requestVideoFrameCallback?: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
+    };
+    let cancelled = false;
+
+    if (video.requestVideoFrameCallback) {
+      const watchFrame = (_now: number, metadata: { mediaTime: number }) => {
+        if (cancelled) return;
+        lastVideoFrameAtRef.current = Date.now();
+        lastFrameWatchTimeRef.current = metadata.mediaTime || video.currentTime || 0;
+        video.requestVideoFrameCallback?.(watchFrame);
+      };
+      video.requestVideoFrameCallback(watchFrame);
+    } else {
+      lastVideoFrameAtRef.current = Date.now();
+      lastFrameWatchTimeRef.current = video.currentTime || 0;
+    }
+
+    frameWatchdogRef.current = setInterval(() => {
+      if (cancelled || video.paused || document.hidden) return;
+      if (!video.requestVideoFrameCallback) return;
+
+      const now = Date.now();
+      const timeAdvanced = video.currentTime - lastFrameWatchTimeRef.current;
+      const framesStaleFor = now - lastVideoFrameAtRef.current;
+      const cooldownElapsed = now - lastFrameRecoveryAtRef.current > 15000;
+
+      if (video.currentTime > 2 && timeAdvanced > 2 && framesStaleFor > 4500 && cooldownElapsed) {
+        console.warn('[SecureMedia] iOS frame watchdog: video frames appear frozen while audio/time advances');
+        lastFrameRecoveryAtRef.current = now;
+        resumeCheckpointRef.current = video.currentTime;
+        recoverPlayback('ios-frame-watchdog');
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      if (frameWatchdogRef.current) {
+        clearInterval(frameWatchdogRef.current);
+        frameWatchdogRef.current = undefined;
+      }
+    };
+  }, [mediaType, videoElement, recoverPlayback]);
+
   // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
     if (mediaType !== 'video' || !videoElement) return;
