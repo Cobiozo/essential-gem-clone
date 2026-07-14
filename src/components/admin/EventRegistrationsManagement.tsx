@@ -1906,7 +1906,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                                 })}
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)]">
                               <div className="flex gap-1">
                                 <Button
                                   variant="outline"
