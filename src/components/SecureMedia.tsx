@@ -1040,8 +1040,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handleError = (e: Event) => {
       const errorType = getVideoErrorType(video);
       console.error('[SecureMedia] Video error:', errorType, e);
-      if (errorType === VIDEO_ERROR_TYPES.DECODE || errorType === VIDEO_ERROR_TYPES.SRC_NOT_SUPPORTED) {
-        setNativeError({ code: video.error?.code ?? 0, message: video.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
+      const mediaErrorCode = video.error?.code ?? 0;
+      if (mediaErrorCode === MediaError.MEDIA_ERR_DECODE || mediaErrorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        setNativeError({ code: mediaErrorCode, message: video.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
         return;
       }
       
