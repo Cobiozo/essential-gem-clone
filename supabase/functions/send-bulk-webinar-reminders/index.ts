@@ -13,7 +13,10 @@ interface BulkReminderRequest {
   occurrence_index?: number | null; // specific occurrence for cyclic events
   occurrence_datetime?: string; // ISO datetime of the specific term
   test_emails?: string[];
+  recipient_emails?: string[]; // send only to these specific emails (guest/user filter)
+  force?: boolean; // if true, skip already-sent deduplication
 }
+
 
 interface SmtpSettings {
   host: string;
@@ -248,12 +251,18 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, reminder_type, occurrence_index, occurrence_datetime, test_emails }: BulkReminderRequest = await req.json();
+    const { event_id, reminder_type, occurrence_index, occurrence_datetime, test_emails, recipient_emails, force }: BulkReminderRequest = await req.json();
     const isTestMode = Array.isArray(test_emails) && test_emails.length > 0;
+    const isTargetedMode = Array.isArray(recipient_emails) && recipient_emails.length > 0;
+    const targetedEmailsLower = new Set((recipient_emails || []).map((e) => e.toLowerCase()));
 
     if (isTestMode) {
       console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses`);
     }
+    if (isTargetedMode) {
+      console.log(`[bulk-reminders] 🎯 TARGETED MODE: sending only to ${targetedEmailsLower.size} address(es), force=${!!force}`);
+    }
+
 
     if (!event_id) {
       return new Response(
@@ -390,8 +399,11 @@ serve(async (req) => {
       .eq("reminder_type", resolvedType as string)
       .eq("occurrence_datetime", termDatetime.toISOString());
 
-    const alreadySentEmails = new Set((alreadySent || []).map(r => r.recipient_email.toLowerCase()));
-    console.log(`[bulk-reminders] Already sent ${resolvedType} to ${alreadySentEmails.size} recipients for this term`);
+    const alreadySentEmails = new Set(
+      force ? [] : (alreadySent || []).map(r => r.recipient_email.toLowerCase())
+    );
+    console.log(`[bulk-reminders] Already sent ${resolvedType} to ${alreadySentEmails.size} recipients for this term (force=${!!force})`);
+
 
     // ==========================================
     // 7a. Get GUEST registrations
@@ -519,6 +531,8 @@ serve(async (req) => {
           const profile = profiles.find(p => p.user_id === reg.user_id);
           if (profile?.email) {
             if (isTestMode && !test_emails!.includes(profile.email)) continue;
+            if (isTargetedMode && !targetedEmailsLower.has(profile.email.toLowerCase())) continue;
+
             userRecipients.push({
               registrationId: reg.id,
               userId: reg.user_id,
@@ -530,11 +544,15 @@ serve(async (req) => {
       }
     }
 
-    // Filter guests in test mode
+    // Filter guests in test/targeted mode
     let filteredGuests = guests || [];
     if (isTestMode && guests) {
-      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
+      filteredGuests = filteredGuests.filter(g => test_emails!.includes(g.email));
     }
+    if (isTargetedMode) {
+      filteredGuests = filteredGuests.filter(g => targetedEmailsLower.has((g.email || '').toLowerCase()));
+    }
+
 
     // ==========================================
     // 8. Build unified recipient list, excluding already sent

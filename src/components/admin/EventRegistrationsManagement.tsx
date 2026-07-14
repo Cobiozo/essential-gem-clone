@@ -170,10 +170,66 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [resetRoleTarget, setResetRoleTarget] = useState<string>('');
   const [isResetting, setIsResetting] = useState(false);
 
+  // Per-guest reminder status map: emailLower -> { '24h'|'12h'|'2h'|'1h'|'15min' -> ISO date }
+  type ReminderType = '24h' | '12h' | '2h' | '1h' | '15min';
+  const REMINDER_TYPES: ReminderType[] = ['24h', '12h', '2h', '1h', '15min'];
+  const REMINDER_LABEL: Record<ReminderType, string> = {
+    '24h': '24h', '12h': '12h', '2h': '2h', '1h': '1h', '15min': '15m',
+  };
+  const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
+  const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
+  const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
+
   const selectedEvent = useMemo(() =>
-    events.find(e => e.id === selectedEventId), 
+    events.find(e => e.id === selectedEventId),
     [events, selectedEventId]
   );
+
+  // Parsed occurrences array (if cyclic)
+  const eventOccurrences = useMemo<Array<{ date: string; time: string }>>(() => {
+    const raw = selectedEvent?.occurrences;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as any[];
+    try { return JSON.parse(raw as unknown as string); } catch { return []; }
+  }, [selectedEvent]);
+
+  // Pick default occurrence: nearest future (else latest)
+  useEffect(() => {
+    if (!eventOccurrences.length) { setSelectedOccurrenceIndex(null); return; }
+    const now = Date.now();
+    let bestIdx = 0;
+    let bestDelta = -Infinity;
+    eventOccurrences.forEach((o, idx) => {
+      const t = new Date(`${o.date}T${o.time}:00`).getTime();
+      const delta = t - now;
+      if (delta >= 0 && (bestDelta < 0 || delta < bestDelta)) { bestIdx = idx; bestDelta = delta; }
+    });
+    if (bestDelta < 0) {
+      // no future — pick most recent past
+      let latestIdx = 0; let latestT = -Infinity;
+      eventOccurrences.forEach((o, idx) => {
+        const t = new Date(`${o.date}T${o.time}:00`).getTime();
+        if (t > latestT) { latestT = t; latestIdx = idx; }
+      });
+      bestIdx = latestIdx;
+    }
+    setSelectedOccurrenceIndex(bestIdx);
+  }, [eventOccurrences]);
+
+  // Human-readable label of the currently selected term (for headings/tooltips)
+  const termLabel = useMemo<string>(() => {
+    if (selectedOccurrenceIndex !== null && eventOccurrences[selectedOccurrenceIndex]) {
+      const o = eventOccurrences[selectedOccurrenceIndex];
+      return `${o.date} ${o.time}`;
+    }
+    if (selectedEvent?.start_time) {
+      return format(new Date(selectedEvent.start_time), 'dd.MM.yyyy HH:mm', { locale: pl });
+    }
+    return '';
+  }, [selectedOccurrenceIndex, eventOccurrences, selectedEvent]);
+
+
 
   // Fetch events for dropdown - only webinars and team_training
   useEffect(() => {
@@ -340,6 +396,41 @@ export const EventRegistrationsManagement: React.FC = () => {
 
     fetchGuestRegistrations();
   }, [selectedEventId, toast]);
+
+  // Fetch reminder-log rows for the selected event + occurrence
+  const fetchRemindersMap = React.useCallback(async () => {
+    if (!selectedEventId) { setRemindersMap({}); return; }
+    let q = supabase
+      .from('occurrence_reminders_sent')
+      .select('recipient_email, reminder_type, created_at, occurrence_index')
+      .eq('event_id', selectedEventId);
+    if (selectedOccurrenceIndex !== null) {
+      q = q.eq('occurrence_index', selectedOccurrenceIndex);
+    } else {
+      q = q.is('occurrence_index', null);
+    }
+    const { data, error } = await q;
+    if (error) {
+      console.error('[reminders-map] fetch error', error);
+      setRemindersMap({});
+      return;
+    }
+    const map: Record<string, Partial<Record<ReminderType, string>>> = {};
+    for (const row of (data || []) as any[]) {
+      const email = (row.recipient_email || '').toLowerCase();
+      if (!email) continue;
+      const t = row.reminder_type as ReminderType;
+      if (!REMINDER_TYPES.includes(t)) continue;
+      const cur = map[email] || {};
+      const existing = cur[t];
+      if (!existing || new Date(row.created_at) > new Date(existing)) cur[t] = row.created_at;
+      map[email] = cur;
+    }
+    setRemindersMap(map);
+  }, [selectedEventId, selectedOccurrenceIndex]);
+
+  useEffect(() => { fetchRemindersMap(); }, [fetchRemindersMap]);
+
 
   // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
@@ -529,7 +620,65 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
+  // Invoke send-bulk-webinar-reminders for one guest (force=true)
+  const handleResendReminderTyped = async (guest: GuestRegistration, type: ReminderType) => {
+    setSendingPerGuest(`${guest.id}:${type}`);
+    try {
+      const body: Record<string, any> = {
+        event_id: selectedEventId,
+        reminder_type: type,
+        recipient_emails: [guest.email],
+        force: true,
+      };
+      if (selectedOccurrenceIndex !== null) body.occurrence_index = selectedOccurrenceIndex;
+      const { data, error } = await supabase.functions.invoke('send-bulk-webinar-reminders', { body });
+      if (error) throw error;
+      if ((data as any)?.sent > 0) {
+        toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
+        await fetchRemindersMap();
+      } else {
+        toast({
+          title: 'Nie wysłano',
+          description: (data as any)?.error || 'Odbiorca nie pasuje do wybranego terminu lub brak w bazie.',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      console.error('resend reminder failed', e);
+      toast({ title: 'Błąd', description: e.message || 'Nie udało się wysłać przypomnienia', variant: 'destructive' });
+    } finally {
+      setSendingPerGuest(null);
+    }
+  };
+
+  // Bulk: send a reminder type to all guests missing it (force=false) or force to all (force=true)
+  const handleBulkSendType = async (type: ReminderType, force: boolean) => {
+    setSendingBulkType(type);
+    try {
+      const body: Record<string, any> = {
+        event_id: selectedEventId,
+        reminder_type: type,
+        force,
+      };
+      if (selectedOccurrenceIndex !== null) body.occurrence_index = selectedOccurrenceIndex;
+      const { data, error } = await supabase.functions.invoke('send-bulk-webinar-reminders', { body });
+      if (error) throw error;
+      const d: any = data || {};
+      toast({
+        title: `Wysyłka ${type} zakończona`,
+        description: `Wysłano: ${d.sent ?? 0} • Błędy: ${d.failed ?? 0} • Razem: ${d.total ?? 0}`,
+      });
+      await fetchRemindersMap();
+    } catch (e: any) {
+      console.error('bulk resend failed', e);
+      toast({ title: 'Błąd', description: e.message || 'Nie udało się uruchomić wysyłki', variant: 'destructive' });
+    } finally {
+      setSendingBulkType(null);
+    }
+  };
+
   // Update guest status
+
   const handleUpdateGuestStatus = async (registrationId: string, newStatus: string) => {
     try {
       const updates: Record<string, any> = { status: newStatus };
@@ -1283,6 +1432,41 @@ export const EventRegistrationsManagement: React.FC = () => {
                       </DropdownMenu>
                     </>
                   )}
+                  {activeTab === 'guests' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" disabled={!!sendingBulkType}>
+                          {sendingBulkType ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Clock className="h-4 w-4 mr-2" />
+                          )}
+                          Ponów przypomnienia
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        {REMINDER_TYPES.map((t) => (
+                          <React.Fragment key={t}>
+                            <DropdownMenuItem onClick={() => handleBulkSendType(t, false)}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              {t} — tylko brakującym
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (confirm(`Wysłać ponownie ${t} do WSZYSTKICH gości (nawet tych, którzy już dostali)?`)) {
+                                  handleBulkSendType(t, true);
+                                }
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              {t} — do wszystkich (force)
+                            </DropdownMenuItem>
+                          </React.Fragment>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                   <Button
                     onClick={() => setFollowUpDialogOpen(true)}
                     variant="default"
@@ -1291,6 +1475,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                     <Send className="h-4 w-4 mr-2" />
                     Email po webinarze
                   </Button>
+
                   <Button 
                     onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
                     variant="outline" 
@@ -1508,7 +1693,38 @@ export const EventRegistrationsManagement: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Search & filter bar */}
+                {/* Occurrence picker (cyclic events) + current term info */}
+                {eventOccurrences.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Termin przypomnień:</span>
+                    <Select
+                      value={selectedOccurrenceIndex !== null ? String(selectedOccurrenceIndex) : ''}
+                      onValueChange={(v) => setSelectedOccurrenceIndex(Number(v))}
+                    >
+                      <SelectTrigger className="w-[240px]">
+                        <SelectValue placeholder="Wybierz termin" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eventOccurrences.map((o, idx) => (
+                          <SelectItem key={idx} value={String(idx)}>
+                            {o.date} {o.time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      Statusy 24h/12h/2h/1h/15m dotyczą wybranego terminu.
+                    </span>
+                  </div>
+                )}
+                {eventOccurrences.length === 0 && termLabel && (
+                  <div className="text-xs text-muted-foreground">
+                    Termin: <strong>{termLabel}</strong>
+                  </div>
+                )}
+
+
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative flex-1 min-w-[220px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1608,31 +1824,79 @@ export const EventRegistrationsManagement: React.FC = () => {
                               })()}
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Badge variant={registration.confirmation_sent ? "default" : "outline"} className="text-xs">
+                              <div className="flex flex-wrap gap-1 items-center">
+                                <Badge
+                                  variant={registration.confirmation_sent ? 'default' : 'outline'}
+                                  className="text-xs"
+                                  title={registration.confirmation_sent ? 'Potwierdzenie wysłane' : 'Brak potwierdzenia'}
+                                >
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
-                                <Badge variant={registration.reminder_sent ? "default" : "outline"} className="text-xs">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  {registration.reminder_sent ? '✓' : '✗'}
-                                </Badge>
+                                {REMINDER_TYPES.map((t) => {
+                                  const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
+                                  return (
+                                    <Badge
+                                      key={t}
+                                      variant={sentAt ? 'default' : 'outline'}
+                                      className={`text-[10px] px-1.5 ${sentAt ? 'bg-green-600 hover:bg-green-600' : ''}`}
+                                      title={sentAt ? `${t} wysłane: ${format(new Date(sentAt), 'dd.MM.yyyy HH:mm', { locale: pl })}` : `${t}: brak wpisu`}
+                                    >
+                                      {REMINDER_LABEL[t]} {sentAt ? '✓' : '✗'}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSendReminder(registration)}
-                                disabled={sendingReminder === registration.id}
-                              >
-                                {sendingReminder === registration.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Mail className="h-4 w-4" />
-                                )}
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSendReminder(registration)}
+                                  disabled={sendingReminder === registration.id}
+                                  title="Wyślij potwierdzenie rejestracji"
+                                >
+                                  {sendingReminder === registration.id ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Mail className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={!!sendingPerGuest && sendingPerGuest.startsWith(registration.id)}
+                                      title="Ponów konkretne przypomnienie"
+                                    >
+                                      {sendingPerGuest && sendingPerGuest.startsWith(registration.id) ? (
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Clock className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {REMINDER_TYPES.map((t) => {
+                                      const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
+                                      return (
+                                        <DropdownMenuItem
+                                          key={t}
+                                          onClick={() => handleResendReminderTyped(registration, t)}
+                                        >
+                                          <Send className="h-4 w-4 mr-2" />
+                                          Wyślij {t}
+                                          {sentAt && <span className="ml-auto text-[10px] text-muted-foreground">✓</span>}
+                                        </DropdownMenuItem>
+                                      );
+                                    })}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </TableCell>
+
                           </TableRow>
                         ))}
                       </TableBody>
