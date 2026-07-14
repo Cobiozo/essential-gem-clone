@@ -112,6 +112,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const smartBufferingTimeoutRef = useRef<NodeJS.Timeout>(); // CHANGE 3: Timeout recovery for smart buffering
   const isTabHiddenRef = useRef<boolean>(false); // CHANGE 5: Ref for blur-induced pause detection
   const videoReadyTimeoutRef = useRef<NodeJS.Timeout>(); // FIX E: iOS PWA safety timeout for videoReady
+  const iosClockTickRef = useRef<NodeJS.Timeout>(); // iOS: timeupdate can stall while audio continues
+  const frameWatchdogRef = useRef<NodeJS.Timeout>(); // iOS: detect frozen video frames while playback time advances
+  const lastVideoFrameAtRef = useRef<number>(0);
+  const lastFrameWatchTimeRef = useRef<number>(0);
+  const lastFrameRecoveryAtRef = useRef<number>(0);
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
