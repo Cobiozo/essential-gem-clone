@@ -112,6 +112,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const smartBufferingTimeoutRef = useRef<NodeJS.Timeout>(); // CHANGE 3: Timeout recovery for smart buffering
   const isTabHiddenRef = useRef<boolean>(false); // CHANGE 5: Ref for blur-induced pause detection
   const videoReadyTimeoutRef = useRef<NodeJS.Timeout>(); // FIX E: iOS PWA safety timeout for videoReady
+  const iosClockTickRef = useRef<NodeJS.Timeout>(); // iOS: timeupdate can stall while audio continues
+  const frameWatchdogRef = useRef<NodeJS.Timeout>(); // iOS: detect frozen video frames while playback time advances
+  const lastVideoFrameAtRef = useRef<number>(0);
+  const lastFrameWatchTimeRef = useRef<number>(0);
+  const lastFrameRecoveryAtRef = useRef<number>(0);
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
@@ -141,6 +146,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const currentTimeStateRef = useRef<number>(0);
   const lastValidTimeRef = useRef<number>(initialTime);
   const isSeekingRef = useRef<boolean>(false);
   const isBufferingRef = useRef<boolean>(false);
@@ -769,6 +775,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         console.log('[SecureMedia] iOS: Ignoring waiting event - forceHideBuffering active');
         return;
       }
+      if (isIOSDevice() && !video.paused && video.currentTime > 0 && video.readyState >= 2) {
+        const bufferedAheadNow = getBufferedAhead(video);
+        if (bufferedAheadNow >= VIDEO_BUFFER_CONFIG.ios.minBufferAheadForNoSpinner) {
+          setVideoReady(true);
+          setShowBufferingSpinner(false);
+          setIsBuffering(false);
+          isBufferingRef.current = false;
+          lastValidTimeRef.current = Math.max(lastValidTimeRef.current, video.currentTime);
+          onTimeUpdateRef.current?.(video.currentTime);
+          console.log('[SecureMedia] iOS: Ignoring waiting - playback clock has enough buffered data');
+          return;
+        }
+      }
       
       const bufferedAheadValue = getBufferedAhead(video);
       const networkQualityNow = getNetworkQuality();
@@ -852,6 +871,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // CHANGE 2: Debounced stalled handler - prevents false buffering from browser stalled events
     const handleStalled = () => {
       console.log('[SecureMedia] Video stalled event received');
+      if (isIOSDevice() && !video.paused && video.readyState >= 2 && video.currentTime > 0) {
+        console.log('[SecureMedia] iOS: Ignoring transient stalled event while media clock is alive');
+        return;
+      }
       
       // Clear previous stalled timeout
       if (stalledTimeoutRef.current) {
@@ -1017,6 +1040,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     const handleError = (e: Event) => {
       const errorType = getVideoErrorType(video);
       console.error('[SecureMedia] Video error:', errorType, e);
+      const mediaErrorCode = video.error?.code ?? 0;
+      if (mediaErrorCode === MediaError.MEDIA_ERR_DECODE || mediaErrorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        setNativeError({ code: mediaErrorCode, message: video.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
+        return;
+      }
       
       const maxRetries = bufferConfigRef.current.maxRetries;
       
@@ -1259,6 +1287,37 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
   useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
   useEffect(() => { forceHideBufferingRef.current = forceHideBuffering; }, [forceHideBuffering]); // FIX A
+  useEffect(() => { currentTimeStateRef.current = currentTime; }, [currentTime]);
+
+  // iOS/WebKit fallback: `timeupdate` may stop firing while audio keeps playing.
+  // Keep Academy counters/progress synced from the actual media clock during playback.
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement || !isIOSDevice()) return;
+
+    const syncClock = () => {
+      const video = videoElement;
+      if (!video.paused && Number.isFinite(video.currentTime)) {
+        const nextTime = video.currentTime;
+        const lastTime = lastValidTimeRef.current;
+        if (nextTime > 0 && Math.abs(nextTime - currentTimeStateRef.current) >= 0.15) {
+          setCurrentTime(nextTime);
+          onTimeUpdateRef.current?.(nextTime);
+        }
+        if (nextTime >= lastTime || Math.abs(nextTime - lastTime) < VIDEO_BUFFER_CONFIG.ios.timeDiffTolerance) {
+          lastValidTimeRef.current = Math.max(lastTime, nextTime);
+        }
+        resumeCheckpointRef.current = nextTime;
+      }
+    };
+
+    iosClockTickRef.current = setInterval(syncClock, 500);
+    return () => {
+      if (iosClockTickRef.current) {
+        clearInterval(iosClockTickRef.current);
+        iosClockTickRef.current = undefined;
+      }
+    };
+  }, [mediaType, videoElement]);
 
   // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
@@ -1715,10 +1774,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     if (smartBufferingTimeoutRef.current) { clearTimeout(smartBufferingTimeoutRef.current); smartBufferingTimeoutRef.current = undefined; }
     
     // 2. Evaluate video element state and recover
-    const needsReload = video.readyState < 1 || video.networkState === 3 || !video.src;
+    const forcePipelineReload = source === 'ios-frame-watchdog';
+    const needsReload = forcePipelineReload || video.readyState < 1 || video.networkState === 3 || !video.currentSrc;
     
     if (needsReload) {
-      console.log(`[SecureMedia] recoverPlayback: needs reload (readyState=${video.readyState}, networkState=${video.networkState})`);
+      console.log(`[SecureMedia] recoverPlayback: needs reload (readyState=${video.readyState}, networkState=${video.networkState}, forced=${forcePipelineReload})`);
       
       // Wait for metadata before seeking
       const onMetadataLoaded = () => {
@@ -1792,6 +1852,54 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     console.log('[SecureMedia] Manual retry triggered');
     recoverPlayback('manual-retry');
   }, [recoverPlayback]);
+
+  // iOS/WebKit watchdog: if media time advances but rendered frames stop, recover the video pipeline.
+  useEffect(() => {
+    if (mediaType !== 'video' || !videoElement || !isIOSDevice()) return;
+
+    const video = videoElement as HTMLVideoElement & {
+      requestVideoFrameCallback?: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
+    };
+    let cancelled = false;
+
+    if (video.requestVideoFrameCallback) {
+      const watchFrame = (_now: number, metadata: { mediaTime: number }) => {
+        if (cancelled) return;
+        lastVideoFrameAtRef.current = Date.now();
+        lastFrameWatchTimeRef.current = metadata.mediaTime || video.currentTime || 0;
+        video.requestVideoFrameCallback?.(watchFrame);
+      };
+      video.requestVideoFrameCallback(watchFrame);
+    } else {
+      lastVideoFrameAtRef.current = Date.now();
+      lastFrameWatchTimeRef.current = video.currentTime || 0;
+    }
+
+    frameWatchdogRef.current = setInterval(() => {
+      if (cancelled || video.paused || document.hidden) return;
+      if (!video.requestVideoFrameCallback) return;
+
+      const now = Date.now();
+      const timeAdvanced = video.currentTime - lastFrameWatchTimeRef.current;
+      const framesStaleFor = now - lastVideoFrameAtRef.current;
+      const cooldownElapsed = now - lastFrameRecoveryAtRef.current > 15000;
+
+      if (video.currentTime > 2 && timeAdvanced > 2 && framesStaleFor > 4500 && cooldownElapsed) {
+        console.warn('[SecureMedia] iOS frame watchdog: video frames appear frozen while audio/time advances');
+        lastFrameRecoveryAtRef.current = now;
+        resumeCheckpointRef.current = video.currentTime;
+        recoverPlayback('ios-frame-watchdog');
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      if (frameWatchdogRef.current) {
+        clearInterval(frameWatchdogRef.current);
+        frameWatchdogRef.current = undefined;
+      }
+    };
+  }, [mediaType, videoElement, recoverPlayback]);
 
   // NEW: Auto-recovery for stuck playback detection
   useEffect(() => {
@@ -2037,6 +2145,36 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     // Handle regular video files with restricted mode
     if (disableInteraction) {
+      if (nativeError) {
+        return (
+          <div className={`relative w-full aspect-video bg-muted rounded-lg flex flex-col items-center justify-center gap-3 p-6 text-center ${className || ''}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="space-y-1 max-w-md">
+              <h3 className="font-semibold text-foreground">Nie można płynnie odtworzyć tego wideo na iPhone</h3>
+              <p className="text-sm text-muted-foreground">
+                Wymagany format dla Akademii: <strong>MP4 · H.264 · AAC · FastStart</strong>. Chrome na iPhone używa tego samego silnika WebKit co Safari.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Jeśli problem wraca po ponowieniu, plik trzeba przekonwertować i wgrać ponownie albo poprawić nagłówki serwera plików.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setNativeError(null);
+                setRetryCount(0);
+                setHasExhaustedRetries(false);
+                recoverPlayback('restricted-native-error-retry');
+              }}
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
+        );
+      }
+
       // Pokaż komunikat fallback gdy wyczerpane są wszystkie próby
       if (hasExhaustedRetries) {
         return (
@@ -2084,21 +2222,57 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             <video
               ref={videoRefCallback}
               {...securityProps}
-              src={signedUrl}
               controls={false}
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
+              preload={isIOSDevice() ? 'metadata' : ((signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy)}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
+              // @ts-ignore - AirPlay dla iOS
+              x-webkit-airplay="allow"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
+              onLoadedMetadata={(e) => {
+                const video = e.currentTarget;
+                setNativeError(null);
+                setVideoReady(true);
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  setDuration(video.duration);
+                  onDurationChangeRef.current?.(video.duration);
+                }
+              }}
+              onLoadedData={() => {
+                setNativeError(null);
+                setVideoReady(true);
+              }}
+              onCanPlay={() => {
+                setNativeError(null);
+                setVideoReady(true);
+              }}
+              onError={(e) => {
+                const el = e.currentTarget as HTMLVideoElement;
+                const code = el.error?.code ?? 0;
+                if (code === MediaError.MEDIA_ERR_DECODE || code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                  console.warn('[SecureMedia] Restricted video decode/source error', { code, message: el.error?.message });
+                  setNativeError({ code, message: el.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
+                }
+              }}
               // Only use crossOrigin for Supabase storage URLs (which support CORS)
               {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
+              {signedUrl && (
+                <source
+                  src={signedUrl}
+                  type={videoMime(signedUrl)}
+                  onError={() => {
+                    console.warn('[SecureMedia] Restricted <source> onError – WebKit odrzucił strumień');
+                    setNativeError({ code: MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED, message: 'Źródło wideo odrzucone przez iPhone/WebKit' });
+                  }}
+                />
+              )}
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* Show spinner only during initial load (no first frame yet) */}
