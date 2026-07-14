@@ -1864,6 +1864,15 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
+                                {missingLinkAlerts[(registration.email || '').toLowerCase()] && (
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px] px-1.5 animate-pulse"
+                                    title="Gość zarejestrował się tuż przed startem, ale nie otrzymał emaila z linkiem. Kliknij ikonę zegara → Wyślij 15min, żeby wysłać link teraz."
+                                  >
+                                    ⚠ brak linku
+                                  </Badge>
+                                )}
                                 {REMINDER_TYPES.map((t) => {
                                   const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
                                   return (
