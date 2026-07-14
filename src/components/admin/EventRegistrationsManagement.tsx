@@ -1871,15 +1871,26 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   <Mail className="h-3 w-3 mr-1" />
                                   {registration.confirmation_sent ? '✓' : '✗'}
                                 </Badge>
-                                {missingLinkAlerts[(registration.email || '').toLowerCase()] && (
-                                  <Badge
-                                    variant="destructive"
-                                    className="text-[10px] px-1.5 animate-pulse"
-                                    title="Gość zarejestrował się tuż przed startem, ale nie otrzymał emaila z linkiem. Kliknij ikonę zegara → Wyślij 15min, żeby wysłać link teraz."
-                                  >
-                                    ⚠ brak linku
-                                  </Badge>
-                                )}
+                                {(() => {
+                                  const a = missingLinkAlerts[(registration.email || '').toLowerCase()];
+                                  if (!a) return null;
+                                  const exhausted = a.attempt_count >= a.max_attempts;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDetailsAlertId(a.id)}
+                                      className="inline-flex"
+                                      title={`Kliknij, aby zobaczyć szczegóły. Próby: ${a.attempt_count}/${a.max_attempts}${a.last_error ? `\nOstatni błąd: ${a.last_error}` : ''}`}
+                                    >
+                                      <Badge
+                                        variant="destructive"
+                                        className={`text-[10px] px-1.5 ${exhausted ? '' : 'animate-pulse'} cursor-pointer`}
+                                      >
+                                        ⚠ brak linku ({a.attempt_count}/{a.max_attempts})
+                                      </Badge>
+                                    </button>
+                                  );
+                                })()}
                                 {REMINDER_TYPES.map((t) => {
                                   const sentAt = remindersMap[(registration.email || '').toLowerCase()]?.[t];
                                   return (
