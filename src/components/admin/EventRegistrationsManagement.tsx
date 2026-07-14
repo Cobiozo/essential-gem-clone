@@ -433,6 +433,24 @@ export const EventRegistrationsManagement: React.FC = () => {
 
   useEffect(() => { fetchRemindersMap(); }, [fetchRemindersMap]);
 
+  // Fetch unresolved "missing join link" alerts for this event
+  const fetchMissingLinkAlerts = React.useCallback(async () => {
+    if (!selectedEventId) { setMissingLinkAlerts({}); return; }
+    const { data, error } = await (supabase.from('missing_join_link_alerts' as any) as any)
+      .select('id, recipient_email')
+      .eq('event_id', selectedEventId)
+      .is('resolved_at', null);
+    if (error) { setMissingLinkAlerts({}); return; }
+    const map: Record<string, string> = {};
+    for (const row of (data || []) as any[]) {
+      const em = (row.recipient_email || '').toLowerCase();
+      if (em && !map[em]) map[em] = row.id;
+    }
+    setMissingLinkAlerts(map);
+  }, [selectedEventId]);
+
+  useEffect(() => { fetchMissingLinkAlerts(); }, [fetchMissingLinkAlerts]);
+
 
   // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
