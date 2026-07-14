@@ -232,6 +232,8 @@ function getEventTypeKey(type: WebinarEmailRequest['type']): string {
       return 'webinar_reminder_1h';
     case 'reminder_15min':
       return 'webinar_reminder_15min';
+    case 'join_now':
+      return 'webinar_join_now';
     default:
       return 'webinar_confirmation';
   }
