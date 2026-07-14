@@ -2144,6 +2144,36 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     // Handle regular video files with restricted mode
     if (disableInteraction) {
+      if (nativeError) {
+        return (
+          <div className={`relative w-full aspect-video bg-muted rounded-lg flex flex-col items-center justify-center gap-3 p-6 text-center ${className || ''}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="space-y-1 max-w-md">
+              <h3 className="font-semibold text-foreground">Nie można płynnie odtworzyć tego wideo na iPhone</h3>
+              <p className="text-sm text-muted-foreground">
+                Wymagany format dla Akademii: <strong>MP4 · H.264 · AAC · FastStart</strong>. Chrome na iPhone używa tego samego silnika WebKit co Safari.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Jeśli problem wraca po ponowieniu, plik trzeba przekonwertować i wgrać ponownie albo poprawić nagłówki serwera plików.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setNativeError(null);
+                setRetryCount(0);
+                setHasExhaustedRetries(false);
+                recoverPlayback('restricted-native-error-retry');
+              }}
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
+        );
+      }
+
       // Pokaż komunikat fallback gdy wyczerpane są wszystkie próby
       if (hasExhaustedRetries) {
         return (
@@ -2191,21 +2221,57 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             <video
               ref={videoRefCallback}
               {...securityProps}
-              src={signedUrl}
               controls={false}
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
+              preload={isIOSDevice() ? 'metadata' : ((signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy)}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
+              // @ts-ignore - AirPlay dla iOS
+              x-webkit-airplay="allow"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
+              onLoadedMetadata={(e) => {
+                const video = e.currentTarget;
+                setNativeError(null);
+                setVideoReady(true);
+                if (Number.isFinite(video.duration) && video.duration > 0) {
+                  setDuration(video.duration);
+                  onDurationChangeRef.current?.(video.duration);
+                }
+              }}
+              onLoadedData={() => {
+                setNativeError(null);
+                setVideoReady(true);
+              }}
+              onCanPlay={() => {
+                setNativeError(null);
+                setVideoReady(true);
+              }}
+              onError={(e) => {
+                const el = e.currentTarget as HTMLVideoElement;
+                const code = el.error?.code ?? 0;
+                if (code === MediaError.MEDIA_ERR_DECODE || code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                  console.warn('[SecureMedia] Restricted video decode/source error', { code, message: el.error?.message });
+                  setNativeError({ code, message: el.error?.message || 'Format wideo nieobsługiwany przez iPhone/WebKit' });
+                }
+              }}
               // Only use crossOrigin for Supabase storage URLs (which support CORS)
               {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
+              {signedUrl && (
+                <source
+                  src={signedUrl}
+                  type={videoMime(signedUrl)}
+                  onError={() => {
+                    console.warn('[SecureMedia] Restricted <source> onError – WebKit odrzucił strumień');
+                    setNativeError({ code: MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED, message: 'Źródło wideo odrzucone przez iPhone/WebKit' });
+                  }}
+                />
+              )}
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* Show spinner only during initial load (no first frame yet) */}
