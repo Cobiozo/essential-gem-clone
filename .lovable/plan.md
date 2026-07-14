@@ -1,33 +1,63 @@
-Plan naprawy skupi się na odtwarzaczu Akademii, bo problem ze screenów dotyczy `TrainingModule` i trybu pierwszego oglądania lekcji, a nie Bazy Wiedzy.
+## Problem
 
-1. **Naprawić źródło wideo w trybie Akademii**
-   - W gałęzi `SecureMedia` używanej przy niezakończonej lekcji (`disableInteraction=true`) zamienić bezpośrednie `src={signedUrl}` na `<source src={signedUrl} type={videoMime(signedUrl)} />`.
-   - Dodać brakujące atrybuty iOS (`x-webkit-airplay`, pełne `playsInline`) oraz poprawne handlery `loadedmetadata`, `loadeddata`, `canplay`, `error`.
-   - Dzięki temu Chrome na iPhone, który działa na silniku Safari/WebKit, nie będzie zgadywał typu pliku z błędnych nagłówków serwera.
+W panelu admina (Eventy → Rejestracje → Goście) kolumna „Powiadomienia" pokazuje tylko dwa ogólne znaczniki: ✉ (email potwierdzający) i ⏰ (jakiekolwiek przypomnienie). Nie widać, które konkretnie przypomnienie (24h / 12h / 2h / 1h / 15min) trafiło do danego gościa i nie ma przycisku „Wyślij ponownie" dla konkretnego typu — dlatego przy awariach CRON-a nie można ani zweryfikować kto dostał, ani nadgonić brakujących wysyłek z linkiem do Zoom.
 
-2. **Uniezależnić licznik czasu od niestabilnego `timeupdate` na iOS**
-   - Dodać lekki ticker oparty o `requestAnimationFrame` / interwał podczas odtwarzania, który będzie regularnie odczytywał `video.currentTime`.
-   - Aktualizować `currentTime`, pasek postępu i `TrainingModule` także wtedy, gdy iOS przestaje wysyłać `timeupdate`.
-   - To rozwiąże objaw: „nie odlicza minut nagrania”, mimo że dźwięk idzie dalej.
+Dane o realnych wysyłkach już są w tabeli `occurrence_reminders_sent` (klucz: `event_id + occurrence_datetime + reminder_type + recipient_email`) — trzeba je tylko wyeksponować w UI i podpiąć akcje.
 
-3. **Dodać watchdog na zawieszony obraz przy działającym dźwięku**
-   - Wykorzystać `requestVideoFrameCallback`, jeśli jest dostępny, do monitorowania renderowanych klatek.
-   - Jeśli `currentTime` rośnie, ale klatki nie są renderowane przez kilka sekund, wykonać miękkie odzyskanie: zapisać pozycję, przeładować pipeline wideo, wrócić do tej pozycji i wznowić po dotknięciu/automatycznie gdy przeglądarka pozwoli.
-   - Ograniczyć agresywne `video.load()` podczas normalnego odtwarzania, bo na iOS potrafi powodować rozjazd audio/obrazu.
+## Zakres zmian
 
-4. **Uspokoić buforowanie specjalnie dla iOS**
-   - Zmienić logikę `waiting/stalled` tak, aby na iOS nie przełączała odtwarzacza zbyt często w stan „Ładowanie…”, gdy wideo faktycznie gra.
-   - Nie chować obrazu, jeżeli metadane są załadowane i `currentTime` rośnie.
-   - Przywracać `videoReady` już po `loadedmetadata/loadeddata`, a nie dopiero przy późniejszych zdarzeniach, które na iPhone bywają opóźnione.
+### 1. Backend — nowy tryb pojedynczej wysyłki w `send-bulk-webinar-reminders`
 
-5. **Poprawić restart/retry bez utraty pozycji**
-   - Przycisk „Napraw” i automatyczna naprawa będą używać jednej ścieżki odzyskiwania: zachowaj czas, wyczyść flagi buforowania/seeking, odśwież element wideo i ustaw czas z powrotem.
-   - Pozycja lekcji i blokada przewijania do przodu pozostaną zachowane.
+Dodać opcjonalne parametry do istniejącej edge function:
 
-6. **Dodać jasny fallback dla niekompatybilnego pliku**
-   - Jeżeli Safari/WebKit zgłosi błąd dekodowania (`MEDIA_ERR_DECODE` / `SRC_NOT_SUPPORTED`), pokazać komunikat o wymaganym formacie: MP4 H.264 + AAC + FastStart.
-   - To jest granica techniczna: jeśli konkretny plik jest zakodowany np. HEVC/H.265 lub serwer nie obsługuje poprawnie `Range`, frontend może tylko wykryć problem i pokazać instrukcję; nie da się „naprawić” takiego pliku samym Reactem.
+- `recipient_emails: string[]` — lista konkretnych adresów, do których wysłać.
+- `force: boolean` — pomija sprawdzanie `occurrence_reminders_sent` (żeby faktycznie wysłać powtórnie).
 
-7. **Walidacja po zmianie**
-   - Sprawdzić kompilację/typecheck.
-   - Przejrzeć odtwarzacz Akademii w widoku mobilnym i upewnić się, że kontrolki, czas, postęp i overlay ładowania zachowują się poprawnie.
+Zachowanie:
+- Gdy `recipient_emails` podane: pobiera się tylko wpisy z `guest_event_registrations` / `event_registrations` pasujące do tych maili + eventu + wybranej okazji (jak dziś).
+- `force=true` nie kasuje zapisu w `occurrence_reminders_sent`, tylko go pomija przy dedupie i robi `upsert` po wysyłce (znany conflict target już to zniesie).
+- Logowanie do `email_logs` i `occurrence_reminders_sent` bez zmian.
+
+To trzyma jedną ścieżkę wysyłki (te same szablony `webinar_reminder_2h/1h/15min` z linkiem Zoom) — nie tworzymy równoległej funkcji.
+
+### 2. Frontend — kolumna „Powiadomienia" per gość
+
+W `src/components/admin/EventRegistrationsManagement.tsx` (tab Goście):
+
+1. Po załadowaniu gości dla wybranego eventu/okazji dociągnąć rekordy z `occurrence_reminders_sent`:
+   ```
+   .from('occurrence_reminders_sent')
+   .select('recipient_email, reminder_type, created_at')
+   .eq('event_id', selectedEventId)
+   .eq('occurrence_datetime', termDatetime.toISOString())
+   ```
+   i zbudować mapę `email → { '24h'?: date, '12h'?: date, '2h'?: date, '1h'?: date, '15min'?: date }`.
+2. Zamienić dwa obecne ogólne znaczniki na siatkę 5 mini-badge'ów (`24h | 12h | 2h | 1h | 15m`) — każdy w jednym z trzech stanów:
+   - zielony ✓ z tooltipem „Wysłano: 14.07.2026 19:44" (jeśli jest wpis w `occurrence_reminders_sent`),
+   - szary ✗ „Nie wysłano" (brak wpisu, ale termin już minął ± okno),
+   - neutralny „—" gdy dane okno przypomnienia jest jeszcze przed nami.
+3. Zostawić pierwszy badge ✉ z `confirmation_sent` (email potwierdzający rejestrację) — bez zmian.
+
+### 3. Frontend — akcje „Ponów"
+
+Dwa poziomy:
+
+- **Per gość (kolumna Akcje)**: obok istniejącej koperty dodać dropdown „Ponów przypomnienie ▾" z pozycjami `24h / 12h / 2h / 1h / 15min`. Klik → wywołanie funkcji z `recipient_emails: [guest.email]`, `reminder_type`, `event_id`, `occurrence_index`/`occurrence_datetime`, `force: true`. Toast „Wysłano do X" i odświeżenie mapy.
+- **Zbiorczo (nad tabelą, obok „Email po webinarze")**: przycisk „Ponów wysyłkę ▾" z pięcioma typami. Wysyła do **wszystkich gości aktualnego eventu/okazji, którzy nie mają jeszcze wpisu** dla wybranego typu (bez `force` — tylko uzupełnienie braków). Do tego drugi wariant „Wyślij ponownie do wszystkich (force)" pod potwierdzeniem AlertDialog.
+
+Obie akcje dostępne tylko dla admina (obecny gating tabu wystarczy).
+
+### 4. Weryfikacja
+
+- Wybrać event ze zrzutu (72 gości), otworzyć zakładkę Goście — każdy wiersz ma 5 kolorowych statusów zamiast jednego ⏰.
+- Kliknąć „Ponów 15min" dla gościa bez zielonego znacznika, potwierdzić że pojawił się wpis w `occurrence_reminders_sent` i mail dotarł.
+- Sprawdzić że dedup `send-bulk-webinar-reminders` nadal działa dla CRON-owego trybu automatycznego (bez `force`).
+
+## Sekcja techniczna
+
+Pliki do zmiany:
+- `supabase/functions/send-bulk-webinar-reminders/index.ts` — parametry `recipient_emails`, `force`; filtr odbiorców i pominięcie `alreadySentEmails` gdy `force`.
+- `src/components/admin/EventRegistrationsManagement.tsx` — nowe zapytanie do `occurrence_reminders_sent`, mapa per email, nowa kolumna, dropdowny akcji, obsługa toastów i re-fetch.
+- Ewentualnie mały helper w `src/lib/` do wyliczania „czy okno 2h/1h/15min już minęło" na potrzeby stanu „—" vs „✗".
+
+Bez zmian schematu bazy — `occurrence_reminders_sent` już zawiera wszystko, czego potrzebujemy (event_id, occurrence_datetime, reminder_type, recipient_email, created_at).
