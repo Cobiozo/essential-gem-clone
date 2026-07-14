@@ -5276,6 +5276,50 @@ export type Database = {
         }
         Relationships: []
       }
+      join_link_retry_log: {
+        Row: {
+          alert_id: string
+          attempt_no: number
+          attempted_at: string
+          created_at: string
+          error_message: string | null
+          id: string
+          outcome: string
+          triggered_by: string
+          zoom_link_used: string | null
+        }
+        Insert: {
+          alert_id: string
+          attempt_no: number
+          attempted_at?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome: string
+          triggered_by?: string
+          zoom_link_used?: string | null
+        }
+        Update: {
+          alert_id?: string
+          attempt_no?: number
+          attempted_at?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome?: string
+          triggered_by?: string
+          zoom_link_used?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_link_retry_log_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "missing_join_link_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_resource_translations: {
         Row: {
           context_of_use: string | null
@@ -6340,10 +6384,15 @@ export type Database = {
       }
       missing_join_link_alerts: {
         Row: {
+          attempt_count: number
           created_at: string
           event_id: string
           event_title: string | null
           id: string
+          last_attempt_at: string | null
+          last_error: string | null
+          max_attempts: number
+          next_retry_at: string | null
           occurrence_datetime: string | null
           reason: string
           recipient_email: string
@@ -6353,10 +6402,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attempt_count?: number
           created_at?: string
           event_id: string
           event_title?: string | null
           id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
           occurrence_datetime?: string | null
           reason: string
           recipient_email: string
@@ -6366,10 +6420,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attempt_count?: number
           created_at?: string
           event_id?: string
           event_title?: string | null
           id?: string
+          last_attempt_at?: string | null
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
           occurrence_datetime?: string | null
           reason?: string
           recipient_email?: string
