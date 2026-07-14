@@ -1774,10 +1774,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     if (smartBufferingTimeoutRef.current) { clearTimeout(smartBufferingTimeoutRef.current); smartBufferingTimeoutRef.current = undefined; }
     
     // 2. Evaluate video element state and recover
-    const needsReload = video.readyState < 1 || video.networkState === 3 || !video.src;
+    const forcePipelineReload = source === 'ios-frame-watchdog';
+    const needsReload = forcePipelineReload || video.readyState < 1 || video.networkState === 3 || !video.currentSrc;
     
     if (needsReload) {
-      console.log(`[SecureMedia] recoverPlayback: needs reload (readyState=${video.readyState}, networkState=${video.networkState})`);
+      console.log(`[SecureMedia] recoverPlayback: needs reload (readyState=${video.readyState}, networkState=${video.networkState}, forced=${forcePipelineReload})`);
       
       // Wait for metadata before seeking
       const onMetadataLoaded = () => {
