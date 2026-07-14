@@ -1,104 +1,102 @@
+## Zakres
 
-## Problem
+Trzy niezależne usprawnienia wokół systemu „brak linku do webinaru":
 
-Obecna edge function `send-webinar-confirmation` ma już blok „immediate reminder" dla rejestracji <60 min przed startem, ale:
+1. **Automatyczne retry wysyłki join-link email** przy błędzie SMTP + logowanie przyczyny i liczby prób.
+2. **Modal szczegółów alertu „brak linku"** z pełną diagnostyką i historią rezolucji/ponownych wysyłek.
+3. **Naprawa obcinania tabeli rejestracji** na screenie (kolumna „Akcje" ucina się po prawej) — poprawa responsywności listy gości.
 
-1. Używa tego samego szablonu `reminder_15min` niezależnie od tego, czy zostało 45 min czy 3 min — brakuje pilnej wersji „pokój już otwarty, dołącz natychmiast".
-2. Czyta `events.start_time` i `events.zoom_link` — dla eventów cyklicznych (multi-occurrence) bierze pierwszą okazję i pomija per-occurrence zoom link, przez co przy rejestracji tuż przed konkretnym terminem gość dostaje link do złej daty albo brak linku.
-3. Gdy linku brakuje albo wysyłka padnie, admin dostaje tylko in-app notification — nie ma maila, więc łatwo to przegapić.
-4. Nie ma zbiorczego dziennego alertu „X gości nie dostało linku, wejdź w CMS i wyślij ręcznie".
+---
 
-Cel: każdy kto zarejestruje się <15 min przed startem dostaje dwa maile — potwierdzenie rejestracji (bez zmian) + natychmiastowy „dołącz do spotkania" z aktualnym linkiem i komunikatem „pokój już otwarty". Każda porażka wysyłki linku ma trafiać emailem do wszystkich adminów z linkiem do panelu, żeby ręcznie ponowili.
+### 1. Automatyczne retry wysyłki join-link (SMTP fail)
 
-## Zakres zmian
+**Nowe pola w `missing_join_link_alerts`** (migracja):
+- `attempt_count int not null default 1`
+- `last_attempt_at timestamptz`
+- `last_error text` — treść błędu SMTP / bramki
+- `next_retry_at timestamptz` — kiedy CRON ma spróbować ponownie
+- `max_attempts int not null default 5`
 
-### 1. Nowy szablon email `webinar_join_now`
+**Nowa edge function `retry-missing-join-links`** (CRON co 2 min):
+- Wybiera rekordy z `resolved_at IS NULL AND attempt_count < max_attempts AND next_retry_at <= now()`.
+- Ponownie liczy `zoom_link` (per okazja z `resolveOccurrenceLink` jak w confirmation).
+- Wywołuje `send-webinar-email` z `type: 'join_now'`.
+- Sukces → `resolved_at=now(), resolved_by=null` (auto-resolve) + wpis w nowej tabeli `join_link_retry_log`.
+- Fail → `attempt_count++`, `last_error=<msg>`, `next_retry_at = now() + exp_backoff(2^attempt min, cap 30 min)`.
+- Po wyczerpaniu prób (attempt = max) → jeden zbiorczy email do adminów „gość X, N prób, wszystkie padły".
 
-Dodać do `email_templates` (przez migrację/seed) nowy szablon:
-- `internal_name: 'webinar_join_now'`
-- Temat: „🔴 Pokój już otwarty — dołącz teraz do {{event_title}}"
-- Treść: krótka, urgent — „Zarejestrowałeś się tuż przed startem. Pokój webinaru jest już otwarty, kliknij poniżej żeby dołączyć natychmiast" + duży CTA z `{{zoom_link}}` + info o godzinie startu.
-
-Jeśli tabela `email_templates` nie ma tego wpisu, funkcja użyje wbudowanego fallback HTML (jak inne szablony w `send-webinar-email`).
-
-### 2. `send-webinar-confirmation/index.ts` — poprawiona logika immediate reminder
-
-Refaktor bloku z linii ~732–842:
-
-1. **Właściwy start i link dla wybranej okazji.** Zamiast `events.start_time`/`events.zoom_link`:
-   - Preferować `eventDate` przekazane z klienta (już zawiera konkretną okazję).
-   - Dla eventów z `occurrences: jsonb[]` znaleźć wpis pasujący datą/godziną i użyć jego `zoom_link` (fallback: `events.zoom_link` → `events.location`).
-2. **Dwa progi zamiast jednego:**
-   - `minutesUntilStart <= 15` (włącznie z ujemnym do -30 min, bo „pokój otwarty") → wywołać `send-webinar-email` z nowym `type: 'join_now'` (szablon `webinar_join_now`).
-   - `15 < minutesUntilStart <= 60` → dotychczasowy `type: 'reminder_15min'`.
-3. **Nie blokować głównego confirmation emaila.** Confirmation leci pierwszy (jak dziś), a `join_now`/`reminder_15min` idzie zaraz po nim jako drugi email.
-4. **Flagi dedupe.** Ustawiać `reminder_15min_sent=true` w `guest_event_registrations` / `event_registrations` żeby CRON `send-bulk-webinar-reminders` nie wysłał trzeciego maila. Dla wielo-okazji zapisać też wpis w `occurrence_reminders_sent` (event_id + occurrence_datetime + `reminder_type='15min'` + email).
-5. **Bramka: brak linku.** Jeśli po fallbackach `zoom_link` jest pusty:
-   - Zalogować to jako failure w `email_logs` z `metadata.type='join_now_missing_link'`.
-   - Wywołać nową helper-funkcję `notifyAdminsMissingLink(email, eventId, eventTitle, occurrenceDatetime, reason)` (patrz pkt 3).
-6. **Bramka: SMTP fail.** Try/catch wokół `send-webinar-email` invoke — jeśli rzuci błąd, wywołać tę samą helper-funkcję z `reason='send_failed'`.
-
-### 3. `send-webinar-email/index.ts` — obsługa `type='join_now'`
-
-Dodać gałąź `join_now` obok istniejących `reminder_2h/1h/15min`:
-- Ładuje szablon `webinar_join_now` z `email_templates`, fallback do wbudowanego HTML (temat + CTA + zoom_link).
-- Loguje do `email_logs` z `metadata.type='join_now'`.
-- Rzuca błąd (nie łyka po cichu) — żeby caller z pkt 2.6 mógł wykryć fail i zaalarmować admina.
-
-### 4. Alerty do adminów mailem (pojedynczy + digest)
-
-**4a. Natychmiastowy alert per gość** — nowa edge function `notify-admins-missing-join-link`:
-- Input: `{ email, first_name, event_id, event_title, occurrence_datetime?, reason: 'no_link'|'send_failed' }`.
-- Pobiera adresy wszystkich adminów z `user_roles` + `profiles.email`.
-- Wysyła jeden email do adminów (BCC lub pętla) z tematem „⚠️ Gość nie dostał linku do webinaru — akcja wymagana" i CTA linkującym do `/admin/events` (zakładka Rejestracje → Goście → nowy przycisk „Ponów przypomnienie" per gość, już istnieje z poprzedniej iteracji).
-- Zapisuje wpis w nowej tabeli `missing_join_link_alerts` (patrz pkt 5) żeby uniknąć duplikatów i zasilić digest.
-- Wywołuje też in-app `user_notifications` (jak dziś).
-
-**4b. Nic dodatkowo dziennie** — na razie tylko natychmiastowy alert per zdarzenie; jeśli okaże się za dużo szumu, dodamy debounce (max 1 alert/gość/event) po stronie tabeli z pkt 5.
-
-### 5. Tabela `missing_join_link_alerts` (migracja)
-
+**Nowa tabela `join_link_retry_log`** (audit):
 ```
 id uuid pk
-event_id uuid not null references events(id) on delete cascade
-occurrence_datetime timestamptz null
-recipient_email text not null
-reason text not null      -- 'no_link' | 'send_failed'
-resolved_at timestamptz null   -- ustawiane gdy admin ręcznie ponowi
-resolved_by uuid null
-created_at timestamptz default now()
-unique (event_id, occurrence_datetime, recipient_email, reason)
+alert_id uuid fk missing_join_link_alerts on delete cascade
+attempt_no int
+attempted_at timestamptz default now()
+outcome text  -- 'sent' | 'smtp_error' | 'no_link' | 'manual_resend'
+error_message text
+triggered_by text  -- 'cron' | 'admin:<uuid>'
+zoom_link_used text
 ```
+GRANT: `authenticated` SELECT (przez RLS admin), `service_role` ALL.
 
-GRANT tylko dla `authenticated` (SELECT dla adminów przez RLS `has_role(auth.uid(),'admin')`) i `service_role` (ALL). RLS: admin SELECT/UPDATE, service_role ALL. Insert wyłącznie z edge function (service_role).
+**Modyfikacja `send-webinar-confirmation`**: przy pierwszym błędzie tworzy alert z `attempt_count=1`, `next_retry_at=now()+2min` — dalej CRON.
 
-Po ręcznej wysyłce w panelu (istniejący dropdown „Ponów przypomnienie 15min") frontend robi update `resolved_at=now(), resolved_by=auth.uid()` dla pasującego wpisu.
+**Modyfikacja `EventRegistrationsManagement.tsx`**: badge „⚠ brak linku" pokazuje też licznik „(3/5)" i tooltip z `last_error`.
 
-### 6. UI — `EventRegistrationsManagement.tsx`
+---
 
-Drobne uzupełnienie istniejącej kolumny „Powiadomienia":
-- Dodać czerwony badge „⚠ brak linku" gdy istnieje niezresetowany wpis w `missing_join_link_alerts` dla `email+event+occurrence`.
-- Po sukcesie akcji „Ponów 15min" wołać `resolve_missing_join_link_alert(alert_id)` (nowa security-definer funkcja) lub prostym `.update()`.
+### 2. Modal szczegółów alertu „brak linku"
 
-Bez nowego layoutu — reużywamy istniejący dropdown ponawiania z poprzedniej iteracji.
+**Nowy komponent `MissingJoinLinkDetailsDialog.tsx`** otwierany klikiem w badge „⚠ brak linku":
 
-### 7. Weryfikacja
+Sekcje:
+- **Nagłówek**: gość (imię, email), event (tytuł, data okazji), status alertu (`open` / `resolved`).
+- **Diagnostyka**:
+  - `reason` (`no_link` / `send_failed`) — czytelny opis PL.
+  - Aktualny `zoom_link` z okazji (pusty / obecny + preview URL).
+  - `resolveOccurrenceLink` output — pokazuje po którym fallbacku poszło (`occurrences[i].zoom_link` → `events.zoom_link` → `events.location` → brak).
+  - Ostatni błąd SMTP (`last_error`).
+- **Historia prób** (`join_link_retry_log` join po `alert_id`):
+  - Tabelka: `#`, data, źródło (CRON/Admin), wynik, użyty link, błąd.
+- **Akcje**:
+  - „Wyślij teraz ręcznie" — wywołuje istniejący flow ponawiania 15min, dopisuje log z `triggered_by='admin:<uid>'`.
+  - „Oznacz jako rozwiązane" — ustawia `resolved_at`, `resolved_by=auth.uid()`.
+  - „Reset licznika prób" — zeruje `attempt_count`, `next_retry_at=now()`.
 
-- Testowy webinar 10 min w przyszłości, rejestracja gościa → dostaje 2 maile (potwierdzenie + „Pokój już otwarty").
-- Ten sam webinar bez `zoom_link` na okazji ani na evencie → gość dostaje tylko potwierdzenie, admini dostają mail „gość X nie dostał linku, wejdź do panelu i wyślij ręcznie", w UI pojawia się czerwony badge.
-- Klik „Ponów 15min" w panelu → wysyła join_now, badge znika.
-- Rejestracja 40 min przed startem → stary flow reminder_15min (bez join_now).
-- CRON `send-bulk-webinar-reminders` na tym samym gościu → dedupe, nie wysyła drugi raz.
+Query przez `useQuery` z realtime subscription na `missing_join_link_alerts` + `join_link_retry_log`.
+
+---
+
+### 3. Naprawa obcinania tabeli rejestracji
+
+Na screenie kolumna „Akcje" wychodzi poza kontener (widać obcięty ikonę koperty). Przyczyna: tabela ma stałą liczbę kolumn i brak wrappera z overflow / sticky ostatniej kolumny.
+
+Zmiany w `EventRegistrationsManagement.tsx`:
+- Wrap `<table>` w `<div className="w-full overflow-x-auto">` (już częściowo jest w innych komponentach, brakuje tu).
+- Kolumna „Akcje": `sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]` — zawsze widoczna.
+- Kolumna „Powiadomienia" (badge grid): `min-w-[180px] max-w-[220px]` + `flex-wrap` w środku.
+- Kolumna „Imię/nazwisko": `min-w-[160px]`, `Email`: `min-w-[220px] truncate`, `Telefon`: `min-w-[140px] whitespace-nowrap`.
+- Dodać `whitespace-nowrap` na komórkach dat/statusów żeby nie łamały układu.
+- Na mobile (`md:hidden`) alternatywna karta na gościa (jedna karta = jeden wiersz w gridzie), zamiast horizontal scroll — reużyć wzorzec z `LeaderEventRegistrationsView`.
+
+Bez zmian w logice biznesowej listy.
+
+---
+
+## Weryfikacja
+
+1. Sztuczny błąd SMTP (nieprawidłowy `zoom_link`) → alert pojawia się z `attempt_count=1`, CRON po 2 min ponawia, po 5 próbach mail zbiorczy.
+2. Klik badge „⚠ brak linku" → modal z historią 5 prób, każdy z timestampem, źródłem, użytym linkiem.
+3. „Wyślij ręcznie" z modala → nowy wpis w logu `triggered_by='admin:<uid>'`, badge znika po sukcesie.
+4. Screen na 1280×800 i 1920×1080 → kolumna „Akcje" widoczna zawsze, brak poziomego obcięcia; na 375px karty zamiast tabeli.
 
 ## Sekcja techniczna
 
-Pliki:
-- `supabase/functions/send-webinar-confirmation/index.ts` — refaktor bloku immediate reminder (multi-occurrence + próg 15 min + alert).
-- `supabase/functions/send-webinar-email/index.ts` — nowy `type: 'join_now'` + throw on fail.
-- `supabase/functions/notify-admins-missing-join-link/index.ts` — nowa funkcja.
-- `supabase/functions/_shared/…` — helper `resolveOccurrenceLink(event, eventDate)` reużywalny.
-- Migracja SQL — tabela `missing_join_link_alerts` + GRANT + RLS + opcjonalna funkcja `resolve_missing_join_link_alert`.
-- Seed/migracja `email_templates` — wpis `webinar_join_now` (temat + HTML z `{{zoom_link}}`, `{{event_title}}`, `{{first_name}}`, `{{event_time}}`).
-- `src/components/admin/EventRegistrationsManagement.tsx` — badge „brak linku" + resolve po ponownej wysyłce.
+**Pliki:**
+- Migracja SQL — pola w `missing_join_link_alerts` + nowa tabela `join_link_retry_log` (GRANT + RLS admin SELECT, service_role ALL).
+- `supabase/functions/retry-missing-join-links/index.ts` — nowa funkcja + wpis w `supabase/config.toml` (`schedule = "*/2 * * * *"`, `verify_jwt=false`).
+- `supabase/functions/send-webinar-confirmation/index.ts` — inicjalizacja `attempt_count`, `next_retry_at` przy pierwszym fail.
+- `supabase/functions/notify-admins-missing-join-link/index.ts` — dodać tryb „max_attempts_exhausted" (inny temat maila).
+- `src/components/admin/MissingJoinLinkDetailsDialog.tsx` — nowy modal.
+- `src/components/admin/EventRegistrationsManagement.tsx` — badge z licznikiem + otwieranie modala + refaktor layoutu tabeli (sticky, min-width, mobile cards).
 
-Bez zmian w kliencie `EventGuestRegistration.tsx` — payload dla `send-webinar-confirmation` już zawiera potrzebne `eventDate`.
+Bez zmian w `send-webinar-email` (już rzuca błąd na fail — retry loop tego używa).
