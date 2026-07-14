@@ -531,6 +531,8 @@ serve(async (req) => {
           const profile = profiles.find(p => p.user_id === reg.user_id);
           if (profile?.email) {
             if (isTestMode && !test_emails!.includes(profile.email)) continue;
+            if (isTargetedMode && !targetedEmailsLower.has(profile.email.toLowerCase())) continue;
+
             userRecipients.push({
               registrationId: reg.id,
               userId: reg.user_id,
