@@ -663,7 +663,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         toast({ title: 'Wysłano', description: `Przypomnienie ${type} do ${guest.email}` });
         // Resolve missing-link alert if this was a link-carrying reminder
         if ((type === '15min' || type === '1h' || type === '2h')) {
-          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()];
+          const alertId = missingLinkAlerts[(guest.email || '').toLowerCase()]?.id;
           if (alertId) {
             try {
               await (supabase.from('missing_join_link_alerts' as any) as any)
