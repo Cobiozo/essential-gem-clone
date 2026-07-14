@@ -1799,18 +1799,18 @@ export const EventRegistrationsManagement: React.FC = () => {
                     Brak rejestracji gości dla tego wydarzenia
                   </div>
                 ) : (
-                  <div className="border rounded-lg overflow-x-auto">
-                    <Table>
+                  <div className="border rounded-lg overflow-x-auto max-w-full">
+                    <Table className="min-w-[1100px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Imię i nazwisko</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Telefon</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Data rejestracji</TableHead>
-                          <TableHead>Zaproszony przez</TableHead>
-                          <TableHead>Powiadomienia</TableHead>
-                          <TableHead>Akcje</TableHead>
+                          <TableHead className="min-w-[160px]">Imię i nazwisko</TableHead>
+                          <TableHead className="min-w-[220px]">Email</TableHead>
+                          <TableHead className="min-w-[140px] whitespace-nowrap">Telefon</TableHead>
+                          <TableHead className="min-w-[160px]">Status</TableHead>
+                          <TableHead className="min-w-[140px] whitespace-nowrap">Data rejestracji</TableHead>
+                          <TableHead className="min-w-[160px]">Zaproszony przez</TableHead>
+                          <TableHead className="min-w-[200px]">Powiadomienia</TableHead>
+                          <TableHead className="sticky right-0 bg-background z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.15)] min-w-[110px]">Akcje</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
