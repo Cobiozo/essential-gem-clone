@@ -177,6 +177,8 @@ export const EventRegistrationsManagement: React.FC = () => {
     '24h': '24h', '12h': '12h', '2h': '2h', '1h': '1h', '15min': '15m',
   };
   const [remindersMap, setRemindersMap] = useState<Record<string, Partial<Record<ReminderType, string>>>>({});
+  // email(lower) -> unresolved missing-link alert id
+  const [missingLinkAlerts, setMissingLinkAlerts] = useState<Record<string, string>>({});
   const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
   const [sendingBulkType, setSendingBulkType] = useState<ReminderType | null>(null);
   const [sendingPerGuest, setSendingPerGuest] = useState<string | null>(null);
