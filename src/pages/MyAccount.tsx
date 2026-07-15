@@ -672,7 +672,7 @@ const MyAccount = () => {
               {visibleTabs.hkCodes && (
                 <TabsTrigger value="hk-codes" disabled={mustCompleteProfile}>
                   <Heart className="w-4 h-4 mr-2" />
-                  Moje kody ZW
+                  Moje kody BW
                 </TabsTrigger>
               )}
               {visibleTabs.reflinks && (

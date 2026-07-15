@@ -230,7 +230,7 @@ const MyHkCodesHistory: React.FC = () => {
               <Heart className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle>Moje kody Zdrowej Wiedzy</CardTitle>
+              <CardTitle>Moje kody Bazy Wiedzy</CardTitle>
               <CardDescription>Historia wygenerowanych kodów dostępu</CardDescription>
             </div>
           </div>
