@@ -4808,6 +4808,7 @@ export type Database = {
           last_activity_at: string | null
           otp_code_id: string
           session_token: string
+          watched_seconds: number
         }
         Insert: {
           created_at?: string | null
@@ -4822,6 +4823,7 @@ export type Database = {
           last_activity_at?: string | null
           otp_code_id: string
           session_token: string
+          watched_seconds?: number
         }
         Update: {
           created_at?: string | null
@@ -4836,6 +4838,7 @@ export type Database = {
           last_activity_at?: string | null
           otp_code_id?: string
           session_token?: string
+          watched_seconds?: number
         }
         Relationships: [
           {

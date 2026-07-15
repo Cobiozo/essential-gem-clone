@@ -154,6 +154,88 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     checkSession();
   }, [slug]);
 
+  // Heartbeat: sumowanie realnego czasu oglądania w hk_otp_sessions.watched_seconds.
+  // Tyka tylko gdy karta jest widoczna. Ping co 15s (+ flush przy ukryciu/wyjściu).
+  useEffect(() => {
+    if (!sessionToken) return;
+
+    const HEARTBEAT_MS = 15000;
+    let pendingSeconds = 0;
+    let lastTick = Date.now();
+    let interval: number | null = null;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const endpoint = `${supabaseUrl}/functions/v1/hk-session-heartbeat`;
+
+    const flush = (useBeacon = false) => {
+      const now = Date.now();
+      const elapsed = Math.min(30, Math.floor((now - lastTick) / 1000));
+      lastTick = now;
+      const total = pendingSeconds + elapsed;
+      pendingSeconds = 0;
+      if (total <= 0) return;
+
+      const payload = JSON.stringify({ session_token: sessionToken, delta_seconds: total });
+
+      if (useBeacon && navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(endpoint, blob);
+        return;
+      }
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    };
+
+    const start = () => {
+      if (interval !== null) return;
+      lastTick = Date.now();
+      interval = window.setInterval(() => flush(false), HEARTBEAT_MS);
+    };
+
+    const stop = () => {
+      if (interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        start();
+      } else {
+        flush(false);
+        stop();
+      }
+    };
+
+    const handleUnload = () => {
+      flush(true);
+    };
+
+    if (document.visibilityState === 'visible') start();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handleUnload);
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handleUnload);
+      window.removeEventListener('beforeunload', handleUnload);
+      flush(false);
+      stop();
+    };
+  }, [sessionToken]);
+
   const isGuestFormValid = () => {
     return (
       guestFirstName.trim().length >= 2 &&
