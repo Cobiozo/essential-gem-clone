@@ -401,6 +401,8 @@ const Admin = () => {
   const [ogDescription, setOgDescription] = useState('');
   const [ogSiteName, setOgSiteName] = useState('');
   const [ogUrl, setOgUrl] = useState('');
+  const [appBaseUrl, setAppBaseUrl] = useState('');
+  const [appBaseUrlLoading, setAppBaseUrlLoading] = useState(false);
   const [ogMetaLoading, setOgMetaLoading] = useState(false);
   
    // Password change state
