@@ -1694,6 +1694,7 @@ const Admin = () => {
     og_description?: string;
     og_site_name?: string;
     og_url?: string;
+    app_base_url?: string;
   }) => {
     try {
       const { data: existing } = await supabase
