@@ -3851,8 +3851,46 @@ const Admin = () => {
                 </Card>
               </div>
 
+              {/* Global App URL */}
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="w-5 h-5" />
+                      Globalny adres aplikacji (App URL)
+                    </CardTitle>
+                    <CardDescription>
+                      Bazowy adres używany w linkach generowanych przez aplikację i szablonach e-mail (rejestracje, potwierdzenia, reset hasła, zaproszenia, kody OTP).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="app-base-url">App URL</Label>
+                      <Input
+                        id="app-base-url"
+                        type="url"
+                        value={appBaseUrl}
+                        onChange={(e) => setAppBaseUrl(e.target.value)}
+                        placeholder="https://purelifecenter.pl"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Musi zaczynać się od <code>https://</code>, bez ukośnika na końcu.
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={updateAppBaseUrl} disabled={appBaseUrlLoading}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {appBaseUrlLoading ? 'Zapisywanie...' : 'Zapisz App URL'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* OG Image Management */}
               <div className="mb-8">
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
