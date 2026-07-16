@@ -1766,6 +1766,9 @@ const Admin = () => {
     } finally {
       setAppBaseUrlLoading(false);
     }
+  };
+
+
 
   const updateFavicon = async (url: string) => {
     try {
