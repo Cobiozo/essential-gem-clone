@@ -5,13 +5,13 @@ const SUPABASE_URL = "https://xzlhssqqbajqhnsmbucf.supabase.co";
 // URLs that should be protected via token proxy
 function shouldProtectUrl(url: string): boolean {
   // Protect VPS videos and any non-YouTube, non-Supabase external media
-  if (url.includes('purelife.info.pl')) return true;
+  if (url.includes('purelifecenter.pl')) return true;
   // Don't protect YouTube, Supabase storage (has its own signed URLs), or data URIs
   if (url.includes('youtube.com') || url.includes('youtu.be')) return false;
   if (url.includes('supabase.co')) return false;
   if (url.startsWith('data:')) return false;
   if (url.startsWith('blob:')) return false;
-  return false; // Only protect purelife.info.pl for now
+  return false; // Only protect purelifecenter.pl for now
 }
 
 /**

@@ -212,7 +212,7 @@ serve(async (req) => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://purelife.info.pl/reset-password'
+        redirectTo: 'https://purelifecenter.pl/reset-password'
       }
     });
 

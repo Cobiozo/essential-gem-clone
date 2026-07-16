@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const APP_BASE = "https://purelife.info.pl";
+const APP_BASE = "https://purelifecenter.pl";
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {

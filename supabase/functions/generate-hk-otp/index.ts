@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const baseUrl = settingsData?.app_base_url || 'https://purelife.info.pl';
+    const baseUrl = settingsData?.app_base_url || 'https://purelifecenter.pl';
 
     // Generate share URL with proper domain
     const shareUrl = `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;

@@ -260,7 +260,7 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   // Build short invite URL using slug + eq_id
   const buildInviteUrl = () => {
-    const baseUrl = 'https://purelife.info.pl';
+    const baseUrl = 'https://purelifecenter.pl';
     const eventSlug = (event as any).slug;
     const eqId = profile?.eq_id;
     

@@ -1054,7 +1054,7 @@ const MyAccount = () => {
                   {(profile as any)?.accepted_terms && (profile as any)?.accepted_privacy && (profile as any)?.accepted_rodo && (
                     <p className="text-xs text-muted-foreground mt-2">
                       Zmiana zgód jest możliwa wyłącznie poprzez formularz kontaktowy lub e-mail na adres{' '}
-                      <a href="mailto:support@purelife.info.pl" className="text-primary hover:underline">support@purelife.info.pl</a>
+                      <a href="mailto:support@purelifecenter.pl" className="text-primary hover:underline">support@purelifecenter.pl</a>
                     </p>
                   )}
 

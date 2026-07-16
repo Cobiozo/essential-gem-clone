@@ -137,7 +137,7 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
     const description = config.invitation_description || '';
     const eqId = profile?.eq_id;
     const slug = linkedEvent?.slug;
-    const baseUrl = 'https://purelife.info.pl';
+    const baseUrl = 'https://purelifecenter.pl';
     const params = new URLSearchParams();
     if (eqId) params.set('ref', eqId);
     params.set('slot', format(day.date, 'yyyy-MM-dd') + '_' + selectedSlot.time);

@@ -62,7 +62,7 @@ serve(async (req: Request) => {
     }
 
     // Parse request body for optional subject
-    let subject = "mailto:support@purelife.info.pl";
+    let subject = "mailto:support@purelifecenter.pl";
     try {
       const body = await req.json();
       if (body.subject && body.subject.startsWith("mailto:")) {

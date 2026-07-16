@@ -321,7 +321,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     
     try {
       // Files served by local upload server
-      if (url.includes('purelife.info.pl/uploads/')) {
+      if (url.includes('purelifecenter.pl/uploads/')) {
         const urlPath = new URL(url).pathname; // /uploads/training-media/filename.mp4
         const parts = urlPath.replace('/uploads/', '').split('/');
         const filename = parts.pop()!;

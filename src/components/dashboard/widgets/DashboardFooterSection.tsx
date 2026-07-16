@@ -170,10 +170,10 @@ export const DashboardFooterSection: React.FC = () => {
               {ft(settings?.contact_email_label, 'footer.emailSupport')}
             </span>
             <a 
-              href={`mailto:${settings?.contact_email_address || 'support@purelife.info.pl'}`}
+              href={`mailto:${settings?.contact_email_address || 'support@purelifecenter.pl'}`}
               className="text-primary hover:underline text-sm"
             >
-              {settings?.contact_email_address || 'support@purelife.info.pl'}
+              {settings?.contact_email_address || 'support@purelifecenter.pl'}
             </a>
           </div>
         </section>

@@ -299,7 +299,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     const knowledge = code.healthy_knowledge as any;
     const slug = knowledge?.slug;
     if (!slug) return;
-    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
     const ok = await copyToClipboard(link);
     if (ok) toast.success('Link skopiowany');
     else toast.error('Nie udało się skopiować');
@@ -309,7 +309,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     const knowledge = code.healthy_knowledge as any;
     const slug = knowledge?.slug;
     if (!slug) return;
-    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
     const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
     const ok = await copyToClipboard(message);
     if (ok) toast.success('Wiadomość skopiowana');

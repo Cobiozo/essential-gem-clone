@@ -173,7 +173,7 @@ function buildGuestInvitationHtml(
       <div style="background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; margin-top: 20px;">
         <p>Zespół Pure Life Center</p>
         <p>© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
-        <p>Kontakt: support@purelife.info.pl</p>
+        <p>Kontakt: support@purelifecenter.pl</p>
       </div>
     </body></html>`;
 }

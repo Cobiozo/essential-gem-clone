@@ -37,7 +37,7 @@ Niektórzy dostawcy poczty e-mail (szczególnie T-Online.de, Freenet.de, Posteo.
 
 Jeśli korzystasz z jednego z tych dostawców, zalecamy:
 • Sprawdzanie folderu SPAM regularnie
-• Dodanie adresu noreply@purelife.info.pl do kontaktów/białej listy
+• Dodanie adresu noreply@purelifecenter.pl do kontaktów/białej listy
 • Rozważenie użycia alternatywnego adresu e-mail (np. Gmail, WP, O2)
 
 Dostarczalność jest potwierdzona dla: Gmail, WP.pl, O2.pl, Interia.pl, Onet.pl, ProtonMail, iCloud.`;

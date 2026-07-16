@@ -309,7 +309,7 @@ const handler = async (req: Request): Promise<Response> => {
         </p>
       </div>
       <div style="text-align:center;margin-top:30px;">
-        <a href="https://purelife.info.pl/messages"
+        <a href="https://purelifecenter.pl/messages"
            style="background:linear-gradient(135deg,#D4A843,#B8912A);color:#fff;padding:12px 30px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">
           Odpowiedz na wiadomość
         </a>

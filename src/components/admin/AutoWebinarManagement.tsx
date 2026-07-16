@@ -53,7 +53,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [videoPreviewTitle, setVideoPreviewTitle] = useState('');
   const [editSlug, setEditSlug] = useState('');
   const [savingSlug, setSavingSlug] = useState(false);
-  const [invitationBaseUrl, setInvitationBaseUrl] = useState('https://purelife.info.pl/e/');
+  const [invitationBaseUrl, setInvitationBaseUrl] = useState('https://purelifecenter.pl/e/');
   const logoFileRef = useRef<HTMLInputElement>(null);
   const logo2FileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
@@ -989,12 +989,12 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   {linkedEvent?.slug && (
                     <div className="mt-2 pt-2 border-t border-dashed">
                       <a 
-                        href={`https://purelife.info.pl/e/${linkedEvent.slug}`}
+                        href={`https://purelifecenter.pl/e/${linkedEvent.slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline break-all"
                       >
-                        🔗 Zapisz się: https://purelife.info.pl/e/{linkedEvent.slug}
+                        🔗 Zapisz się: https://purelifecenter.pl/e/{linkedEvent.slug}
                       </a>
                     </div>
                   )}
@@ -1524,7 +1524,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   value={invitationBaseUrl}
                   onChange={(e) => setInvitationBaseUrl(e.target.value)}
                   className="font-mono text-sm mt-1"
-                  placeholder="https://purelife.info.pl/e/"
+                  placeholder="https://purelifecenter.pl/e/"
                 />
               </div>
 

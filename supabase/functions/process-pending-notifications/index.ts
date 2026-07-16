@@ -806,7 +806,7 @@ serve(async (req) => {
               notification_type: "system",
               source_module: "inactivity",
               title: "Konto zablokowane z powodu braku aktywności",
-              message: `Twoje konto zostało zablokowane po ${u.days_inactive} dniach braku aktywności. Aby odblokować konto, napisz na support@purelife.info.pl lub skontaktuj się ze swoim Liderem.`,
+              message: `Twoje konto zostało zablokowane po ${u.days_inactive} dniach braku aktywności. Aby odblokować konto, napisz na support@purelifecenter.pl lub skontaktuj się ze swoim Liderem.`,
               metadata: { event: 'inactivity_block', days_inactive: u.days_inactive },
             });
           } catch (err) {

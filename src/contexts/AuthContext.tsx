@@ -687,7 +687,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             <div className="bg-muted rounded-lg p-4 mb-6 text-left">
               <p className="text-sm font-medium text-foreground mb-2">Jak odblokować konto?</p>
               <ul className="text-sm text-muted-foreground space-y-1.5">
-                <li>📧 Napisz na: <a href="mailto:support@purelife.info.pl" className="text-primary hover:underline font-medium">support@purelife.info.pl</a></li>
+                <li>📧 Napisz na: <a href="mailto:support@purelifecenter.pl" className="text-primary hover:underline font-medium">support@purelifecenter.pl</a></li>
                 <li>👤 Skontaktuj się ze swoim opiekunem</li>
                 <li>📝 Użyj formularza kontaktowego na stronie</li>
               </ul>

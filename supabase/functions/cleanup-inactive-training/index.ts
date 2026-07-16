@@ -121,14 +121,14 @@ Deno.serve(async (req) => {
     }
 
     // 8. Usuń pliki z VPS
-    const vpsBaseUrl = 'https://purelife.info.pl';
+    const vpsBaseUrl = 'https://purelifecenter.pl';
     const uploadKey = Deno.env.get('VPS_UPLOAD_KEY') || '';
 
     for (const lesson of (lessons || [])) {
-      if (!lesson.media_url || !lesson.media_url.includes('purelife.info.pl')) continue;
+      if (!lesson.media_url || !lesson.media_url.includes('purelifecenter.pl')) continue;
 
       try {
-        // Extract filename from URL like https://purelife.info.pl/uploads/training-media/filename.mp4
+        // Extract filename from URL like https://purelifecenter.pl/uploads/training-media/filename.mp4
         const urlParts = lesson.media_url.split('/');
         const filename = urlParts[urlParts.length - 1];
 

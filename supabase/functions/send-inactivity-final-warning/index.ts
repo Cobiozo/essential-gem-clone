@@ -217,7 +217,7 @@ serve(async (req) => {
       .maybeSingle();
     
     const baseUrl = settingsData?.app_base_url || 'https://purelife.lovable.app';
-    const supportEmail = 'support@purelife.info.pl';
+    const supportEmail = 'support@purelifecenter.pl';
 
     const firstName = profile.first_name || 'Użytkowniku';
     const subject = `🚨 Twoje konto Pure Life Center zostanie zablokowane za 24 godziny!`;
