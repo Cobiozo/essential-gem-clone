@@ -359,7 +359,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setIsYouTube(false);
     setYoutubeId(null);
 
-    // Protected URL — use token proxy (purelife.info.pl videos)
+    // Protected URL — use token proxy (purelifecenter.pl videos)
     if (shouldProtectUrl(mediaUrl)) {
       // FIX D: Deduplicate token generation - skip if already processing this URL
       if (processingUrlRef.current === mediaUrl) {
@@ -2082,7 +2082,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
+              preload={(signedUrl || '').includes('purelifecenter.pl') ? 'auto' : 'metadata'}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
@@ -2227,7 +2227,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={isIOSDevice() ? 'metadata' : ((signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy)}
+              preload={isIOSDevice() ? 'metadata' : ((signedUrl || '').includes('purelifecenter.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy)}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"

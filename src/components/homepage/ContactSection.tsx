@@ -6,8 +6,8 @@ const ContactSection = () => {
     {
       icon: Mail,
       label: 'Email',
-      value: 'kontakt@purelife.info.pl',
-      link: 'mailto:kontakt@purelife.info.pl'
+      value: 'kontakt@purelifecenter.pl',
+      link: 'mailto:kontakt@purelifecenter.pl'
     },
     {
       icon: Phone,

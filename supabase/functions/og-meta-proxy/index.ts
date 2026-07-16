@@ -63,7 +63,7 @@
    const ogDescription = data?.og_description || 'Zmieniamy życie i zdrowie ludzi na lepsze'
    const ogImage = data?.og_image_url || ''
    const ogSiteName = data?.og_site_name || 'Pure Life Center'
-   const ogUrl = data?.og_url || 'https://purelife.info.pl'
+   const ogUrl = data?.og_url || 'https://purelifecenter.pl'
  
    console.log('Returning HTML with OG tags:', { ogTitle, ogDescription, ogImage, ogSiteName, ogUrl })
  

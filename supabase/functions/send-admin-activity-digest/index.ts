@@ -165,7 +165,7 @@ serve(async (req) => {
       smtp_port: parseInt(Deno.env.get('SMTP_PORT') || '587'),
       smtp_username: Deno.env.get('SMTP_USERNAME') || '',
       smtp_password: Deno.env.get('SMTP_PASSWORD') || '',
-      sender_email: 'no-reply@purelife.info.pl',
+      sender_email: 'no-reply@purelifecenter.pl',
       sender_name: 'Pure Life Center',
     };
 

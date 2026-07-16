@@ -11,8 +11,8 @@ export function useSubdomainDetection(): SubdomainResult {
   return useMemo(() => {
     const hostname = window.location.hostname;
 
-    // Production: check for *.purelife.info.pl
-    if (hostname.endsWith('.purelife.info.pl')) {
+    // Production: check for *.purelifecenter.pl
+    if (hostname.endsWith('.purelifecenter.pl')) {
       const parts = hostname.split('.');
       const subdomain = parts[0]?.toLowerCase();
       if (subdomain && !RESERVED_SUBDOMAINS.includes(subdomain)) {

@@ -214,7 +214,7 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const targetEmail = supportSettings?.email_address || 'support@purelife.info.pl';
+    const targetEmail = supportSettings?.email_address || 'support@purelifecenter.pl';
     console.log('[send-support-email] Target email:', targetEmail);
 
     // Build HTML email content

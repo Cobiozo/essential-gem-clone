@@ -264,7 +264,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`[send-welcome-email] Using template: ${template.name}`);
 
     // Build login link
-    const siteUrl = "https://purelife.info.pl";
+    const siteUrl = "https://purelifecenter.pl";
     const loginLink = `${siteUrl}/auth`;
 
     // Map role to Polish display name

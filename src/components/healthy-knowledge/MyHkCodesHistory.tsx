@@ -165,7 +165,7 @@ const MyHkCodesHistory: React.FC = () => {
     const slug = code.healthy_knowledge?.slug;
     if (!slug) return;
     
-    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
     await navigator.clipboard.writeText(link);
     toast.success('Link skopiowany do schowka');
   };
@@ -175,7 +175,7 @@ const MyHkCodesHistory: React.FC = () => {
     const title = code.healthy_knowledge?.title;
     if (!slug || !title) return;
     
-    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
     const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
     
     await navigator.clipboard.writeText(message);

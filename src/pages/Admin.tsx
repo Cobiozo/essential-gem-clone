@@ -3801,7 +3801,7 @@ const Admin = () => {
                         type="url"
                         value={ogUrl}
                         onChange={(e) => setOgUrl(e.target.value)}
-                        placeholder="https://purelife.info.pl"
+                        placeholder="https://purelifecenter.pl"
                         className="mt-1"
                       />
                     </div>

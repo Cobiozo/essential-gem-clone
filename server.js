@@ -36,7 +36,7 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
-const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.info.pl';
+const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelifecenter.pl';
 
 // Shutdown state for graceful termination
 let isShuttingDown = false;
@@ -299,7 +299,7 @@ app.use(compression());
 // CORS configuration for video streaming
 app.use(cors({
   origin: [
-    'https://purelife.info.pl',
+    'https://purelifecenter.pl',
     'https://purelife.lovable.app',
     /\.lovable\.app$/,
     'http://localhost:8080',

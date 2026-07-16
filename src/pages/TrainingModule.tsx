@@ -406,13 +406,13 @@ const TrainingModule = () => {
   useEffect(() => {
     const preconnect = document.createElement('link');
     preconnect.rel = 'preconnect';
-    preconnect.href = 'https://purelife.info.pl';
+    preconnect.href = 'https://purelifecenter.pl';
     preconnect.crossOrigin = 'anonymous';
     document.head.appendChild(preconnect);
     
     const dnsPrefetch = document.createElement('link');
     dnsPrefetch.rel = 'dns-prefetch';
-    dnsPrefetch.href = 'https://purelife.info.pl';
+    dnsPrefetch.href = 'https://purelifecenter.pl';
     document.head.appendChild(dnsPrefetch);
     
     return () => {

@@ -196,7 +196,7 @@ serve(async (req) => {
       .single();
 
     const blockDays = inactivitySettings?.block_days || 30;
-    const supportEmail = inactivitySettings?.support_email || 'support@purelife.info.pl';
+    const supportEmail = inactivitySettings?.support_email || 'support@purelifecenter.pl';
     const daysRemaining = Math.max(0, blockDays - (daysInactive || 14));
 
     // Get SMTP settings

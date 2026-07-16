@@ -297,7 +297,7 @@ serve(async (req) => {
     }
 
     // Build login URL
-    const loginUrl = 'https://purelife.info.pl/change-password';
+    const loginUrl = 'https://purelifecenter.pl/change-password';
 
     // Build variables
     const variables: Record<string, string> = {

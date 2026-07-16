@@ -175,7 +175,7 @@ export const DnsDiagnosticPanel: React.FC<{ senderEmail?: string }> = ({ senderE
             <Label htmlFor="dns-domain">Domena</Label>
             <Input
               id="dns-domain"
-              placeholder="purelife.info.pl"
+              placeholder="purelifecenter.pl"
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
             />

@@ -45,7 +45,7 @@ const LeaderLandingPage: React.FC = () => {
   }
 
   if (!page || error) {
-    window.location.href = 'https://purelife.info.pl';
+    window.location.href = 'https://purelifecenter.pl';
     return null;
   }
 

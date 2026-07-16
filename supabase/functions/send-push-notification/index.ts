@@ -72,7 +72,7 @@ serve(async (req: Request) => {
 
     // Configure web-push with VAPID details
     webpush.setVapidDetails(
-      config.vapid_subject || "mailto:support@purelife.info.pl",
+      config.vapid_subject || "mailto:support@purelifecenter.pl",
       config.vapid_public_key,
       config.vapid_private_key
     );

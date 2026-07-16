@@ -342,7 +342,7 @@ serve(async (req) => {
 
           const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
             || Deno.env.get("PUBLIC_SITE_URL")
-            || "https://purelife.info.pl";
+            || "https://purelifecenter.pl";
 
           const html = buildTicketEmail({
             firstName: order.first_name,

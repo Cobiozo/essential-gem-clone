@@ -804,7 +804,7 @@ serve(async (req) => {
           // confirm/cancel pages from their inbox without hitting /auth.
           const publicBaseUrl = Deno.env.get("PUBLIC_EMAIL_LINK_BASE_URL")
             || Deno.env.get("PUBLIC_SITE_URL")
-            || "https://purelife.info.pl";
+            || "https://purelifecenter.pl";
           const confirmUrl = mirrorConfirmationToken
             ? `${publicBaseUrl}/event-form/confirm/${mirrorConfirmationToken}`
             : null;

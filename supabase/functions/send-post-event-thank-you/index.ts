@@ -139,7 +139,7 @@ function buildMissedEventHtml(params: {
 
   const ctaButton = hasInviter && inviterEmail
     ? `<a href="mailto:${inviterEmail}?subject=Nowy termin spotkania: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do ${inviterName}</a>`
-    : `<a href="mailto:support@purelife.info.pl?subject=Nowy termin spotkania: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
+    : `<a href="mailto:support@purelifecenter.pl?subject=Nowy termin spotkania: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -176,7 +176,7 @@ function buildMissedEventHtml(params: {
 
     <div style="background: #f8f8f8; border-radius: 8px; padding: 15px; margin-top: 25px; text-align: center;">
       <p style="margin: 0; font-size: 13px; color: #888;">
-        💬 Dodatkowe wsparcie: <a href="mailto:support@purelife.info.pl" style="color: #D4A843; text-decoration: none;">support@purelife.info.pl</a>
+        💬 Dodatkowe wsparcie: <a href="mailto:support@purelifecenter.pl" style="color: #D4A843; text-decoration: none;">support@purelifecenter.pl</a>
       </p>
     </div>
 
@@ -224,7 +224,7 @@ function buildThankYouHtml(params: {
 
   const ctaButton = hasInviter && inviterEmail
     ? `<a href="mailto:${inviterEmail}?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do ${inviterName}</a>`
-    : `<a href="mailto:support@purelife.info.pl?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
+    : `<a href="mailto:support@purelifecenter.pl?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -256,7 +256,7 @@ function buildThankYouHtml(params: {
 
     <div style="background: #f8f8f8; border-radius: 8px; padding: 15px; margin-top: 25px; text-align: center;">
       <p style="margin: 0; font-size: 13px; color: #888;">
-        💬 Dodatkowe wsparcie: <a href="mailto:support@purelife.info.pl" style="color: #D4A843; text-decoration: none;">support@purelife.info.pl</a>
+        💬 Dodatkowe wsparcie: <a href="mailto:support@purelifecenter.pl" style="color: #D4A843; text-decoration: none;">support@purelifecenter.pl</a>
       </p>
     </div>
 

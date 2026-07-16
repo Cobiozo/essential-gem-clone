@@ -420,7 +420,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
 
   const handleCopyInvitation = () => {
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
-    const baseUrl = 'https://purelife.info.pl';
+    const baseUrl = 'https://purelifecenter.pl';
     const eventSlug = (event as any).slug;
     const eqId = profile?.eq_id;
     
