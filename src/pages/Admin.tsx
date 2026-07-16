@@ -1749,6 +1749,24 @@ const Admin = () => {
     }
   };
 
+  const updateAppBaseUrl = async () => {
+    const trimmed = appBaseUrl.trim().replace(/\/+$/, '');
+    if (!/^https:\/\/.+/.test(trimmed)) {
+      toast({
+        title: "Nieprawidłowy adres",
+        description: "App URL musi zaczynać się od https:// (bez ukośnika na końcu).",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setAppBaseUrlLoading(true);
+      await updatePageSettings({ app_base_url: trimmed });
+      setAppBaseUrl(trimmed);
+    } finally {
+      setAppBaseUrlLoading(false);
+    }
+
   const updateFavicon = async (url: string) => {
     try {
       setFaviconLoading(true);
