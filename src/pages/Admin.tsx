@@ -23,7 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu, MapPin } from 'lucide-react';
+import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu, MapPin, Globe } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
@@ -401,6 +401,8 @@ const Admin = () => {
   const [ogDescription, setOgDescription] = useState('');
   const [ogSiteName, setOgSiteName] = useState('');
   const [ogUrl, setOgUrl] = useState('');
+  const [appBaseUrl, setAppBaseUrl] = useState('');
+  const [appBaseUrlLoading, setAppBaseUrlLoading] = useState(false);
   const [ogMetaLoading, setOgMetaLoading] = useState(false);
   
    // Password change state
@@ -1665,7 +1667,7 @@ const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('page_settings')
-        .select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url')
+        .select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url, app_base_url')
         .eq('page_type', 'homepage')
         .maybeSingle();
       
@@ -1678,6 +1680,7 @@ const Admin = () => {
         setOgDescription(data.og_description || '');
         setOgSiteName(data.og_site_name || '');
         setOgUrl(data.og_url || '');
+        setAppBaseUrl(data.app_base_url || '');
       }
     } catch (error) {
       console.error('Error loading page settings:', error);
@@ -1691,6 +1694,7 @@ const Admin = () => {
     og_description?: string;
     og_site_name?: string;
     og_url?: string;
+    app_base_url?: string;
   }) => {
     try {
       const { data: existing } = await supabase
@@ -1744,6 +1748,27 @@ const Admin = () => {
       setOgMetaLoading(false);
     }
   };
+
+  const updateAppBaseUrl = async () => {
+    const trimmed = appBaseUrl.trim().replace(/\/+$/, '');
+    if (!/^https:\/\/.+/.test(trimmed)) {
+      toast({
+        title: "Nieprawidłowy adres",
+        description: "App URL musi zaczynać się od https:// (bez ukośnika na końcu).",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setAppBaseUrlLoading(true);
+      await updatePageSettings({ app_base_url: trimmed });
+      setAppBaseUrl(trimmed);
+    } finally {
+      setAppBaseUrlLoading(false);
+    }
+  };
+
+
 
   const updateFavicon = async (url: string) => {
     try {
@@ -3826,8 +3851,46 @@ const Admin = () => {
                 </Card>
               </div>
 
+              {/* Global App URL */}
+              <div className="mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="w-5 h-5" />
+                      Globalny adres aplikacji (App URL)
+                    </CardTitle>
+                    <CardDescription>
+                      Bazowy adres używany w linkach generowanych przez aplikację i szablonach e-mail (rejestracje, potwierdzenia, reset hasła, zaproszenia, kody OTP).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="app-base-url">App URL</Label>
+                      <Input
+                        id="app-base-url"
+                        type="url"
+                        value={appBaseUrl}
+                        onChange={(e) => setAppBaseUrl(e.target.value)}
+                        placeholder="https://purelifecenter.pl"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Musi zaczynać się od <code>https://</code>, bez ukośnika na końcu.
+                      </p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button onClick={updateAppBaseUrl} disabled={appBaseUrlLoading}>
+                        <Save className="w-4 h-4 mr-2" />
+                        {appBaseUrlLoading ? 'Zapisywanie...' : 'Zapisz App URL'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* OG Image Management */}
               <div className="mb-8">
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
