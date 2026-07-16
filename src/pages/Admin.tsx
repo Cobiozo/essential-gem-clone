@@ -1667,7 +1667,7 @@ const Admin = () => {
     try {
       const { data, error } = await supabase
         .from('page_settings')
-        .select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url')
+        .select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url, app_base_url')
         .eq('page_type', 'homepage')
         .maybeSingle();
       
@@ -1680,6 +1680,7 @@ const Admin = () => {
         setOgDescription(data.og_description || '');
         setOgSiteName(data.og_site_name || '');
         setOgUrl(data.og_url || '');
+        setAppBaseUrl(data.app_base_url || '');
       }
     } catch (error) {
       console.error('Error loading page settings:', error);
