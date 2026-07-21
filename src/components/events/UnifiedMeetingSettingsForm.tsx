@@ -556,44 +556,6 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
               </div>
             )}
 
-            {/* Calendar visibility scope */}
-            <div className="space-y-2 pt-2 border-t">
-              <Label className="text-sm font-medium">Kto widzi Twój kalendarz spotkań indywidualnych?</Label>
-              <RadioGroup
-                value={visibilityScope}
-                onValueChange={(v) => setVisibilityScope(v as 'upline_only' | 'everyone')}
-                className="grid grid-cols-1 md:grid-cols-2 gap-3"
-              >
-                <div className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                  visibilityScope === 'upline_only' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                )}>
-                  <RadioGroupItem value="upline_only" id="scope-upline" className="mt-0.5" />
-                  <div className="flex-1">
-                    <Label htmlFor="scope-upline" className="font-medium cursor-pointer text-sm">
-                      Tylko moja struktura (osoby poniżej mnie)
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Zalecane. Twój kalendarz zobaczą wyłącznie użytkownicy z Twojego downline'u.
-                    </p>
-                  </div>
-                </div>
-                <div className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
-                  visibilityScope === 'everyone' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                )}>
-                  <RadioGroupItem value="everyone" id="scope-everyone" className="mt-0.5" />
-                  <div className="flex-1">
-                    <Label htmlFor="scope-everyone" className="font-medium cursor-pointer text-sm">
-                      Wszyscy zalogowani użytkownicy
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Otwierasz kalendarz dla całej platformy — także osób spoza Twojego downline'u.
-                    </p>
-                  </div>
-                </div>
-              </RadioGroup>
-            </div>
           </CardContent>
         </Card>
 
