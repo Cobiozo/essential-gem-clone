@@ -115,7 +115,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
       // Load leader permissions (common settings + durations)
       const { data: permData } = await supabase
         .from('leader_permissions')
-        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_meeting_enabled, partner_consultation_enabled, tripartite_slot_duration, consultation_slot_duration, calendar_visibility_scope')
+        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_meeting_enabled, partner_consultation_enabled, tripartite_slot_duration, consultation_slot_duration, calendar_visibility_scope, tripartite_visibility_scope, consultation_visibility_scope')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -123,17 +123,20 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
         setZoomLink(permData.zoom_link || '');
         setBookingMode(permData.use_external_booking ? 'external' : 'internal');
         setExternalCalendlyUrl(permData.external_calendly_url || '');
-        setVisibilityScope(((permData as any).calendar_visibility_scope as 'upline_only' | 'everyone') || 'upline_only');
-        
+        const legacyScope = ((permData as any).calendar_visibility_scope as 'upline_only' | 'everyone') || 'upline_only';
+        setVisibilityScope(legacyScope);
+
         setTripartiteSettings(prev => ({
           ...prev,
           is_active: permData.tripartite_meeting_enabled ?? true,
           slot_duration: permData.tripartite_slot_duration || 60,
+          visibility_scope: ((permData as any).tripartite_visibility_scope as 'upline_only' | 'everyone') || legacyScope,
         }));
         setConsultationSettings(prev => ({
           ...prev,
           is_active: permData.partner_consultation_enabled ?? true,
           slot_duration: permData.consultation_slot_duration || 60,
+          visibility_scope: ((permData as any).consultation_visibility_scope as 'upline_only' | 'everyone') || legacyScope,
         }));
       }
 
