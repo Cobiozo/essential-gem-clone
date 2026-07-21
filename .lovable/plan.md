@@ -1,78 +1,48 @@
+## Plan wdrożenia (2 zadania)
 
-## Problem
+### 1) Powiadomienie po zakończeniu przetwarzania serwerowego (upload wideo)
 
-W `PartnerMeetingBooking` (zakładka „Rezerwuj → Trójstronne / Konsultacje") pobierane są **wszyscy** liderzy z włączonym `tripartite_meeting_enabled` / `partner_consultation_enabled`, bez żadnego filtrowania po hierarchii. Dlatego np. `sebastiansnopek.eqology` widzi Dorotę Hamerską i Elżbietę Dąbrowską, mimo że nie są jego uplinem.
+**`src/hooks/useLocalStorage.ts`**
+- Dodaję etap uploadu: `uploadStage: 'idle' | 'transferring' | 'processing' | 'verifying' | 'done'` (nowy stan + zwrot z hooka).
+- Przełączenie na `processing` gdy `xhr.upload.onprogress` osiągnie 100% (pasek stoi na 90%).
+- Po `xhr.onload` → `verifying`, po pomyślnej weryfikacji → `done` (utrzymane ~800 ms, potem `idle`).
 
-Oczekiwane zachowanie: użytkownik widzi tylko liderów, którzy są **powyżej niego w linii** (chain `upline_eq_id` z `profiles`), a lider może opcjonalnie „otworzyć" kalendarz dla wszystkich.
+**`src/components/MediaUpload.tsx`**
+- Pod paskiem osobne komunikaty per etap + `Tooltip` z pełnym opisem:
+  - `transferring` — „Przesyłanie… {n}%"
+  - `processing` — „Optymalizacja wideo na serwerze (H.264/AAC pod iPhone). Może potrwać kilka minut — nie zamykaj karty." + spinner
+  - `verifying` — „Weryfikacja pliku…"
+- Gdy `uploadStage` przechodzi z `processing/verifying` → `done` **i to było wideo**: dodatkowy toast **„Przetwarzanie zakończone — plik gotowy do publikacji"**, potem dotychczasowy toast „Sukces".
 
-## Zmiany
+Bez zmian po stronie serwera — działa również z obecnym synchronicznym transkodowaniem (klient jasno informuje, że proces trwa i kiedy się skończył).
 
-### 1. Baza — nowa kolumna widoczności kalendarza
+### 2) Osobna widoczność kalendarza: trójstronne vs konsultacje
 
-Migracja na `public.leader_permissions`:
+**Migracja bazy** (przez `supabase--migration`)
+- `leader_permissions`: dodanie kolumn `tripartite_visibility_scope` i `consultation_visibility_scope` (`text`, default `'upline_only'`, CHECK w `('upline_only','everyone')`).
+- Backfill z istniejącego `calendar_visibility_scope` do obu nowych pól (zachowanie dotychczasowego zachowania).
+- Starą kolumnę `calendar_visibility_scope` **zostawiam** (deprecated) — nie usuwam teraz, żeby nie zepsuć nieaktualnego kodu; docelowo do wygaszenia.
 
-- `calendar_visibility_scope text NOT NULL DEFAULT 'upline_only'` z CHECK w (`'upline_only'`, `'everyone'`).
-- Krótki komentarz kolumny.
+**`src/components/events/UnifiedMeetingSettingsForm.tsx`**
+- Usuwam wspólny selektor „Kto widzi Twój kalendarz" z sekcji wspólnej.
+- Dodaję **osobny selektor w każdej karcie** (Spotkanie trójstronne / Konsultacje dla partnerów) z tymi samymi dwiema opcjami: „Tylko moja struktura" / „Wszyscy zalogowani użytkownicy".
+- Stany: `tripartiteVisibilityScope`, `consultationVisibilityScope`. Ładowane z nowych kolumn (fallback do `calendar_visibility_scope`, potem `'upline_only'`).
+- `upsert` w `leader_permissions` zapisuje obie nowe kolumny; dodatkowo aktualizuję deprecated `calendar_visibility_scope` = `'everyone'` gdy którakolwiek jest `everyone`, w przeciwnym razie `upline_only` (kompatybilność wsteczna).
 
-`upline_only` = kalendarz widoczny tylko dla użytkowników w downline lidera (czyli lider jest w ich uplinie). `everyone` = widoczny dla wszystkich zalogowanych.
+**`src/components/events/MeetingTypeCard.tsx`**
+- Nowe propsy `visibilityScope`, `onVisibilityScopeChange` — renderuję radio wewnątrz karty.
 
-### 2. Funkcja pomocnicza — chain uplinu bieżącego użytkownika
+**`src/components/events/PartnerMeetingBooking.tsx`**
+- Poszerzam `SELECT` z `leader_permissions` o `tripartite_visibility_scope, consultation_visibility_scope`.
+- Filtrowanie liderów: pole scope wybierane wg `meetingType` (fallback: `calendar_visibility_scope` → `'upline_only'`). Admin bypass i logika upline bez zmian.
 
-Nowa funkcja SQL `public.get_upline_user_ids(_user_id uuid)` (SECURITY DEFINER, `SET search_path = public`):
+**Typy Supabase** — po aprobacie migracji poczekam na regenerację `src/integrations/supabase/types.ts`, potem podpinam nowe kolumny.
 
-- Startuje od `profiles.upline_eq_id` użytkownika.
-- Rekurencyjnie wspina się po `profiles` po `eq_id = poprzedni upline_eq_id`, max 20 poziomów, unikając cykli.
-- Zwraca `TABLE(user_id uuid)` — wszystkich przodków (bez self).
+### Poza zakresem
+- Nie ruszam odtwarzacza, CRM, webinar-alertów, RLS.
+- Bez zmian w server.js w tym kroku (asynchroniczne transkodowanie może dojść w osobnym zadaniu).
 
-GRANT EXECUTE dla `authenticated`.
-
-### 3. Frontend — `PartnerMeetingBooking.loadPartners`
-
-Po pobraniu `permissions` i `profiles` dokładam filtrowanie:
-
-1. Wołam `supabase.rpc('get_upline_user_ids', { _user_id: user.id })` → `Set<uplineIds>`.
-2. Pobieram też `calendar_visibility_scope` z `leader_permissions`.
-3. Lider trafia na listę tylko, gdy:
-   - `scope === 'everyone'`, **lub**
-   - `perm.user_id` jest w `uplineIds`.
-4. Admin (`userRole === 'admin'`) widzi wszystkich (bypass) — jak dziś przy innych podglądach.
-
-Reszta logiki (filtrowanie po `has_availability || use_external_booking`, wykluczanie self) bez zmian.
-
-### 4. Frontend — przełącznik dla lidera w `UnifiedMeetingSettingsForm`
-
-W sekcji „Ustawienia kalendarza" (obok wyboru trybu wewnętrzny/Calendly) dodaję pole:
-
-- Label: „Kto widzi Twój kalendarz spotkań indywidualnych?"
-- `RadioGroup`:
-  - **Tylko moja struktura (poniżej mnie)** — domyślne.
-  - **Wszyscy zalogowani użytkownicy** — świadome „otwarcie" dla całej platformy.
-- Krótki opis: „Zalecane: tylko struktura. Wybierz »Wszyscy«, jeśli chcesz udostępniać swój kalendarz również osobom spoza swojego downline'u."
-
-Wartość ładowana z `leader_permissions.calendar_visibility_scope` i zapisywana w istniejącym `upsert` (linie 359–362).
-
-Admin nie zmienia zachowania (i tak widzi wszystkich).
-
-## Dlaczego przełącznik ma sens
-
-Tak — użytkownik potrzebuje obu zachowań:
-
-- **Domyślnie `upline_only`** rozwiązuje raportowany problem prywatności/porządku (Sebastian nie widzi Doroty ani Elżbiety).
-- **Opcja `everyone`** zostawia furtkę dla liderów, którzy świadomie chcą być „partnerem prowadzącym" dla całej platformy (np. jako gość specjalny, mentor cross-team). Bez tego przełącznika stracilibyśmy dotychczasowe zachowanie w przypadkach, gdzie było pożądane; z przełącznikiem lider sam decyduje i decyzja jest jawna w jego panelu.
-
-## Efekt końcowy (na przykładach z prośby)
-
-Przy strukturze `dawidkowalczyk → doroty hamerskiej → elżbiety dąbrowskiej → sebastianasnopek.eqology`:
-
-- `sebastiansnopek.eqology` widzi tylko `dawidkowalczyk` (upline_only na Dorocie i Elżbiecie).
-- `elzbieta.dabrowska` widzi `dawidkowalczyk` (Dorota jej downline).  
-  *Uwaga:* w treści prośby jest: „elzbieta dabrowska tylko dawid kowalczyk" — plan realizuje dokładnie ten warunek: pokazuje wyłącznie uplinie, więc Dorota (downline Elżbiety) nie będzie widoczna. Zgodne z prośbą.
-- `dorota.hamerska` widzi `elzbieta.dabrowska`? Nie — Elżbieta jest jej downline. Zgodnie z prośbą pokazujemy tylko upline, więc Dorota zobaczy `dawidkowalczyk`.  
-  *Rozbieżność do potwierdzenia:* w prośbie napisano „dorota hamerska powinna widzieć elżbieta dabrowska i dawid kowalczyk" — to oznaczałoby „upline + downline". Domyślnie plan realizuje **tylko upline** (spójne z pozostałymi przykładami). Jeśli intencją było „również lider widzi swój downline z włączonym kalendarzem", zmienimy regułę na „upline ∪ własny downline" — daj znać, którą wersję wdrożyć.
-
-## Techniczne szczegóły
-
-- Filtrowanie po stronie klienta (analogicznie jak dziś); RLS na `leader_permissions` już pozwala czytać publicznie interesujące pola.
-- Nie ruszam RLS ani innych ścieżek (Admin, panele lidera, edge functions dla `check-google-calendar-busy` itd.).
-- Brak wpływu na `leader_availability`, `events`, rezerwacje.
-- Migracja obejmuje: `ALTER TABLE`, CHECK constraint, `CREATE FUNCTION get_upline_user_ids`, `GRANT EXECUTE`.
+Kolejność w build:
+1. Migracja SQL (kolumny + backfill).
+2. Zmiany w `useLocalStorage` + `MediaUpload` (niezależne od migracji).
+3. Po regeneracji typów — formularz + `PartnerMeetingBooking`.
