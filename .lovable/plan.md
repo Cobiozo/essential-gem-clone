@@ -1,48 +1,31 @@
-## Plan wdrożenia (2 zadania)
+## Cel
+Naprawić dodawanie plików MP4 do lekcji w Akademii, które obecnie kończy się błędem: „Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików)”.
 
-### 1) Powiadomienie po zakończeniu przetwarzania serwerowego (upload wideo)
+## Co ustaliłem
+- Upload MP4 idzie przez endpoint `/upload` w `server.js`, a nie przez Supabase Storage.
+- Po uploadzie frontend natychmiast weryfikuje zwrócony URL przez `fetch(..., { Range: 'bytes=0-0' })`.
+- Serwer zwraca pełny URL produkcyjny `https://purelifecenter.pl/uploads/...`, więc w podglądzie/Lovable albo przy świeżym pliku weryfikacja może sprawdzać nie ten host albo host, który jeszcze nie widzi pliku.
+- Błąd widoczny na screenie pochodzi właśnie z tej weryfikacji po stronie frontendu, nie z samego wyboru pliku.
 
-**`src/hooks/useLocalStorage.ts`**
-- Dodaję etap uploadu: `uploadStage: 'idle' | 'transferring' | 'processing' | 'verifying' | 'done'` (nowy stan + zwrot z hooka).
-- Przełączenie na `processing` gdy `xhr.upload.onprogress` osiągnie 100% (pasek stoi na 90%).
-- Po `xhr.onload` → `verifying`, po pomyślnej weryfikacji → `done` (utrzymane ~800 ms, potem `idle`).
+## Plan naprawy
+1. **Uodpornić zwracanie URL po uploadzie**
+   - W `server.js` zwracać dodatkowo `relativePath` i nadal zostawić `url` dla kompatybilności.
+   - Po stronie frontendu preferować lokalny `relativePath` (`/uploads/training-media/...`) do natychmiastowej weryfikacji i zapisu w lekcji, zamiast sztywnego pełnego URL produkcyjnego.
 
-**`src/components/MediaUpload.tsx`**
-- Pod paskiem osobne komunikaty per etap + `Tooltip` z pełnym opisem:
-  - `transferring` — „Przesyłanie… {n}%"
-  - `processing` — „Optymalizacja wideo na serwerze (H.264/AAC pod iPhone). Może potrwać kilka minut — nie zamykaj karty." + spinner
-  - `verifying` — „Weryfikacja pliku…"
-- Gdy `uploadStage` przechodzi z `processing/verifying` → `done` **i to było wideo**: dodatkowy toast **„Przetwarzanie zakończone — plik gotowy do publikacji"**, potem dotychczasowy toast „Sukces".
+2. **Naprawić weryfikację wideo po uploadzie**
+   - W `useLocalStorage.ts` sprawdzać najpierw lokalny/relatywny URL.
+   - Dodać krótkie retry weryfikacji, bo plik może być zapisany, ale serwer/streaming może odpowiedzieć chwilę później.
+   - Nie kończyć procesu błędem tylko dlatego, że `Range fetch` chwilowo nie przeszedł, jeśli endpoint uploadu zwrócił `success: true`, `verified: true` i poprawną ścieżkę.
 
-Bez zmian po stronie serwera — działa również z obecnym synchronicznym transkodowaniem (klient jasno informuje, że proces trwa i kiedy się skończył).
+3. **Poprawić komunikat dla admina**
+   - W `MediaUpload.tsx` rozróżnić realny błąd uploadu od opóźnionej weryfikacji.
+   - Jeśli upload się udał, ale weryfikacja streamingu wymaga chwili, pokazać komunikat typu „Plik został zapisany, trwa sprawdzanie dostępności odtwarzania”, zamiast czerwonego błędu blokującego dodanie lekcji.
 
-### 2) Osobna widoczność kalendarza: trójstronne vs konsultacje
+4. **Zachować optymalizację pod iPhone**
+   - Nie usuwać obecnego mechanizmu konwersji do MP4 H.264 + AAC.
+   - Dopilnować, aby po konwersji zwracana nazwa/URL wskazywały na finalny plik `*-ios-h264.mp4`.
 
-**Migracja bazy** (przez `supabase--migration`)
-- `leader_permissions`: dodanie kolumn `tripartite_visibility_scope` i `consultation_visibility_scope` (`text`, default `'upline_only'`, CHECK w `('upline_only','everyone')`).
-- Backfill z istniejącego `calendar_visibility_scope` do obu nowych pól (zachowanie dotychczasowego zachowania).
-- Starą kolumnę `calendar_visibility_scope` **zostawiam** (deprecated) — nie usuwam teraz, żeby nie zepsuć nieaktualnego kodu; docelowo do wygaszenia.
-
-**`src/components/events/UnifiedMeetingSettingsForm.tsx`**
-- Usuwam wspólny selektor „Kto widzi Twój kalendarz" z sekcji wspólnej.
-- Dodaję **osobny selektor w każdej karcie** (Spotkanie trójstronne / Konsultacje dla partnerów) z tymi samymi dwiema opcjami: „Tylko moja struktura" / „Wszyscy zalogowani użytkownicy".
-- Stany: `tripartiteVisibilityScope`, `consultationVisibilityScope`. Ładowane z nowych kolumn (fallback do `calendar_visibility_scope`, potem `'upline_only'`).
-- `upsert` w `leader_permissions` zapisuje obie nowe kolumny; dodatkowo aktualizuję deprecated `calendar_visibility_scope` = `'everyone'` gdy którakolwiek jest `everyone`, w przeciwnym razie `upline_only` (kompatybilność wsteczna).
-
-**`src/components/events/MeetingTypeCard.tsx`**
-- Nowe propsy `visibilityScope`, `onVisibilityScopeChange` — renderuję radio wewnątrz karty.
-
-**`src/components/events/PartnerMeetingBooking.tsx`**
-- Poszerzam `SELECT` z `leader_permissions` o `tripartite_visibility_scope, consultation_visibility_scope`.
-- Filtrowanie liderów: pole scope wybierane wg `meetingType` (fallback: `calendar_visibility_scope` → `'upline_only'`). Admin bypass i logika upline bez zmian.
-
-**Typy Supabase** — po aprobacie migracji poczekam na regenerację `src/integrations/supabase/types.ts`, potem podpinam nowe kolumny.
-
-### Poza zakresem
-- Nie ruszam odtwarzacza, CRM, webinar-alertów, RLS.
-- Bez zmian w server.js w tym kroku (asynchroniczne transkodowanie może dojść w osobnym zadaniu).
-
-Kolejność w build:
-1. Migracja SQL (kolumny + backfill).
-2. Zmiany w `useLocalStorage` + `MediaUpload` (niezależne od migracji).
-3. Po regeneracji typów — formularz + `PartnerMeetingBooking`.
+5. **Walidacja po wdrożeniu**
+   - Sprawdzić, że po uploadzie MP4 komponent wywołuje `onMediaUploaded(...)` i lekcja dostaje URL pliku.
+   - Sprawdzić, że pasek dochodzi do końca i pokazuje stan zakończenia zamiast błędu „brak dostępu do serwera plików”.
+   - Sprawdzić typecheck/lint w zakresie zmienionych plików, jeśli środowisko pozwoli.
