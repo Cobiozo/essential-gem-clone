@@ -207,6 +207,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         }
       }
 
+      lastUploadKindRef.current = mediaType;
       const result = await uploadFile(file, {
         folder: 'training-media',
         onProgress: (percent) => {
