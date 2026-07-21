@@ -171,7 +171,11 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         .filter(p => p.user_id !== user?.id) // Exclude current user
         .filter(p => {
           if (isAdmin) return true;
-          const scope = (p as any).calendar_visibility_scope || 'upline_only';
+          const legacy = (p as any).calendar_visibility_scope || 'upline_only';
+          const perTypeField = meetingType === 'tripartite'
+            ? (p as any).tripartite_visibility_scope
+            : (p as any).consultation_visibility_scope;
+          const scope = perTypeField || legacy;
           if (scope === 'everyone') return true;
           return uplineIds.has(p.user_id);
         })
