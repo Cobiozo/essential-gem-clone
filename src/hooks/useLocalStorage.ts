@@ -399,6 +399,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     uploadFile,
     deleteFile,
     uploadProgress,
+    uploadStage,
     isUploading,
     error,
     listFiles
