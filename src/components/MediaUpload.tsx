@@ -40,7 +40,21 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const isUploadingRef = useRef(false);
   const inputId = useRef(`media-upload-${Math.random().toString(36).slice(2)}`);
   const { toast } = useToast();
-  const { uploadFile, deleteFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
+  const { uploadFile, deleteFile, uploadProgress, uploadStage, isUploading, listFiles } = useLocalStorage();
+  const prevStageRef = useRef(uploadStage);
+  const lastUploadKindRef = useRef<'image' | 'video' | 'document' | 'audio' | 'other' | null>(null);
+
+  // Toast po zakończeniu przetwarzania serwerowego (istotne przy dużych wideo, gdzie ffmpeg transkoduje).
+  useEffect(() => {
+    const wasProcessing = prevStageRef.current === 'processing' || prevStageRef.current === 'verifying';
+    if (wasProcessing && uploadStage === 'done' && lastUploadKindRef.current === 'video') {
+      toast({
+        title: '✅ Przetwarzanie zakończone',
+        description: 'Wideo zostało zoptymalizowane pod iPhone/Safari i jest gotowe do publikacji.',
+      });
+    }
+    prevStageRef.current = uploadStage;
+  }, [uploadStage, toast]);
 
   const uploadMedia = async (file: File) => {
     if (!file || isUploading) return;
