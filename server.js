@@ -587,11 +587,14 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
     res.json({
       success: true,
       url: fullUrl,
+      publicUrl: fullUrl,
       relativePath,
       fileName: req.file.filename,
       originalName: req.file.originalname,
       size: onDiskSize,
+      fileSize: onDiskSize,
       mimeType: req.file.mimetype,
+      fileType: req.file.mimetype,
       verified: true
     });
   } catch (error) {

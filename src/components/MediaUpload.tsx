@@ -227,13 +227,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         onMediaUploaded(result.url, mediaType, altText, localDuration);
         toast({
           title: "Sukces",
-          description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)}, czas: ${Math.floor(localDuration / 60)}:${String(localDuration % 60).padStart(2, '0')})`,
+          description: result.verificationWarning
+            ? `${typeNames[mediaType]} zostało zapisane. Streaming może być dostępny po kilku sekundach. (${formatFileSize(file.size)}, czas: ${Math.floor(localDuration / 60)}:${String(localDuration % 60).padStart(2, '0')})`
+            : `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)}, czas: ${Math.floor(localDuration / 60)}:${String(localDuration % 60).padStart(2, '0')})`,
         });
       } else {
         onMediaUploaded(result.url, mediaType, altText, localDuration);
         toast({
           title: "Sukces",
-          description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
+          description: result.verificationWarning
+            ? `${typeNames[mediaType]} zostało zapisane. Streaming może być dostępny po kilku sekundach. (${formatFileSize(file.size)})`
+            : `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
         });
       }
     } catch (error: any) {

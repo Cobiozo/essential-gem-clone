@@ -15,6 +15,10 @@ interface UploadResult {
   fileName: string;
   fileSize: number;
   fileType: string;
+  relativePath?: string;
+  publicUrl?: string;
+  serverVerified?: boolean;
+  verificationWarning?: string;
 }
 
 interface UseLocalStorageReturn {
@@ -95,28 +99,68 @@ const uploadToSupabase = async (
 };
 
 
-// Weryfikuje, czy wgrany URL faktycznie wskazuje na plik wideo (a nie HTML/404 z SPA fallback).
-async function verifyVideoUrl(url: string): Promise<string | null> {
-  let res: Response;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getUploadRelativePath = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  if (value.startsWith('/uploads/')) return value;
   try {
-    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+    const parsed = new URL(value);
+    if (parsed.pathname.startsWith('/uploads/')) {
+      return `${parsed.pathname}${parsed.search}`;
+    }
   } catch {
-    return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików). Spróbuj jeszcze raz.';
+    return undefined;
   }
-  if (res.status === 404) {
-    return 'Serwer zwrócił 404 dla wgranego pliku — plik nie został zapisany w docelowym folderze. Spróbuj ponownie lub skontaktuj się z administratorem.';
+  return undefined;
+};
+
+// Weryfikuje, czy wgrany URL faktycznie wskazuje na plik wideo (a nie HTML/404 z SPA fallback).
+// Sprawdza najpierw ścieżkę same-origin (/uploads/...), potem publiczny URL i robi krótkie retry.
+async function verifyVideoUrl(urls: string[] | string): Promise<string | null> {
+  const candidates = Array.from(new Set((Array.isArray(urls) ? urls : [urls]).filter(Boolean)));
+  let lastError = 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików).';
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (const url of candidates) {
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+      } catch {
+        lastError = 'Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików).';
+        continue;
+      }
+
+      if (res.status === 404) {
+        lastError = 'Serwer zwrócił 404 dla wgranego pliku — plik nie został jeszcze udostępniony do odtwarzania.';
+        continue;
+      }
+
+      if (res.status !== 200 && res.status !== 206) {
+        lastError = `Serwer zwrócił status ${res.status} dla wgranego pliku.`;
+        continue;
+      }
+
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('text/html')) {
+        lastError = 'Serwer zwraca HTML zamiast pliku wideo — odtwarzanie nie jest jeszcze dostępne.';
+        continue;
+      }
+
+      if (ct && !ct.startsWith('video/') && !ct.startsWith('application/octet-stream')) {
+        lastError = `Serwer nie zwraca pliku wideo (content-type: ${ct}).`;
+        continue;
+      }
+
+      return null;
+    }
+
+    if (attempt < 2) {
+      await sleep(900 * (attempt + 1));
+    }
   }
-  if (res.status !== 200 && res.status !== 206) {
-    return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
-  }
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (ct.startsWith('text/html')) {
-    return 'Serwer zwraca HTML zamiast pliku wideo — upload się nie powiódł. Spróbuj ponownie lub skontaktuj się z administratorem.';
-  }
-  if (ct && !ct.startsWith('video/') && !ct.startsWith('application/octet-stream')) {
-    return `Serwer nie zwraca pliku wideo (content-type: ${ct}). Upload jest nieprawidłowy.`;
-  }
-  return null;
+
+  return `${lastError} Plik został zapisany przez endpoint uploadu, ale streaming może być dostępny po chwili.`;
 }
 
 export const useLocalStorage = (): UseLocalStorageReturn => {
@@ -207,7 +251,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       formData.append('file', file);
 
       // XMLHttpRequest z realnym progress tracking (30 min timeout dla dużych wideo)
-      const result = await new Promise<{ success: boolean; url: string; fileName: string; fileSize: number; fileType: string }>((resolve, reject) => {
+      const result = await new Promise<UploadResult>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -255,13 +299,25 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
             return;
           }
 
+          const publicUrl = typeof data.url === 'string' ? data.url : '';
+          const relativePath = getUploadRelativePath(data.relativePath) || getUploadRelativePath(publicUrl);
+          const preferredUrl = relativePath || publicUrl;
+
+          if (!preferredUrl) {
+            reject(new Error('Serwer nie zwrócił prawidłowego URL wgranego pliku.'));
+            return;
+          }
+
           setUploadProgress(95);
           resolve({
             success: true,
-            url: data.url,
+            url: preferredUrl,
+            relativePath,
+            publicUrl: publicUrl || preferredUrl,
             fileName: data.fileName || file.name,
-            fileSize: data.fileSize || file.size,
-            fileType: data.fileType || file.type
+            fileSize: data.fileSize || data.size || file.size,
+            fileType: data.fileType || data.mimeType || file.type,
+            serverVerified: data.verified === true
           });
         };
 
@@ -282,9 +338,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       if (isVideo) {
         setUploadStage('verifying');
         options?.onProgress?.(95, 'verifying');
-        const verr = await verifyVideoUrl(result.url);
+        const verificationUrls = [result.relativePath, result.publicUrl, result.url].filter(Boolean) as string[];
+        const verr = await verifyVideoUrl(verificationUrls);
         if (verr) {
-          throw new Error(verr);
+          if (result.serverVerified) {
+            result.verificationWarning = verr;
+            console.warn('Video upload saved but streaming verification was delayed:', verr);
+          } else {
+            throw new Error(`${verr} Spróbuj jeszcze raz.`);
+          }
         }
       }
 
