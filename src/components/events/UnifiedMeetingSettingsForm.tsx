@@ -37,6 +37,7 @@ const getDefaultMeetingTypeSettings = (
   image_url: '',
   is_active: true,
   slot_duration: 60,
+  visibility_scope: 'upline_only',
   weeklySchedule: getDefaultSchedule(),
   dateExceptions: [],
 });
