@@ -114,7 +114,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
       // Load leader permissions (common settings + durations)
       const { data: permData } = await supabase
         .from('leader_permissions')
-        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_meeting_enabled, partner_consultation_enabled, tripartite_slot_duration, consultation_slot_duration')
+        .select('zoom_link, use_external_booking, external_calendly_url, tripartite_meeting_enabled, partner_consultation_enabled, tripartite_slot_duration, consultation_slot_duration, calendar_visibility_scope')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -122,6 +122,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
         setZoomLink(permData.zoom_link || '');
         setBookingMode(permData.use_external_booking ? 'external' : 'internal');
         setExternalCalendlyUrl(permData.external_calendly_url || '');
+        setVisibilityScope(((permData as any).calendar_visibility_scope as 'upline_only' | 'everyone') || 'upline_only');
         
         setTripartiteSettings(prev => ({
           ...prev,
