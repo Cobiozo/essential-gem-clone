@@ -97,7 +97,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   // Load partners with enabled permissions and availability
   useEffect(() => {
     loadPartners();
-  }, [meetingType]);
+  }, [meetingType, user?.id, isAdmin]);
 
   const loadPartners = async () => {
     setLoading(true);
