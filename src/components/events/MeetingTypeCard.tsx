@@ -27,6 +27,7 @@ export interface MeetingTypeSettings {
   image_url: string;
   is_active: boolean;
   slot_duration: number;
+  visibility_scope: 'upline_only' | 'everyone';
   weeklySchedule: WeeklySchedule;
   dateExceptions: DateException[];
 }
