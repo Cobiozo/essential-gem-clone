@@ -480,8 +480,8 @@ const requireUploadAuth = (req, res, next) => {
 // Upload single file
 app.post('/upload', requireUploadAuth, (req, res, next) => {
   // Zwiększ timeout dla uploadu dużych plików
-  req.setTimeout(10 * 60 * 1000); // 10 minut
-  res.setTimeout(10 * 60 * 1000);
+  req.setTimeout(30 * 60 * 1000); // 30 minut
+  res.setTimeout(30 * 60 * 1000);
   next();
 }, upload.single('file'), (req, res) => {
   try {
@@ -587,11 +587,14 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
     res.json({
       success: true,
       url: fullUrl,
+      publicUrl: fullUrl,
       relativePath,
       fileName: req.file.filename,
       originalName: req.file.originalname,
       size: onDiskSize,
+      fileSize: onDiskSize,
       mimeType: req.file.mimetype,
+      fileType: req.file.mimetype,
       verified: true
     });
   } catch (error) {
