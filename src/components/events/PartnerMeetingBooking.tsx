@@ -111,7 +111,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Get leader permissions with the required permission enabled
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled, use_external_booking, external_calendly_url')
+        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled, use_external_booking, external_calendly_url, calendar_visibility_scope')
         .eq(permissionField, true);
 
       if (permError) {
