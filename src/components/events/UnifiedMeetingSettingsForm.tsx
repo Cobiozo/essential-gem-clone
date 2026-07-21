@@ -368,7 +368,9 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
           partner_consultation_enabled: consultationSettings.is_active,
           tripartite_slot_duration: tripartiteSettings.slot_duration,
           consultation_slot_duration: consultationSettings.slot_duration,
-          calendar_visibility_scope: visibilityScope,
+          calendar_visibility_scope: tripartiteSettings.visibility_scope,
+          tripartite_visibility_scope: tripartiteSettings.visibility_scope,
+          consultation_visibility_scope: consultationSettings.visibility_scope,
         })
         .eq('user_id', user.id);
 
