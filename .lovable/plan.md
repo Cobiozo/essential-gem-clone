@@ -1,123 +1,78 @@
 
-## Cel
+## Problem
 
-1. Zastąpić wszystkie wystąpienia `purelife.info.pl` domeną `purelifecenter.pl` (kod + baza).
-2. Dodać w panelu admina globalne ustawienie **App URL** (bazowy URL aplikacji), aby w przyszłości zmiana domeny nie wymagała edycji kodu.
+W `PartnerMeetingBooking` (zakładka „Rezerwuj → Trójstronne / Konsultacje") pobierane są **wszyscy** liderzy z włączonym `tripartite_meeting_enabled` / `partner_consultation_enabled`, bez żadnego filtrowania po hierarchii. Dlatego np. `sebastiansnopek.eqology` widzi Dorotę Hamerską i Elżbietę Dąbrowską, mimo że nie są jego uplinem.
 
----
+Oczekiwane zachowanie: użytkownik widzi tylko liderów, którzy są **powyżej niego w linii** (chain `upline_eq_id` z `profiles`), a lider może opcjonalnie „otworzyć" kalendarz dla wszystkich.
 
-## Zakres audytu (co zostanie zmienione)
+## Zmiany
 
-**Baza danych (UPDATE):**
-- `page_settings.app_base_url` → `https://purelifecenter.pl`
-- `training_lessons.media_url` (134 rekordy) — replace `purelife.info.pl` → `purelifecenter.pl`
-- `healthy_knowledge.media_url` (54 rekordy) — jw.
-- `knowledge_resources.source_url` (34 rekordy) — jw.
-- `email_templates` (2 szablony) — replace w `body_html`/`subject`
-- `support_settings.email_address` → `support@purelifecenter.pl`
-- `smtp_settings.sender_email` → `noreply@purelifecenter.pl` (analogicznie)
+### 1. Baza — nowa kolumna widoczności kalendarza
 
-**Kod frontend (18 plików) — wszystkie hardkodowane `purelife.info.pl`:**
-`index.html` (og:url), `server.js` (PRODUCTION_DOMAIN + CORS), `src/hooks/useSubdomainDetection.ts`, `src/hooks/useLocalStorage.ts`, `src/lib/mediaTokenService.ts`, `src/components/SecureMedia.tsx`, `src/components/admin/AutoWebinarManagement.tsx`, `src/components/admin/EmailDeliveryDashboard.tsx`, `src/components/admin/DnsDiagnosticPanel.tsx`, `src/pages/{Admin,MyAccount,LeaderLandingPage,EventGuestRegistration,TrainingModule}.tsx`, `src/contexts/AuthContext.tsx`, `src/utils/invitationTemplates.ts`, komponenty dashboard/widgets/events/healthy-knowledge/homepage/auto-webinar (kilkanaście punktów) — zmiana `purelife.info.pl` → `purelifecenter.pl` i `@purelife.info.pl` → `@purelifecenter.pl` w adresach mailto/tekstach.
+Migracja na `public.leader_permissions`:
 
-**Edge functions (24 pliki) — fallbacki i adresy mailto:**
-`activate-email`, `admin-reset-password`, `admin-resend-event-order-confirmation`, `confirm-free-event-reservation`, `register-free-event-order`, `register-event-transfer-order`, `send-event-form-confirmation`, `send-welcome-email`, `send-password-reset`, `og-meta-proxy`, `google-oauth-callback`, `generate-hk-otp`, `send-chat-notification-email`, `cleanup-inactive-training`, `send-admin-activity-digest`, `send-inactivity-warning`, `send-inactivity-final-warning`, `send-support-email`, `send-post-event-thank-you`, `send-guest-thank-you-email`, `send-meeting-reminders`, `send-prospect-meeting-email`, `send-push-notification`, `generate-vapid-keys`, `generate-meeting-guest-token`, `process-pending-notifications`.
+- `calendar_visibility_scope text NOT NULL DEFAULT 'upline_only'` z CHECK w (`'upline_only'`, `'everyone'`).
+- Krótki komentarz kolumny.
 
-**Historyczne migracje SQL** — nie ruszamy (to zapis historii). Poprawa danych przez nową migrację UPDATE.
+`upline_only` = kalendarz widoczny tylko dla użytkowników w downline lidera (czyli lider jest w ich uplinie). `everyone` = widoczny dla wszystkich zalogowanych.
 
----
+### 2. Funkcja pomocnicza — chain uplinu bieżącego użytkownika
 
-## Nowa funkcja: globalne ustawienie App URL w panelu admina
+Nowa funkcja SQL `public.get_upline_user_ids(_user_id uuid)` (SECURITY DEFINER, `SET search_path = public`):
 
-Tabela `page_settings` już posiada kolumnę `app_base_url`. Wykorzystamy ją jako **jedyne źródło prawdy**.
+- Startuje od `profiles.upline_eq_id` użytkownika.
+- Rekurencyjnie wspina się po `profiles` po `eq_id = poprzedni upline_eq_id`, max 20 poziomów, unikając cykli.
+- Zwraca `TABLE(user_id uuid)` — wszystkich przodków (bez self).
 
-**Zmiany:**
-1. **Panel admina** — w `src/pages/Admin.tsx` (sekcja "Ustawienia strony" / gdzie już edytowany jest `app_base_url`, placeholder `https://purelife.info.pl` na miejscu 3804) dodać/wyeksponować pole:
-   - Label: „Bazowy adres URL aplikacji (App URL)"
-   - Placeholder i domyślna wartość: `https://purelifecenter.pl`
-   - Podpowiedź: „Używany we wszystkich linkach w e-mailach (rejestracje, potwierdzenia, reset hasła, zaproszenia, OTP itp.)"
-   - Walidacja: musi zaczynać się od `https://`, bez trailing `/`.
+GRANT EXECUTE dla `authenticated`.
 
-2. **Frontend — helper `src/lib/appUrl.ts`** (nowy plik):
-   ```ts
-   let cached: string | null = null;
-   export async function getAppBaseUrl(): Promise<string> {
-     if (cached) return cached;
-     const { data } = await supabase.from('page_settings').select('app_base_url').maybeSingle();
-     cached = (data?.app_base_url || 'https://purelifecenter.pl').replace(/\/$/, '');
-     return cached;
-   }
-   export function getAppBaseUrlSync(fallback = 'https://purelifecenter.pl'): string {
-     return cached || fallback;
-   }
-   ```
-   Podmieniamy hardkody `'https://purelife.info.pl'` w komponentach na wynik `getAppBaseUrl()` (lub `window.location.origin` tam, gdzie chodzi po prostu o „bieżącą domenę" — np. `ReflinkQRCode`, `ReflinkPreviewDialog` już tak działają).
+### 3. Frontend — `PartnerMeetingBooking.loadPartners`
 
-3. **Edge functions — jednolity pattern**:
-   ```ts
-   async function resolveAppBase(supabase): Promise<string> {
-     const { data } = await supabase.from('page_settings').select('app_base_url').maybeSingle();
-     return (Deno.env.get('SITE_URL') || data?.app_base_url || 'https://purelifecenter.pl').replace(/\/$/, '');
-   }
-   ```
-   Wszystkie 24 funkcje przechodzą na ten helper zamiast literału `"https://purelife.info.pl"`. `APP_BASE` w `activate-email` liczone raz w handlerze (nie top-level).
+Po pobraniu `permissions` i `profiles` dokładam filtrowanie:
 
-4. **`useSubdomainDetection.ts`** — matcher zmienia się na `.purelifecenter.pl` (subdomeny partnerskie muszą chodzić już pod nową domeną).
+1. Wołam `supabase.rpc('get_upline_user_ids', { _user_id: user.id })` → `Set<uplineIds>`.
+2. Pobieram też `calendar_visibility_scope` z `leader_permissions`.
+3. Lider trafia na listę tylko, gdy:
+   - `scope === 'everyone'`, **lub**
+   - `perm.user_id` jest w `uplineIds`.
+4. Admin (`userRole === 'admin'`) widzi wszystkich (bypass) — jak dziś przy innych podglądach.
 
-5. **`server.js`** — `PRODUCTION_DOMAIN` domyślnie `https://purelifecenter.pl`, CORS whitelist analogicznie. (Jeśli sekret `PRODUCTION_DOMAIN` jest ustawiony w prod, i tak nadpisuje — bezpieczne.)
+Reszta logiki (filtrowanie po `has_availability || use_external_booking`, wykluczanie self) bez zmian.
 
-6. **`mediaTokenService.ts` + `SecureMedia.tsx`** — checki `url.includes('purelife.info.pl')` zmieniamy na `url.includes('purelifecenter.pl')` (proxy tokenów i strategia preload dla wideo).
+### 4. Frontend — przełącznik dla lidera w `UnifiedMeetingSettingsForm`
 
-7. **`index.html`** — `og:url` → `https://purelifecenter.pl`.
+W sekcji „Ustawienia kalendarza" (obok wyboru trybu wewnętrzny/Calendly) dodaję pole:
 
----
+- Label: „Kto widzi Twój kalendarz spotkań indywidualnych?"
+- `RadioGroup`:
+  - **Tylko moja struktura (poniżej mnie)** — domyślne.
+  - **Wszyscy zalogowani użytkownicy** — świadome „otwarcie" dla całej platformy.
+- Krótki opis: „Zalecane: tylko struktura. Wybierz »Wszyscy«, jeśli chcesz udostępniać swój kalendarz również osobom spoza swojego downline'u."
 
-## Sekcja techniczna
+Wartość ładowana z `leader_permissions.calendar_visibility_scope` i zapisywana w istniejącym `upsert` (linie 359–362).
 
-**Migracja 1 (SQL — data update):**
-```sql
-UPDATE page_settings SET app_base_url = 'https://purelifecenter.pl'
-  WHERE app_base_url ILIKE '%purelife.info.pl%';
-UPDATE training_lessons SET media_url = REPLACE(media_url, 'purelife.info.pl', 'purelifecenter.pl')
-  WHERE media_url ILIKE '%purelife.info.pl%';
-UPDATE healthy_knowledge SET media_url = REPLACE(media_url, 'purelife.info.pl', 'purelifecenter.pl')
-  WHERE media_url ILIKE '%purelife.info.pl%';
-UPDATE knowledge_resources SET source_url = REPLACE(source_url, 'purelife.info.pl', 'purelifecenter.pl')
-  WHERE source_url ILIKE '%purelife.info.pl%';
-UPDATE email_templates
-  SET body_html = REPLACE(body_html, 'purelife.info.pl', 'purelifecenter.pl'),
-      subject  = REPLACE(subject,  'purelife.info.pl', 'purelifecenter.pl')
-  WHERE body_html ILIKE '%purelife.info.pl%' OR subject ILIKE '%purelife.info.pl%';
-UPDATE support_settings SET email_address = REPLACE(email_address, '@purelife.info.pl', '@purelifecenter.pl')
-  WHERE email_address ILIKE '%@purelife.info.pl%';
-UPDATE smtp_settings SET sender_email = REPLACE(sender_email, '@purelife.info.pl', '@purelifecenter.pl')
-  WHERE sender_email ILIKE '%@purelife.info.pl%';
-```
-(To operacja UPDATE — pójdzie przez insert tool, nie migration.)
+Admin nie zmienia zachowania (i tak widzi wszystkich).
 
-**Global replace w kodzie** — sed po plikach z listy audytu:
-- `https://purelife.info.pl` → `https://purelifecenter.pl`
-- `purelife.info.pl` (bare host) → `purelifecenter.pl`
-- `@purelife.info.pl` → `@purelifecenter.pl`
+## Dlaczego przełącznik ma sens
 
-Po replace weryfikacja: `rg "purelife\.info\.pl"` musi zwrócić tylko historyczne migracje w `supabase/migrations/`.
+Tak — użytkownik potrzebuje obu zachowań:
 
-**Sekret `SITE_URL`** (edge functions) — zaktualizować w Supabase → Settings → Functions na `https://purelifecenter.pl` (poinformuję użytkownika, żeby ustawił; alternatywnie zdejmiemy zależność od sekretu i zawsze czytamy z `page_settings`).
+- **Domyślnie `upline_only`** rozwiązuje raportowany problem prywatności/porządku (Sebastian nie widzi Doroty ani Elżbiety).
+- **Opcja `everyone`** zostawia furtkę dla liderów, którzy świadomie chcą być „partnerem prowadzącym" dla całej platformy (np. jako gość specjalny, mentor cross-team). Bez tego przełącznika stracilibyśmy dotychczasowe zachowanie w przypadkach, gdzie było pożądane; z przełącznikiem lider sam decyduje i decyzja jest jawna w jego panelu.
 
----
+## Efekt końcowy (na przykładach z prośby)
 
-## Poza zakresem (nie ruszam)
+Przy strukturze `dawidkowalczyk → doroty hamerskiej → elżbiety dąbrowskiej → sebastianasnopek.eqology`:
 
-- Historyczne pliki `supabase/migrations/*.sql` — pozostają jako zapis historii.
-- Konfiguracja Cloudflare / DNS / SMTP domeny nadawczej (SPF/DKIM/DMARC dla `purelifecenter.pl`) — to po stronie użytkownika/administratora domeny.
-- Rekordy `reply_to`/inbox przekierowań poczty — poza aplikacją.
+- `sebastiansnopek.eqology` widzi tylko `dawidkowalczyk` (upline_only na Dorocie i Elżbiecie).
+- `elzbieta.dabrowska` widzi `dawidkowalczyk` (Dorota jej downline).  
+  *Uwaga:* w treści prośby jest: „elzbieta dabrowska tylko dawid kowalczyk" — plan realizuje dokładnie ten warunek: pokazuje wyłącznie uplinie, więc Dorota (downline Elżbiety) nie będzie widoczna. Zgodne z prośbą.
+- `dorota.hamerska` widzi `elzbieta.dabrowska`? Nie — Elżbieta jest jej downline. Zgodnie z prośbą pokazujemy tylko upline, więc Dorota zobaczy `dawidkowalczyk`.  
+  *Rozbieżność do potwierdzenia:* w prośbie napisano „dorota hamerska powinna widzieć elżbieta dabrowska i dawid kowalczyk" — to oznaczałoby „upline + downline". Domyślnie plan realizuje **tylko upline** (spójne z pozostałymi przykładami). Jeśli intencją było „również lider widzi swój downline z włączonym kalendarzem", zmienimy regułę na „upline ∪ własny downline" — daj znać, którą wersję wdrożyć.
 
----
+## Techniczne szczegóły
 
-## Ryzyka
-
-- **E-maile już wysłane** z linkami `purelife.info.pl` przestaną działać, jeśli stara domena nie jest utrzymywana/redirectuje.
-- **SITE_URL secret** — jeśli ustawiony, wygrywa nad `page_settings`. Trzeba zaktualizować w panelu Supabase (przypomnę po wdrożeniu).
-- **VAPID `subject`** (`mailto:support@purelifecenter.pl`) w `send-push-notification`/`generate-vapid-keys` — zmiana wymaga nowej pary kluczy VAPID tylko jeśli push już działa; w praktyce zmiana samego `subject` jest bezpieczna, klucze zostają.
-
-Po akceptacji planu przechodzę do implementacji.
+- Filtrowanie po stronie klienta (analogicznie jak dziś); RLS na `leader_permissions` już pozwala czytać publicznie interesujące pola.
+- Nie ruszam RLS ani innych ścieżek (Admin, panele lidera, edge functions dla `check-google-calendar-busy` itd.).
+- Brak wpływu na `leader_availability`, `events`, rezerwacje.
+- Migracja obejmuje: `ALTER TABLE`, CHECK constraint, `CREATE FUNCTION get_upline_user_ids`, `GRANT EXECUTE`.
