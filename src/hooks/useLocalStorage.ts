@@ -2,9 +2,11 @@ import { useState, useCallback, useRef } from 'react';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 import { supabase } from '@/integrations/supabase/client';
 
+export type UploadStage = 'idle' | 'transferring' | 'processing' | 'verifying' | 'done';
+
 interface UploadOptions {
   folder?: string;
-  onProgress?: (percent: number) => void;
+  onProgress?: (percent: number, stage?: UploadStage) => void;
 }
 
 interface UploadResult {
@@ -19,6 +21,7 @@ interface UseLocalStorageReturn {
   uploadFile: (file: File, options?: UploadOptions) => Promise<UploadResult>;
   deleteFile: (url: string) => Promise<{ success: boolean; error?: string }>;
   uploadProgress: number;
+  uploadStage: UploadStage;
   isUploading: boolean;
   error: string | null;
   listFiles: (folder?: string) => Promise<Array<{ name: string; url: string; type: string }>>;
