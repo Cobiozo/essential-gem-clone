@@ -299,7 +299,9 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
             return;
           }
 
-          const publicUrl = typeof data.url === 'string' ? data.url : '';
+          const publicUrl = typeof data.url === 'string'
+            ? data.url
+            : (typeof data.publicUrl === 'string' ? data.publicUrl : '');
           const relativePath = getUploadRelativePath(data.relativePath) || getUploadRelativePath(publicUrl);
           const preferredUrl = relativePath || publicUrl;
 
