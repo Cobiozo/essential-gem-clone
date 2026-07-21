@@ -154,9 +154,27 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       const leadersWithAvailability = new Set(availabilityData?.map(a => a.leader_user_id) || []);
 
+      // Hierarchy filter: non-admin users only see leaders in their upline chain,
+      // unless the leader explicitly opened their calendar to everyone.
+      let uplineIds = new Set<string>();
+      if (!isAdmin && user?.id) {
+        const { data: uplineData, error: uplineError } = await supabase
+          .rpc('get_upline_user_ids', { _user_id: user.id });
+        if (uplineError) {
+          console.warn('[PartnerMeetingBooking] get_upline_user_ids failed:', uplineError);
+        }
+        uplineIds = new Set((uplineData || []).map((r: { user_id: string }) => r.user_id));
+      }
+
       // Merge data
       const partnersData: PartnerWithAvailability[] = permissions
         .filter(p => p.user_id !== user?.id) // Exclude current user
+        .filter(p => {
+          if (isAdmin) return true;
+          const scope = (p as any).calendar_visibility_scope || 'upline_only';
+          if (scope === 'everyone') return true;
+          return uplineIds.has(p.user_id);
+        })
         .map(perm => {
           const profile = profiles?.find(p => p.user_id === perm.user_id);
           return {
