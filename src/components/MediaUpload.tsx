@@ -460,9 +460,48 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
             {isUploading && (
               <div className="space-y-2">
                 <Progress value={uploadProgress} className="h-2" />
-                <p className="text-xs text-muted-foreground text-center">
-                  Przesyłanie... {uploadProgress}%
-                </p>
+                {uploadStage === 'transferring' && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Przesyłanie... {uploadProgress}%
+                  </p>
+                )}
+                {uploadStage === 'processing' && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 border rounded-md p-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mt-0.5 shrink-0 text-primary" />
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground flex items-center gap-1">
+                        Optymalizacja wideo na serwerze…
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              Serwer konwertuje wideo do formatu H.264 + AAC (MP4) zgodnego z iPhone/Safari.
+                              Dla dużych plików może to potrwać kilka minut. Nie zamykaj tej karty — po zakończeniu
+                              pojawi się powiadomienie.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </p>
+                      <p className="mt-0.5">
+                        Może potrwać kilka minut przy dużych plikach. Nie zamykaj karty.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {uploadStage === 'verifying' && (
+                  <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Weryfikacja pliku…
+                  </p>
+                )}
+                {uploadStage === 'done' && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 text-center flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Gotowe — plik przesłany i przetworzony
+                  </p>
+                )}
               </div>
             )}
             {!compact && (
