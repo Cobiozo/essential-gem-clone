@@ -54,7 +54,7 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
   const [zoomLink, setZoomLink] = useState('');
   const [bookingMode, setBookingMode] = useState<'internal' | 'external'>('internal');
   const [externalCalendlyUrl, setExternalCalendlyUrl] = useState('');
-  const [visibilityScope, setVisibilityScope] = useState<'upline_only' | 'everyone'>('upline_only');
+  const [visibilityScope, setVisibilityScope] = useState<'upline_only' | 'everyone'>('upline_only'); // legacy fallback
   const [hasGoogleCalendar, setHasGoogleCalendar] = useState(false);
   
   // Separate settings per meeting type
