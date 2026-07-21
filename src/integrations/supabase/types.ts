@@ -5704,6 +5704,7 @@ export type Database = {
           activated_at: string | null
           activated_by: string | null
           auto_webinar_granted_by: string | null
+          calendar_visibility_scope: string
           can_access_auto_webinar: boolean | null
           can_approve_registrations: boolean | null
           can_broadcast: boolean | null
@@ -5745,6 +5746,7 @@ export type Database = {
           activated_at?: string | null
           activated_by?: string | null
           auto_webinar_granted_by?: string | null
+          calendar_visibility_scope?: string
           can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
@@ -5786,6 +5788,7 @@ export type Database = {
           activated_at?: string | null
           activated_by?: string | null
           auto_webinar_granted_by?: string | null
+          calendar_visibility_scope?: string
           can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
@@ -12057,6 +12060,12 @@ export type Database = {
           reminder_count: number
           user_email: string
           user_first_name: string
+          user_id: string
+        }[]
+      }
+      get_upline_user_ids: {
+        Args: { _user_id: string }
+        Returns: {
           user_id: string
         }[]
       }

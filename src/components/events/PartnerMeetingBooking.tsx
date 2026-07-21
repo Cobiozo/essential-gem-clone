@@ -55,8 +55,9 @@ type BookingStep = 'select-partner' | 'select-datetime' | 'confirm';
 
 export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ meetingType }) => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const { language } = useLanguage();
+  const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
 
   const [step, setStep] = useState<BookingStep>('select-partner');
   const [loading, setLoading] = useState(true);
@@ -96,7 +97,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   // Load partners with enabled permissions and availability
   useEffect(() => {
     loadPartners();
-  }, [meetingType]);
+  }, [meetingType, user?.id, isAdmin]);
 
   const loadPartners = async () => {
     setLoading(true);
@@ -110,7 +111,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       // Get leader permissions with the required permission enabled
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled, use_external_booking, external_calendly_url')
+        .select('user_id, zoom_link, tripartite_meeting_enabled, partner_consultation_enabled, use_external_booking, external_calendly_url, calendar_visibility_scope')
         .eq(permissionField, true);
 
       if (permError) {
@@ -153,9 +154,27 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       const leadersWithAvailability = new Set(availabilityData?.map(a => a.leader_user_id) || []);
 
+      // Hierarchy filter: non-admin users only see leaders in their upline chain,
+      // unless the leader explicitly opened their calendar to everyone.
+      let uplineIds = new Set<string>();
+      if (!isAdmin && user?.id) {
+        const { data: uplineData, error: uplineError } = await supabase
+          .rpc('get_upline_user_ids', { _user_id: user.id });
+        if (uplineError) {
+          console.warn('[PartnerMeetingBooking] get_upline_user_ids failed:', uplineError);
+        }
+        uplineIds = new Set((uplineData || []).map((r: { user_id: string }) => r.user_id));
+      }
+
       // Merge data
       const partnersData: PartnerWithAvailability[] = permissions
         .filter(p => p.user_id !== user?.id) // Exclude current user
+        .filter(p => {
+          if (isAdmin) return true;
+          const scope = (p as any).calendar_visibility_scope || 'upline_only';
+          if (scope === 'everyone') return true;
+          return uplineIds.has(p.user_id);
+        })
         .map(perm => {
           const profile = profiles?.find(p => p.user_id === perm.user_id);
           return {
