@@ -2,9 +2,11 @@ import { useState, useCallback, useRef } from 'react';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 import { supabase } from '@/integrations/supabase/client';
 
+export type UploadStage = 'idle' | 'transferring' | 'processing' | 'verifying' | 'done';
+
 interface UploadOptions {
   folder?: string;
-  onProgress?: (percent: number) => void;
+  onProgress?: (percent: number, stage?: UploadStage) => void;
 }
 
 interface UploadResult {
@@ -19,6 +21,7 @@ interface UseLocalStorageReturn {
   uploadFile: (file: File, options?: UploadOptions) => Promise<UploadResult>;
   deleteFile: (url: string) => Promise<{ success: boolean; error?: string }>;
   uploadProgress: number;
+  uploadStage: UploadStage;
   isUploading: boolean;
   error: string | null;
   listFiles: (folder?: string) => Promise<Array<{ name: string; url: string; type: string }>>;
@@ -118,10 +121,16 @@ async function verifyVideoUrl(url: string): Promise<string | null> {
 
 export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uploadLockRef = useRef(false);
   const lastUploadRef = useRef<{ name: string; size: number; time: number } | null>(null);
+
+  const setStage = useCallback((stage: UploadStage, options?: UploadOptions) => {
+    setUploadStage(stage);
+    options?.onProgress?.(uploadProgress, stage);
+  }, [uploadProgress]);
 
   const uploadFile = useCallback(async (file: File, options?: UploadOptions): Promise<UploadResult> => {
     // Blokada równoległych uploadów - zapobiega duplikatom
@@ -143,6 +152,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadStage('transferring');
     setError(null);
 
     // Walidacja maksymalnego rozmiaru
@@ -150,6 +160,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       const errorMsg = `Plik jest za duży. Maksymalny rozmiar to ${STORAGE_CONFIG.MAX_FILE_SIZE_MB}MB (${formatFileSize(STORAGE_CONFIG.MAX_FILE_SIZE_BYTES)})`;
       setError(errorMsg);
       setIsUploading(false);
+      setUploadStage('idle');
       uploadLockRef.current = false;
       throw new Error(errorMsg);
     }
@@ -169,8 +180,10 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         setUploadProgress(10);
         const result = await uploadToSupabase(file, folder, (progress) => {
           setUploadProgress(progress);
-          options?.onProgress?.(progress);
+          options?.onProgress?.(progress, 'transferring');
         });
+        setUploadStage('done');
+        setTimeout(() => setUploadStage('idle'), 600);
         setIsUploading(false);
 
         uploadLockRef.current = false;
@@ -188,15 +201,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     // Duże pliki -> /upload lub fallback z małych plików gdy Supabase nie działa
     try {
       setUploadProgress(10);
-      
+
       const formData = new FormData();
       formData.append('folder', folder);
       formData.append('file', file);
 
-      // XMLHttpRequest z realnym progress tracking i 10-minutowym timeout
+      // XMLHttpRequest z realnym progress tracking (30 min timeout dla dużych wideo)
       const result = await new Promise<{ success: boolean; url: string; fileName: string; fileSize: number; fileType: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        const TIMEOUT_MS = 10 * 60 * 1000; // 10 minut
+        const TIMEOUT_MS = 30 * 60 * 1000;
 
         xhr.timeout = TIMEOUT_MS;
 
@@ -206,13 +219,20 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
             // Mapujemy 0-100% uploadu na zakres 10-90% paska postępu
             const percent = Math.round(10 + (event.loaded / event.total) * 80);
             setUploadProgress(percent);
-            options?.onProgress?.(percent);
+            options?.onProgress?.(percent, 'transferring');
           }
+        };
+
+        // Bajty przesłane w całości — serwer teraz przetwarza (może transkodować wideo).
+        xhr.upload.onload = () => {
+          setUploadProgress(90);
+          setUploadStage('processing');
+          options?.onProgress?.(90, 'processing');
         };
 
         xhr.onload = () => {
           const contentType = xhr.getResponseHeader('content-type') || '';
-          
+
           if (!contentType.includes('application/json')) {
             if (file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
               reject(new Error('Serwer uploadu niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.'));
@@ -250,7 +270,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
         };
 
         xhr.ontimeout = () => {
-          reject(new Error('Upload przekroczył limit czasu (10 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
+          reject(new Error('Upload przekroczył limit czasu (30 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
         };
 
         xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
@@ -260,6 +280,8 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       // Dla wideo: weryfikacja, że plik faktycznie został zapisany i jest odtwarzalny
       // (Express SPA fallback potrafi zwrócić HTML/404 zamiast pliku)
       if (isVideo) {
+        setUploadStage('verifying');
+        options?.onProgress?.(95, 'verifying');
         const verr = await verifyVideoUrl(result.url);
         if (verr) {
           throw new Error(verr);
@@ -268,20 +290,26 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
 
 
       setUploadProgress(100);
+      setUploadStage('done');
+      options?.onProgress?.(100, 'done');
+      // krótkie utrzymanie stanu 'done' żeby konsument mógł pokazać toast/tooltip
+      setTimeout(() => {
+        setUploadStage('idle');
+      }, 800);
       setIsUploading(false);
       uploadLockRef.current = false;
-      options?.onProgress?.(100);
-      
+
       return result;
     } catch (err) {
       let errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
-      
+
       if (errorMsg.includes('uploadu niedostępny') || errorMsg.includes('serwery niedostępne')) {
         errorMsg += '\n\nSpróbuj ponownie za chwilę lub skontaktuj się z administratorem systemu.';
       }
-      
+
       setError(errorMsg);
       setIsUploading(false);
+      setUploadStage('idle');
       uploadLockRef.current = false;
       throw new Error(errorMsg);
     }
@@ -371,6 +399,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
     uploadFile,
     deleteFile,
     uploadProgress,
+    uploadStage,
     isUploading,
     error,
     listFiles

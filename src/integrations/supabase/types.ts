@@ -5729,6 +5729,7 @@ export type Database = {
           can_view_team_progress: boolean | null
           can_view_team_reports: boolean | null
           consultation_slot_duration: number | null
+          consultation_visibility_scope: string
           created_at: string | null
           external_calendly_url: string | null
           id: string
@@ -5737,6 +5738,7 @@ export type Database = {
           timezone: string | null
           tripartite_meeting_enabled: boolean | null
           tripartite_slot_duration: number | null
+          tripartite_visibility_scope: string
           updated_at: string | null
           use_external_booking: boolean | null
           user_id: string
@@ -5771,6 +5773,7 @@ export type Database = {
           can_view_team_progress?: boolean | null
           can_view_team_reports?: boolean | null
           consultation_slot_duration?: number | null
+          consultation_visibility_scope?: string
           created_at?: string | null
           external_calendly_url?: string | null
           id?: string
@@ -5779,6 +5782,7 @@ export type Database = {
           timezone?: string | null
           tripartite_meeting_enabled?: boolean | null
           tripartite_slot_duration?: number | null
+          tripartite_visibility_scope?: string
           updated_at?: string | null
           use_external_booking?: boolean | null
           user_id: string
@@ -5813,6 +5817,7 @@ export type Database = {
           can_view_team_progress?: boolean | null
           can_view_team_reports?: boolean | null
           consultation_slot_duration?: number | null
+          consultation_visibility_scope?: string
           created_at?: string | null
           external_calendly_url?: string | null
           id?: string
@@ -5821,6 +5826,7 @@ export type Database = {
           timezone?: string | null
           tripartite_meeting_enabled?: boolean | null
           tripartite_slot_duration?: number | null
+          tripartite_visibility_scope?: string
           updated_at?: string | null
           use_external_booking?: boolean | null
           user_id?: string

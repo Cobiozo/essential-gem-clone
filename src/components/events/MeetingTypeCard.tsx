@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Clock, CalendarOff } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Clock, CalendarOff, Eye } from 'lucide-react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { WorkingHoursScheduler, WeeklySchedule } from './WorkingHoursScheduler';
 import { DateExceptionsManager, DateException } from './DateExceptionsManager';
@@ -26,6 +27,7 @@ export interface MeetingTypeSettings {
   image_url: string;
   is_active: boolean;
   slot_duration: number;
+  visibility_scope: 'upline_only' | 'everyone';
   weeklySchedule: WeeklySchedule;
   dateExceptions: DateException[];
 }
@@ -134,7 +136,41 @@ export const MeetingTypeCard: React.FC<MeetingTypeCardProps> = ({
             </div>
           )}
 
-          {/* Schedule Tabs */}
+          {/* Visibility scope for this meeting type */}
+          <div className={cn("space-y-1.5 rounded-md border p-2 bg-muted/20", compact && "p-2")}>
+            <Label className={cn("flex items-center gap-1.5 font-medium", compact ? "text-xs" : "text-sm")}>
+              <Eye className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+              Kto widzi ten kalendarz?
+            </Label>
+            <RadioGroup
+              value={settings.visibility_scope}
+              onValueChange={(v) => updateField('visibility_scope', v as 'upline_only' | 'everyone')}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-1.5"
+            >
+              <div className={cn(
+                "flex items-start gap-2 p-2 rounded border cursor-pointer transition-colors",
+                settings.visibility_scope === 'upline_only' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+              )}>
+                <RadioGroupItem value="upline_only" id={`${type}-scope-upline`} className="mt-0.5" />
+                <Label htmlFor={`${type}-scope-upline`} className={cn("cursor-pointer leading-tight", compact ? "text-[11px]" : "text-xs")}>
+                  <span className="font-medium block">Tylko moja struktura</span>
+                  <span className="text-muted-foreground">Widoczne dla osób z Twojego downline'u.</span>
+                </Label>
+              </div>
+              <div className={cn(
+                "flex items-start gap-2 p-2 rounded border cursor-pointer transition-colors",
+                settings.visibility_scope === 'everyone' ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+              )}>
+                <RadioGroupItem value="everyone" id={`${type}-scope-everyone`} className="mt-0.5" />
+                <Label htmlFor={`${type}-scope-everyone`} className={cn("cursor-pointer leading-tight", compact ? "text-[11px]" : "text-xs")}>
+                  <span className="font-medium block">Wszyscy zalogowani</span>
+                  <span className="text-muted-foreground">Otwarte dla całej platformy.</span>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+
           <Tabs defaultValue="weekly" className={cn("space-y-3", compact && "space-y-2")}>
             <TabsList className={cn("grid w-full grid-cols-2", compact && "h-8")}>
               <TabsTrigger 
