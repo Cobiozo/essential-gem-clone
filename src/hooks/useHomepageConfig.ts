@@ -46,8 +46,8 @@ export function useHomepageV2Content(preferDraft = false) {
       .maybeSingle();
     if (data) {
       setRowId(data.id);
-      setContent(data.content as HomepageV2Content);
-      setDraft((data.draft_content as HomepageV2Content) || null);
+      setContent(withDefaults(data.content as HomepageV2Content));
+      setDraft(data.draft_content ? withDefaults(data.draft_content as HomepageV2Content) : null);
     }
     setLoading(false);
   }, []);
