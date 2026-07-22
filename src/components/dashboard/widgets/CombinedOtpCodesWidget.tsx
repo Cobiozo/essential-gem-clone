@@ -156,7 +156,7 @@ const InfoLinkLiveCountdown: React.FC<{
 };
 
 export const CombinedOtpCodesWidget: React.FC = () => {
-  const { user, isPartner, isAdmin } = useAuth();
+  const { user, isPartner, isAdmin, profile } = useAuth();
   const [infoLinkCodes, setInfoLinkCodes] = useState<InfoLinkCode[]>([]);
   const [hkCodes, setHkCodes] = useState<HkOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,7 +208,19 @@ export const CombinedOtpCodesWidget: React.FC = () => {
         .from('hk_otp_codes')
         .select(`
           *,
-          healthy_knowledge (id, title, slug, otp_max_sessions, otp_validity_hours)
+          healthy_knowledge (id, title, slug, otp_max_sessions, otp_validity_hours),
+          hk_otp_sessions (
+            id,
+            created_at,
+            last_activity_at,
+            expires_at,
+            guest_first_name,
+            guest_last_name,
+            guest_email,
+            guest_phone,
+            email_consent,
+            watched_seconds
+          )
         `)
         .eq('partner_id', user.id)
         .eq('is_invalidated', false)
@@ -295,11 +307,34 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     else toast.error('Nie udało się skopiować');
   };
 
-  const handleCopyHkLink = async (code: HkOtpCode) => {
+  const getHkPartnerRef = (code: HkOtpCode) => code.partner_eq_id || profile?.eq_id || null;
+
+  const buildHkShareLink = (code: HkOtpCode) => {
     const knowledge = code.healthy_knowledge as any;
     const slug = knowledge?.slug;
-    if (!slug) return;
-    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    if (!slug) return '';
+    const ref = getHkPartnerRef(code);
+    const baseLink = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    return ref ? `${baseLink}?ref=${encodeURIComponent(ref)}` : baseLink;
+  };
+
+  const getLatestHkSession = (code: HkOtpCode) => {
+    const sessions = [...(code.hk_otp_sessions || [])];
+    return sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null;
+  };
+
+  const formatWatchedTime = (seconds?: number | null) => {
+    const total = Math.max(0, Number(seconds || 0));
+    if (total < 60) return `${total}s`;
+    const minutes = Math.floor(total / 60);
+    const rest = total % 60;
+    return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  };
+
+  const handleCopyHkLink = async (code: HkOtpCode) => {
+    const knowledge = code.healthy_knowledge as any;
+    if (!knowledge?.slug) return;
+    const link = buildHkShareLink(code);
     const ok = await copyToClipboard(link);
     if (ok) toast.success('Link skopiowany');
     else toast.error('Nie udało się skopiować');
@@ -307,9 +342,8 @@ export const CombinedOtpCodesWidget: React.FC = () => {
 
   const handleCopyHkMessage = async (code: HkOtpCode) => {
     const knowledge = code.healthy_knowledge as any;
-    const slug = knowledge?.slug;
-    if (!slug) return;
-    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    if (!knowledge?.slug) return;
+    const link = buildHkShareLink(code);
     const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
     const ok = await copyToClipboard(message);
     if (ok) toast.success('Wiadomość skopiowana');
@@ -522,6 +556,10 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                 const validityHours = knowledge?.otp_validity_hours || 24;
                 const status = getHkCodeStatus(code);
                 const StatusIcon = status.icon;
+                const latestSession = getLatestHkSession(code);
+                const guestName = latestSession
+                  ? `${latestSession.guest_first_name || ''} ${latestSession.guest_last_name || ''}`.trim()
+                  : '';
                 
                 return (
                   <div 
@@ -563,6 +601,20 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {knowledge?.title || 'Materiał'}
                       </p>
+                      {latestSession && (
+                        <div className="mt-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs text-muted-foreground space-y-0.5">
+                          <p className="font-medium text-foreground truncate">
+                            {guestName || latestSession.guest_email || 'Osoba bez danych'}
+                          </p>
+                          {latestSession.guest_email && (
+                            <p className="truncate">{latestSession.guest_email}</p>
+                          )}
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            {latestSession.guest_phone && <span>{latestSession.guest_phone}</span>}
+                            <span>Oglądanie: {formatWatchedTime(latestSession.watched_seconds)}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 ml-2">
                       <Badge 
