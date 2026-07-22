@@ -122,7 +122,7 @@ const HomepageEditor: React.FC = () => {
     }
   }, [draft, published, working]);
 
-  const isAdmin = userRole === 'admin';
+  // isAdmin from useAuth
   if (user === null) return <Navigate to="/auth" replace />;
   if (user && !isAdmin) return <Navigate to="/dashboard" replace />;
 
