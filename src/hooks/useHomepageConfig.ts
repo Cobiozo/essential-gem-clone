@@ -6,16 +6,18 @@ export function useHomepageVariant() {
   const [variant, setVariant] = useState<HomepageVariant | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    const { data } = await (supabase.from('homepage_settings' as any) as any)
+      .select('active_variant')
+      .maybeSingle();
+    setVariant((data?.active_variant as HomepageVariant) || 'v1');
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await (supabase.from('homepage_settings' as any) as any)
-        .select('active_variant')
-        .maybeSingle();
-      if (mounted) {
-        setVariant((data?.active_variant as HomepageVariant) || 'v1');
-        setLoading(false);
-      }
+      if (mounted) await load();
     })();
 
     const channel = supabase
@@ -27,9 +29,9 @@ export function useHomepageVariant() {
       .subscribe();
 
     return () => { mounted = false; supabase.removeChannel(channel); };
-  }, []);
+  }, [load]);
 
-  return { variant, loading };
+  return { variant, loading, reload: load };
 }
 
 export function useHomepageV2Content(preferDraft = false) {

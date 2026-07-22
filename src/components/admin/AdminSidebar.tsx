@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -122,6 +122,7 @@ interface NavItem {
   value: string;
   labelKey: string; // key in SIDEBAR_LABELS
   icon: React.ElementType;
+  path?: string;
 }
 
 interface NavCategory {
@@ -139,6 +140,7 @@ const navCategories: NavCategory[] = [
     icon: LayoutDashboard,
     items: [
       { value: 'content', labelKey: 'main', icon: Settings2 },
+      { value: 'homepage-v2', labelKey: 'homepageV2', icon: Home, path: '/admin/homepage' },
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
       { value: 'html-pages', labelKey: 'htmlPages', icon: FileCode },
@@ -241,6 +243,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const { isAdmin, can } = useModeratorAccess();
@@ -287,6 +290,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     moderators: 'Moderatorzy',
     guests: 'Goście PLC',
     deletedAccounts: 'Usunięte konta',
+    homepageV2: 'Strona główna V1/V2',
   };
 
   const getLabel = (key: string): string => {
@@ -343,6 +347,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       setOpenMobile(false);
     }
   };
+
+  const handleNavItemClick = (item: NavItem) => {
+    if (item.path) {
+      handleNavigate(item.path);
+      return;
+    }
+    handleTabChange(item.value);
+  };
+
+  const isNavItemActive = (item: NavItem) => item.path ? location.pathname === item.path : activeTab === item.value;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -421,7 +435,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {filteredCategories.map((category) => (
           <Collapsible
             key={category.id}
-            open={isSearching ? true : openCategoryId === category.id}
+            open={isSearching ? true : openCategoryId === category.id || category.items.some(isNavItemActive)}
             onOpenChange={() => toggleCategory(category.id)}
           >
             <SidebarGroup>
@@ -447,11 +461,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     {category.items.map((item) => (
                       <SidebarMenuItem key={item.value}>
                         <SidebarMenuButton
-                          onClick={() => handleTabChange(item.value)}
-                          isActive={activeTab === item.value}
+                          onClick={() => handleNavItemClick(item)}
+                          isActive={isNavItemActive(item)}
                           tooltip={getLabel(item.labelKey)}
                           className={cn(
-                            activeTab === item.value && 'bg-primary/15 text-primary font-medium'
+                            isNavItemActive(item) && 'bg-primary/15 text-primary font-medium'
                           )}
                         >
                           <item.icon className="w-4 h-4" />
