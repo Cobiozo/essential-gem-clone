@@ -101,7 +101,11 @@ async function verifyWithJwks(token: string, header: JwtHeader, supabaseUrl: str
   );
 }
 
-async function verifyJwtClaims(token: string, supabaseUrl: string): Promise<JwtVerificationResult> {
+async function verifyJwtClaims(
+  token: string,
+  supabaseUrl: string,
+  supabaseAdmin: SupabaseClient,
+): Promise<JwtVerificationResult> {
   const [headerPart, payloadPart, signaturePart] = token.split(".");
   if (!headerPart || !payloadPart || !signaturePart) return { ok: false, reason: "malformed" };
 
@@ -112,6 +116,23 @@ async function verifyJwtClaims(token: string, supabaseUrl: string): Promise<JwtV
     payload = decodeJwtPart<JwtClaims>(payloadPart);
   } catch (e: any) {
     return { ok: false, reason: "decode_failed", detail: e?.message };
+  }
+
+  // 1) Podstawowa i najpewniejsza ścieżka: Auth API weryfikuje podpis po stronie serwera
+  //    (bez potrzeby posiadania SUPABASE_JWT_SECRET ani JWKS w edge function).
+  try {
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
+    if (!userErr && userData?.user?.id) {
+      const claims: JwtClaims = {
+        ...payload,
+        sub: userData.user.id,
+      };
+      const validation = validateClaims(claims, supabaseUrl);
+      return validation.ok ? { ok: true, claims: validation.claims, method: "getUser" } : validation;
+    }
+    console.warn("[admin-auth] getUser failed, trying getClaims", { reason: userErr?.message });
+  } catch (e: any) {
+    console.warn("[admin-auth] getUser threw, trying getClaims", { reason: e?.message });
   }
 
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -156,6 +177,7 @@ async function verifyJwtClaims(token: string, supabaseUrl: string): Promise<JwtV
     return { ok: false, reason: "local_verify_failed", detail: e?.message };
   }
 }
+
 
 function invalidTokenResponse(reason: string): Response {
   const expired = reason === "expired";
