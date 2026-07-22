@@ -249,7 +249,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
         return Date.now() < accessExpiry;
       });
       
-      setHkCodes(activeCodes as HkOtpCode[]);
+      setHkCodes(activeCodes as unknown as HkOtpCode[]);
     } catch (error) {
       console.error('Error fetching HK OTP codes:', error);
     }
