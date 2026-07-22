@@ -3131,14 +3131,22 @@ const Admin = () => {
               <div className="flex flex-col gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <h2 className="text-lg sm:text-xl font-semibold">{t('admin.sectionManagement')}</h2>
-                  <Button 
-                    onClick={() => setActiveTab('layout')} 
-                    variant="default"
-                    className="w-full sm:w-auto"
-                  >
-                    <Type className="w-4 h-4 mr-2" />
-                    Otwórz Layout Editor
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button asChild variant="outline" className="w-full sm:w-auto">
+                      <Link to="/admin/homepage">
+                        <Home className="w-4 h-4 mr-2" />
+                        Edytor strony głównej V2
+                      </Link>
+                    </Button>
+                    <Button 
+                      onClick={() => setActiveTab('layout')} 
+                      variant="default"
+                      className="w-full sm:w-auto"
+                    >
+                      <Type className="w-4 h-4 mr-2" />
+                      Otwórz Layout Editor
+                    </Button>
+                  </div>
                 </div>
                 
                 {/* Search Input */}
