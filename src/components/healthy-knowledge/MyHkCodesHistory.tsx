@@ -85,6 +85,12 @@ const MyHkCodesHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [expandedGuests, setExpandedGuests] = useState<Set<string>>(new Set());
+  const toggleGuests = (id: string) => setExpandedGuests(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const fetchCodes = useCallback(async () => {
     if (!user) return;
