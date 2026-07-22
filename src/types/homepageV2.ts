@@ -3,6 +3,20 @@ export interface TrustedLogo { id: string; url: string; alt: string; link?: stri
 export interface FeatureItem { id: string; icon: string; title: string; description: string; }
 export interface StatItem { id: string; icon: string; value: string; label: string; }
 
+/** Link target kind — informational, url is always the resolved final value. */
+export type CtaKind = 'external' | 'route' | 'anchor';
+export interface CtaConfig { text: string; url: string; kind?: CtaKind; }
+
+/** Hero mockup — either static image or embedded video (MP4/YouTube/Vimeo). */
+export interface HeroMedia {
+  kind: 'image' | 'video';
+  imageUrl?: string;
+  videoUrl?: string;
+  videoPoster?: string;
+  videoAutoplay?: boolean;
+}
+
+
 /** Optional per-element style overrides (merged into inline style). */
 export interface ElementStyle {
   color?: string;
