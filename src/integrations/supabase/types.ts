@@ -4799,6 +4799,7 @@ export type Database = {
       }
       hk_otp_sessions: {
         Row: {
+          completed_at: string | null
           created_at: string | null
           device_fingerprint: string | null
           email_consent: boolean
@@ -4814,6 +4815,7 @@ export type Database = {
           watched_seconds: number
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string | null
           device_fingerprint?: string | null
           email_consent?: boolean
@@ -4829,6 +4831,7 @@ export type Database = {
           watched_seconds?: number
         }
         Update: {
+          completed_at?: string | null
           created_at?: string | null
           device_fingerprint?: string | null
           email_consent?: boolean
