@@ -3,6 +3,25 @@ export interface TrustedLogo { id: string; url: string; alt: string; link?: stri
 export interface FeatureItem { id: string; icon: string; title: string; description: string; }
 export interface StatItem { id: string; icon: string; value: string; label: string; }
 
+/** Optional per-element style overrides (merged into inline style). */
+export interface ElementStyle {
+  color?: string;
+  backgroundColor?: string;
+  fontSize?: string;
+  fontWeight?: number | string;
+  textAlign?: 'left' | 'center' | 'right';
+  textTransform?: 'uppercase' | 'lowercase' | 'none' | 'capitalize';
+  letterSpacing?: string;
+  lineHeight?: string;
+  padding?: string;
+  paddingTop?: string;
+  paddingBottom?: string;
+  borderRadius?: string;
+  border?: string;
+  boxShadow?: string;
+  opacity?: number;
+}
+
 export interface HomepageV2Content {
   hero: {
     eyebrow: string;
@@ -46,6 +65,12 @@ export interface HomepageV2Content {
     title: string;
     description: string;
   };
+  /** Optional style overrides keyed by element path (e.g. "hero.titleLine1"). */
+  styles?: Record<string, ElementStyle>;
 }
 
 export type HomepageVariant = 'v1' | 'v2';
+
+export type EditElementType =
+  | 'text' | 'heading' | 'image' | 'icon' | 'button'
+  | 'card' | 'stat' | 'avatar' | 'logo' | 'video' | 'section' | 'bullet';
