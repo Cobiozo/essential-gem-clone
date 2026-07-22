@@ -421,9 +421,13 @@ const HealthyKnowledgePublicPage: React.FC = () => {
                     mediaUrl={content.media_url}
                     mediaType={content.content_type}
                     disableInteraction={false}
+                    onPlayStateChange={handleMediaPlayState}
+                    onTimeUpdate={handleMediaTimeUpdate}
+                    onDurationChange={handleMediaDuration}
                   />
                 </div>
               )}
+
 
               {/* Image */}
               {content.content_type === 'image' && content.media_url && (
