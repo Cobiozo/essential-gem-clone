@@ -70,16 +70,8 @@ function toEmbedUrl(url: string, autoplay = false): string | null {
   return null;
 }
 
-interface Props {
-  preferDraft?: boolean;
-  overrideContent?: HomepageV2Content;
-  editable?: boolean;
-  selectedPath?: string | null;
-  hoveredPath?: string | null;
-  onSelect?: (path: string, type: EditElementType) => void;
-  onHover?: (path: string | null) => void;
-  onUpdateStyle?: (path: string, patch: Partial<ElementStyle>) => void;
-}
+
+
 
 const GOLD = '#B8894A';
 const GOLD_SOFT = '#D4A574';
