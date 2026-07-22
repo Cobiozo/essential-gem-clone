@@ -72,8 +72,15 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
 
 const HealthyKnowledgePublicPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
-  
-  const [otpRaw, setOtpRaw] = useState(''); // raw 6 chars, no hyphens
+
+  // Partner attribution — passed to backend so the OTP hit is tied to who shared the link.
+  const refEqId = React.useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const p = new URLSearchParams(window.location.search).get('ref');
+    return p ? p.trim().slice(0, 64) : null;
+  }, []);
+
+  const [otpRaw, setOtpRaw] = useState(''); // raw 4 digits, no hyphens
   const [guestFirstName, setGuestFirstName] = useState('');
   const [guestLastName, setGuestLastName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
@@ -97,15 +104,12 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   };
 
   const handleCodePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    // Only fill the field — NEVER auto-submit. Access always requires the full form + consent.
     e.preventDefault();
     const pasted = e.clipboardData.getData('text');
-    const cleaned = cleanCode(pasted);
-    setOtpRaw(cleaned);
-    if (cleaned.length === 4) {
-      // Auto-submit after paste
-      setTimeout(() => handleOtpSubmit(cleaned), 100);
-    }
+    setOtpRaw(cleanCode(pasted));
   };
+
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState<string | null>(null);
