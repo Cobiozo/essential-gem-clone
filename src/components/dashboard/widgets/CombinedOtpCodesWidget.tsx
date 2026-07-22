@@ -635,7 +635,11 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                                       <div className="flex flex-wrap gap-x-2 gap-y-0.5">
                                         {s.guest_phone && <span>{s.guest_phone}</span>}
                                         <span>Oglądanie: {formatWatchedTime(s.watched_seconds)}</span>
+                                        <span className={s.completed_at ? 'text-green-500 font-medium' : 'text-amber-500'}>
+                                          {s.completed_at ? '✅ Ukończone' : '⏳ W trakcie'}
+                                        </span>
                                       </div>
+
                                     </div>
                                   );
                                 })}
