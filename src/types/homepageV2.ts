@@ -22,7 +22,12 @@ export interface ElementStyle {
   opacity?: number;
 }
 
+export interface HeaderLogo { url: string; alt: string; link?: string; heightPx?: number; }
+
 export interface HomepageV2Content {
+  header?: {
+    logo?: HeaderLogo;
+  };
   hero: {
     eyebrow: string;
     titleLine1: string;
