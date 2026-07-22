@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
     const session_token = typeof body.session_token === 'string' ? body.session_token : null;
     const raw_delta = Number(body.delta_seconds);
     const delta = Number.isFinite(raw_delta) ? Math.max(0, Math.min(MAX_DELTA, Math.floor(raw_delta))) : 0;
+    const completed = body.completed === true;
 
     if (!session_token) {
       return new Response(
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
 
     const { data: session, error: sessionError } = await supabase
       .from('hk_otp_sessions')
-      .select('id, expires_at, watched_seconds, hk_otp_codes!inner(is_invalidated)')
+      .select('id, expires_at, watched_seconds, completed_at, hk_otp_codes!inner(is_invalidated)')
       .eq('session_token', session_token)
       .single();
 
@@ -51,13 +52,17 @@ Deno.serve(async (req) => {
     }
 
     const newWatched = (session.watched_seconds ?? 0) + delta;
+    const patch: Record<string, unknown> = {
+      watched_seconds: newWatched,
+      last_activity_at: new Date().toISOString(),
+    };
+    if (completed && !(session as any).completed_at) {
+      patch.completed_at = new Date().toISOString();
+    }
 
     const { error: updError } = await supabase
       .from('hk_otp_sessions')
-      .update({
-        watched_seconds: newWatched,
-        last_activity_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('id', session.id);
 
     if (updError) {
@@ -67,6 +72,7 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
+
 
     return new Response(
       JSON.stringify({ ok: true, watched_seconds: newWatched }),
