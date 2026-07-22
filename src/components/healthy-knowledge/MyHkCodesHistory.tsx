@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Heart, Search, Copy, Trash2, Loader2, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Heart, Search, Copy, Trash2, Loader2, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown } from 'lucide-react';
 import { HkOtpCode } from '@/types/healthyKnowledge';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
