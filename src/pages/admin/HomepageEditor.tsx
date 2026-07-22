@@ -177,6 +177,7 @@ const HomepageEditor: React.FC = () => {
                 editable
                 selectedPath={selectedPath}
                 onSelect={(p, t) => { setSelectedPath(p); setSelectedType(t); }}
+                onUpdateStyle={handleUpdateStyle}
               />
             </div>
           </div>
@@ -193,6 +194,12 @@ const HomepageEditor: React.FC = () => {
           />
         </aside>
       </div>
+
+      {/* Floating drag/resize overlay for the selected element */}
+      <SelectionOverlay />
+    </div>
+  );
+};
     </div>
   );
 };
