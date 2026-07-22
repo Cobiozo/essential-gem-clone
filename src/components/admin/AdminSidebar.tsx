@@ -243,6 +243,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 }) => {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const { isAdmin, can } = useModeratorAccess();
@@ -347,6 +348,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     }
   };
 
+  const handleNavItemClick = (item: NavItem) => {
+    if (item.path) {
+      handleNavigate(item.path);
+      return;
+    }
+    handleTabChange(item.value);
+  };
+
+  const isNavItemActive = (item: NavItem) => item.path ? location.pathname === item.path : activeTab === item.value;
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -424,7 +435,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {filteredCategories.map((category) => (
           <Collapsible
             key={category.id}
-            open={isSearching ? true : openCategoryId === category.id}
+            open={isSearching ? true : openCategoryId === category.id || category.items.some(isNavItemActive)}
             onOpenChange={() => toggleCategory(category.id)}
           >
             <SidebarGroup>
@@ -450,11 +461,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     {category.items.map((item) => (
                       <SidebarMenuItem key={item.value}>
                         <SidebarMenuButton
-                          onClick={() => handleTabChange(item.value)}
-                          isActive={activeTab === item.value}
+                          onClick={() => handleNavItemClick(item)}
+                          isActive={isNavItemActive(item)}
                           tooltip={getLabel(item.labelKey)}
                           className={cn(
-                            activeTab === item.value && 'bg-primary/15 text-primary font-medium'
+                            isNavItemActive(item) && 'bg-primary/15 text-primary font-medium'
                           )}
                         >
                           <item.icon className="w-4 h-4" />
