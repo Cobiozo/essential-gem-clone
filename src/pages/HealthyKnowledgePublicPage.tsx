@@ -158,29 +158,62 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     checkSession();
   }, [slug]);
 
-  // Heartbeat: sumowanie realnego czasu oglądania w hk_otp_sessions.watched_seconds.
-  // Tyka tylko gdy karta jest widoczna. Ping co 15s (+ flush przy ukryciu/wyjściu).
+  // Heartbeat: sumowanie REALNEGO czasu oglądania (currentTime rośnie tylko gdy wideo faktycznie leci).
+  // Tyka wyłącznie gdy karta jest widoczna I odtwarzanie jest aktywne. Sam pomiar z postępu wideo.
+  const isPlayingRef = React.useRef(false);
+  const currentTimeRef = React.useRef(0);
+  const lastReportedTimeRef = React.useRef(0);
+  const durationRef = React.useRef(0);
+  const completedSentRef = React.useRef(false);
+
+  const handleMediaPlayState = React.useCallback((playing: boolean) => {
+    isPlayingRef.current = playing;
+  }, []);
+  const handleMediaTimeUpdate = React.useCallback((t: number) => {
+    currentTimeRef.current = t;
+  }, []);
+  const handleMediaDuration = React.useCallback((d: number) => {
+    durationRef.current = d;
+  }, []);
+
   useEffect(() => {
     if (!sessionToken) return;
 
     const HEARTBEAT_MS = 15000;
-    let pendingSeconds = 0;
-    let lastTick = Date.now();
     let interval: number | null = null;
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const endpoint = `${supabaseUrl}/functions/v1/hk-session-heartbeat`;
 
-    const flush = (useBeacon = false) => {
-      const now = Date.now();
-      const elapsed = Math.min(30, Math.floor((now - lastTick) / 1000));
-      lastTick = now;
-      const total = pendingSeconds + elapsed;
-      pendingSeconds = 0;
-      if (total <= 0) return;
+    const computeDelta = (): number => {
+      const cur = currentTimeRef.current;
+      const last = lastReportedTimeRef.current;
+      // Postęp tylko do przodu, cap 30 s / ping (anty-nabijanie i skoki po seeku).
+      const delta = Math.max(0, Math.min(30, Math.floor(cur - last)));
+      if (cur > last) lastReportedTimeRef.current = cur;
+      else if (cur < last) lastReportedTimeRef.current = cur; // seek wstecz: resetujemy bazę
+      return delta;
+    };
 
-      const payload = JSON.stringify({ session_token: sessionToken, delta_seconds: total });
+    const isCompleted = (): boolean => {
+      const d = durationRef.current;
+      const c = currentTimeRef.current;
+      return d > 0 && c >= d - 2;
+    };
+
+    const flush = (useBeacon = false, force = false) => {
+      const delta = computeDelta();
+      const completed = !completedSentRef.current && isCompleted();
+      if (delta <= 0 && !completed && !force) return;
+
+      const payload = JSON.stringify({
+        session_token: sessionToken,
+        delta_seconds: delta,
+        completed: completed || undefined,
+      });
+
+      if (completed) completedSentRef.current = true;
 
       if (useBeacon && navigator.sendBeacon) {
         const blob = new Blob([payload], { type: 'application/json' });
@@ -200,33 +233,19 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       }).catch(() => {});
     };
 
-    const start = () => {
-      if (interval !== null) return;
-      lastTick = Date.now();
-      interval = window.setInterval(() => flush(false), HEARTBEAT_MS);
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!isPlayingRef.current) return;
+      flush(false);
     };
 
-    const stop = () => {
-      if (interval !== null) {
-        clearInterval(interval);
-        interval = null;
-      }
-    };
+    interval = window.setInterval(tick, HEARTBEAT_MS);
 
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        start();
-      } else {
-        flush(false);
-        stop();
-      }
+      if (document.visibilityState !== 'visible') flush(false);
     };
+    const handleUnload = () => flush(true);
 
-    const handleUnload = () => {
-      flush(true);
-    };
-
-    if (document.visibilityState === 'visible') start();
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pagehide', handleUnload);
     window.addEventListener('beforeunload', handleUnload);
@@ -236,9 +255,10 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       window.removeEventListener('pagehide', handleUnload);
       window.removeEventListener('beforeunload', handleUnload);
       flush(false);
-      stop();
+      if (interval !== null) clearInterval(interval);
     };
   }, [sessionToken]);
+
 
   const isGuestFormValid = () => {
     return (
