@@ -251,16 +251,29 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     );
   };
 
+  const mapValidationError = (status: number | undefined, serverMsg?: string): string => {
+    if (status === 400) return 'Uzupełnij imię, nazwisko, e-mail i numer telefonu oraz zaznacz zgodę, aby uzyskać dostęp.';
+    if (status === 401 || status === 404) return 'Kod dostępu jest nieprawidłowy lub wygasł. Sprawdź kod i spróbuj ponownie.';
+    if (status === 403) return 'Limit użyć tego kodu został wyczerpany.';
+    if (status && status >= 500) return 'Chwilowy problem z serwerem. Spróbuj ponownie za chwilę.';
+    if (serverMsg && !/non-2xx|edge function/i.test(serverMsg)) return serverMsg;
+    return 'Nie udało się uzyskać dostępu. Sprawdź kod i dane w formularzu, a następnie spróbuj ponownie.';
+  };
+
   const handleOtpSubmit = async (codeOverride?: string) => {
     const raw = codeOverride || otpRaw;
     if (raw.length !== 4) {
-      toast.error('Wprowadź pełny kod dostępu');
+      const msg = 'Wprowadź pełny 4-znakowy kod dostępu w formacie BW-XXXX.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     // Guest form + consent are ALWAYS required — no bypass, regardless of code source (paste, autofill, etc.).
     if (!isGuestFormValid()) {
-      toast.error('Wypełnij imię, nazwisko, e-mail, numer telefonu i zaznacz zgodę.');
+      const msg = 'Uzupełnij imię, nazwisko, e-mail i numer telefonu oraz zaznacz zgodę, aby uzyskać dostęp.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -284,13 +297,29 @@ const HealthyKnowledgePublicPage: React.FC = () => {
         },
       });
 
-
       if (response.error) {
-        throw new Error(response.error.message || 'Błąd walidacji');
+        // Try to read status + body from the underlying Response for a precise message
+        let status: number | undefined;
+        let bodyMsg: string | undefined;
+        try {
+          const ctxResp: Response | undefined = (response.error as any)?.context?.response;
+          if (ctxResp) {
+            status = ctxResp.status;
+            const parsed = await ctxResp.clone().json().catch(() => null);
+            bodyMsg = parsed?.error;
+          }
+        } catch {}
+        const msg = mapValidationError(status, bodyMsg);
+        setError(msg);
+        toast.error(msg);
+        return;
       }
 
       if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Nieprawidłowy kod');
+        const msg = mapValidationError(undefined, response.data?.error);
+        setError(msg);
+        toast.error(msg);
+        return;
       }
 
       // Success! Store session and show content
@@ -299,18 +328,13 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       setExpiresAt(response.data.expires_at);
       setContent(response.data.content);
 
-      // Celebration!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       toast.success('Dostęp przyznany!');
     } catch (err: any) {
       console.error('OTP validation error:', err);
-      setError(err.message || 'Nieprawidłowy lub wygasły kod dostępu');
-      toast.error(err.message || 'Nieprawidłowy kod');
+      const msg = mapValidationError(undefined, err?.message);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
