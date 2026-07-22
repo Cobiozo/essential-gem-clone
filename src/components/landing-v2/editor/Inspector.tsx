@@ -180,6 +180,16 @@ export const Inspector: React.FC<Props> = ({
             <Label className="text-xs">Link (opcjonalnie)</Label>
             <Input value={val?.link || ''} onChange={(e) => setField('link', e.target.value)} className="h-9 text-xs" />
           </div>
+          <div>
+            <Label className="text-xs">Wysokość (px)</Label>
+            <Input
+              type="number"
+              value={val?.heightPx ?? ''}
+              onChange={(e) => setField('heightPx', e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="np. 64"
+              className="h-9 text-xs"
+            />
+          </div>
         </>
       )}
 
