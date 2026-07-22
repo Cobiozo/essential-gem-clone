@@ -322,27 +322,27 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
 
 
       {/* ================= FEATURES ================= */}
-      <section className="py-14 lg:py-20 bg-white">
-        <div className="container mx-auto px-6 lg:px-10">
-          <div className="text-center mb-10 lg:mb-14">
+      <section id="features" className="py-12 sm:py-14 lg:py-20 bg-white">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="text-center mb-8 sm:mb-10 lg:mb-14">
             {features.eyebrow && (
               <E path="features.eyebrow" type="text">
                 <div className="text-[11px] tracking-[0.35em] font-semibold mb-3" style={{ color: GOLD }}>{features.eyebrow}</div>
               </E>
             )}
             <E path="features.title" type="heading">
-              <h2 className="text-3xl md:text-4xl lg:text-[40px] font-bold tracking-tight max-w-3xl mx-auto" style={{ color: INK }}>{features.title}</h2>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[40px] font-bold tracking-tight max-w-3xl mx-auto" style={{ color: INK }}>{features.title}</h2>
             </E>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
             {features.items.map((item, i) => (
               <E key={item.id} path={`features.items[${i}]`} type="card">
-                <div className="rounded-3xl p-6 lg:p-7 text-center transition hover:shadow-md" style={{ backgroundColor: SURFACE }}>
-                  <div className="mx-auto mb-5 flex items-center justify-center">
-                    <EditableIcon path={`features.items[${i}].icon`} name={item.icon} className="w-12 h-12" strokeWidth={1.25} />
+                <div className="rounded-3xl p-5 sm:p-6 lg:p-7 text-center transition hover:shadow-md h-full" style={{ backgroundColor: SURFACE }}>
+                  <div className="mx-auto mb-4 sm:mb-5 flex items-center justify-center">
+                    <EditableIcon path={`features.items[${i}].icon`} name={item.icon} className="w-10 h-10 sm:w-12 sm:h-12" strokeWidth={1.25} />
                   </div>
                   <E path={`features.items[${i}].title`} type="heading">
-                    <h3 className="font-bold text-lg mb-3" style={{ color: INK }}>{item.title}</h3>
+                    <h3 className="font-bold text-base sm:text-lg mb-2 sm:mb-3" style={{ color: INK }}>{item.title}</h3>
                   </E>
                   <E path={`features.items[${i}].description`} type="text">
                     <p className="text-[13px] text-neutral-600 leading-relaxed">{item.description}</p>
@@ -355,19 +355,19 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
       </section>
 
       {/* ================= STATS ================= */}
-      <section className="pb-16 lg:pb-20">
-        <div className="container mx-auto px-6 lg:px-10">
-          <div className="rounded-3xl px-8 lg:px-14 py-10 lg:py-12 grid grid-cols-2 md:grid-cols-4 gap-8" style={{ backgroundColor: SURFACE }}>
+      <section id="stats" className="pb-14 sm:pb-16 lg:pb-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="rounded-3xl px-6 sm:px-8 lg:px-14 py-8 sm:py-10 lg:py-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8" style={{ backgroundColor: SURFACE }}>
             {stats.items.map((s, i) => (
               <E key={s.id} path={`stats.items[${i}]`} type="stat">
-                <div className={`flex items-center gap-5 ${i > 0 ? 'md:border-l md:border-neutral-200 md:pl-8' : ''}`}>
-                  <EditableIcon path={`stats.items[${i}].icon`} name={s.icon} className="w-12 h-12 shrink-0" strokeWidth={1.25} />
+                <div className={`flex items-center gap-4 sm:gap-5 ${i > 0 ? 'md:border-l md:border-neutral-200 md:pl-6 lg:pl-8' : ''}`}>
+                  <EditableIcon path={`stats.items[${i}].icon`} name={s.icon} className="w-10 h-10 sm:w-12 sm:h-12 shrink-0" strokeWidth={1.25} />
                   <div>
                     <E path={`stats.items[${i}].value`} type="heading">
-                      <div className="text-3xl lg:text-[34px] font-bold leading-none" style={{ color: GOLD }}>{s.value}</div>
+                      <div className="text-2xl sm:text-3xl lg:text-[34px] font-bold leading-none" style={{ color: GOLD }}>{s.value}</div>
                     </E>
                     <E path={`stats.items[${i}].label`} type="text">
-                      <div className="text-[12px] lg:text-[13px] text-neutral-600 leading-snug mt-2 whitespace-pre-line">{s.label}</div>
+                      <div className="text-[12px] lg:text-[13px] text-neutral-600 leading-snug mt-1.5 sm:mt-2 whitespace-pre-line">{s.label}</div>
                     </E>
                   </div>
                 </div>
@@ -378,22 +378,22 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
       </section>
 
       {/* ================= COMMUNITY ================= */}
-      <section id="community" className="pb-16 lg:pb-24">
-        <div className="container mx-auto px-6 lg:px-10">
-          <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-10 lg:gap-14 items-center">
-            <div className="space-y-6 max-w-md">
+      <section id="community" className="pb-14 sm:pb-16 lg:pb-24">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-8 sm:gap-10 lg:gap-14 items-center">
+            <div className="space-y-5 sm:space-y-6 max-w-md">
               {community.eyebrow && (
                 <E path="community.eyebrow" type="text">
                   <div className="text-[11px] tracking-[0.35em] font-semibold" style={{ color: GOLD }}>{community.eyebrow}</div>
                 </E>
               )}
               <E path="community.title" type="heading">
-                <h2 className="text-3xl md:text-4xl lg:text-[40px] font-bold tracking-tight leading-[1.1]" style={{ color: INK }}>{community.title}</h2>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[40px] font-bold tracking-tight leading-[1.15]" style={{ color: INK }}>{community.title}</h2>
               </E>
-              <ul className="space-y-3.5">
+              <ul className="space-y-3 sm:space-y-3.5">
                 {community.bullets.map((b, i) => (
                   <E key={i} path={`community.bullets[${i}]`} type="bullet">
-                    <li className="flex items-center gap-3 text-[15px] text-neutral-800">
+                    <li className="flex items-center gap-3 text-[14px] sm:text-[15px] text-neutral-800">
                       <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: GOLD }}>
                         <Check className="w-3 h-3 text-white" strokeWidth={3} />
                       </span>
@@ -402,19 +402,21 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
                   </E>
                 ))}
               </ul>
-              {community.ctaText && (
+              {communityCta.text && (
                 <E path="community.cta" type="button">
-                  <Link
-                    to={community.ctaUrl || '/auth'}
-                    className="inline-flex items-center gap-2 rounded-lg text-white font-semibold px-6 py-3.5 mt-2 transition hover:opacity-90"
+                  <CtaLink
+                    cta={communityCta}
+                    fallbackUrl="/auth"
+                    className="inline-flex items-center gap-2 rounded-lg text-white font-semibold px-5 sm:px-6 py-3 sm:py-3.5 mt-2 transition hover:opacity-90"
                     style={{ backgroundColor: GOLD, boxShadow: `0 10px 30px -10px ${GOLD}80` }}
                   >
-                    {community.ctaText}
+                    {communityCta.text}
                     <ArrowRight className="w-4 h-4" />
-                  </Link>
+                  </CtaLink>
                 </E>
               )}
             </div>
+
 
             <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-neutral-100">
               {(() => {
