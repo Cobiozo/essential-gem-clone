@@ -128,7 +128,20 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
         <div className="container mx-auto px-6 lg:px-10 pt-8 lg:pt-12 pb-14 lg:pb-20 relative">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-10 lg:gap-6 items-center">
             <div className="space-y-7 lg:space-y-8 max-w-xl">
-              <img src={logoPurelife} alt="Pure Life Center" className="h-14 lg:h-16 w-auto object-contain -ml-2" />
+              {(() => {
+                const logo = content.header?.logo;
+                const logoUrl = logo?.url || logoPurelife;
+                const heightStyle = logo?.heightPx ? { height: logo.heightPx } : undefined;
+                const img = (
+                  <img
+                    src={logoUrl}
+                    alt={logo?.alt || 'Pure Life Center'}
+                    className={heightStyle ? 'w-auto object-contain -ml-2' : 'h-14 lg:h-16 w-auto object-contain -ml-2'}
+                    style={heightStyle}
+                  />
+                );
+                return <E path="header.logo" type="logo">{img}</E>;
+              })()}
 
               {hero.eyebrow && (
                 <E path="hero.eyebrow" type="text">
