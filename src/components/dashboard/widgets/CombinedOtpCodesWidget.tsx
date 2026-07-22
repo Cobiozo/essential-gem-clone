@@ -161,6 +161,12 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   const [hkCodes, setHkCodes] = useState<HkOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('infolinks');
+  const [expandedGuests, setExpandedGuests] = useState<Set<string>>(new Set());
+  const toggleGuests = (id: string) => setExpandedGuests(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   // Fetch InfoLink codes
   const fetchInfoLinkCodes = useCallback(async () => {
