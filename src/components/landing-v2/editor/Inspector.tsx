@@ -10,6 +10,8 @@ import { StyleControls } from './StyleControls';
 import { ImageInput } from './inputs/ImageInput';
 import { VideoInput } from './inputs/VideoInput';
 import { IconInput } from './inputs/IconInput';
+import { LinkPicker } from './inputs/LinkPicker';
+
 
 interface Props {
   content: HomepageV2Content;
