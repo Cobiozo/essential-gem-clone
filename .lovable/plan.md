@@ -1,35 +1,65 @@
-## Cel
-Naprawić 3 rzeczy w edytorze `/admin/homepage`, nie ruszając reszty aplikacji:
+## Zakres
+Naprawa edytora `/admin/homepage` (V2) — tylko frontend, bez zmian w backendzie:
 
-1. **Przewijanie** — kanwa i inspektor mają płynnie się scrollować.
-2. **Spójny styl edytora** — zamiast surowego `bg-neutral-100` + białych paneli, użyć tokenów designu z reszty panelu admina (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`, `Separator`, cienie i zaokrąglenia jak w innych ekranach admina).
-3. **Edytowalne logo w lewym górnym rogu** kanwy V2.
+1. Wideo w sekcji „Dołącz do ludzi…" — realne odtwarzanie zamiast tylko linku.
+2. Edytowalne logo certyfikatów na dole (sekcja „ZAUFALI NAM").
+3. Tryb **drag & drop + resize** dla dowolnego elementu na kanwie.
 
-## Co zrobić
+---
 
-### 1. Przewijanie
-- `src/pages/admin/HomepageEditor.tsx`: kontener główny zmienić z `h-screen` na `min-h-screen` z sekcją body `flex-1 overflow-hidden`, a wewnątrz nadać `overflow-y-auto` osobno lewej kanwie i prawemu inspektorowi (`h-[calc(100vh-56px)]`), żeby scroll działał niezależnie w obu kolumnach.
-- Usunąć/zawęzić `onClick` deselect z zewnętrznego wrappera kanwy (przenieść na dedykowane tło), żeby kliknięcia w scrollbary/marginesy nie gubiły zaznaczenia.
+## 1. Wideo w sekcji Community
 
-### 2. Spójny design z panelem admina
-- Toolbar: zamiast `bg-white shadow-sm` → `bg-card border-b border-border`. Typografia `text-foreground` / `text-muted-foreground`. Przyciski zostają na wariantach shadcn (`default`, `outline`, `ghost`) — usunąć hardcoded klasy `bg-neutral-*`.
-- Tło body: `bg-muted/30` (jak inne strony admina) zamiast `bg-neutral-100`.
-- Karta kanwy: `bg-background border border-border rounded-lg shadow-sm`.
-- Inspektor (`src/components/landing-v2/editor/Inspector.tsx`): sekcje jako `Card`/`Separator` z shadcn, nagłówki `text-xs uppercase tracking-wider text-muted-foreground`, spójne odstępy `space-y-4`, `Label` i `Input` w standardowym rozmiarze reszty admina (bez `h-9 text-xs` wszędzie).
-- `StyleControls` i inputy: użyć `Select` z shadcn zamiast natywnego `<select>` (jeżeli obecnie natywny), stała siatka 2-kolumnowa, chip kolorów w `rounded-md border-border`.
-- Autosave status → `Badge` variant `secondary`.
+Obecnie `community.videoUrl` służy tylko jako link pod ikonką „Play". Rozszerzam:
 
-### 3. Edytowalne logo (lewy górny róg)
-- Rozszerzyć typ `HomepageV2Content` o `header.logo: { url: string; alt: string; heightPx?: number; link?: string }` z domyślną wartością wskazującą aktualny import `logoPurelife`.
-- W `src/components/landing-v2/LandingV2.tsx` (linia 131): zastąpić statyczny `<img src={logoPurelife} … />` komponentem `<E path="header.logo" type="logo"><img src={content.header.logo.url || logoPurelife} … /></E>`; wysokość sterowana `heightPx` z fallbackiem `h-14 lg:h-16`.
-- W `Inspector.tsx` blok `logo` już istnieje — działa automatycznie po podpięciu ścieżki. Dodać pole `Wysokość (px)` dla logo w headerze.
-- Migracja danych: przy pierwszym wczytaniu, jeśli `content.header?.logo` nie istnieje, wypełnić domyślnym obiektem w hooku `useHomepageV2Content` (bez pisania do DB — tylko in-memory fallback, admin zapisze przez „Opublikuj").
+- W `src/types/homepageV2.ts` dodaję do `community` pola: `videoUrl` (już jest), `videoPoster?: string`, `videoAutoplay?: boolean`.
+- W `src/components/landing-v2/LandingV2.tsx` sekcja community: gdy `videoUrl` jest ustawione, renderuję właściwy odtwarzacz zamiast tła:
+  - MP4/WebM (`/uploads/...` lub `.mp4`) → `<video controls playsInline preload="metadata" poster={videoPoster || backgroundImage}>` z `<source type=...>` (używam istniejącego `videoMime`).
+  - YouTube/Vimeo → `<iframe>` z odpowiednim embed URL (parser `youtu.be`, `youtube.com/watch?v=`, `vimeo.com/...`).
+  - Fallback (brak `videoUrl`) → obecny obraz + ikonka Play.
+- Overlay z tekstem i awatarami pozostaje, ale ukrywa się gdy realny odtwarzacz jest aktywny (nie przykrywa kontrolek).
+- W `src/components/landing-v2/editor/Inspector.tsx`, dla `type='video'`, dodaję:
+  - `ImageInput` „URL wideo (MP4 lub YouTube)" z możliwością **wgrania pliku** (reuse istniejącego uploadu do `cms-images` bucket, po prostu przyjmuje też `.mp4/.webm`).
+  - Pole `Poster (miniatura)` (ImageInput).
+  - Checkbox `Autoodtwarzanie (wyciszone)`.
+- W `src/pages/admin/HomepageEditor.tsx` w handlerze uploadu dopuszczam `video/*` (obecnie prawdopodobnie tylko `image/*`).
+
+## 2. Edytowalne logo certyfikatów (ZAUFALI NAM)
+
+Problem: gdy `trustedBy.logos` jest puste, render używa hardkodowanych `<TrustedBadge>` które nie są opakowane w `<E>` — nie da się ich kliknąć.
+
+Rozwiązanie:
+
+- W `src/hooks/useHomepageConfig.ts` (fallback dla `HomepageV2Content`) — jeśli `trustedBy.logos` jest puste/undefined, wypełniam domyślną listą 5 logotypów (Eqology, GOED, MSC, GMP, Arctic Oil) używając już wygenerowanych plików w `src/assets/landing-v2/` (jeśli istnieją; jeśli nie — dodaję puste `url:''` żeby admin od razu miał 5 kart do wgrania obrazów).
+- W `LandingV2.tsx` sekcja trusted-by: zawsze renderuję mapę `trustedBy.logos.map(...)`. Puste `url` pokazuję jako placeholder (`bg-neutral-100 border-dashed` z etykietą „Wgraj logo") — nadal klikalne, otwiera Inspector dla `trustedBy.logos[i]`. Usuwam kompletnie gałąź `TrustedBadge`.
+- W Inspectorze `type='logo'` już mamy pola URL/alt/link/wysokość (px). Dodaję `AddSiblingButton` (już obsługuje `endsWith('logos')`) — czyli będzie „Dodaj element do listy".
+- Aktualne pole „Wysokość (px)" faktycznie stosujemy w `img` (obecnie klasa `h-10 lg:h-12` jest hardcoded — nadpisuję inline `style={{ height: logo.heightPx ? logo.heightPx : undefined }}` gdy ustawione).
+
+## 3. Drag & drop + resize dowolnego elementu
+
+Rozszerzam istniejący system `styles[path]` o transform pozycji i rozmiaru — bez zmian w schemacie DB (styles to swobodny JSON):
+
+- `src/types/homepageV2.ts` — rozszerzam `ElementStyle` o: `offsetX?: number`, `offsetY?: number` (px, `transform: translate`), `scale?: number`, `width?: string`, `height?: string`, `zIndex?: number`.
+- Nowy komponent `src/components/landing-v2/editor/EditOverlay.tsx`:
+  - Renderowany przez `<E>` **tylko w trybie edytowalnym** dla zaznaczonego elementu.
+  - Uchwyty: 8 punktów resize (rogi + boki) + uchwyt „move" na środku.
+  - Pointer events: `pointerdown` → zapamiętuje start (x, y, rect), `pointermove` → wylicza deltę względem najbliższego kontenera sekcji i wywołuje `updateStyle(path, { offsetX, offsetY, width, height })`, `pointerup` → uwalnia. Debounce autosave (już istnieje w `HomepageEditor`).
+  - Shift = proporcjonalny resize, Alt = symetryczny względem środka.
+- `<E>` (wrapper w `LandingV2.tsx`): aktualnie renderuje dziecko z outline. Zmieniam tak, żeby w trybie `editable` opakowywał dziecko w `<span/div style={{ display:'inline-block', transform: translate(x,y) scale(s), width, height }}>` i renderował `EditOverlay` dla `selectedPath === path`.
+- Reset: w Inspectorze dodaję sekcję „Pozycja i rozmiar" z polami `offsetX/Y`, `width`, `height`, `scale`, `zIndex` + przycisk „Zresetuj położenie".
+- Publikacja: nic nie dodajemy — `styles` już zapisuje się do `homepage_v2_content.content` w Supabase.
+
+### Uwaga do UX
+
+- Drag jest opt-in per element — bez zaznaczenia layout pozostaje w standardowej siatce (dla użytkowników nieedytujących nic się nie zmienia).
+- Poza edytorem (`editable=false`) style pozycji nadal są stosowane, więc to co admin poprzesuwa, widzą wszyscy odwiedzający.
+- Na mobile edytora (device=`mobile`) drag też działa, ale zapisane offsetsy są wspólne dla obu widoków (informacja w Inspectorze).
 
 ## Poza zakresem
-- Zawartość V1, routing, inne strony admina, RLS, edge functions.
-- Zmiany w logice publish/draft — pozostają bez zmian.
+- Nowe schematy DB, RLS, edge functions.
+- V1, routing, inne strony admina.
+- Wersjonowanie draftów, undo/redo poza istniejącym „Odrzuć zmiany".
 
 ## Weryfikacja
-- Otworzyć `/admin/homepage`, sprawdzić scroll kanwy i inspektora niezależnie.
-- Kliknąć logo w lewym górnym rogu — otwiera inspektor logo, można podmienić plik i wysokość.
-- Zapisać draft, opublikować, otworzyć `/` (variant V2) — logo i style spójne.
+- `/admin/homepage`: klik w miejsce wideo → w Inspectorze wgrywam MP4 → w podglądzie leci film z kontrolkami. Publikacja → `/` (V2) pokazuje ten sam film.
+- Sekcja „ZAUFALI NAM": klik w dowolny znaczek certyfikatu → Inspector, wgrywam PNG/SVG, ustawiam wysokość, opcjonalny link. Mogę dodać/usunąć/duplikować logo.
+- Zaznaczam nagłówek hero → chwytam za środek i przesuwam o 40 px w prawo → puszczam → zapisuje się w draft → po odświeżeniu pozycja zachowana. Za róg zmieniam rozmiar → skalowanie działa.
