@@ -87,13 +87,15 @@ Deno.serve(async (req) => {
     // Get partner profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, eq_id')
       .eq('user_id', userId)
       .single();
 
     const partnerName = profile 
       ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() 
       : 'Partner';
+    const partnerEqId = profile?.eq_id || null;
+
 
     // Generate unique OTP code
     let otpCode: string;
