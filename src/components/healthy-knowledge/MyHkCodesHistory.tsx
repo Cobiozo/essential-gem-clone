@@ -112,7 +112,9 @@ const MyHkCodesHistory: React.FC = () => {
             guest_email,
             guest_phone,
             email_consent,
-            watched_seconds
+            watched_seconds,
+            completed_at
+
           )
         `)
         .eq('partner_id', user.id)
