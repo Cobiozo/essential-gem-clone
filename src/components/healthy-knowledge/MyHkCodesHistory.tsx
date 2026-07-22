@@ -79,7 +79,7 @@ const LiveCountdown: React.FC<{ expiresAt: string; firstUsedAt: string | null; v
 };
 
 const MyHkCodesHistory: React.FC = () => {
-  const { user, isPartner, isAdmin } = useAuth();
+  const { user, isPartner, isAdmin, profile } = useAuth();
   const { language } = useLanguage();
   const [codes, setCodes] = useState<HkOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +95,19 @@ const MyHkCodesHistory: React.FC = () => {
         .from('hk_otp_codes')
         .select(`
           *,
-          healthy_knowledge (id, title, slug, otp_max_sessions, otp_validity_hours)
+          healthy_knowledge (id, title, slug, otp_max_sessions, otp_validity_hours),
+          hk_otp_sessions (
+            id,
+            created_at,
+            last_activity_at,
+            expires_at,
+            guest_first_name,
+            guest_last_name,
+            guest_email,
+            guest_phone,
+            email_consent,
+            watched_seconds
+          )
         `)
         .eq('partner_id', user.id)
         .eq('is_deleted_by_user', false)
@@ -165,7 +177,9 @@ const MyHkCodesHistory: React.FC = () => {
     const slug = code.healthy_knowledge?.slug;
     if (!slug) return;
     
-    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    const ref = code.partner_eq_id || profile?.eq_id || null;
+    const baseLink = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    const link = ref ? `${baseLink}?ref=${encodeURIComponent(ref)}` : baseLink;
     await navigator.clipboard.writeText(link);
     toast.success('Link skopiowany do schowka');
   };
@@ -175,7 +189,9 @@ const MyHkCodesHistory: React.FC = () => {
     const title = code.healthy_knowledge?.title;
     if (!slug || !title) return;
     
-    const link = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    const ref = code.partner_eq_id || profile?.eq_id || null;
+    const baseLink = `https://purelifecenter.pl/zdrowa-wiedza/${slug}`;
+    const link = ref ? `${baseLink}?ref=${encodeURIComponent(ref)}` : baseLink;
     const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
     
     await navigator.clipboard.writeText(message);
@@ -200,6 +216,32 @@ const MyHkCodesHistory: React.FC = () => {
       console.error('Error deleting code:', error);
       toast.error('Nie udało się usunąć kodu');
     }
+  };
+
+  const getLatestSession = (code: HkOtpCode) => {
+    const sessions = [...(code.hk_otp_sessions || [])];
+    return sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null;
+  };
+
+  const getRecipientLabel = (code: HkOtpCode) => {
+    const session = getLatestSession(code);
+    if (session) {
+      const guestName = `${session.guest_first_name || ''} ${session.guest_last_name || ''}`.trim();
+      return guestName || session.guest_email || session.guest_phone || 'Gość aktywował dostęp';
+    }
+    return code.recipient_name || code.recipient_email || '-';
+  };
+
+  const getRecipientDetails = (code: HkOtpCode) => {
+    const session = getLatestSession(code);
+    if (!session) return null;
+    const parts = [session.guest_email, session.guest_phone].filter(Boolean);
+    if (typeof session.watched_seconds === 'number') {
+      const seconds = Math.max(0, session.watched_seconds);
+      const watched = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+      parts.push(`oglądanie: ${watched}`);
+    }
+    return parts.join(' · ');
   };
 
   // Filter codes by tab and search
@@ -294,7 +336,12 @@ const MyHkCodesHistory: React.FC = () => {
                           {code.healthy_knowledge?.title || '-'}
                         </TableCell>
                         <TableCell>
-                          {code.recipient_name || code.recipient_email || '-'}
+                          <div className="max-w-[220px]">
+                            <p className="font-medium truncate">{getRecipientLabel(code)}</p>
+                            {getRecipientDetails(code) && (
+                              <p className="text-xs text-muted-foreground truncate">{getRecipientDetails(code)}</p>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <LiveCountdown 
@@ -362,7 +409,12 @@ const MyHkCodesHistory: React.FC = () => {
                           {code.healthy_knowledge?.title || '-'}
                         </TableCell>
                         <TableCell>
-                          {code.recipient_name || code.recipient_email || '-'}
+                          <div className="max-w-[220px]">
+                            <p className="font-medium truncate">{getRecipientLabel(code)}</p>
+                            {getRecipientDetails(code) && (
+                              <p className="text-xs text-muted-foreground truncate">{getRecipientDetails(code)}</p>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={status.variant} className="gap-1">

@@ -15,6 +15,20 @@ function generateOTPCode(): string {
   return code;
 }
 
+const messageTemplates: Record<string, string> = {
+  pl: `Cześć!\n\nMam dla Ciebie ciekawy materiał:\n"{title}"\n\n{description}\n\nWejdź na link poniżej i użyj kodu dostępu:\n\n🔗 Link:\n{share_url}\n\n🔑 Kod dostępu:\n{otp_code}\n\n⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.\n\nPozdrawiam,\n{partner_name}`,
+  en: `Hi!\n\nI have an interesting material for you:\n"{title}"\n\n{description}\n\nOpen the link below and use the access code:\n\n🔗 Link:\n{share_url}\n\n🔑 Access code:\n{otp_code}\n\n⏰ After the first use, you will have {validity_hours} hours of access.\n\nBest regards,\n{partner_name}`,
+  de: `Hallo!\n\nIch habe ein interessantes Material für dich:\n"{title}"\n\n{description}\n\nÖffne den Link unten und verwende den Zugangscode:\n\n🔗 Link:\n{share_url}\n\n🔑 Zugangscode:\n{otp_code}\n\n⏰ Nach der ersten Nutzung hast du {validity_hours} Stunden Zugang.\n\nViele Grüße,\n{partner_name}`,
+  no: `Hei!\n\nJeg har et interessant materiale til deg:\n"{title}"\n\n{description}\n\nÅpne lenken nedenfor og bruk tilgangskoden:\n\n🔗 Lenke:\n{share_url}\n\n🔑 Tilgangskode:\n{otp_code}\n\n⏰ Etter første bruk har du {validity_hours} timer tilgang.\n\nVennlig hilsen,\n{partner_name}`,
+  it: `Ciao!\n\nHo un materiale interessante per te:\n"{title}"\n\n{description}\n\nApri il link qui sotto e usa il codice di accesso:\n\n🔗 Link:\n{share_url}\n\n🔑 Codice di accesso:\n{otp_code}\n\n⏰ Dopo il primo utilizzo avrai {validity_hours} ore di accesso.\n\nCordiali saluti,\n{partner_name}`,
+  es: `¡Hola!\n\nTengo un material interesante para ti:\n"{title}"\n\n{description}\n\nAbre el enlace de abajo y usa el código de acceso:\n\n🔗 Enlace:\n{share_url}\n\n🔑 Código de acceso:\n{otp_code}\n\n⏰ Después del primer uso tendrás {validity_hours} horas de acceso.\n\nSaludos,\n{partner_name}`,
+  fr: `Bonjour !\n\nJ'ai un contenu intéressant pour vous :\n"{title}"\n\n{description}\n\nOuvrez le lien ci-dessous et utilisez le code d'accès :\n\n🔗 Lien :\n{share_url}\n\n🔑 Code d'accès :\n{otp_code}\n\n⏰ Après la première utilisation, vous aurez {validity_hours} heures d'accès.\n\nCordialement,\n{partner_name}`,
+  pt: `Olá!\n\nTenho um material interessante para você:\n"{title}"\n\n{description}\n\nAbra o link abaixo e use o código de acesso:\n\n🔗 Link:\n{share_url}\n\n🔑 Código de acesso:\n{otp_code}\n\n⏰ Após o primeiro uso, você terá {validity_hours} horas de acesso.\n\nCumprimentos,\n{partner_name}`,
+};
+
+const fillTemplate = (template: string, values: Record<string, string>) =>
+  template.replace(/\{(title|description|share_url|otp_code|validity_hours|partner_name)\}/g, (_match, key) => values[key] ?? '');
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -58,7 +72,7 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const { knowledge_id, recipient_name, recipient_email, message_language } = await req.json();
-    const lang = message_language || 'pl';
+    const lang = typeof message_language === 'string' ? message_language.trim().toLowerCase() : 'pl';
 
     if (!knowledge_id) {
       return new Response(
@@ -157,7 +171,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const baseUrl = settingsData?.app_base_url || 'https://purelifecenter.pl';
+    const baseUrl = (settingsData?.app_base_url || 'https://purelifecenter.pl').replace(/\/$/, '');
 
     // Generate share URL with partner EQ ID (?ref=<eq_id>) for attribution
     const shareUrl = partnerEqId
@@ -165,25 +179,38 @@ Deno.serve(async (req) => {
       : `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;
 
     
-    // Multi-language templates
-    const messageTemplates: Record<string, string> = {
-      pl: `Cześć!\n\nMam dla Ciebie ciekawy materiał:\n"{title}"\n\n{description}\n\nWejdź na link poniżej i użyj kodu dostępu:\n\n🔗 Link:\n{share_url}\n\n🔑 Kod dostępu:\n{otp_code}\n\n⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.\n\nPozdrawiam,\n{partner_name}`,
-      en: `Hi!\n\nI have an interesting material for you:\n"{title}"\n\n{description}\n\nGo to the link below and use the access code:\n\n🔗 Link:\n{share_url}\n\n🔑 Access code:\n{otp_code}\n\n⏰ After first use you have {validity_hours} hours of access.\n\nBest regards,\n{partner_name}`,
-      de: `Hallo!\n\nIch habe ein interessantes Material für dich:\n"{title}"\n\n{description}\n\nGehe zum Link unten und verwende den Zugangscode:\n\n🔗 Link:\n{share_url}\n\n🔑 Zugangscode:\n{otp_code}\n\n⏰ Nach der ersten Nutzung hast du {validity_hours} Stunden Zugang.\n\nMit freundlichen Grüßen,\n{partner_name}`,
-      no: `Hei!\n\nJeg har et interessant materiale til deg:\n"{title}"\n\n{description}\n\nGå til lenken nedenfor og bruk tilgangskoden:\n\n🔗 Lenke:\n{share_url}\n\n🔑 Tilgangskode:\n{otp_code}\n\n⏰ Etter første bruk har du {validity_hours} timers tilgang.\n\nMed vennlig hilsen,\n{partner_name}`,
-    };
+    let localizedTitle = knowledge.title;
+    let localizedDescription = knowledge.description || '';
 
-    // Use custom template if set, otherwise use language-appropriate template
-    const template = knowledge.share_message_template || messageTemplates[lang] || messageTemplates.pl;
+    if (lang !== 'pl') {
+      const { data: translation } = await supabaseAdmin
+        .from('healthy_knowledge_translations')
+        .select('title, description')
+        .eq('item_id', knowledge_id)
+        .eq('language_code', lang)
+        .maybeSingle();
+
+      if (translation?.title) localizedTitle = translation.title;
+      if (translation?.description !== null && translation?.description !== undefined) {
+        localizedDescription = translation.description || '';
+      }
+    }
+
+    // Custom templates are authored per material in Polish. For other languages,
+    // use the language template so changing the flag always changes the message text.
+    const template = lang === 'pl' && knowledge.share_message_template
+      ? knowledge.share_message_template
+      : messageTemplates[lang] || messageTemplates.pl;
 
     // Replace placeholders in template
-    const clipboardMessage = template
-      .replace('{title}', knowledge.title)
-      .replace('{description}', knowledge.description || '')
-      .replace('{share_url}', shareUrl)
-      .replace('{otp_code}', otpCode)
-      .replace('{validity_hours}', String(validityHours))
-      .replace('{partner_name}', partnerName);
+    const clipboardMessage = fillTemplate(template, {
+      title: localizedTitle,
+      description: localizedDescription,
+      share_url: shareUrl,
+      otp_code: otpCode,
+      validity_hours: String(validityHours),
+      partner_name: partnerName || 'Partner',
+    });
 
     console.log(`Generated HK OTP code ${otpCode} for knowledge ${knowledge_id} by user ${userId}`);
 
