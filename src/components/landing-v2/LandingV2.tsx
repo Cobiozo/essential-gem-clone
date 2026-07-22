@@ -497,14 +497,15 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
       </section>
 
       {/* ================= TRUSTED BY ================= */}
-      <section className="pb-20">
-        <div className="container mx-auto px-6 lg:px-10 text-center">
+      <section id="trusted-by" className="pb-14 sm:pb-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-10 text-center">
           {trustedBy.eyebrow && (
             <E path="trustedBy.eyebrow" type="text">
-              <div className="text-[11px] tracking-[0.35em] text-neutral-500 font-semibold mb-10">{trustedBy.eyebrow}</div>
+              <div className="text-[11px] tracking-[0.35em] text-neutral-500 font-semibold mb-8 sm:mb-10">{trustedBy.eyebrow}</div>
             </E>
           )}
-          <div className="flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-8 sm:gap-x-14 gap-y-6 sm:gap-y-8">
+
             {(trustedBy.logos || []).map((logo, i) => {
               const h = logo.heightPx || 48;
               const inner = logo.url ? (
