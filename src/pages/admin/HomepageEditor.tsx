@@ -200,9 +200,6 @@ const HomepageEditor: React.FC = () => {
     </div>
   );
 };
-    </div>
-  );
-};
 
 export default HomepageEditor;
 
