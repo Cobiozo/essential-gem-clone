@@ -122,7 +122,7 @@ const MyHkCodesHistory: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCodes((data as HkOtpCode[]) || []);
+      setCodes(((data as unknown) as HkOtpCode[]) || []);
     } catch (error) {
       console.error('Error fetching codes:', error);
       toast.error('Nie udało się pobrać kodów');
