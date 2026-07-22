@@ -74,6 +74,8 @@ export interface HkOtpSession {
   guest_phone?: string | null;
   email_consent?: boolean;
   watched_seconds?: number;
+  completed_at?: string | null;
+
 }
 
 export const HEALTHY_KNOWLEDGE_CATEGORIES = [
