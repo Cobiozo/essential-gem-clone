@@ -607,20 +607,41 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {knowledge?.title || 'Materiał'}
                       </p>
-                      {latestSession && (
-                        <div className="mt-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs text-muted-foreground space-y-0.5">
-                          <p className="font-medium text-foreground truncate">
-                            {guestName || latestSession.guest_email || 'Osoba bez danych'}
-                          </p>
-                          {latestSession.guest_email && (
-                            <p className="truncate">{latestSession.guest_email}</p>
-                          )}
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                            {latestSession.guest_phone && <span>{latestSession.guest_phone}</span>}
-                            <span>Oglądanie: {formatWatchedTime(latestSession.watched_seconds)}</span>
+                      {latestSession && (() => {
+                        const sessions = [...(code.hk_otp_sessions || [])].sort(
+                          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                        );
+                        const isOpen = expandedGuests.has(code.id);
+                        return (
+                          <div className="mt-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleGuests(code.id); }}
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              {isOpen ? 'Ukryj dane osoby' : `Pokaż dane osoby (${sessions.length})`}
+                            </button>
+                            {isOpen && (
+                              <div className="mt-1.5 space-y-1.5">
+                                {sessions.map((s) => {
+                                  const name = `${s.guest_first_name || ''} ${s.guest_last_name || ''}`.trim();
+                                  return (
+                                    <div key={s.id} className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs text-muted-foreground space-y-0.5">
+                                      <p className="font-medium text-foreground truncate">{name || s.guest_email || 'Osoba bez danych'}</p>
+                                      {s.guest_email && <p className="truncate">{s.guest_email}</p>}
+                                      <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                                        {s.guest_phone && <span>{s.guest_phone}</span>}
+                                        <span>Oglądanie: {formatWatchedTime(s.watched_seconds)}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 ml-2">
                       <Badge 
