@@ -105,6 +105,8 @@ const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget"));
 
 // Eager load - critical pages
 import Index from "./pages/Index";
+import HomepageSwitcher from "./pages/HomepageSwitcher";
+const HomepageEditor = lazyWithRetry(() => import("./pages/admin/HomepageEditor"));
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -403,7 +405,7 @@ const AppContent = () => {
               <Routes>
                 <Route path="/" element={
                   // All authenticated users go to modern dashboard
-                  user ? <Navigate to="/dashboard" replace /> : <Index />
+                  user ? <Navigate to="/dashboard" replace /> : <HomepageSwitcher />
                 } />
                 <Route path="/auth" element={
                   user ? <Navigate to="/dashboard" replace /> : <Auth />
@@ -411,6 +413,7 @@ const AppContent = () => {
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/change-password" element={<ChangeTempPassword />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/homepage" element={<HomepageEditor />} />
                 <Route path="/my-account" element={<MyAccount />} />
                 <Route path="/training" element={<Training />} />
                 <Route path="/training/:moduleId" element={<TrainingModule />} />
