@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Sidebar,
   SidebarContent,
@@ -122,6 +122,7 @@ interface NavItem {
   value: string;
   labelKey: string; // key in SIDEBAR_LABELS
   icon: React.ElementType;
+  path?: string;
 }
 
 interface NavCategory {
@@ -139,6 +140,7 @@ const navCategories: NavCategory[] = [
     icon: LayoutDashboard,
     items: [
       { value: 'content', labelKey: 'main', icon: Settings2 },
+      { value: 'homepage-v2', labelKey: 'homepageV2', icon: Home, path: '/admin/homepage' },
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
       { value: 'html-pages', labelKey: 'htmlPages', icon: FileCode },
@@ -287,6 +289,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     moderators: 'Moderatorzy',
     guests: 'Goście PLC',
     deletedAccounts: 'Usunięte konta',
+    homepageV2: 'Strona główna V1/V2',
   };
 
   const getLabel = (key: string): string => {
