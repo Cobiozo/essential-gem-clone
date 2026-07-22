@@ -111,7 +111,7 @@ function ListEditor<T extends { id: string }>({
 
 const HomepageEditor: React.FC = () => {
   const { user, isAdmin } = useAuth();
-  const { variant } = useHomepageVariant();
+  const { variant, reload: reloadVariant } = useHomepageVariant();
   const { content: published, draft, rowId, reload, loading } = useHomepageV2Content(false);
   const [working, setWorking] = useState<HomepageV2Content | null>(null);
   const [saving, setSaving] = useState(false);
@@ -173,7 +173,10 @@ const HomepageEditor: React.FC = () => {
       .update({ active_variant: v, updated_at: new Date().toISOString(), updated_by: user!.id })
       .eq('singleton', true);
     if (error) toast.error(error.message);
-    else toast.success(`Aktywna strona główna: ${v.toUpperCase()}`);
+    else {
+      toast.success(`Aktywna strona główna: ${v === 'v2' ? 'V2 nowa' : 'V1 klasyczna'}`);
+      reloadVariant();
+    }
   };
 
   return (
