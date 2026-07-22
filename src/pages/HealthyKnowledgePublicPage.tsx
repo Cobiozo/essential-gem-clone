@@ -258,8 +258,9 @@ const HealthyKnowledgePublicPage: React.FC = () => {
       return;
     }
 
-    if (!isGuestFormValid() && !codeOverride) {
-      toast.error('Wypełnij wszystkie wymagane pola');
+    // Guest form + consent are ALWAYS required — no bypass, regardless of code source (paste, autofill, etc.).
+    if (!isGuestFormValid()) {
+      toast.error('Wypełnij imię, nazwisko, e-mail, numer telefonu i zaznacz zgodę.');
       return;
     }
 
@@ -279,8 +280,10 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           guest_last_name: guestLastName.trim(),
           guest_email: guestEmail.trim().toLowerCase(),
           guest_phone: guestPhone,
+          ref_eq_id: refEqId,
         },
       });
+
 
       if (response.error) {
         throw new Error(response.error.message || 'Błąd walidacji');
