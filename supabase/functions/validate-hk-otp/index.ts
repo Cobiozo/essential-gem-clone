@@ -153,11 +153,12 @@ Deno.serve(async (req) => {
         session_token: sessionToken,
         device_fingerprint: device_fingerprint || null,
         expires_at: expiresAt.toISOString(),
-        guest_first_name: guest_first_name || null,
-        guest_last_name: guest_last_name || null,
-        guest_email: guest_email || null,
-        guest_phone: guest_phone || null,
-        email_consent: !!(guest_first_name && guest_email),
+        guest_first_name: firstName,
+        guest_last_name: lastName,
+        guest_email: email,
+        guest_phone: phoneDigits,
+        email_consent: true,
+
       });
 
     if (sessionError) {
