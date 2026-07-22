@@ -1,94 +1,35 @@
 ## Cel
+Naprawić 3 rzeczy w edytorze `/admin/homepage`, nie ruszając reszty aplikacji:
 
-Zamienić obecny edytor V2 (formularze z zakładkami) na profesjonalny edytor typu "kliknij element → edytuj obok". Podgląd na żywo staje się interaktywnym canvasem, a każdy element (tekst, nagłówek, obraz, wideo, ikona, przycisk, karta, statystyka, logo, avatar) po kliknięciu otwiera dedykowany panel edycji po prawej stronie z pełną kontrolą treści i stylu.
+1. **Przewijanie** — kanwa i inspektor mają płynnie się scrollować.
+2. **Spójny styl edytora** — zamiast surowego `bg-neutral-100` + białych paneli, użyć tokenów designu z reszty panelu admina (`bg-background`, `bg-card`, `border-border`, `text-foreground`, `text-muted-foreground`, `Separator`, cienie i zaokrąglenia jak w innych ekranach admina).
+3. **Edytowalne logo w lewym górnym rogu** kanwy V2.
 
-## Zakres (tylko `/admin/homepage` + LandingV2)
+## Co zrobić
 
-Nie ruszam żadnej innej części aplikacji. Zmiany dotyczą wyłącznie:
-- `src/pages/admin/HomepageEditor.tsx` (przebudowa layoutu)
-- `src/components/landing-v2/LandingV2.tsx` (dodanie trybu `editable` z data-attrybutami do klikania)
-- nowy folder `src/components/landing-v2/editor/` (panele inspektorów)
+### 1. Przewijanie
+- `src/pages/admin/HomepageEditor.tsx`: kontener główny zmienić z `h-screen` na `min-h-screen` z sekcją body `flex-1 overflow-hidden`, a wewnątrz nadać `overflow-y-auto` osobno lewej kanwie i prawemu inspektorowi (`h-[calc(100vh-56px)]`), żeby scroll działał niezależnie w obu kolumnach.
+- Usunąć/zawęzić `onClick` deselect z zewnętrznego wrappera kanwy (przenieść na dedykowane tło), żeby kliknięcia w scrollbary/marginesy nie gubiły zaznaczenia.
 
-Publiczna strona (dla niezalogowanych) pozostaje bez zmian wizualnych.
+### 2. Spójny design z panelem admina
+- Toolbar: zamiast `bg-white shadow-sm` → `bg-card border-b border-border`. Typografia `text-foreground` / `text-muted-foreground`. Przyciski zostają na wariantach shadcn (`default`, `outline`, `ghost`) — usunąć hardcoded klasy `bg-neutral-*`.
+- Tło body: `bg-muted/30` (jak inne strony admina) zamiast `bg-neutral-100`.
+- Karta kanwy: `bg-background border border-border rounded-lg shadow-sm`.
+- Inspektor (`src/components/landing-v2/editor/Inspector.tsx`): sekcje jako `Card`/`Separator` z shadcn, nagłówki `text-xs uppercase tracking-wider text-muted-foreground`, spójne odstępy `space-y-4`, `Label` i `Input` w standardowym rozmiarze reszty admina (bez `h-9 text-xs` wszędzie).
+- `StyleControls` i inputy: użyć `Select` z shadcn zamiast natywnego `<select>` (jeżeli obecnie natywny), stała siatka 2-kolumnowa, chip kolorów w `rounded-md border-border`.
+- Autosave status → `Badge` variant `secondary`.
 
-## Nowy układ ekranu edytora
+### 3. Edytowalne logo (lewy górny róg)
+- Rozszerzyć typ `HomepageV2Content` o `header.logo: { url: string; alt: string; heightPx?: number; link?: string }` z domyślną wartością wskazującą aktualny import `logoPurelife`.
+- W `src/components/landing-v2/LandingV2.tsx` (linia 131): zastąpić statyczny `<img src={logoPurelife} … />` komponentem `<E path="header.logo" type="logo"><img src={content.header.logo.url || logoPurelife} … /></E>`; wysokość sterowana `heightPx` z fallbackiem `h-14 lg:h-16`.
+- W `Inspector.tsx` blok `logo` już istnieje — działa automatycznie po podpięciu ścieżki. Dodać pole `Wysokość (px)` dla logo w headerze.
+- Migracja danych: przy pierwszym wczytaniu, jeśli `content.header?.logo` nie istnieje, wypełnić domyślnym obiektem w hooku `useHomepageV2Content` (bez pisania do DB — tylko in-memory fallback, admin zapisze przez „Opublikuj").
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Toolbar: [V1/V2 aktywna] [Zapisz draft] [Publikuj] [Cofnij]│
-├──────────────────────────────────┬──────────────────────────┤
-│                                  │                          │
-│   CANVAS (LandingV2 editable)    │   INSPEKTOR              │
-│   - klikalne elementy            │   - kontekstowy panel    │
-│   - hover = outline              │   - Treść / Styl / Układ │
-│   - selected = ring + toolbar    │                          │
-│                                  │                          │
-└──────────────────────────────────┴──────────────────────────┘
-```
+## Poza zakresem
+- Zawartość V1, routing, inne strony admina, RLS, edge functions.
+- Zmiany w logice publish/draft — pozostają bez zmian.
 
-Lewa strona (~65%) = interaktywny podgląd draftu. Prawa strona (~35%) = inspektor dopasowany do zaznaczonego elementu.
-
-## Model interakcji
-
-1. Każdy edytowalny węzeł w `LandingV2` w trybie `editable` dostaje `data-edit-path` (np. `hero.titleLine1`, `features.items[0].title`, `stats.items[2].icon`).
-2. Kliknięcie elementu: `setSelectedPath(path)` + scroll inspektora do właściwej sekcji.
-3. Hover: subtelny outline + etykieta z typem elementu ("Nagłówek", "Obraz", "Ikona", "Karta").
-4. Dla list (karty, statystyki, avatary, logo) w hover pojawiają się mikro-akcje: ⬆ ⬇ 🗑 ➕.
-5. Zmiany zapisują się do `draft_content` z debounce 600 ms i widać je natychmiast w podglądzie.
-
-## Inspektory (typy edytorów)
-
-Każdy typ pola dostaje dedykowany inspektor:
-
-- **Tekst / Nagłówek**: textarea + rozmiar (sm/md/lg/xl/2xl…), waga (300–800), kolor (paleta + custom hex), wyrównanie, transform (UPPER/none), letter-spacing, line-height.
-- **Rich text (opis)**: textarea z podglądem, bold/italic markdown.
-- **Obraz**: upload do `cms-images` + wybór z biblioteki + URL, alt, dopasowanie (cover/contain), pozycja, ramka, promień rogu, cień.
-- **Wideo**: URL/upload, plakat (poster), autoplay/mute/loop, wysokość, promień rogu.
-- **Ikona (Lucide)**: wyszukiwarka po nazwie z podglądem siatki ikon, rozmiar, kolor, tło, kształt (kwadrat/koło).
-- **Przycisk / CTA**: label, URL, wariant (primary/secondary/ghost), kolor tła, kolor tekstu, rozmiar, ikona przed/po, promień rogu.
-- **Karta (feature/stat)**: te same kontrolki + tło karty, obramowanie, cień, padding.
-- **Sekcja**: tło (kolor/gradient/obraz), padding góra/dół, maksymalna szerokość, wyśrodkowanie.
-- **Lista (avatary, logo, karty, statystyki, punkty)**: reorder drag & drop, dodaj, usuń, duplikuj.
-- **SEO**: title + description (jak dziś).
-
-Wszystkie style zapisywane są w rozszerzonym `HomepageV2Content` jako opcjonalne pole `style?: {...}` na każdym edytowalnym węźle — brak `style` = użyj domyślnego wyglądu (kompatybilność wsteczna z obecnym contentem w bazie).
-
-## Rozszerzenie typu treści
-
-`src/types/homepageV2.ts` dostaje opcjonalne `style` per element:
-
-```ts
-interface TextStyle { size?: string; weight?: number; color?: string; align?: 'left'|'center'|'right'; transform?: 'upper'|'none'; tracking?: string; }
-interface BoxStyle { bg?: string; padding?: string; radius?: string; shadow?: string; border?: string; }
-interface IconStyle { size?: number; color?: string; bg?: string; shape?: 'square'|'circle'; }
-// każdy tekst/karta/ikona/przycisk może mieć opcjonalne style: TextStyle | BoxStyle | IconStyle
-```
-
-Bez migracji DB — `content` to JSONB, więc dodatkowe pola po prostu się zapiszą. Publiczny `LandingV2` czyta styl jeśli jest, inaczej używa dotychczasowych klas Tailwind.
-
-## Nowe pliki
-
-- `src/components/landing-v2/editor/EditableCanvas.tsx` — renderuje `LandingV2` w trybie edycji z kontekstem `{selectedPath, hoveredPath, onSelect, onHover}`.
-- `src/components/landing-v2/editor/Inspector.tsx` — router inspektorów po typie zaznaczonego pola.
-- `src/components/landing-v2/editor/inputs/` — reużywalne kontrolki: `TextInput`, `ColorPicker`, `IconPicker` (Lucide search), `ImagePicker`, `NumberSlider`, `SelectPill`, `ListReorder`.
-- `src/components/landing-v2/editor/schema.ts` — mapowanie ścieżek na typ inspektora (`text | heading | image | video | icon | button | card | stat | avatar | logo | section | seo`).
-
-## Zmiany w istniejących plikach
-
-- `HomepageEditor.tsx`: usunięcie zakładek Hero/Karty/Statystyki/…, wstawienie 2-kolumnowego layoutu canvas + inspector. Zachowuję logikę `useHomepageV2Content`, draft/publish, przełącznik V1/V2 i toolbar na górze.
-- `LandingV2.tsx`: dodaję opcjonalny prop `editable?: boolean` i (przez context) rejestrowanie `data-edit-path` + `onClick`. W trybie publicznym zero zmian wizualnych ani interakcji.
-- `types/homepageV2.ts`: dodaję opcjonalne pola `style` (bez łamania obecnych danych).
-
-## Zachowanie kompatybilności
-
-- Publiczna strona `/` (niezalogowani) renderuje ten sam `LandingV2` bez propa `editable` — wygląd bez zmian.
-- Obecny content w `homepage_v2_content` działa bez migracji (nowe pola są opcjonalne).
-- Przełącznik V1/V2 i publikacja draftu bez zmian.
-
-## Kryteria akceptacji
-
-- Wchodzę na `/admin/homepage`, widzę stronę 1:1 jak publiczna + hover outline na elementach.
-- Klik w dowolny tekst/obraz/ikonę/przycisk otwiera po prawej właściwy inspektor.
-- Mogę zmienić treść, kolor, rozmiar, ikonę, obraz, kolejność kart, dodać/usunąć element — zmiana widoczna natychmiast w podglądzie, zapisana jako draft.
-- „Publikuj" nadpisuje `content` treścią draftu, publiczna strona natychmiast się aktualizuje.
-- Żadna inna część aplikacji się nie zmienia.
+## Weryfikacja
+- Otworzyć `/admin/homepage`, sprawdzić scroll kanwy i inspektora niezależnie.
+- Kliknąć logo w lewym górnym rogu — otwiera inspektor logo, można podmienić plik i wysokość.
+- Zapisać draft, opublikować, otworzyć `/` (variant V2) — logo i style spójne.
