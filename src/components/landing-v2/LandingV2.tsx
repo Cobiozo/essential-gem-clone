@@ -425,29 +425,35 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
             </E>
           )}
           <div className="flex flex-wrap items-center justify-center gap-x-14 gap-y-8">
-            {trustedBy.logos && trustedBy.logos.length > 0 ? (
-              trustedBy.logos.map((logo, i) => (
-                <E key={logo.id} path={`trustedBy.logos[${i}]`} type="logo">
-                  <div>
-                    {logo.link ? (
-                      <a href={logo.link} target="_blank" rel="noreferrer">
-                        <img src={logo.url} alt={logo.alt} className="h-10 lg:h-12 w-auto object-contain grayscale opacity-70 hover:opacity-100 transition" />
-                      </a>
+            {(trustedBy.logos || []).map((logo, i) => {
+              const h = logo.heightPx || 48;
+              const inner = logo.url ? (
+                <img
+                  src={logo.url}
+                  alt={logo.alt}
+                  className="w-auto object-contain grayscale opacity-70 hover:opacity-100 transition"
+                  style={{ height: h }}
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center border-2 border-dashed border-neutral-300 text-neutral-400 text-[10px] uppercase tracking-widest px-4 rounded"
+                  style={{ height: h, minWidth: 120 }}
+                >
+                  <ImagePlus className="w-4 h-4 mr-1.5" /> {logo.alt || 'Logo'}
+                </div>
+              );
+              return (
+                <E key={logo.id || i} path={`trustedBy.logos[${i}]`} type="logo">
+                  <div className="inline-flex">
+                    {logo.link && logo.url ? (
+                      <a href={logo.link} target="_blank" rel="noreferrer" onClick={(e) => e.preventDefault()}>{inner}</a>
                     ) : (
-                      <img src={logo.url} alt={logo.alt} className="h-10 lg:h-12 w-auto object-contain grayscale opacity-70 hover:opacity-100 transition" />
+                      inner
                     )}
                   </div>
                 </E>
-              ))
-            ) : (
-              <>
-                <TrustedBadge name="EQOLOGY" sub="Independent Business Partner" />
-                <TrustedBadge name="GOED" sub="OMEGA-3" />
-                <TrustedBadge variant="msc" name="MSC" />
-                <TrustedBadge name="GMP" sub="certified" />
-                <TrustedBadge variant="arctic" name="ARCTIC OIL" />
-              </>
-            )}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -455,7 +461,7 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
   );
 };
 
-const LandingV2: React.FC<Props> = ({ preferDraft = false, overrideContent, editable = false, selectedPath = null, hoveredPath = null, onSelect, onHover }) => {
+const LandingV2: React.FC<Props> = ({ preferDraft = false, overrideContent, editable = false, selectedPath = null, hoveredPath = null, onSelect, onHover, onUpdateStyle }) => {
   const { content: fetched } = useHomepageV2Content(preferDraft);
   const content = overrideContent ?? fetched;
   const [innerHover, setInnerHover] = useState<string | null>(null);
@@ -471,6 +477,7 @@ const LandingV2: React.FC<Props> = ({ preferDraft = false, overrideContent, edit
         hoveredPath: onHover ? hoveredPath : innerHover,
         onSelect: onSelect || (() => {}),
         onHover: onHover || setInnerHover,
+        onUpdateStyle,
       }}
     >
       <LandingV2Inner content={content} />
