@@ -53,6 +53,14 @@ const HomepageEditor: React.FC = () => {
     setWorking(next);
   };
 
+  const handleUpdateStyle = (path: string, patch: Partial<ElementStyle>) => {
+    setWorking((prev) => {
+      if (!prev) return prev;
+      dirtyRef.current = true;
+      return updateStyle(prev, path, patch);
+    });
+  };
+
   if (user === null) return <Navigate to="/auth" replace />;
   if (user && !isAdmin) return <Navigate to="/dashboard" replace />;
 
