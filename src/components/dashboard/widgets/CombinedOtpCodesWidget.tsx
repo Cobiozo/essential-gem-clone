@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Key, Clock, Copy, Loader2, CheckCircle2, XCircle, Users, Link2, MessageSquare } from 'lucide-react';
+import { Key, Clock, Copy, Loader2, CheckCircle2, XCircle, Users, Link2, MessageSquare, ChevronDown } from 'lucide-react';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { HkOtpCode } from '@/types/healthyKnowledge';
