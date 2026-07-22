@@ -338,31 +338,67 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
               )}
             </div>
 
-            <div className="relative rounded-3xl overflow-hidden aspect-[4/3]">
-              <E path="community.backgroundImage" type="image">
-                <img src={communityImg} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-              </E>
+            <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-neutral-100">
+              {(() => {
+                const url = community.videoUrl || '';
+                const embed = toEmbedUrl(url, !!community.videoAutoplay);
+                const isFile = url && /\.(mp4|webm|mov|m4v|ogv)(\?.*)?$/i.test(url);
+                const poster = community.videoPoster || communityImg;
 
-              {community.overlayText && (
-                <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 flex items-center gap-4">
-                  <E path="community.video" type="video">
-                    {community.videoUrl ? (
-                      <a href={community.videoUrl} target="_blank" rel="noreferrer" className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-xl shrink-0 hover:scale-105 transition" aria-label="Play video">
-                        <Play className="w-6 h-6 text-neutral-900 fill-neutral-900 ml-1" />
-                      </a>
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-xl shrink-0">
-                        <Play className="w-6 h-6 text-neutral-900 fill-neutral-900 ml-1" />
-                      </div>
+                if (isFile) {
+                  return (
+                    <E path="community.video" type="video">
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={poster}
+                        autoPlay={!!community.videoAutoplay}
+                        muted={!!community.videoAutoplay}
+                        className="absolute inset-0 w-full h-full object-cover bg-black"
+                      >
+                        <source src={url} type={videoMime(url)} />
+                      </video>
+                    </E>
+                  );
+                }
+                if (embed) {
+                  return (
+                    <E path="community.video" type="video">
+                      <iframe
+                        src={embed}
+                        title="Wideo społeczności"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 w-full h-full"
+                        style={{ border: 0 }}
+                      />
+                    </E>
+                  );
+                }
+                // Fallback: image + play icon overlay (also acts as "add video" spot in editor)
+                return (
+                  <>
+                    <E path="community.backgroundImage" type="image">
+                      <img src={communityImg} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    </E>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <E path="community.video" type="video">
+                        <button type="button" className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-2xl hover:scale-105 transition" aria-label="Dodaj wideo">
+                          <Play className="w-8 h-8 text-neutral-900 fill-neutral-900 ml-1" />
+                        </button>
+                      </E>
+                    </div>
+                    {community.overlayText && (
+                      <E path="community.overlayText" type="text">
+                        <p className="absolute left-6 right-6 bottom-16 text-white text-sm md:text-base font-medium max-w-xs drop-shadow-lg">{community.overlayText}</p>
+                      </E>
                     )}
-                  </E>
-                  <E path="community.overlayText" type="text">
-                    <p className="text-white text-sm md:text-base font-medium max-w-xs drop-shadow-lg">{community.overlayText}</p>
-                  </E>
-                </div>
-              )}
+                  </>
+                );
+              })()}
 
-              <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3">
+              <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3 pointer-events-none">
                 <div className="flex -space-x-2">
                   {[0, 1, 2, 3].map((i) => (
                     <StripAvatar key={i} index={i} size={32} ring="ring-white" />
@@ -370,11 +406,12 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
                 </div>
                 {community.peopleCount && (
                   <E path="community.peopleCount" type="text">
-                    <span className="text-sm font-semibold text-white drop-shadow">{community.peopleCount}</span>
+                    <span className="text-sm font-semibold text-white drop-shadow pointer-events-auto">{community.peopleCount}</span>
                   </E>
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </section>
