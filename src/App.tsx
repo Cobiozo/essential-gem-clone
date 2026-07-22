@@ -413,6 +413,7 @@ const AppContent = () => {
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/change-password" element={<ChangeTempPassword />} />
                 <Route path="/admin" element={<Admin />} />
+                <Route path="/admin/homepage" element={<HomepageEditor />} />
                 <Route path="/my-account" element={<MyAccount />} />
                 <Route path="/training" element={<Training />} />
                 <Route path="/training/:moduleId" element={<TrainingModule />} />
