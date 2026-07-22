@@ -23,6 +23,146 @@ import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 import { useContentTypeLabels } from '@/types/healthyKnowledge';
 
+const SHARE_MESSAGE_TEMPLATES: Record<string, string> = {
+  pl: DEFAULT_SHARE_MESSAGE_TEMPLATE,
+  en: `Hi!
+
+I have an interesting material for you:
+"{title}"
+
+{description}
+
+Open the link below and use the access code:
+
+🔗 Link:
+{share_url}
+
+🔑 Access code:
+{otp_code}
+
+⏰ After the first use, you will have {validity_hours} hours of access.
+
+Best regards,
+{partner_name}`,
+  de: `Hallo!
+
+Ich habe ein interessantes Material für dich:
+"{title}"
+
+{description}
+
+Öffne den Link unten und verwende den Zugangscode:
+
+🔗 Link:
+{share_url}
+
+🔑 Zugangscode:
+{otp_code}
+
+⏰ Nach der ersten Nutzung hast du {validity_hours} Stunden Zugang.
+
+Viele Grüße,
+{partner_name}`,
+  no: `Hei!
+
+Jeg har et interessant materiale til deg:
+"{title}"
+
+{description}
+
+Åpne lenken nedenfor og bruk tilgangskoden:
+
+🔗 Lenke:
+{share_url}
+
+🔑 Tilgangskode:
+{otp_code}
+
+⏰ Etter første bruk har du {validity_hours} timer tilgang.
+
+Vennlig hilsen,
+{partner_name}`,
+  it: `Ciao!
+
+Ho un materiale interessante per te:
+"{title}"
+
+{description}
+
+Apri il link qui sotto e usa il codice di accesso:
+
+🔗 Link:
+{share_url}
+
+🔑 Codice di accesso:
+{otp_code}
+
+⏰ Dopo il primo utilizzo avrai {validity_hours} ore di accesso.
+
+Cordiali saluti,
+{partner_name}`,
+  es: `¡Hola!
+
+Tengo un material interesante para ti:
+"{title}"
+
+{description}
+
+Abre el enlace de abajo y usa el código de acceso:
+
+🔗 Enlace:
+{share_url}
+
+🔑 Código de acceso:
+{otp_code}
+
+⏰ Después del primer uso tendrás {validity_hours} horas de acceso.
+
+Saludos,
+{partner_name}`,
+  fr: `Bonjour !
+
+J'ai un contenu intéressant pour vous :
+"{title}"
+
+{description}
+
+Ouvrez le lien ci-dessous et utilisez le code d'accès :
+
+🔗 Lien :
+{share_url}
+
+🔑 Code d'accès :
+{otp_code}
+
+⏰ Après la première utilisation, vous aurez {validity_hours} heures d'accès.
+
+Cordialement,
+{partner_name}`,
+  pt: `Olá!
+
+Tenho um material interessante para você:
+"{title}"
+
+{description}
+
+Abra o link abaixo e use o código de acesso:
+
+🔗 Link:
+{share_url}
+
+🔑 Código de acesso:
+{otp_code}
+
+⏰ Após o primeiro uso, você terá {validity_hours} horas de acesso.
+
+Cumprimentos,
+{partner_name}`,
+};
+
+const fillShareTemplate = (template: string, values: Record<string, string>) =>
+  template.replace(/\{(title|description|share_url|otp_code|validity_hours|partner_name)\}/g, (_match, key) => values[key] ?? '');
+
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
     video: <Play className={className} />,
@@ -114,17 +254,54 @@ const HealthyKnowledgePage: React.FC = () => {
     setSelectedMaterial(material);
     setGeneratedMessage('');
     setGeneratedCode('');
-    const template = material.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE;
-    const previewMessage = template
-      .replace('{title}', material.title)
-      .replace('{description}', material.description || '')
-      .replace('{share_url}', `[${tf('hk.linkWillBeGenerated', 'link zostanie wygenerowany')}]`)
-      .replace('{otp_code}', `[${tf('hk.codeWillBeGenerated', 'kod zostanie wygenerowany')}]`)
-      .replace('{validity_hours}', String(material.otp_validity_hours || 24))
-      .replace('{partner_name}', `[${tf('hk.yourName', 'Twoje imię')}]`);
-    setShareMessage(previewMessage);
     setShareDialogOpen(true);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const buildPreview = async () => {
+      if (!selectedMaterial || !shareDialogOpen) return;
+
+      const lang = messageLang || 'pl';
+      let title = selectedMaterial.title;
+      let description = selectedMaterial.description || '';
+
+      if (lang !== 'pl') {
+        const { data } = await supabase
+          .from('healthy_knowledge_translations')
+          .select('title, description')
+          .eq('item_id', selectedMaterial.id)
+          .eq('language_code', lang)
+          .maybeSingle();
+
+        if (data?.title) title = data.title;
+        if (data?.description !== null && data?.description !== undefined) {
+          description = data.description || '';
+        }
+      }
+
+      const template = lang === 'pl' && selectedMaterial.share_message_template
+        ? selectedMaterial.share_message_template
+        : SHARE_MESSAGE_TEMPLATES[lang] || SHARE_MESSAGE_TEMPLATES.pl;
+
+      const previewMessage = fillShareTemplate(template, {
+        title,
+        description,
+        share_url: `[${tf('hk.linkWillBeGenerated', 'link zostanie wygenerowany')}]`,
+        otp_code: `[${tf('hk.codeWillBeGenerated', 'kod zostanie wygenerowany')}]`,
+        validity_hours: String(selectedMaterial.otp_validity_hours || 24),
+        partner_name: `[${tf('hk.yourName', 'Twoje imię')}]`,
+      });
+
+      if (!cancelled) setShareMessage(previewMessage);
+    };
+
+    buildPreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [messageLang, selectedMaterial, shareDialogOpen, tf]);
 
   const handleGenerateAndCopy = async () => {
     if (!selectedMaterial) return;
@@ -471,7 +648,14 @@ const HealthyKnowledgePage: React.FC = () => {
               <span>{tf('hk.shareMaterial', 'Udostępnij materiał')}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-normal">{tf('hk.messageLanguage', 'Język wiadomości')}:</span>
-                <InvitationLanguageSelect value={messageLang} onValueChange={setMessageLang} />
+                <InvitationLanguageSelect
+                  value={messageLang}
+                  onValueChange={(value) => {
+                    setMessageLang(value);
+                    setGeneratedMessage('');
+                    setGeneratedCode('');
+                  }}
+                />
               </div>
             </DialogTitle>
             <DialogDescription>
