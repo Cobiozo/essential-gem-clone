@@ -383,11 +383,8 @@ const MyHkCodesHistory: React.FC = () => {
                           {code.healthy_knowledge?.title || '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="max-w-[220px]">
-                            <p className="font-medium truncate">{getRecipientLabel(code)}</p>
-                            {getRecipientDetails(code) && (
-                              <p className="text-xs text-muted-foreground truncate">{getRecipientDetails(code)}</p>
-                            )}
+                          <div className="max-w-[260px]">
+                            {renderRecipientCell(code)}
                           </div>
                         </TableCell>
                         <TableCell>
