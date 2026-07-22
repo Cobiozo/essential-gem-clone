@@ -180,21 +180,25 @@ const HomepageEditor: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="border-b sticky top-0 bg-background z-40">
         <div className="container mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Link to="/admin" className="text-sm text-muted-foreground hover:underline">← Panel admina</Link>
-            <h1 className="text-lg font-bold">Strona główna</h1>
-            <div className="flex items-center gap-2 pl-4 border-l">
-              <span className="text-xs text-muted-foreground">Aktywny wariant:</span>
+            <div>
+              <h1 className="text-lg font-bold">Strona główna V1/V2</h1>
+              <p className="text-xs text-muted-foreground">Ten wybór decyduje, którą stronę widzą osoby niezalogowane na purelifecenter.pl.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pl-4 border-l">
+              <span className="text-xs text-muted-foreground">Aktualnie widoczna:</span>
               <span className={`text-xs font-bold ${variant === 'v2' ? 'text-[hsl(var(--gold-metallic))]' : ''}`}>
-                {variant?.toUpperCase() ?? '...'}
+                {variant === 'v2' ? 'V2 nowa' : variant === 'v1' ? 'V1 klasyczna' : '...'}
               </span>
-              <div className="flex items-center gap-1 pl-2">
-                <Button size="sm" variant={variant === 'v1' ? 'default' : 'outline'} onClick={() => setVariant('v1')}>V1 klasyczna</Button>
-                <Button size="sm" variant={variant === 'v2' ? 'default' : 'outline'} onClick={() => setVariant('v2')}>V2 nowa</Button>
-              </div>
+              <Button size="sm" variant={variant === 'v1' ? 'default' : 'outline'} onClick={() => setVariant('v1')}>V1 klasyczna</Button>
+              <Button size="sm" variant={variant === 'v2' ? 'default' : 'outline'} onClick={() => setVariant('v2')}>V2 nowa</Button>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <a href="/?variant=v2" target="_blank" rel="noreferrer">
+              <Button variant="outline" size="sm"><Eye className="w-4 h-4 mr-1" /> Podgląd V2</Button>
+            </a>
             <a href="/?variant=v2&preview=draft" target="_blank" rel="noreferrer">
               <Button variant="outline" size="sm"><Eye className="w-4 h-4 mr-1" /> Podgląd draftu</Button>
             </a>
