@@ -580,9 +580,10 @@ const HealthyKnowledgePage: React.FC = () => {
                     )}>
                       <ContentTypeIcon type={material.content_type} className="w-3 h-3" />
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs whitespace-nowrap truncate max-w-full">
                       {contentTypeLabels[material.content_type as keyof typeof contentTypeLabels] || material.content_type}
                     </Badge>
+
                   </div>
                   <CardTitle className="text-xs sm:text-base font-medium line-clamp-1 sm:line-clamp-2 mt-0 sm:mt-2">
                     {material.title}
@@ -594,45 +595,47 @@ const HealthyKnowledgePage: React.FC = () => {
                   )}
                 </CardHeader>
                 <CardContent className="p-2 sm:p-4 pt-0">
-                  <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                  <div className="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-3 min-w-0">
                     {material.category && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs whitespace-nowrap truncate max-w-full">
                         {material.category}
                       </Badge>
                     )}
                     {material.duration_seconds && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 whitespace-nowrap">
                         <Clock className="w-3 h-3" />
                         {Math.floor(material.duration_seconds / 60)} min
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 whitespace-nowrap">
                       <Eye className="w-3 h-3" />
                       {material.view_count}
                     </span>
                   </div>
+
                   
-                  <div className="flex gap-1 sm:gap-2">
+                  <div className="flex gap-1 sm:gap-2 min-w-0">
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="flex-1 h-7 sm:h-8 text-xs px-2 sm:px-3"
+                      className="flex-1 min-w-0 h-7 sm:h-8 text-xs px-2 sm:px-3 whitespace-nowrap"
                       onClick={() => handleViewMaterial(material)}
                     >
-                      <Eye className="w-3 h-3 sm:mr-1" />
-                      <span className="hidden sm:inline">{tf('hk.preview', 'Podgląd')}</span>
+                      <Eye className="w-3 h-3 lg:mr-1 shrink-0" />
+                      <span className="hidden lg:inline truncate">{tf('hk.preview', 'Podgląd')}</span>
                     </Button>
                     {canShare && material.allow_external_share && (
                       <Button 
                         size="sm" 
-                        className="flex-1 h-7 sm:h-8 text-xs px-2 sm:px-3"
+                        className="flex-1 min-w-0 h-7 sm:h-8 text-xs px-2 sm:px-3 whitespace-nowrap"
                         onClick={() => handleOpenShare(material)}
                       >
-                        <Share2 className="w-3 h-3 sm:mr-1" />
-                        <span className="hidden sm:inline">{tf('hk.share', 'Udostępnij')}</span>
+                        <Share2 className="w-3 h-3 lg:mr-1 shrink-0" />
+                        <span className="hidden lg:inline truncate">{tf('hk.share', 'Udostępnij')}</span>
                       </Button>
                     )}
                   </div>
+
                 </CardContent>
               </Card>
             ))}
