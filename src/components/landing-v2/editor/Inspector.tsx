@@ -247,28 +247,29 @@ export const Inspector: React.FC<Props> = ({
         </>
       )}
 
-      {selectedType === 'button' && (
-        <>
-          <div>
-            <Label className="text-xs">Tekst przycisku</Label>
-            <Input
-              value={val?.text || ''}
-              onChange={(e) => setField('text', e.target.value)}
-              className="h-9 text-sm"
+      {selectedType === 'button' && (() => {
+        // Ensure val is a CtaConfig object; if not, initialize from legacy flat fields.
+        const cta = (val && typeof val === 'object') ? val : { text: '', url: '' };
+        return (
+          <>
+            <div>
+              <Label className="text-xs">Tekst przycisku</Label>
+              <Input
+                value={cta.text || ''}
+                onChange={(e) => setVal({ ...cta, text: e.target.value })}
+                className="h-9 text-sm"
+              />
+            </div>
+            <LinkPicker
+              url={cta.url || ''}
+              kind={cta.kind}
+              onChange={({ url, kind }) => setVal({ ...cta, url, kind })}
             />
-          </div>
-          <div>
-            <Label className="text-xs">Link (URL)</Label>
-            <Input
-              value={val?.url || ''}
-              onChange={(e) => setField('url', e.target.value)}
-              placeholder="/auth lub https://..."
-              className="h-9 text-xs"
-            />
-          </div>
-          <StyleControls style={style} onChange={patchStyle} variant="box" />
-        </>
-      )}
+            <StyleControls style={style} onChange={patchStyle} variant="box" />
+          </>
+        );
+      })()}
+
 
       {selectedType === 'stat' && (
         <>
