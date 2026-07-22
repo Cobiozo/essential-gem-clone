@@ -174,20 +174,25 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
   }, [content?.seo]);
 
   const { hero, features, stats, community, trustedBy } = content;
-  const heroImg = hero.mockupImage || heroMockup;
+  const heroMedia = hero.media || { kind: 'image' as const, imageUrl: hero.mockupImage };
+  const heroImg = heroMedia.imageUrl || hero.mockupImage || heroMockup;
   const communityImg = community.backgroundImage || communityHero;
+
+  const primaryCta: CtaConfig = hero.primaryCta || { text: hero.primaryCtaText || '', url: hero.primaryCtaUrl || '' };
+  const secondaryCta: CtaConfig = hero.secondaryCta || { text: hero.secondaryCtaText || '', url: hero.secondaryCtaUrl || '' };
+  const communityCta: CtaConfig = community.cta || { text: community.ctaText || '', url: community.ctaUrl || '' };
 
   return (
     <div className="min-h-screen bg-white text-neutral-900" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", "Inter", sans-serif' }}>
       {/* ================= HERO ================= */}
-      <section className="relative overflow-hidden">
-        <svg className="absolute right-0 top-0 pointer-events-none opacity-70" width="900" height="900" viewBox="0 0 900 900" fill="none" aria-hidden="true">
+      <section id="hero" className="relative overflow-hidden">
+        <svg className="absolute right-0 top-0 pointer-events-none opacity-70 hidden md:block" width="900" height="900" viewBox="0 0 900 900" fill="none" aria-hidden="true">
           <circle cx="700" cy="200" r="620" stroke={GOLD_SOFT} strokeWidth="1.5" opacity="0.5" />
         </svg>
 
-        <div className="container mx-auto px-6 lg:px-10 pt-8 lg:pt-12 pb-14 lg:pb-20 relative">
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-10 lg:gap-6 items-center">
-            <div className="space-y-7 lg:space-y-8 max-w-xl">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-12 pb-10 sm:pb-14 lg:pb-20 relative">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-8 lg:gap-6 items-center">
+            <div className="space-y-5 sm:space-y-7 lg:space-y-8 max-w-xl">
               {(() => {
                 const logo = content.header?.logo;
                 const logoUrl = logo?.url || logoPurelife;
@@ -196,7 +201,7 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
                   <img
                     src={logoUrl}
                     alt={logo?.alt || 'Pure Life Center'}
-                    className={heightStyle ? 'w-auto object-contain -ml-2' : 'h-14 lg:h-16 w-auto object-contain -ml-2'}
+                    className={heightStyle ? 'w-auto object-contain -ml-2' : 'h-12 sm:h-14 lg:h-16 w-auto object-contain -ml-2'}
                     style={heightStyle}
                   />
                 );
@@ -209,7 +214,7 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
                 </E>
               )}
 
-              <h1 className="font-bold leading-[1.02] text-[44px] md:text-6xl lg:text-[72px] tracking-tight" style={{ color: INK }}>
+              <h1 className="font-bold leading-[1.05] text-[34px] sm:text-5xl md:text-6xl lg:text-[72px] tracking-tight" style={{ color: INK }}>
                 <E path="hero.titleLine1" type="heading"><div>{hero.titleLine1}</div></E>
                 <E path="hero.titleLine2" type="heading"><div>{hero.titleLine2}</div></E>
                 <E path="hero.titleLine3" type="heading"><div style={{ color: GOLD }}>{hero.titleLine3}</div></E>
@@ -217,37 +222,38 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
 
               {hero.description && (
                 <E path="hero.description" type="text">
-                  <p className="text-[15px] lg:text-base text-neutral-600 max-w-md leading-relaxed">{hero.description}</p>
+                  <p className="text-[14px] sm:text-[15px] lg:text-base text-neutral-600 max-w-md leading-relaxed">{hero.description}</p>
                 </E>
               )}
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
-                {hero.primaryCtaText && (
+                {primaryCta.text && (
                   <E path="hero.primaryCta" type="button">
-                    <Link
-                      to={hero.primaryCtaUrl || '/auth'}
-                      className="inline-flex items-center gap-2 rounded-lg text-white font-semibold px-6 py-3.5 shadow-lg transition hover:opacity-90"
+                    <CtaLink
+                      cta={primaryCta}
+                      fallbackUrl="/auth"
+                      className="inline-flex items-center gap-2 rounded-lg text-white font-semibold px-5 sm:px-6 py-3 sm:py-3.5 shadow-lg transition hover:opacity-90"
                       style={{ backgroundColor: GOLD, boxShadow: `0 10px 30px -10px ${GOLD}80` }}
                     >
-                      {hero.primaryCtaText}
+                      {primaryCta.text}
                       <ArrowRight className="w-4 h-4" />
-                    </Link>
+                    </CtaLink>
                   </E>
                 )}
-                {hero.secondaryCtaText && (
+                {secondaryCta.text && (
                   <E path="hero.secondaryCta" type="button">
-                    <a href={hero.secondaryCtaUrl || '#'} className="inline-flex items-center gap-2 text-neutral-900 font-semibold px-4 py-3 hover:opacity-70 transition">
+                    <CtaLink cta={secondaryCta} fallbackUrl="#community" className="inline-flex items-center gap-2 text-neutral-900 font-semibold px-3 sm:px-4 py-3 hover:opacity-70 transition">
                       <span className="w-8 h-8 rounded-full bg-neutral-900 flex items-center justify-center">
                         <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
                       </span>
-                      {hero.secondaryCtaText}
-                    </a>
+                      {secondaryCta.text}
+                    </CtaLink>
                   </E>
                 )}
               </div>
 
               {(hero.avatars?.length > 0 || hero.socialProofText) && (
-                <div className="flex items-center gap-4 pt-3">
+                <div className="flex items-center gap-4 pt-3 flex-wrap">
                   <div className="flex -space-x-3">
                     {[0, 1, 2, 3].map((i) => (
                       <StripAvatar key={i} index={i} size={40} ring="ring-white" path={hero.avatars?.[i] ? `hero.avatars[${i}]` : undefined} />
@@ -255,21 +261,65 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
                   </div>
                   {hero.socialProofText && (
                     <E path="hero.socialProofText" type="text">
-                      <p className="text-[13px] text-neutral-600 max-w-[220px] leading-snug">{hero.socialProofText}</p>
+                      <p className="text-[12px] sm:text-[13px] text-neutral-600 max-w-[220px] leading-snug">{hero.socialProofText}</p>
                     </E>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="relative lg:-mr-16">
-              <E path="hero.mockupImage" type="image">
-                <img src={heroImg} alt="" className="w-full h-auto object-contain drop-shadow-2xl" loading="eager" />
-              </E>
+            <div className="relative lg:-mr-16 mt-4 lg:mt-0">
+              {heroMedia.kind === 'video' && heroMedia.videoUrl ? (() => {
+                const url = heroMedia.videoUrl;
+                const embed = toEmbedUrl(url, !!heroMedia.videoAutoplay);
+                const isFile = /\.(mp4|webm|mov|m4v|ogv)(\?.*)?$/i.test(url);
+                if (isFile) {
+                  return (
+                    <E path="hero.media" type="video">
+                      <video
+                        controls
+                        playsInline
+                        preload="metadata"
+                        poster={heroMedia.videoPoster || heroImg}
+                        autoPlay={!!heroMedia.videoAutoplay}
+                        muted={!!heroMedia.videoAutoplay}
+                        className="w-full h-auto rounded-2xl bg-black shadow-2xl aspect-video object-cover"
+                      >
+                        <source src={url} type={videoMime(url)} />
+                      </video>
+                    </E>
+                  );
+                }
+                if (embed) {
+                  return (
+                    <E path="hero.media" type="video">
+                      <iframe
+                        src={embed}
+                        title="Hero wideo"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full aspect-video rounded-2xl shadow-2xl"
+                        style={{ border: 0 }}
+                      />
+                    </E>
+                  );
+                }
+                return (
+                  <E path="hero.media" type="image">
+                    <img src={heroImg} alt="" className="w-full h-auto object-contain drop-shadow-2xl" loading="eager" />
+                  </E>
+                );
+              })() : (
+                <E path="hero.media" type="image">
+                  <img src={heroImg} alt="" className="w-full h-auto object-contain drop-shadow-2xl" loading="eager" />
+                </E>
+              )}
             </div>
           </div>
         </div>
       </section>
+
+
 
       {/* ================= FEATURES ================= */}
       <section className="py-14 lg:py-20 bg-white">
