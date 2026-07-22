@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { knowledge_slug, otp_code, device_fingerprint, guest_first_name, guest_last_name, guest_email, guest_phone } = await req.json();
+    const { knowledge_slug, otp_code, device_fingerprint, guest_first_name, guest_last_name, guest_email, guest_phone, ref_eq_id } = await req.json();
 
     if (!knowledge_slug || !otp_code) {
       return new Response(
@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // HARD server-side guest data validation — prevents any client bypass (paste, autofill, direct API call)
+    const firstName = (guest_first_name || '').trim();
+    const lastName = (guest_last_name || '').trim();
+    const email = (guest_email || '').trim().toLowerCase();
+    const phoneDigits = (guest_phone || '').replace(/[^\d]/g, '');
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (firstName.length < 2 || lastName.length < 2 || !emailRe.test(email) || phoneDigits.length < 9) {
+      return new Response(
+        JSON.stringify({ error: 'Wypełnij imię, nazwisko, e-mail i numer telefonu, aby uzyskać dostęp.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
 
     // Normalize OTP code: strip BW-/ZW- prefix and hyphens, uppercase
     // Accepts new BW-XXXX format and legacy ZW-XXXXXX (backward compatibility)
@@ -79,6 +94,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Log (but do not block on) ref mismatch — partner attribution audit
+    if (ref_eq_id && otpCodeRecord.partner_eq_id && ref_eq_id !== otpCodeRecord.partner_eq_id) {
+      console.warn(`HK OTP ref mismatch: link ref=${ref_eq_id}, code partner=${otpCodeRecord.partner_eq_id}, code=${otpCodeRecord.code}`);
+    }
+
     // Check if max sessions reached
     const maxSessions = knowledge.otp_max_sessions || 3;
     if (otpCodeRecord.used_sessions >= maxSessions) {
@@ -87,6 +107,7 @@ Deno.serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     // Get validity hours from knowledge
     const validityHours = knowledge.otp_validity_hours || 24;
@@ -132,11 +153,12 @@ Deno.serve(async (req) => {
         session_token: sessionToken,
         device_fingerprint: device_fingerprint || null,
         expires_at: expiresAt.toISOString(),
-        guest_first_name: guest_first_name || null,
-        guest_last_name: guest_last_name || null,
-        guest_email: guest_email || null,
-        guest_phone: guest_phone || null,
-        email_consent: !!(guest_first_name && guest_email),
+        guest_first_name: firstName,
+        guest_last_name: lastName,
+        guest_email: email,
+        guest_phone: phoneDigits,
+        email_consent: true,
+
       });
 
     if (sessionError) {

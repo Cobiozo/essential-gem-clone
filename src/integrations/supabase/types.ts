@@ -4749,6 +4749,7 @@ export type Database = {
           is_deleted_by_user: boolean | null
           is_invalidated: boolean | null
           knowledge_id: string
+          partner_eq_id: string | null
           partner_id: string
           recipient_email: string | null
           recipient_name: string | null
@@ -4764,6 +4765,7 @@ export type Database = {
           is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
           knowledge_id: string
+          partner_eq_id?: string | null
           partner_id: string
           recipient_email?: string | null
           recipient_name?: string | null
@@ -4779,6 +4781,7 @@ export type Database = {
           is_deleted_by_user?: boolean | null
           is_invalidated?: boolean | null
           knowledge_id?: string
+          partner_eq_id?: string | null
           partner_id?: string
           recipient_email?: string | null
           recipient_name?: string | null

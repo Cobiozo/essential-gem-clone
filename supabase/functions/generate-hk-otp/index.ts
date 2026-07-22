@@ -87,13 +87,15 @@ Deno.serve(async (req) => {
     // Get partner profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, eq_id')
       .eq('user_id', userId)
       .single();
 
     const partnerName = profile 
       ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() 
       : 'Partner';
+    const partnerEqId = profile?.eq_id || null;
+
 
     // Generate unique OTP code
     let otpCode: string;
@@ -131,6 +133,7 @@ Deno.serve(async (req) => {
       .insert({
         knowledge_id: knowledge_id,
         partner_id: userId,
+        partner_eq_id: partnerEqId,
         code: otpCode,
         expires_at: expiresAt.toISOString(),
         recipient_name: recipient_name || null,
@@ -156,8 +159,11 @@ Deno.serve(async (req) => {
 
     const baseUrl = settingsData?.app_base_url || 'https://purelifecenter.pl';
 
-    // Generate share URL with proper domain
-    const shareUrl = `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;
+    // Generate share URL with partner EQ ID (?ref=<eq_id>) for attribution
+    const shareUrl = partnerEqId
+      ? `${baseUrl}/zdrowa-wiedza/${knowledge.slug}?ref=${encodeURIComponent(partnerEqId)}`
+      : `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;
+
     
     // Multi-language templates
     const messageTemplates: Record<string, string> = {
