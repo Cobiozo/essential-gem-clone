@@ -50,6 +50,7 @@ interface Props {
   hoveredPath?: string | null;
   onSelect?: (path: string, type: EditElementType) => void;
   onHover?: (path: string | null) => void;
+  onUpdateStyle?: (path: string, patch: Partial<ElementStyle>) => void;
 }
 
 const GOLD = '#B8894A';
