@@ -3,6 +3,20 @@ export interface TrustedLogo { id: string; url: string; alt: string; link?: stri
 export interface FeatureItem { id: string; icon: string; title: string; description: string; }
 export interface StatItem { id: string; icon: string; value: string; label: string; }
 
+/** Link target kind — informational, url is always the resolved final value. */
+export type CtaKind = 'external' | 'route' | 'anchor';
+export interface CtaConfig { text: string; url: string; kind?: CtaKind; }
+
+/** Hero mockup — either static image or embedded video (MP4/YouTube/Vimeo). */
+export interface HeroMedia {
+  kind: 'image' | 'video';
+  imageUrl?: string;
+  videoUrl?: string;
+  videoPoster?: string;
+  videoAutoplay?: boolean;
+}
+
+
 /** Optional per-element style overrides (merged into inline style). */
 export interface ElementStyle {
   color?: string;
@@ -41,13 +55,16 @@ export interface HomepageV2Content {
     titleLine2: string;
     titleLine3: string;
     description: string;
-    primaryCtaText: string;
-    primaryCtaUrl: string;
-    secondaryCtaText: string;
-    secondaryCtaUrl: string;
+    /** @deprecated use hero.primaryCta */ primaryCtaText?: string;
+    /** @deprecated use hero.primaryCta */ primaryCtaUrl?: string;
+    /** @deprecated use hero.secondaryCta */ secondaryCtaText?: string;
+    /** @deprecated use hero.secondaryCta */ secondaryCtaUrl?: string;
+    primaryCta?: CtaConfig;
+    secondaryCta?: CtaConfig;
     socialProofText: string;
     avatars: HeroAvatar[];
-    mockupImage: string;
+    /** @deprecated use hero.media */ mockupImage?: string;
+    media?: HeroMedia;
   };
   features: {
     eyebrow: string;
@@ -61,8 +78,9 @@ export interface HomepageV2Content {
     eyebrow: string;
     title: string;
     bullets: string[];
-    ctaText: string;
-    ctaUrl: string;
+    /** @deprecated use community.cta */ ctaText?: string;
+    /** @deprecated use community.cta */ ctaUrl?: string;
+    cta?: CtaConfig;
     backgroundImage: string;
     overlayText: string;
     videoUrl: string;
@@ -71,6 +89,7 @@ export interface HomepageV2Content {
     peopleCount: string;
     avatars: HeroAvatar[];
   };
+
   trustedBy: {
     eyebrow: string;
     logos: TrustedLogo[];

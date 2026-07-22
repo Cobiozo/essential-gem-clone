@@ -1,65 +1,68 @@
 ## Zakres
-Naprawa edytora `/admin/homepage` (V2) — tylko frontend, bez zmian w backendzie:
+Naprawa edytora `/admin/homepage` (V2) — bez wpływu na V1. Wszystkie zmiany dotykają wyłącznie plików V2 (`LandingV2.tsx`, `HomepageEditor.tsx`, `Inspector.tsx`, `homepageV2.ts`, `useHomepageConfig.ts`, `HomepageSwitcher.tsx`) oraz nowych plików w `src/components/landing-v2/`. **Nie modyfikuję** komponentów V1 (`src/components/landing/*`, `Index.tsx`, ani żadnego innego pliku poza gałęzią V2).
 
-1. Wideo w sekcji „Dołącz do ludzi…" — realne odtwarzanie zamiast tylko linku.
-2. Edytowalne logo certyfikatów na dole (sekcja „ZAUFALI NAM").
-3. Tryb **drag & drop + resize** dla dowolnego elementu na kanwie.
+Separacja V1/V2:
+- `HomepageSwitcher` pozostaje jedynym punktem wyboru — logika bez zmian.
+- Migracje typów (`CtaConfig`, `HeroMedia`) uruchamiają się tylko w `withDefaults` dla `homepage_v2_content`; V1 czyta własne źródło i nie widzi nowych pól.
+- Zero zmian w schemacie DB — wszystko w JSON `homepage_v2_content.content`.
 
 ---
 
-## 1. Wideo w sekcji Community
+## 1. Edycja przycisków (CTA) — naprawa zapisu
 
-Obecnie `community.videoUrl` służy tylko jako link pod ikonką „Play". Rozszerzam:
+Obecnie Inspector zapisuje np. `hero.primaryCta.text`, a schemat ma płaskie `hero.primaryCtaText` / `hero.primaryCtaUrl`. Efekt: zmiany „idą w próżnię".
 
-- W `src/types/homepageV2.ts` dodaję do `community` pola: `videoUrl` (już jest), `videoPoster?: string`, `videoAutoplay?: boolean`.
-- W `src/components/landing-v2/LandingV2.tsx` sekcja community: gdy `videoUrl` jest ustawione, renderuję właściwy odtwarzacz zamiast tła:
-  - MP4/WebM (`/uploads/...` lub `.mp4`) → `<video controls playsInline preload="metadata" poster={videoPoster || backgroundImage}>` z `<source type=...>` (używam istniejącego `videoMime`).
-  - YouTube/Vimeo → `<iframe>` z odpowiednim embed URL (parser `youtu.be`, `youtube.com/watch?v=`, `vimeo.com/...`).
-  - Fallback (brak `videoUrl`) → obecny obraz + ikonka Play.
-- Overlay z tekstem i awatarami pozostaje, ale ukrywa się gdy realny odtwarzacz jest aktywny (nie przykrywa kontrolek).
-- W `src/components/landing-v2/editor/Inspector.tsx`, dla `type='video'`, dodaję:
-  - `ImageInput` „URL wideo (MP4 lub YouTube)" z możliwością **wgrania pliku** (reuse istniejącego uploadu do `cms-images` bucket, po prostu przyjmuje też `.mp4/.webm`).
-  - Pole `Poster (miniatura)` (ImageInput).
-  - Checkbox `Autoodtwarzanie (wyciszone)`.
-- W `src/pages/admin/HomepageEditor.tsx` w handlerze uploadu dopuszczam `video/*` (obecnie prawdopodobnie tylko `image/*`).
+- `src/types/homepageV2.ts` — nowy typ `CtaConfig { text: string; url: string; kind?: 'external' | 'route' | 'anchor'; }`. `hero.primaryCta / secondaryCta` i `community.cta` migrowane do `CtaConfig`. Stare pola płaskie zostają jako `@deprecated` do czytania, żeby nic nie zniknęło publicznie.
+- `useHomepageConfig.ts` → `withDefaults`: jeżeli w treści są stare klucze płaskie, mapuję je jednorazowo do nowych obiektów (bez zapisu do bazy, tylko w pamięci; zapis nastąpi przy następnej edycji admina). Bezpieczne dla starych rekordów.
+- `LandingV2.tsx`: czyta wyłącznie z nowych `CtaConfig`.
+- `Inspector.tsx` (`type='button'`): edytuje `text` / `url` / `kind`. Zapis w jedno miejsce (`updateAtPath(hero.primaryCta, {...})`).
 
-## 2. Edytowalne logo certyfikatów (ZAUFALI NAM)
+## 2. Wybór miejsca docelowego przycisku (route/anchor picker)
 
-Problem: gdy `trustedBy.logos` jest puste, render używa hardkodowanych `<TrustedBadge>` które nie są opakowane w `<E>` — nie da się ich kliknąć.
+- Inspector przycisku dostaje select z trzema trybami:
+  - **Zewnętrzny URL** — free-input (jak dziś).
+  - **Trasa aplikacji** — lista z `KNOWN_APP_ROUTES` (`/`, `/auth`, `/dashboard`, `/webinary`, `/aktualnosci`, `/baza-wiedzy`, `/kontakt`, itd. — te już istniejące w routingu, bez dodawania nowych).
+  - **Kotwica na stronie V2** — lista sekcji: `#hero`, `#features`, `#stats`, `#community`, `#trusted-by`. Do sekcji dodaję w `LandingV2.tsx` odpowiednie `id`.
+- Zapis to zawsze finalny `url` (`/webinary` lub `#features`) + `kind` (informacyjne). Nic nie wymaga backendu.
 
-Rozwiązanie:
+## 3. Wideo w Hero (mockup)
 
-- W `src/hooks/useHomepageConfig.ts` (fallback dla `HomepageV2Content`) — jeśli `trustedBy.logos` jest puste/undefined, wypełniam domyślną listą 5 logotypów (Eqology, GOED, MSC, GMP, Arctic Oil) używając już wygenerowanych plików w `src/assets/landing-v2/` (jeśli istnieją; jeśli nie — dodaję puste `url:''` żeby admin od razu miał 5 kart do wgrania obrazów).
-- W `LandingV2.tsx` sekcja trusted-by: zawsze renderuję mapę `trustedBy.logos.map(...)`. Puste `url` pokazuję jako placeholder (`bg-neutral-100 border-dashed` z etykietą „Wgraj logo") — nadal klikalne, otwiera Inspector dla `trustedBy.logos[i]`. Usuwam kompletnie gałąź `TrustedBadge`.
-- W Inspectorze `type='logo'` już mamy pola URL/alt/link/wysokość (px). Dodaję `AddSiblingButton` (już obsługuje `endsWith('logos')`) — czyli będzie „Dodaj element do listy".
-- Aktualne pole „Wysokość (px)" faktycznie stosujemy w `img` (obecnie klasa `h-10 lg:h-12` jest hardcoded — nadpisuję inline `style={{ height: logo.heightPx ? logo.heightPx : undefined }}` gdy ustawione).
+- `src/types/homepageV2.ts` — nowy `HeroMedia { kind: 'image' | 'video'; imageUrl?: string; videoUrl?: string; videoPoster?: string; videoAutoplay?: boolean; }`. `hero.media` z fallbackiem z `hero.mockupImage` (migracja czytana w `withDefaults`).
+- `LandingV2.tsx` sekcja hero: jeżeli `media.kind==='video'` → analogiczny render jak w Community (MP4/WebM z `<source type>` przez `videoMime`, YouTube/Vimeo → iframe). Inaczej obraz jak dziś.
+- Inspector dla hero mockup: przełącznik `Obraz / Wideo`, pola URL + upload (reuse istniejącego uploadu z community — akceptuje `image/*` i `video/*`) + poster + autoplay.
 
-## 3. Drag & drop + resize dowolnego elementu
+## 4. Responsywność (mobile/tablet)
 
-Rozszerzam istniejący system `styles[path]` o transform pozycji i rozmiaru — bez zmian w schemacie DB (styles to swobodny JSON):
+Poprawki wyłącznie w `LandingV2.tsx` (Tailwind, bez zmian struktury):
+- Kontenery: `px-4 sm:px-6 lg:px-8`, `max-w-7xl mx-auto`.
+- Hero: `text-4xl sm:text-5xl lg:text-7xl`, mockup przechodzi pod tekst na `< lg`, awatary zawijane.
+- Features: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-5`, karty mają jednolitą wysokość.
+- Stats: `grid-cols-2 lg:grid-cols-4`.
+- Community: obraz/wideo na całą szerokość na mobile, tekst pod spodem.
+- Trusted-by: `flex-wrap justify-center gap-6`, logotypy z `max-h-10 sm:max-h-12`.
+- Sticky editor toolbar dostaje `flex-wrap`, żeby na wąskim canvasie nie łamał się horyzontalnie.
 
-- `src/types/homepageV2.ts` — rozszerzam `ElementStyle` o: `offsetX?: number`, `offsetY?: number` (px, `transform: translate`), `scale?: number`, `width?: string`, `height?: string`, `zIndex?: number`.
-- Nowy komponent `src/components/landing-v2/editor/EditOverlay.tsx`:
-  - Renderowany przez `<E>` **tylko w trybie edytowalnym** dla zaznaczonego elementu.
-  - Uchwyty: 8 punktów resize (rogi + boki) + uchwyt „move" na środku.
-  - Pointer events: `pointerdown` → zapamiętuje start (x, y, rect), `pointermove` → wylicza deltę względem najbliższego kontenera sekcji i wywołuje `updateStyle(path, { offsetX, offsetY, width, height })`, `pointerup` → uwalnia. Debounce autosave (już istnieje w `HomepageEditor`).
-  - Shift = proporcjonalny resize, Alt = symetryczny względem środka.
-- `<E>` (wrapper w `LandingV2.tsx`): aktualnie renderuje dziecko z outline. Zmieniam tak, żeby w trybie `editable` opakowywał dziecko w `<span/div style={{ display:'inline-block', transform: translate(x,y) scale(s), width, height }}>` i renderował `EditOverlay` dla `selectedPath === path`.
-- Reset: w Inspectorze dodaję sekcję „Pozycja i rozmiar" z polami `offsetX/Y`, `width`, `height`, `scale`, `zIndex` + przycisk „Zresetuj położenie".
-- Publikacja: nic nie dodajemy — `styles` już zapisuje się do `homepage_v2_content.content` w Supabase.
+## 5. Undo / Redo
 
-### Uwaga do UX
+W `HomepageEditor.tsx`:
+- Historia w `useRef<{ past: HomepageV2Content[]; future: HomepageV2Content[] }>`, limit 50 wpisów.
+- `pushHistory(prev)` wołane w `handleChange` i `handleUpdateStyle` **przed** mutacją (debounce 400 ms, żeby wpis tekstu nie rozdrabniał historii).
+- Toolbar: dwa przyciski `Undo` / `Redo` (lucide `Undo2` / `Redo2`) obok „Odrzuć zmiany". Skróty `Ctrl/Cmd+Z` i `Ctrl/Cmd+Shift+Z` — listener na `window`, ignorowany gdy focus w `input/textarea/[contenteditable]`.
+- Undo/Redo modyfikuje `working` i ustawia `dirtyRef=true`, więc auto-zapis draftu działa normalnie. Historia trzymana wyłącznie w pamięci sesji edytora (bez DB).
 
-- Drag jest opt-in per element — bez zaznaczenia layout pozostaje w standardowej siatce (dla użytkowników nieedytujących nic się nie zmienia).
-- Poza edytorem (`editable=false`) style pozycji nadal są stosowane, więc to co admin poprzesuwa, widzą wszyscy odwiedzający.
-- Na mobile edytora (device=`mobile`) drag też działa, ale zapisane offsetsy są wspólne dla obu widoków (informacja w Inspectorze).
+---
 
 ## Poza zakresem
-- Nowe schematy DB, RLS, edge functions.
-- V1, routing, inne strony admina.
-- Wersjonowanie draftów, undo/redo poza istniejącym „Odrzuć zmiany".
+
+- V1 (`src/components/landing/*`, stary `Index`), routing, inne strony admina.
+- Zmiany w bazie danych, RLS, edge functions.
+- Wersjonowanie draftów po stronie serwera, wieloosobowa historia.
 
 ## Weryfikacja
-- `/admin/homepage`: klik w miejsce wideo → w Inspectorze wgrywam MP4 → w podglądzie leci film z kontrolkami. Publikacja → `/` (V2) pokazuje ten sam film.
-- Sekcja „ZAUFALI NAM": klik w dowolny znaczek certyfikatu → Inspector, wgrywam PNG/SVG, ustawiam wysokość, opcjonalny link. Mogę dodać/usunąć/duplikować logo.
-- Zaznaczam nagłówek hero → chwytam za środek i przesuwam o 40 px w prawo → puszczam → zapisuje się w draft → po odświeżeniu pozycja zachowana. Za róg zmieniam rozmiar → skalowanie działa.
+
+- Zmiana tekstu/URL przycisku w Inspectorze → od razu widać w podglądzie, po publikacji obecne na `/` (V2).
+- Wybór „Trasa aplikacji → /webinary" → kliknięcie CTA prowadzi do `/webinary`; „Kotwica → #features" → smooth-scroll do sekcji.
+- Hero z trybem „Wideo": wgranie MP4 pokazuje player z kontrolkami; wklejenie linku YouTube → iframe.
+- Widok mobile (canvas 430 px) i tablet (~ 768 px): brak przepełnień, features układają się w 1–2 kolumny, trusted-by zawija.
+- `Ctrl+Z` cofa ostatnią edycję (tekst/kolor/pozycja), `Ctrl+Shift+Z` przywraca. Przyciski w pasku aktywne/nieaktywne w zależności od historii.
+- `/` z aktywnym wariantem V1 wygląda i działa identycznie jak przed zmianami (regresja zero).

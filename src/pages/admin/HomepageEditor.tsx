@@ -5,7 +5,7 @@ import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/h
 import LandingV2 from '@/components/landing-v2/LandingV2';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Save, Eye, Rocket, Undo2, Monitor, Smartphone } from 'lucide-react';
+import { Loader2, Save, Eye, Rocket, Undo2, Redo2, Monitor, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { Inspector } from '@/components/landing-v2/editor/Inspector';
@@ -24,6 +24,9 @@ const HomepageEditor: React.FC = () => {
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autoTimer = useRef<any>(null);
   const dirtyRef = useRef(false);
+  const historyRef = useRef<{ past: HomepageV2Content[]; future: HomepageV2Content[] }>({ past: [], future: [] });
+  const [historyTick, setHistoryTick] = useState(0);
+  const lastPushRef = useRef(0);
 
   // Load working from draft or published
   useEffect(() => {
@@ -48,7 +51,51 @@ const HomepageEditor: React.FC = () => {
     return () => { if (autoTimer.current) clearTimeout(autoTimer.current); };
   }, [working, rowId, user]);
 
+  const pushHistory = (snapshot: HomepageV2Content) => {
+    const now = Date.now();
+    if (now - lastPushRef.current < 400) return; // debounce rapid edits (typing)
+    lastPushRef.current = now;
+    const h = historyRef.current;
+    h.past.push(JSON.parse(JSON.stringify(snapshot)));
+    if (h.past.length > 50) h.past.shift();
+    h.future = [];
+    setHistoryTick((t) => t + 1);
+  };
+
+  const undo = () => {
+    const h = historyRef.current;
+    if (!h.past.length || !working) return;
+    const prev = h.past.pop()!;
+    h.future.push(JSON.parse(JSON.stringify(working)));
+    dirtyRef.current = true;
+    setWorking(prev);
+    setHistoryTick((t) => t + 1);
+  };
+  const redo = () => {
+    const h = historyRef.current;
+    if (!h.future.length || !working) return;
+    const next = h.future.pop()!;
+    h.past.push(JSON.parse(JSON.stringify(working)));
+    dirtyRef.current = true;
+    setWorking(next);
+    setHistoryTick((t) => t + 1);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [working]);
+
   const handleChange = (next: HomepageV2Content) => {
+    if (working) pushHistory(working);
     dirtyRef.current = true;
     setWorking(next);
   };
@@ -56,10 +103,12 @@ const HomepageEditor: React.FC = () => {
   const handleUpdateStyle = (path: string, patch: Partial<ElementStyle>) => {
     setWorking((prev) => {
       if (!prev) return prev;
+      pushHistory(prev);
       dirtyRef.current = true;
       return updateStyle(prev, path, patch);
     });
   };
+
 
   if (user === null) return <Navigate to="/auth" replace />;
   if (user && !isAdmin) return <Navigate to="/dashboard" replace />;
@@ -142,7 +191,15 @@ const HomepageEditor: React.FC = () => {
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 pr-2 border-r border-border">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={undo} disabled={!historyRef.current.past.length} title="Cofnij (Ctrl+Z)">
+                <Undo2 className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={redo} disabled={!historyRef.current.future.length} title="Przywróć (Ctrl+Shift+Z)">
+                <Redo2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
             <span className="text-[11px] text-muted-foreground min-w-[100px] text-right">
               {autosaveStatus === 'saving' && '⏳ zapisuję...'}
               {autosaveStatus === 'saved' && '✓ draft zapisany'}
@@ -157,6 +214,7 @@ const HomepageEditor: React.FC = () => {
               <Rocket className="w-3.5 h-3.5 mr-1" /> Opublikuj
             </Button>
           </div>
+
         </div>
       </div>
 

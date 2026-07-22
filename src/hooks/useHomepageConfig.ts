@@ -18,8 +18,43 @@ function withDefaults(c: HomepageV2Content): HomepageV2Content {
     next.trustedBy.logos = DEFAULT_TRUSTED_LOGOS;
   }
   next.community = next.community || ({} as any);
+  // Migrate legacy flat CTA fields → CtaConfig objects (in-memory only).
+  next.hero = { ...next.hero };
+  if (!next.hero.primaryCta && (next.hero.primaryCtaText || next.hero.primaryCtaUrl)) {
+    next.hero.primaryCta = {
+      text: next.hero.primaryCtaText || '',
+      url: next.hero.primaryCtaUrl || '',
+      kind: inferKind(next.hero.primaryCtaUrl || ''),
+    };
+  }
+  if (!next.hero.secondaryCta && (next.hero.secondaryCtaText || next.hero.secondaryCtaUrl)) {
+    next.hero.secondaryCta = {
+      text: next.hero.secondaryCtaText || '',
+      url: next.hero.secondaryCtaUrl || '',
+      kind: inferKind(next.hero.secondaryCtaUrl || ''),
+    };
+  }
+  if (!next.community.cta && (next.community.ctaText || next.community.ctaUrl)) {
+    next.community.cta = {
+      text: next.community.ctaText || '',
+      url: next.community.ctaUrl || '',
+      kind: inferKind(next.community.ctaUrl || ''),
+    };
+  }
+  // Migrate legacy hero.mockupImage → hero.media
+  if (!next.hero.media) {
+    next.hero.media = { kind: 'image', imageUrl: next.hero.mockupImage || '' };
+  }
   return next;
 }
+
+function inferKind(url: string): 'external' | 'route' | 'anchor' {
+  if (!url) return 'route';
+  if (url.startsWith('#')) return 'anchor';
+  if (/^https?:\/\//i.test(url)) return 'external';
+  return 'route';
+}
+
 
 
 export function useHomepageVariant() {

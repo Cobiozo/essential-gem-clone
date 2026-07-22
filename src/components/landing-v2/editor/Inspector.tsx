@@ -10,6 +10,8 @@ import { StyleControls } from './StyleControls';
 import { ImageInput } from './inputs/ImageInput';
 import { VideoInput } from './inputs/VideoInput';
 import { IconInput } from './inputs/IconInput';
+import { LinkPicker } from './inputs/LinkPicker';
+
 
 interface Props {
   content: HomepageV2Content;
@@ -182,7 +184,35 @@ export const Inspector: React.FC<Props> = ({
         </>
       )}
 
-      {selectedType === 'image' && (
+      {selectedType === 'image' && selectedPath === 'hero.media' && (() => {
+        const media = (val && typeof val === 'object') ? val : { kind: 'image' };
+        return (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-1">
+              {(['image', 'video'] as const).map((k) => (
+                <button key={k} type="button" onClick={() => setVal({ ...media, kind: k })}
+                  className={`text-xs py-1.5 rounded border transition ${media.kind === k ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/50 hover:bg-muted'}`}>
+                  {k === 'image' ? 'Obraz' : 'Wideo'}
+                </button>
+              ))}
+            </div>
+            {media.kind === 'image' ? (
+              <ImageInput label="Obraz mockupu Hero" value={media.imageUrl || ''} onChange={(v) => setVal({ ...media, imageUrl: v })} />
+            ) : (
+              <>
+                <VideoInput label="Wideo Hero (MP4 / YouTube / Vimeo)" value={media.videoUrl || ''} onChange={(v) => setVal({ ...media, videoUrl: v })} />
+                <ImageInput label="Poster (miniatura)" value={media.videoPoster || ''} onChange={(v) => setVal({ ...media, videoPoster: v })} />
+                <label className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={!!media.videoAutoplay} onChange={(e) => setVal({ ...media, videoAutoplay: e.target.checked })} />
+                  Autoodtwarzanie (wyciszone)
+                </label>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {selectedType === 'image' && selectedPath !== 'hero.media' && (
         <>
           <ImageInput
             label="Obraz"
@@ -201,6 +231,7 @@ export const Inspector: React.FC<Props> = ({
           <StyleControls style={style} onChange={patchStyle} variant="box" />
         </>
       )}
+
 
       {selectedType === 'avatar' && (
         <ImageInput
@@ -245,28 +276,29 @@ export const Inspector: React.FC<Props> = ({
         </>
       )}
 
-      {selectedType === 'button' && (
-        <>
-          <div>
-            <Label className="text-xs">Tekst przycisku</Label>
-            <Input
-              value={val?.text || ''}
-              onChange={(e) => setField('text', e.target.value)}
-              className="h-9 text-sm"
+      {selectedType === 'button' && (() => {
+        // Ensure val is a CtaConfig object; if not, initialize from legacy flat fields.
+        const cta = (val && typeof val === 'object') ? val : { text: '', url: '' };
+        return (
+          <>
+            <div>
+              <Label className="text-xs">Tekst przycisku</Label>
+              <Input
+                value={cta.text || ''}
+                onChange={(e) => setVal({ ...cta, text: e.target.value })}
+                className="h-9 text-sm"
+              />
+            </div>
+            <LinkPicker
+              url={cta.url || ''}
+              kind={cta.kind}
+              onChange={({ url, kind }) => setVal({ ...cta, url, kind })}
             />
-          </div>
-          <div>
-            <Label className="text-xs">Link (URL)</Label>
-            <Input
-              value={val?.url || ''}
-              onChange={(e) => setField('url', e.target.value)}
-              placeholder="/auth lub https://..."
-              className="h-9 text-xs"
-            />
-          </div>
-          <StyleControls style={style} onChange={patchStyle} variant="box" />
-        </>
-      )}
+            <StyleControls style={style} onChange={patchStyle} variant="box" />
+          </>
+        );
+      })()}
+
 
       {selectedType === 'stat' && (
         <>
