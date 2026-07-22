@@ -5,7 +5,7 @@ import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/h
 import LandingV2 from '@/components/landing-v2/LandingV2';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Save, Eye, Rocket, Undo2, Monitor, Smartphone } from 'lucide-react';
+import { Loader2, Save, Eye, Rocket, Undo2, Redo2, Monitor, Smartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { Inspector } from '@/components/landing-v2/editor/Inspector';
