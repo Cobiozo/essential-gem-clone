@@ -1,5 +1,5 @@
 export interface HeroAvatar { id: string; url: string; }
-export interface TrustedLogo { id: string; url: string; alt: string; link?: string; }
+export interface TrustedLogo { id: string; url: string; alt: string; link?: string; heightPx?: number; }
 export interface FeatureItem { id: string; icon: string; title: string; description: string; }
 export interface StatItem { id: string; icon: string; value: string; label: string; }
 
@@ -20,6 +20,13 @@ export interface ElementStyle {
   border?: string;
   boxShadow?: string;
   opacity?: number;
+  /** Layout / free positioning (drag&drop + resize). */
+  offsetX?: number;
+  offsetY?: number;
+  scale?: number;
+  width?: string;
+  height?: string;
+  zIndex?: number;
 }
 
 export interface HeaderLogo { url: string; alt: string; link?: string; heightPx?: number; }
@@ -59,6 +66,8 @@ export interface HomepageV2Content {
     backgroundImage: string;
     overlayText: string;
     videoUrl: string;
+    videoPoster?: string;
+    videoAutoplay?: boolean;
     peopleCount: string;
     avatars: HeroAvatar[];
   };

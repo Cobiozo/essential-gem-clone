@@ -1,6 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { HomepageV2Content, HomepageVariant } from '@/types/homepageV2';
+import type { HomepageV2Content, HomepageVariant, TrustedLogo } from '@/types/homepageV2';
+
+const DEFAULT_TRUSTED_LOGOS: TrustedLogo[] = [
+  { id: 'tl-eqology', url: '', alt: 'EQOLOGY', heightPx: 40 },
+  { id: 'tl-goed', url: '', alt: 'GOED', heightPx: 40 },
+  { id: 'tl-msc', url: '', alt: 'MSC', heightPx: 40 },
+  { id: 'tl-gmp', url: '', alt: 'GMP CERTIFIED', heightPx: 40 },
+  { id: 'tl-arctic', url: '', alt: 'ARCTIC OIL', heightPx: 40 },
+];
+
+/** Fill in fields introduced after initial deploy so the editor always has slots. */
+function withDefaults(c: HomepageV2Content): HomepageV2Content {
+  const next = { ...c } as HomepageV2Content;
+  next.trustedBy = next.trustedBy || ({ eyebrow: 'ZAUFALI NAM', logos: [] } as any);
+  if (!next.trustedBy.logos || next.trustedBy.logos.length === 0) {
+    next.trustedBy.logos = DEFAULT_TRUSTED_LOGOS;
+  }
+  next.community = next.community || ({} as any);
+  return next;
+}
+
 
 export function useHomepageVariant() {
   const [variant, setVariant] = useState<HomepageVariant | null>(null);
@@ -46,8 +66,8 @@ export function useHomepageV2Content(preferDraft = false) {
       .maybeSingle();
     if (data) {
       setRowId(data.id);
-      setContent(data.content as HomepageV2Content);
-      setDraft((data.draft_content as HomepageV2Content) || null);
+      setContent(withDefaults(data.content as HomepageV2Content));
+      setDraft(data.draft_content ? withDefaults(data.draft_content as HomepageV2Content) : null);
     }
     setLoading(false);
   }, []);

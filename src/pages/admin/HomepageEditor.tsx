@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useHomepageV2Content, useHomepageVariant } from '@/hooks/useHomepageConfig';
-import type { HomepageV2Content, EditElementType } from '@/types/homepageV2';
+import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
 import LandingV2 from '@/components/landing-v2/LandingV2';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -9,6 +9,8 @@ import { Loader2, Save, Eye, Rocket, Undo2, Monitor, Smartphone } from 'lucide-r
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { Inspector } from '@/components/landing-v2/editor/Inspector';
+import { SelectionOverlay } from '@/components/landing-v2/editor/SelectionOverlay';
+import { updateStyle } from '@/components/landing-v2/editor/pathUtils';
 
 const HomepageEditor: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -49,6 +51,14 @@ const HomepageEditor: React.FC = () => {
   const handleChange = (next: HomepageV2Content) => {
     dirtyRef.current = true;
     setWorking(next);
+  };
+
+  const handleUpdateStyle = (path: string, patch: Partial<ElementStyle>) => {
+    setWorking((prev) => {
+      if (!prev) return prev;
+      dirtyRef.current = true;
+      return updateStyle(prev, path, patch);
+    });
   };
 
   if (user === null) return <Navigate to="/auth" replace />;
@@ -167,6 +177,7 @@ const HomepageEditor: React.FC = () => {
                 editable
                 selectedPath={selectedPath}
                 onSelect={(p, t) => { setSelectedPath(p); setSelectedType(t); }}
+                onUpdateStyle={handleUpdateStyle}
               />
             </div>
           </div>
@@ -183,6 +194,9 @@ const HomepageEditor: React.FC = () => {
           />
         </aside>
       </div>
+
+      {/* Floating drag/resize overlay for the selected element */}
+      <SelectionOverlay />
     </div>
   );
 };
