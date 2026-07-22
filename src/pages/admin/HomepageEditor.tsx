@@ -110,7 +110,7 @@ function ListEditor<T extends { id: string }>({
 }
 
 const HomepageEditor: React.FC = () => {
-  const { user, userRole } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { variant } = useHomepageVariant();
   const { content: published, draft, rowId, reload, loading } = useHomepageV2Content(false);
   const [working, setWorking] = useState<HomepageV2Content | null>(null);
