@@ -3,9 +3,37 @@ import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import { ArrowRight, Play, Check, ImagePlus } from 'lucide-react';
 import { useHomepageV2Content } from '@/hooks/useHomepageConfig';
-import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
+import type { HomepageV2Content, EditElementType, ElementStyle, CtaConfig } from '@/types/homepageV2';
 import { EditProvider, E, useEdit } from './editor/EditContext';
 import { videoMime } from '@/lib/videoMime';
+
+/** Render a CTA link — internal <Link>, or <a> for anchors / external URLs. */
+function CtaLink({ cta, fallbackUrl, children, className, style }: { cta?: CtaConfig; fallbackUrl?: string; children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const url = (cta?.url && cta.url.trim()) || fallbackUrl || '#';
+  const isExternal = /^https?:\/\//i.test(url);
+  const isAnchor = url.startsWith('#');
+  if (isExternal) {
+    return <a href={url} target="_blank" rel="noreferrer" className={className} style={style}>{children}</a>;
+  }
+  if (isAnchor) {
+    return (
+      <a
+        href={url}
+        className={className}
+        style={style}
+        onClick={(e) => {
+          const id = url.slice(1);
+          const el = document.getElementById(id);
+          if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }}
+      >
+        {children}
+      </a>
+    );
+  }
+  return <Link to={url} className={className} style={style}>{children}</Link>;
+}
+
 
 import heroMockup from '@/assets/landing-v2/hero-mockup.png';
 import communityHero from '@/assets/landing-v2/community-hero.jpg';
