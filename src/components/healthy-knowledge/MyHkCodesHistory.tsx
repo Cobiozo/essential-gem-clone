@@ -250,6 +250,47 @@ const MyHkCodesHistory: React.FC = () => {
     return parts.join(' · ');
   };
 
+  const renderRecipientCell = (code: HkOtpCode) => {
+    const sessions = [...(code.hk_otp_sessions || [])].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    if (sessions.length === 0) {
+      return <p className="font-medium truncate text-muted-foreground">{code.recipient_name || code.recipient_email || '-'}</p>;
+    }
+    const isOpen = expandedGuests.has(code.id);
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => toggleGuests(code.id)}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          {isOpen ? 'Ukryj dane osoby' : `Pokaż dane osoby (${sessions.length})`}
+        </button>
+        {isOpen && (
+          <div className="mt-1.5 space-y-1.5">
+            {sessions.map((s) => {
+              const name = `${s.guest_first_name || ''} ${s.guest_last_name || ''}`.trim();
+              const seconds = Math.max(0, Number(s.watched_seconds || 0));
+              const watched = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+              return (
+                <div key={s.id} className="rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs text-muted-foreground space-y-0.5">
+                  <p className="font-medium text-foreground truncate">{name || s.guest_email || 'Osoba bez danych'}</p>
+                  {s.guest_email && <p className="truncate">{s.guest_email}</p>}
+                  <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                    {s.guest_phone && <span>{s.guest_phone}</span>}
+                    <span>Oglądanie: {watched}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filter codes by tab and search
   const filteredCodes = codes.filter(code => {
     const matchesTab = activeTab === 'active' ? isCodeActive(code) : !isCodeActive(code);
