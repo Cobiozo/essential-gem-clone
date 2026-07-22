@@ -4850,6 +4850,60 @@ export type Database = {
           },
         ]
       }
+      homepage_settings: {
+        Row: {
+          active_variant: string
+          id: string
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_variant?: string
+          id?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_variant?: string
+          id?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      homepage_v2_content: {
+        Row: {
+          content: Json
+          draft_content: Json | null
+          id: string
+          published_at: string | null
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: Json
+          draft_content?: Json | null
+          id?: string
+          published_at?: string | null
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: Json
+          draft_content?: Json | null
+          id?: string
+          published_at?: string | null
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       html_pages: {
         Row: {
           created_at: string
