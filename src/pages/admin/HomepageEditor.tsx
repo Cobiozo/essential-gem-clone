@@ -108,22 +108,22 @@ const HomepageEditor: React.FC = () => {
   const canvasWidth = device === 'mobile' ? 'max-w-[430px]' : 'max-w-none';
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-100">
+    <div className="h-screen flex flex-col bg-muted/30 text-foreground">
       {/* ==== Toolbar ==== */}
-      <div className="border-b bg-white shadow-sm z-40">
+      <div className="border-b border-border bg-card shrink-0 z-40">
         <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
-            <Link to="/admin" className="text-sm text-muted-foreground hover:underline">← Panel</Link>
+            <Link to="/admin" className="text-sm text-muted-foreground hover:text-foreground hover:underline">← Panel</Link>
             <div>
               <h1 className="text-sm font-bold leading-tight">Edytor strony głównej V2</h1>
               <p className="text-[11px] text-muted-foreground">Kliknij dowolny element w podglądzie, aby go edytować.</p>
             </div>
-            <div className="flex items-center gap-1.5 pl-4 border-l">
+            <div className="flex items-center gap-1.5 pl-4 border-l border-border">
               <span className="text-[11px] text-muted-foreground">Aktywna:</span>
               <Button size="sm" variant={variant === 'v1' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setVariant('v1')}>V1</Button>
               <Button size="sm" variant={variant === 'v2' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setVariant('v2')}>V2</Button>
             </div>
-            <div className="flex items-center gap-1 pl-2 border-l">
+            <div className="flex items-center gap-1 pl-2 border-l border-border">
               <Button size="sm" variant={device === 'desktop' ? 'default' : 'ghost'} className="h-7 w-7 p-0" onClick={() => setDevice('desktop')}>
                 <Monitor className="w-3.5 h-3.5" />
               </Button>
@@ -133,7 +133,7 @@ const HomepageEditor: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground min-w-[80px] text-right">
+            <span className="text-[11px] text-muted-foreground min-w-[100px] text-right">
               {autosaveStatus === 'saving' && '⏳ zapisuję...'}
               {autosaveStatus === 'saved' && '✓ draft zapisany'}
             </span>
@@ -153,19 +153,27 @@ const HomepageEditor: React.FC = () => {
       {/* ==== Body: Canvas + Inspector ==== */}
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_400px]">
         {/* Canvas */}
-        <div className="overflow-auto p-4 flex justify-center bg-neutral-100" onClick={() => { setSelectedPath(null); setSelectedType(null); }}>
-          <div className={`${canvasWidth} w-full bg-white rounded-lg shadow-2xl overflow-hidden transition-all`} onClick={(e) => e.stopPropagation()}>
-            <LandingV2
-              overrideContent={working}
-              editable
-              selectedPath={selectedPath}
-              onSelect={(p, t) => { setSelectedPath(p); setSelectedType(t); }}
-            />
+        <div className="overflow-y-auto overflow-x-hidden bg-muted/30">
+          <div
+            className="min-h-full p-4 flex justify-center"
+            onClick={() => { setSelectedPath(null); setSelectedType(null); }}
+          >
+            <div
+              className={`${canvasWidth} w-full bg-background border border-border rounded-lg shadow-sm overflow-hidden transition-all`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <LandingV2
+                overrideContent={working}
+                editable
+                selectedPath={selectedPath}
+                onSelect={(p, t) => { setSelectedPath(p); setSelectedType(t); }}
+              />
+            </div>
           </div>
         </div>
 
         {/* Inspector */}
-        <aside className="border-l bg-white overflow-auto">
+        <aside className="border-l border-border bg-card overflow-y-auto">
           <Inspector
             content={working}
             onChange={handleChange}
@@ -180,3 +188,4 @@ const HomepageEditor: React.FC = () => {
 };
 
 export default HomepageEditor;
+
