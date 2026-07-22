@@ -1,0 +1,1 @@
+ALTER TABLE public.hk_otp_sessions ADD COLUMN IF NOT EXISTS completed_at timestamptz;
