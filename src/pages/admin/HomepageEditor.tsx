@@ -191,7 +191,15 @@ const HomepageEditor: React.FC = () => {
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 pr-2 border-r border-border">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={undo} disabled={!historyRef.current.past.length} title="Cofnij (Ctrl+Z)">
+                <Undo2 className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={redo} disabled={!historyRef.current.future.length} title="Przywróć (Ctrl+Shift+Z)">
+                <Redo2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
             <span className="text-[11px] text-muted-foreground min-w-[100px] text-right">
               {autosaveStatus === 'saving' && '⏳ zapisuję...'}
               {autosaveStatus === 'saved' && '✓ draft zapisany'}
@@ -206,6 +214,7 @@ const HomepageEditor: React.FC = () => {
               <Rocket className="w-3.5 h-3.5 mr-1" /> Opublikuj
             </Button>
           </div>
+
         </div>
       </div>
 
