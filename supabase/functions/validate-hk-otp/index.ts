@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { knowledge_slug, otp_code, device_fingerprint, guest_first_name, guest_last_name, guest_email, guest_phone } = await req.json();
+    const { knowledge_slug, otp_code, device_fingerprint, guest_first_name, guest_last_name, guest_email, guest_phone, ref_eq_id } = await req.json();
 
     if (!knowledge_slug || !otp_code) {
       return new Response(
@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // HARD server-side guest data validation — prevents any client bypass (paste, autofill, direct API call)
+    const firstName = (guest_first_name || '').trim();
+    const lastName = (guest_last_name || '').trim();
+    const email = (guest_email || '').trim().toLowerCase();
+    const phoneDigits = (guest_phone || '').replace(/[^\d]/g, '');
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (firstName.length < 2 || lastName.length < 2 || !emailRe.test(email) || phoneDigits.length < 9) {
+      return new Response(
+        JSON.stringify({ error: 'Wypełnij imię, nazwisko, e-mail i numer telefonu, aby uzyskać dostęp.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
 
     // Normalize OTP code: strip BW-/ZW- prefix and hyphens, uppercase
     // Accepts new BW-XXXX format and legacy ZW-XXXXXX (backward compatibility)
