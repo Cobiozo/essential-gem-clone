@@ -94,6 +94,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Log (but do not block on) ref mismatch — partner attribution audit
+    if (ref_eq_id && otpCodeRecord.partner_eq_id && ref_eq_id !== otpCodeRecord.partner_eq_id) {
+      console.warn(`HK OTP ref mismatch: link ref=${ref_eq_id}, code partner=${otpCodeRecord.partner_eq_id}, code=${otpCodeRecord.code}`);
+    }
+
     // Check if max sessions reached
     const maxSessions = knowledge.otp_max_sessions || 3;
     if (otpCodeRecord.used_sessions >= maxSessions) {
@@ -102,6 +107,7 @@ Deno.serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     // Get validity hours from knowledge
     const validityHours = knowledge.otp_validity_hours || 24;
