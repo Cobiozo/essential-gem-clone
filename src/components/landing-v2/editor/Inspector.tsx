@@ -3,11 +3,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Trash2, ArrowUp, ArrowDown, Plus, Copy } from 'lucide-react';
-import type { HomepageV2Content, EditElementType } from '@/types/homepageV2';
+import { Trash2, ArrowUp, ArrowDown, Plus, Copy, Move } from 'lucide-react';
+import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
 import { getByPath, setByPath, getStyle, updateStyle, parseListItemPath, uid } from './pathUtils';
 import { StyleControls } from './StyleControls';
 import { ImageInput } from './inputs/ImageInput';
+import { VideoInput } from './inputs/VideoInput';
 import { IconInput } from './inputs/IconInput';
 
 interface Props {
@@ -33,6 +34,49 @@ const TYPE_LABEL: Record<EditElementType, string> = {
   bullet: 'Punkt listy',
 };
 
+function LayoutControls({ style, onChange }: { style: ElementStyle; onChange: (p: Partial<ElementStyle>) => void }) {
+  const reset = () => onChange({ offsetX: undefined, offsetY: undefined, scale: undefined, width: undefined, height: undefined, zIndex: undefined });
+  return (
+    <div className="space-y-3 border-t pt-3 mt-3">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+          <Move className="w-3 h-3" /> Pozycja i rozmiar
+        </div>
+        <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={reset}>Reset</Button>
+      </div>
+      <div className="text-[10px] text-muted-foreground -mt-1">
+        Możesz też chwycić element w podglądzie i przeciągnąć / rozciągnąć narożnikami.
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs">Przesunięcie X (px)</Label>
+          <Input type="number" value={style.offsetX ?? ''} onChange={(e) => onChange({ offsetX: e.target.value === '' ? undefined : Number(e.target.value) })} className="h-9 text-xs" />
+        </div>
+        <div>
+          <Label className="text-xs">Przesunięcie Y (px)</Label>
+          <Input type="number" value={style.offsetY ?? ''} onChange={(e) => onChange({ offsetY: e.target.value === '' ? undefined : Number(e.target.value) })} className="h-9 text-xs" />
+        </div>
+        <div>
+          <Label className="text-xs">Szerokość</Label>
+          <Input value={style.width || ''} onChange={(e) => onChange({ width: e.target.value })} placeholder="np. 320px" className="h-9 text-xs" />
+        </div>
+        <div>
+          <Label className="text-xs">Wysokość</Label>
+          <Input value={style.height || ''} onChange={(e) => onChange({ height: e.target.value })} placeholder="np. 200px" className="h-9 text-xs" />
+        </div>
+        <div>
+          <Label className="text-xs">Skala</Label>
+          <Input type="number" step="0.05" value={style.scale ?? ''} onChange={(e) => onChange({ scale: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="np. 1.2" className="h-9 text-xs" />
+        </div>
+        <div>
+          <Label className="text-xs">Warstwa (z-index)</Label>
+          <Input type="number" value={style.zIndex ?? ''} onChange={(e) => onChange({ zIndex: e.target.value === '' ? undefined : Number(e.target.value) })} className="h-9 text-xs" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const Inspector: React.FC<Props> = ({
   content,
   onChange,
@@ -48,7 +92,8 @@ export const Inspector: React.FC<Props> = ({
         <div className="mt-6 text-xs text-left space-y-2 border-t pt-4">
           <div className="font-semibold text-foreground">Wskazówki:</div>
           <div>• Klikaj w tekst, obraz, ikonę lub przycisk — otworzy się dedykowany edytor.</div>
-          <div>• Na kartach, statystykach i avatarach użyj strzałek, aby zmienić kolejność.</div>
+          <div>• Zaznaczony element możesz <b>chwycić i przesunąć</b> lub złapać za narożnik i <b>zmienić rozmiar</b>.</div>
+          <div>• Na kartach, statystykach, avatarach i logotypach użyj strzałek, aby zmienić kolejność.</div>
           <div>• Wszystkie zmiany są zapisywane jako <b>draft</b> — publikacja jednym kliknięciem.</div>
         </div>
       </div>
@@ -104,7 +149,7 @@ export const Inspector: React.FC<Props> = ({
       </div>
 
       {listInfo && (
-        <div className="flex gap-1 border-b pb-3">
+        <div className="flex flex-wrap gap-1 border-b pb-3">
           <Button size="sm" variant="outline" onClick={() => moveInList(-1)}>
             <ArrowUp className="w-3 h-3 mr-1" /> W górę
           </Button>
@@ -259,14 +304,38 @@ export const Inspector: React.FC<Props> = ({
         </>
       )}
 
-      {selectedType === 'video' && (
-        <>
-          <div>
-            <Label className="text-xs">URL wideo (YouTube / plik)</Label>
-            <Input value={typeof val === 'string' ? val : ''} onChange={(e) => setVal(e.target.value)} className="h-9 text-xs" />
+      {selectedType === 'video' && (() => {
+        // The `community.video` path stores full community object; edit its videoUrl/poster/autoplay.
+        // But when val is a string (legacy), fall back to raw url.
+        const community = getByPath(content, 'community') || {};
+        return (
+          <div className="space-y-3">
+            <VideoInput
+              label="Wideo (MP4 / YouTube / Vimeo)"
+              value={community.videoUrl || ''}
+              onChange={(v) => onChange(setByPath(content, 'community.videoUrl', v))}
+            />
+            <ImageInput
+              label="Poster (miniatura widoczna przed odtworzeniem)"
+              value={community.videoPoster || ''}
+              onChange={(v) => onChange(setByPath(content, 'community.videoPoster', v))}
+            />
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={!!community.videoAutoplay}
+                onChange={(e) => onChange(setByPath(content, 'community.videoAutoplay', e.target.checked))}
+              />
+              Autoodtwarzanie (wyciszone — zgodnie z polityką przeglądarek)
+            </label>
+            <div className="text-[11px] text-muted-foreground border-t pt-2">
+              Wskazówka: dla YouTube wklej link w postaci <code>https://youtu.be/ID</code> lub <code>https://www.youtube.com/watch?v=ID</code>.
+            </div>
           </div>
-        </>
-      )}
+        );
+      })()}
+
+      <LayoutControls style={style} onChange={patchStyle} />
 
       {/* Add-to-list buttons where relevant */}
       {listInfo && (
@@ -300,7 +369,7 @@ function AddSiblingButton({
     } else if (listPath.endsWith('avatars')) {
       newItem = { id: uid(), url: '' };
     } else if (listPath.endsWith('logos')) {
-      newItem = { id: uid(), url: '', alt: '', link: '' };
+      newItem = { id: uid(), url: '', alt: 'Nowe logo', link: '' };
     } else if (template) {
       newItem = template;
       if (newItem && typeof newItem === 'object' && 'id' in newItem) newItem.id = uid();
