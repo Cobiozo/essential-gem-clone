@@ -1,15 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { ArrowRight, Play, Check } from 'lucide-react';
+import { ArrowRight, Play, Check, ImagePlus } from 'lucide-react';
 import { useHomepageV2Content } from '@/hooks/useHomepageConfig';
-import type { HomepageV2Content, EditElementType } from '@/types/homepageV2';
+import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
 import { EditProvider, E, useEdit } from './editor/EditContext';
+import { videoMime } from '@/lib/videoMime';
 
 import heroMockup from '@/assets/landing-v2/hero-mockup.png';
 import communityHero from '@/assets/landing-v2/community-hero.jpg';
 import logoPurelife from '@/assets/landing-v2/logo-purelife.png';
 import avatarsRow from '@/assets/landing-v2/avatars-row.jpg';
+
+interface Props {
+  preferDraft?: boolean;
+  overrideContent?: HomepageV2Content;
+  editable?: boolean;
+  selectedPath?: string | null;
+  hoveredPath?: string | null;
+  onSelect?: (path: string, type: EditElementType) => void;
+  onHover?: (path: string | null) => void;
+  onUpdateStyle?: (path: string, patch: Partial<ElementStyle>) => void;
+}
+
+/** Parse YouTube/Vimeo URL → embed URL. Returns null for direct file URLs. */
+function toEmbedUrl(url: string, autoplay = false): string | null {
+  if (!url) return null;
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/);
+  if (yt) {
+    const id = yt[1];
+    const params = new URLSearchParams({ rel: '0', modestbranding: '1' });
+    if (autoplay) { params.set('autoplay', '1'); params.set('mute', '1'); params.set('playsinline', '1'); }
+    return `https://www.youtube.com/embed/${id}?${params.toString()}`;
+  }
+  const vim = url.match(/vimeo\.com\/(\d+)/);
+  if (vim) {
+    const params = new URLSearchParams({});
+    if (autoplay) { params.set('autoplay', '1'); params.set('muted', '1'); }
+    return `https://player.vimeo.com/video/${vim[1]}?${params.toString()}`;
+  }
+  return null;
+}
 
 interface Props {
   preferDraft?: boolean;
