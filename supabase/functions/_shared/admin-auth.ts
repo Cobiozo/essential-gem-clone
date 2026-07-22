@@ -209,7 +209,7 @@ export async function verifyAdmin(req: Request): Promise<any> {
 
   // 1) Zweryfikuj token bez zależności od aktywnego rekordu sesji GoTrue.
   const token = authHeader.replace("Bearer ", "");
-  const jwt = await verifyJwtClaims(token, supabaseUrl);
+  const jwt = await verifyJwtClaims(token, supabaseUrl, supabaseAdmin);
   if (!jwt.ok) {
     console.warn("[verifyAdmin] JWT verification failed", { reason: jwt.reason, detail: jwt.detail });
     return { ok: false, response: invalidTokenResponse(jwt.reason) };
@@ -258,7 +258,7 @@ export async function verifyTicketVerifier(req: Request): Promise<any> {
   const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
   const token = authHeader.replace("Bearer ", "");
-  const jwt = await verifyJwtClaims(token, supabaseUrl);
+  const jwt = await verifyJwtClaims(token, supabaseUrl, supabaseAdmin);
   if (!jwt.ok) {
     console.warn("[verifyTicketVerifier] JWT verification failed", { reason: jwt.reason, detail: jwt.detail });
     return { ok: false, response: invalidTokenResponse(jwt.reason) };
