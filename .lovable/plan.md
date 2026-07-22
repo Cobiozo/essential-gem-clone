@@ -1,87 +1,43 @@
-## Odpowiedź: TAK, da się to zrobić bezpiecznie
+## Cel
 
-Strona dla niezalogowanych to obecnie komponent `<Index />` renderowany tylko na trasie `/` gdy `user === null` (App.tsx linia 404–407). Cała reszta aplikacji (dashboard, /auth, panele, wydarzenia, akademia itd.) jest kompletnie odseparowana — zmiana strony powitalnej nie dotyka żadnego innego widoku, żadnej logiki logowania ani żadnego API. Ryzyko naruszenia innych elementów: praktycznie zerowe, o ile trzymamy zmiany wyłącznie w nowym komponencie landingu, nowej tabeli konfiguracji i przełączniku w panelu admina.
+Doprowadzić stronę V2 (`/admin/homepage` → wariant „V2 nowa") do wyglądu 1:1 z załączoną makietą, generując brakujące obrazy, ikony i elementy graficzne.
 
-Dodatkowo: architektura CMS w projekcie (`cms_sections` + `cms_items` z `page_id`, patrz core memory) jest dokładnie tym samym wzorcem, którego użyjemy — to sprawdzone rozwiązanie w tym projekcie.
+## Zakres zmian (tylko `src/components/landing-v2/*` + nowe assety)
 
----
+### 1. Wygenerowane assety (imagegen, zapis do `src/assets/landing-v2/`)
+- `logo-purelife.png` — logo „PURE LIFE CENTER" ze złotą kroplą (transparent PNG).
+- `hero-mockup.png` — kompozycja: srebrny MacBook z dashboardem „Pulpit / Akademia / Webinary…" + iPhone z panelem „Moje cele 78%" na marmurowym stojaku, roślina w tle, złoty łuk dekoracyjny (transparent PNG, premium — zawiera tekst UI).
+- `community-hero.jpg` — grupa ludzi od tyłu na tle gór o zachodzie słońca, ręce uniesione.
+- `avatars-1..5.jpg` — 5 okrągłych portretów do social proof (spójny, ciepły ton).
+- Logotypy „ZAUFALI NAM": `logo-eqology.png`, `logo-goed.png`, `logo-msc.png`, `logo-gmp.png`, `logo-arctic-oil.png` (transparent PNG, monochrom szary/złoty — jako stylizowane badge'y wzorowane na makiecie; nie kopie prawdziwych znaków towarowych).
+- Ikony sekcji „Co zyskujesz": złote, cienkie, kreskowe (Zdrowie=serce z pulsem, Akademia=biret, Webinary=play w kwadracie, Społeczność=grupa, Cele=tarcza) — użyjemy `lucide-react` (`HeartPulse`, `GraduationCap`, `PlaySquare`, `Users`, `Target`) w złotym kolorze `#B8894A`, `strokeWidth={1.25}`. Bez generowania.
+- Ikony statystyk: `Users`, `BookOpen`, `UserRound`, `Clock` (lucide, złote, cienkie).
+- Ikony listy korzyści: `CheckCircle2` (lucide, złoty wypełniony).
 
-## Co zbudujemy
+### 2. Refaktor komponentów V2 (piksel-perfect wg makiety)
 
-### 1. Nowa strona główna (Landing V2) zgodna z makietą
-Zbudowana 1:1 wg wgranego obrazka (Pure Life Center, hero „Zdrowie. Wiedza. Więcej życia.”, sekcja „Co zyskujesz?” z 5 ikonami, pasek statystyk 1200+/350+/40+/24/7, sekcja „Dołącz do ludzi…” z wideo, pasek „Zaufali nam” z logotypami). Zero hardkodowanych kolorów — wyłącznie tokeny z `index.css` (złoty akcent staje się nowym tokenem `--brand-gold`).
+**`LandingV2.tsx`** — biały background, złoty akcent `#B8894A`, czarne nagłówki `#111`.
 
-### 2. Pełna edytowalność w panelu admina
-Każdy element edytowalny osobno (bez „ściany JSON-a”):
-- **Hero:** eyebrow, 3 linie nagłówka (z osobną kolorystyką akcentu na „Więcej życia.”), akapit opisu, tekst + link CTA głównego, tekst + link CTA wtórnego (▶ Zobacz jak działa), avatary społeczności (upload + kolejność), tekst pod avatarami, obraz „mockup” po prawej (upload).
-- **Sekcja „Co zyskujesz?”:** eyebrow, nagłówek, lista kart (add/remove/reorder drag&drop). Każda karta: ikona (picker z lucide-react), tytuł, opis.
-- **Pasek statystyk:** lista pozycji (add/remove/reorder). Każda: ikona, liczba, podpis.
-- **Sekcja „Dołącz do ludzi…”:** eyebrow, nagłówek, lista bulletów (add/remove/reorder), tekst + link CTA, obraz tła + tekst nakładki, URL wideo, avatary + licznik osób.
-- **Zaufali nam:** lista logo (upload + alt + link + kolejność).
-- **SEO / meta:** title, description, og:image dla `/`.
+- **Hero (split 50/50, min-h ~ekranu)**
+  - Lewa kolumna: logo góra, mały eyebrow „TWOJE CENTRUM" (letter-spacing), H1 3-liniowy: „Zdrowie." / „Wiedza." / „Więcej życia." (ostatnia linia w złocie), lead paragraf 2 linie, dwa CTA (złoty pełny „Dołącz do społeczności →" + ghost z ikoną play „Zobacz jak działa"), social proof: 4 nakładające się awatary + tekst „Dołączyło już ponad 1200 osób…".
+  - Prawa kolumna: `hero-mockup.png` wyrównany do prawej krawędzi, wystający poza kontener; delikatny złoty łuk SVG w tle.
+- **Features** — eyebrow „CO ZYSKUJESZ?" + H2 „Wszystko, czego potrzebujesz w jednym miejscu"; 5 kart w rzędzie (grid 5-col desktop, 2-col tablet, 1-col mobile), tło `#FBF8F3`, `rounded-2xl`, ikona w kółku, tytuł, opis 3 linie.
+- **Stats** — jasny pasek `rounded-2xl` z 4 kolumnami (ikona + duża liczba złota + 2 linie opisu), separatory pionowe.
+- **Community** — split 40/60: lewa kolumna eyebrow „RAZEM MOŻEMY WIĘCEJ" + H2 2-liniowy + 4 punkty z checkiem + CTA „Zacznij swoją zmianę →"; prawa kolumna zdjęcie `community-hero.jpg` `rounded-2xl` z overlay: duży okrągły przycisk play + tekst „Zobacz jak nasza społeczność…" + stack awatarów „+1200 osób".
+- **Trusted by** — eyebrow „ZAUFALI NAM" + rząd 5 logotypów wyszarzonych, wyśrodkowany.
 
-Wszystko z auto-save (wzorzec `GenericEditor`), live preview w iframie `/` z parametrem `?preview=draft`, wersja robocza vs opublikowana.
+Wszystkie teksty, obrazy, ikony pozostają edytowalne w `HomepageEditor` (kontrakt JSON się nie zmienia — dodane tylko nowe pola `heroImage`, `communityImage`, `avatars[]`, `trustedLogos[]` w `homepage_v2_content` seedowane wartościami z assetów).
 
-### 3. Wybór aktywnej strony głównej (V1 aktualna / V2 nowa)
-W panelu admina „Ustawienia → Strona główna” prosty przełącznik:
-- **Wariant A:** obecna strona (`<Index />`) — bez zmian.
-- **Wariant B:** nowa edytowalna (`<LandingV2 />`).
-Admin może w każdej chwili przełączyć, bez deployu. Możliwość podglądu wariantu nieaktywnego przez `?variant=v2` (tylko dla adminów).
+### 3. Migracja treści
+- Uzupełnić `homepage_v2_content` domyślnymi ścieżkami do nowych assetów przez upsert w SQL migracji (URL-e wskazujące na zbudowane assety po deploy — użyjemy relatywnych importów w komponencie, więc DB przechowuje tylko teksty + opcjonalne overrides URL).
 
-### 4. Bezpieczeństwo zakresu zmian
-- Nie ruszamy `<Index />`, `<Auth />`, `<Dashboard />` ani żadnej innej trasy.
-- Nie ruszamy logiki auth/redirectów — warunek `user ? Navigate : <Landing/>` zostaje.
-- Nowe pliki + jedna nowa tabela + jeden nowy endpoint konfiguracji. Rollback = przełącznik z powrotem na V1.
+## Szczegóły techniczne
+- Kolory: `--gold: #B8894A`, `--gold-soft: #D4A574`, `--ink: #111111`, `--bg: #FFFFFF`, `--surface: #FBF8F3`.
+- Typografia: nagłówki `font-serif`? Makieta używa modern sans (podobnie do Inter/Manrope) — zastosuję `font-sans` z `tracking-tight` i `font-semibold`; ostatnia linia H1 w kolorze złotym.
+- Obrazy generowane: `premium` dla `hero-mockup` (UI tekst), `standard` dla `community-hero` i awatarów, `premium` transparent PNG dla logotypów.
+- Brak zmian w routingu, DB schema, auth, ani innych stronach.
 
----
-
-## Sekcja techniczna
-
-**Frontend**
-- `src/pages/LandingV2.tsx` — nowy komponent renderujący sekcje z konfiguracji.
-- `src/components/landing-v2/sections/*` — `HeroSection`, `FeaturesSection`, `StatsSection`, `CommunitySection`, `TrustedBySection` (każda czyta swój blok configu).
-- `src/hooks/useHomepageConfig.ts` — pobiera aktywny wariant + treść, cache przez React Query, realtime subscribe.
-- `src/App.tsx` — jedna linia: `user ? Navigate : <HomepageSwitcher />`, gdzie `HomepageSwitcher` czyta flagę i renderuje `<Index />` albo `<LandingV2 />`. Zero zmian w innych trasach.
-
-**Panel admina**
-- `src/pages/admin/HomepageEditor.tsx` — zakładki per sekcja + globalny toggle wariantu.
-- Reużycie istniejących primitives: `MediaUpload`, `IconPicker` (nowy, wrapper na lucide-react), `RichTextEditor`, `SortableList`.
-- Autoryzacja: tylko `has_role(auth.uid(),'admin')`.
-
-**Baza danych (nowa, izolowana)**
-- `public.homepage_settings` — jeden wiersz, kolumna `active_variant text check in ('v1','v2')`, `updated_at`, `updated_by`.
-- `public.homepage_v2_content` — jeden wiersz JSONB `content` (struktura sekcji), `draft_content` JSONB, `published_at`, `updated_by`.
-- Grants: `SELECT` dla `anon` + `authenticated` (strona publiczna), `UPDATE/INSERT` tylko przez edge function z sprawdzeniem admina — zgodnie z governance projektu.
-- RLS: read = public, write = `has_role(auth.uid(),'admin')`.
-- Realtime enabled dla podglądu na żywo.
-
-**Edge function**
-- `save-homepage-content` — waliduje admina JWT, zapisuje draft/publish (analogicznie do `save-cms-layout`).
-
-**Media / uploady**
-- Obrazy hero/mockup/logotypy/avatary: istniejący pipeline VPS XHR (>2MB) + fallback Supabase, bucket `cms-images`.
-
-**SEO**
-- `useDynamicMetaTags` (istnieje) czyta z `homepage_settings`.
-
-**Migracja treści**
-- Seed `homepage_v2_content` domyślnymi wartościami dokładnie odwzorowującymi wgraną makietę, żeby po włączeniu V2 wyglądała 1:1 od pierwszej sekundy.
-
-**Zakres NIE-zmian (gwarancja izolacji)**
-- `src/pages/Index.tsx` — nietknięty.
-- Auth, dashboard, role, RLS profili, CMS istniejący (`cms_sections`/`cms_items`), i18n, webinary, akademia, CRM — nietknięte.
-- Jedyny styk z resztą aplikacji: jedna linia w `App.tsx` + jeden link w menu admina.
-
----
-
-## Plan wdrożenia (kolejność)
-
-1. Migracja SQL: `homepage_settings` + `homepage_v2_content` + grants + RLS + seed V1 jako aktywny.
-2. `LandingV2` + sekcje + tokeny kolorów (złoty akcent) w `index.css`.
-3. `HomepageSwitcher` w `App.tsx` (1 linia zmiany).
-4. Edge function `save-homepage-content`.
-5. Panel admina `HomepageEditor` z auto-save i live preview.
-6. Seed treści z makiety, weryfikacja wizualna 1:1.
-7. Test przełącznika V1↔V2 + test niezalogowany/zalogowany + test podglądu admina.
-
-Po akceptacji planu przechodzę do realizacji.
+## Poza zakresem
+- Zmiany w wariancie V1.
+- Zmiany logiki przełącznika V1/V2.
+- Zmiany w panelu admin (edytor nadal działa 1:1 na tej samej strukturze JSON, dochodzą tylko opcjonalne pola image override).
