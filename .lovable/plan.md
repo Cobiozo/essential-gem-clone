@@ -1,31 +1,36 @@
-## Cel
-Naprawić dodawanie plików MP4 do lekcji w Akademii, które obecnie kończy się błędem: „Nie można zweryfikować wgranego pliku wideo (brak dostępu do serwera plików)”.
+## Kontekst
 
-## Co ustaliłem
-- Upload MP4 idzie przez endpoint `/upload` w `server.js`, a nie przez Supabase Storage.
-- Po uploadzie frontend natychmiast weryfikuje zwrócony URL przez `fetch(..., { Range: 'bytes=0-0' })`.
-- Serwer zwraca pełny URL produkcyjny `https://purelifecenter.pl/uploads/...`, więc w podglądzie/Lovable albo przy świeżym pliku weryfikacja może sprawdzać nie ten host albo host, który jeszcze nie widzi pliku.
-- Błąd widoczny na screenie pochodzi właśnie z tej weryfikacji po stronie frontendu, nie z samego wyboru pliku.
+Funkcja `supabase/functions/process-event-email-campaigns/index.ts` generuje maile-zaproszenia na wydarzenia (m.in. Pure Mindset). W linii 9:
 
-## Plan naprawy
-1. **Uodpornić zwracanie URL po uploadzie**
-   - W `server.js` zwracać dodatkowo `relativePath` i nadal zostawić `url` dla kompatybilności.
-   - Po stronie frontendu preferować lokalny `relativePath` (`/uploads/training-media/...`) do natychmiastowej weryfikacji i zapisu w lekcji, zamiast sztywnego pełnego URL produkcyjnego.
+```ts
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://purelife.lovable.app";
+```
 
-2. **Naprawić weryfikację wideo po uploadzie**
-   - W `useLocalStorage.ts` sprawdzać najpierw lokalny/relatywny URL.
-   - Dodać krótkie retry weryfikacji, bo plik może być zapisany, ale serwer/streaming może odpowiedzieć chwilę później.
-   - Nie kończyć procesu błędem tylko dlatego, że `Range fetch` chwilowo nie przeszedł, jeśli endpoint uploadu zwrócił `success: true`, `verified: true` i poprawną ścieżkę.
+Zmienna `APP_ORIGIN` nie jest ustawiona na produkcji, więc przycisk „Zapisz się" prowadził na `purelife.lovable.app` zamiast na `purelifecenter.pl`.
 
-3. **Poprawić komunikat dla admina**
-   - W `MediaUpload.tsx` rozróżnić realny błąd uploadu od opóźnionej weryfikacji.
-   - Jeśli upload się udał, ale weryfikacja streamingu wymaga chwili, pokazać komunikat typu „Plik został zapisany, trwa sprawdzanie dostępności odtwarzania”, zamiast czerwonego błędu blokującego dodanie lekcji.
+## Czy można cofnąć już wysłane maile?
 
-4. **Zachować optymalizację pod iPhone**
-   - Nie usuwać obecnego mechanizmu konwersji do MP4 H.264 + AAC.
-   - Dopilnować, aby po konwersji zwracana nazwa/URL wskazywały na finalny plik `*-ios-h264.mp4`.
+Nie. E-maile SMTP dostarczone do skrzynek odbiorców nie da się „odwołać" ani zdalnie zmienić ich treści — są to statyczne wiadomości w skrzynkach użytkowników. Można jedynie wysłać wiadomość korygującą (opcjonalnie, do ustalenia poza tym planem).
 
-5. **Walidacja po wdrożeniu**
-   - Sprawdzić, że po uploadzie MP4 komponent wywołuje `onMediaUploaded(...)` i lekcja dostaje URL pliku.
-   - Sprawdzić, że pasek dochodzi do końca i pokazuje stan zakończenia zamiast błędu „brak dostępu do serwera plików”.
-   - Sprawdzić typecheck/lint w zakresie zmienionych plików, jeśli środowisko pozwoli.
+## Co zmienię
+
+Edycja tylko `supabase/functions/process-event-email-campaigns/index.ts`:
+
+1. Zmiana domyślnej domeny na produkcyjną:
+   ```ts
+   const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://purelifecenter.pl";
+   ```
+   Trasy `/events/team-meetings`, `/events/webinars` i `/dashboard` już same przekierowują niezalogowanych na `/auth?n=<target>`, a `Auth.tsx` po logowaniu wraca na docelową ścieżkę — więc jeden URL obsłuży oba scenariusze (zalogowany → panel z paskiem bocznym wydarzenia; niezalogowany → logowanie i po nim powrót).
+
+2. Nowa treść sekcji CTA w `buildEmailHtml` — zamiast samego przycisku dodam akapit informacyjny nad przyciskiem:
+
+   > Aby zapisać się na wydarzenie, przejdź na platformę **purelifecenter.pl** i zapisz się w panelu wydarzeń (pasek boczny: „Spotkania zespołu" / „Webinary"). Jeżeli nie jesteś zalogowany, po kliknięciu przycisku otworzy się strona logowania — po zalogowaniu wrócisz automatycznie do miejsca zapisu.
+
+3. Przycisk „Zapisz się" oraz link „Zobacz szczegóły wydarzenia" pozostają, ale kierują do `https://purelifecenter.pl/events/team-meetings?event=<id>&utm=email_invite` (lub `/events/webinars` — zależnie od `event_type`, tak jak już działa `routeForEventType`).
+
+4. Deploy funkcji `process-event-email-campaigns` po zmianach.
+
+## Poza zakresem
+
+- Zmiana treści już wysłanych maili (technicznie niewykonalne).
+- Zmiany w innych funkcjach mailowych — one już używają `purelifecenter.pl` lub własnych ustawień; ten problem dotyczy tylko kampanii zaproszeniowych.

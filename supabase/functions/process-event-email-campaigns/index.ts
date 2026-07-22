@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://purelife.lovable.app";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://purelifecenter.pl";
 const BATCH_LIMIT = 200;
 
 function escapeHtml(s: string): string {
