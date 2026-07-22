@@ -49,12 +49,14 @@ export interface HkOtpCode {
   used_sessions: number;
   recipient_name: string | null;
   recipient_email: string | null;
+  partner_eq_id?: string | null;
   created_at: string;
   first_used_at: string | null;
   is_deleted_by_user: boolean;
   deleted_by_user_at: string | null;
   healthy_knowledge?: Partial<HealthyKnowledge> & { id: string; title: string; slug: string; otp_validity_hours?: number };
   partner?: { first_name: string; last_name: string; email: string; role?: string };
+  hk_otp_sessions?: HkOtpSession[];
   first_session_expires_at?: string | null;
 }
 
@@ -66,6 +68,12 @@ export interface HkOtpSession {
   expires_at: string;
   created_at: string;
   last_activity_at: string;
+  guest_first_name?: string | null;
+  guest_last_name?: string | null;
+  guest_email?: string | null;
+  guest_phone?: string | null;
+  email_consent?: boolean;
+  watched_seconds?: number;
 }
 
 export const HEALTHY_KNOWLEDGE_CATEGORIES = [
