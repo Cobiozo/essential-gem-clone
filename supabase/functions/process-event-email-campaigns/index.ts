@@ -133,10 +133,19 @@ function buildEmailHtml(event: any): { subject: string; html: string } {
           </table>
           ${descHtml ? `<div style="margin:0 0 28px 0;">${descHtml}</div>` : ""}
 
+          <div style="margin:0 0 20px 0;padding:16px 18px;background:#fef9c3;border-left:4px solid #eab308;border-radius:8px;">
+            <p style="margin:0;color:#374151;font-size:15px;line-height:1.6;">
+              Aby zapisać się na wydarzenie, przejdź na platformę
+              <a href="${APP_ORIGIN}" style="color:#111827;font-weight:700;text-decoration:underline;">purelifecenter.pl</a>
+              i zapisz się w panelu wydarzeń (pasek boczny: „Spotkania zespołu" lub „Webinary").
+              Jeżeli nie jesteś zalogowany, po kliknięciu przycisku poniżej otworzy się strona logowania — po zalogowaniu wrócisz automatycznie do miejsca zapisu.
+            </p>
+          </div>
+
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding:8px 0 4px 0;">
               <a href="${cta}" style="display:inline-block;background:#eab308;color:#111827;text-decoration:none;font-weight:700;font-size:17px;padding:16px 44px;border-radius:10px;letter-spacing:0.2px;">
-                Zapisz się
+                Przejdź do zapisu na purelifecenter.pl
               </a>
             </td></tr>
             <tr><td align="center" style="padding:14px 0 0 0;">
