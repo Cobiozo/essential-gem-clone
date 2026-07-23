@@ -17,6 +17,7 @@ import { pl } from 'date-fns/locale';
 import { PaidEventEditorLayout } from './editor';
 import { PaidEventContentEditor } from './PaidEventContentEditor';
 import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
+import { fetchPaidEventStats } from '@/lib/paidEventStats';
 
 interface PaidEvent {
   id: string;
