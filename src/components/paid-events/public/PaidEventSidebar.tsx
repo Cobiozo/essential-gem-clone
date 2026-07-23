@@ -42,6 +42,8 @@ interface PaidEventSidebarProps {
   allowAttendeeInvites?: boolean;
   /** Absolute or relative URL used as the guest invitation link (event public URL or registration form URL). */
   inviteUrl?: string | null;
+  /** Optional breakdown of registered attendees by audience. */
+  stats?: { guests: number; guestsPlc: number; partners: number; total: number } | null;
 }
 
 export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
