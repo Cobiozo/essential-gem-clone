@@ -453,9 +453,165 @@ export const Inspector: React.FC<Props> = ({
           <AddSiblingButton listPath={listInfo.listPath} content={content} onChange={onChange} />
         </div>
       )}
+        </>)}
+      </div>
     </div>
   );
 };
+
+/** Editor for a dynamic widget's props (context-sensitive by kind). */
+function WidgetPropsEditor({ widget, onChange }: { widget: Widget; onChange: (w: Widget) => void }) {
+  const p = widget.props || {};
+  const set = (patch: Record<string, any>) => onChange({ ...widget, props: { ...p, ...patch } });
+
+  switch (widget.kind) {
+    case 'heading':
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Tekst nagłówka</Label>
+            <Input value={p.text || ''} onChange={(e) => set({ text: e.target.value })} className="h-9 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs">Poziom</Label>
+            <select value={p.level || 'h2'} onChange={(e) => set({ level: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option><option value="h4">H4</option>
+            </select>
+          </div>
+        </>
+      );
+    case 'text':
+      return (
+        <div>
+          <Label className="text-xs">Treść</Label>
+          <Textarea value={p.text || ''} onChange={(e) => set({ text: e.target.value })} rows={4} className="text-sm" />
+        </div>
+      );
+    case 'image':
+      return (
+        <>
+          <ImageInput label="URL obrazu" value={p.url || ''} onChange={(v) => set({ url: v })} />
+          <div>
+            <Label className="text-xs">Alt tekst</Label>
+            <Input value={p.alt || ''} onChange={(e) => set({ alt: e.target.value })} className="h-9 text-xs" />
+          </div>
+        </>
+      );
+    case 'video':
+      return <VideoInput label="URL wideo (MP4 / YouTube / Vimeo)" value={p.url || ''} onChange={(v) => set({ url: v })} />;
+    case 'button':
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Tekst przycisku</Label>
+            <Input value={p.text || ''} onChange={(e) => set({ text: e.target.value })} className="h-9 text-sm" />
+          </div>
+          <LinkPicker url={p.url || ''} kind={p.kind} onChange={({ url, kind }) => set({ url, kind })} />
+        </>
+      );
+    case 'icon':
+      return <IconInput value={p.name || ''} onChange={(v) => set({ name: v })} />;
+    case 'card':
+      return (
+        <>
+          <div><Label className="text-xs">Ikona</Label><IconInput value={p.icon || ''} onChange={(v) => set({ icon: v })} /></div>
+          <div><Label className="text-xs">Tytuł</Label><Input value={p.title || ''} onChange={(e) => set({ title: e.target.value })} className="h-9 text-sm" /></div>
+          <div><Label className="text-xs">Opis</Label><Textarea value={p.description || ''} onChange={(e) => set({ description: e.target.value })} rows={3} className="text-sm" /></div>
+        </>
+      );
+    case 'stat':
+      return (
+        <>
+          <div><Label className="text-xs">Wartość</Label><Input value={p.value || ''} onChange={(e) => set({ value: e.target.value })} className="h-9 text-sm font-bold" /></div>
+          <div><Label className="text-xs">Podpis</Label><Input value={p.label || ''} onChange={(e) => set({ label: e.target.value })} className="h-9 text-sm" /></div>
+        </>
+      );
+    case 'bullet-list': {
+      const items: string[] = Array.isArray(p.items) ? p.items : [];
+      const setItem = (i: number, v: string) => set({ items: items.map((x, j) => j === i ? v : x) });
+      const remove = (i: number) => set({ items: items.filter((_, j) => j !== i) });
+      const add = () => set({ items: [...items, 'Nowy punkt'] });
+      return (
+        <div className="space-y-2">
+          <Label className="text-xs">Punkty listy</Label>
+          {items.map((it, i) => (
+            <div key={i} className="flex gap-1">
+              <Input value={it} onChange={(e) => setItem(i, e.target.value)} className="h-9 text-sm" />
+              <Button size="sm" variant="ghost" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj punkt</Button>
+        </div>
+      );
+    }
+    case 'logo-row': {
+      const logos: Array<{ url: string; alt?: string }> = Array.isArray(p.logos) ? p.logos : [];
+      const setLogo = (i: number, patch: Partial<{ url: string; alt: string }>) => set({ logos: logos.map((l, j) => j === i ? { ...l, ...patch } : l) });
+      const remove = (i: number) => set({ logos: logos.filter((_, j) => j !== i) });
+      const add = () => set({ logos: [...logos, { url: '', alt: '' }] });
+      return (
+        <div className="space-y-3">
+          <Label className="text-xs">Logotypy</Label>
+          {logos.map((l, i) => (
+            <div key={i} className="space-y-1 border rounded-md p-2">
+              <ImageInput label={`Logo #${i + 1}`} value={l.url} onChange={(v) => setLogo(i, { url: v })} />
+              <div className="flex gap-1">
+                <Input value={l.alt || ''} onChange={(e) => setLogo(i, { alt: e.target.value })} placeholder="Alt / nazwa" className="h-8 text-xs" />
+                <Button size="sm" variant="ghost" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+              </div>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj logo</Button>
+        </div>
+      );
+    }
+    case 'grid':
+      return (
+        <div>
+          <Label className="text-xs">Liczba kolumn (1–6)</Label>
+          <Input type="number" min={1} max={6} value={p.cols || 3} onChange={(e) => set({ cols: Math.max(1, Math.min(6, Number(e.target.value) || 1)) })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'section':
+      return (
+        <div>
+          <Label className="text-xs">Tytuł sekcji</Label>
+          <Input value={p.title || ''} onChange={(e) => set({ title: e.target.value })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'spacer':
+      return (
+        <div>
+          <Label className="text-xs">Wysokość (px)</Label>
+          <Input type="number" value={p.height || 48} onChange={(e) => set({ height: Number(e.target.value) || 0 })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'collapsible': {
+      const items: Array<{ title: string; body: string }> = Array.isArray(p.items) ? p.items : [];
+      const setItem = (i: number, patch: Partial<{ title: string; body: string }>) => set({ items: items.map((x, j) => j === i ? { ...x, ...patch } : x) });
+      const remove = (i: number) => set({ items: items.filter((_, j) => j !== i) });
+      const add = () => set({ items: [...items, { title: 'Nowe pytanie', body: 'Odpowiedź.' }] });
+      return (
+        <div className="space-y-3">
+          <Label className="text-xs">Sekcje zwijane</Label>
+          {items.map((it, i) => (
+            <div key={i} className="space-y-1 border rounded-md p-2">
+              <Input value={it.title} onChange={(e) => setItem(i, { title: e.target.value })} placeholder="Tytuł" className="h-8 text-xs" />
+              <Textarea value={it.body} onChange={(e) => setItem(i, { body: e.target.value })} rows={2} className="text-xs" />
+              <Button size="sm" variant="ghost" onClick={() => remove(i)} className="w-full"><Trash2 className="w-3 h-3 mr-1" /> Usuń</Button>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj</Button>
+        </div>
+      );
+    }
+    case 'container':
+    case 'divider':
+    default:
+      return <div className="text-xs text-muted-foreground">Brak dodatkowych właściwości. Użyj sekcji Pozycja i rozmiar poniżej.</div>;
+  }
+}
+
 
 function AddSiblingButton({
   listPath,
