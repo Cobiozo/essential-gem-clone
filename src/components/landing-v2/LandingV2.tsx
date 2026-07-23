@@ -547,7 +547,11 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
           </div>
         </div>
       </section>
+
+      {/* ================= DYNAMIC WIDGETS (from palette) ================= */}
+      <WidgetRenderer widgets={content.widgets || []} />
     </div>
+
   );
 };
 
