@@ -106,4 +106,21 @@ export type HomepageVariant = 'v1' | 'v2';
 
 export type EditElementType =
   | 'text' | 'heading' | 'image' | 'icon' | 'button'
-  | 'card' | 'stat' | 'avatar' | 'logo' | 'video' | 'section' | 'bullet';
+  | 'card' | 'stat' | 'avatar' | 'logo' | 'video' | 'section' | 'bullet'
+  | 'widget';
+
+/** Dynamic widgets added via the palette. Rendered below the fixed sections. */
+export type WidgetKind =
+  | 'container' | 'grid' | 'section' | 'collapsible'
+  | 'heading' | 'text' | 'image' | 'video' | 'button' | 'icon'
+  | 'card' | 'stat' | 'bullet-list' | 'logo-row'
+  | 'divider' | 'spacer';
+
+export interface Widget {
+  id: string;
+  kind: WidgetKind;
+  props: Record<string, any>;
+  children?: Widget[];
+  style?: ElementStyle;
+}
+
