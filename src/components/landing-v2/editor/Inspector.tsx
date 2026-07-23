@@ -183,34 +183,67 @@ export const Inspector: React.FC<Props> = ({
     onChange(setByPath(content, listInfo.listPath, next));
   };
 
-  return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {TYPE_LABEL[selectedType]}
-          </div>
-          <div className="text-xs font-mono text-muted-foreground break-all">{selectedPath}</div>
-        </div>
-        <Button size="sm" variant="ghost" onClick={() => onSelect(null, null)}>Zamknij</Button>
-      </div>
+  const widgetIndex = parseWidgetIndex(selectedPath);
+  const isWidget = selectedPath.startsWith('widgets.');
+  const widget: Widget | undefined = isWidget ? getByPath(content, selectedPath) : undefined;
 
-      {listInfo && (
-        <div className="flex flex-wrap gap-1 border-b pb-3">
-          <Button size="sm" variant="outline" onClick={() => moveInList(-1)}>
-            <ArrowUp className="w-3 h-3 mr-1" /> W górę
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => moveInList(1)}>
-            <ArrowDown className="w-3 h-3 mr-1" /> W dół
-          </Button>
-          <Button size="sm" variant="outline" onClick={duplicateInList}>
-            <Copy className="w-3 h-3 mr-1" /> Duplikuj
-          </Button>
-          <Button size="sm" variant="destructive" onClick={removeFromList}>
-            <Trash2 className="w-3 h-3 mr-1" /> Usuń
-          </Button>
+  return (
+    <div>
+      {Tabs}
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {widget ? `Widżet: ${widget.kind}` : TYPE_LABEL[selectedType]}
+            </div>
+            <div className="text-xs font-mono text-muted-foreground break-all">{selectedPath}</div>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => onSelect(null, null)}>Zamknij</Button>
         </div>
-      )}
+
+        {widgetIndex != null && (
+          <div className="flex flex-wrap gap-1 border-b pb-3">
+            <Button size="sm" variant="outline" onClick={() => onChange(moveWidget(content, widgetIndex, -1))}>
+              <ArrowUp className="w-3 h-3 mr-1" /> W górę
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onChange(moveWidget(content, widgetIndex, 1))}>
+              <ArrowDown className="w-3 h-3 mr-1" /> W dół
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onChange(duplicateWidget(content, widgetIndex))}>
+              <Copy className="w-3 h-3 mr-1" /> Duplikuj
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => { onChange(removeWidgetAt(content, widgetIndex)); onSelect(null, null); }}>
+              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+            </Button>
+          </div>
+        )}
+
+        {listInfo && !isWidget && (
+          <div className="flex flex-wrap gap-1 border-b pb-3">
+            <Button size="sm" variant="outline" onClick={() => moveInList(-1)}>
+              <ArrowUp className="w-3 h-3 mr-1" /> W górę
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => moveInList(1)}>
+              <ArrowDown className="w-3 h-3 mr-1" /> W dół
+            </Button>
+            <Button size="sm" variant="outline" onClick={duplicateInList}>
+              <Copy className="w-3 h-3 mr-1" /> Duplikuj
+            </Button>
+            <Button size="sm" variant="destructive" onClick={removeFromList}>
+              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+            </Button>
+          </div>
+        )}
+
+        {isWidget && widget && (
+          <WidgetPropsEditor
+            widget={widget}
+            onChange={(next) => onChange(setByPath(content, selectedPath, next))}
+          />
+        )}
+
+        {!isWidget && (<>
+
 
       {/* ==== EDITORS BY TYPE ==== */}
 
