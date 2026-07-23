@@ -17,6 +17,7 @@ import { pl } from 'date-fns/locale';
 import { PaidEventEditorLayout } from './editor';
 import { PaidEventContentEditor } from './PaidEventContentEditor';
 import { localInputToISO, isoToLocalInput } from '@/utils/datetimeLocal';
+import { fetchPaidEventStats } from '@/lib/paidEventStats';
 
 interface PaidEvent {
   id: string;
@@ -96,6 +97,14 @@ export const PaidEventsList: React.FC = () => {
       if (error) throw error;
       return data as PaidEvent[];
     },
+  });
+
+  const eventIds = events.map(e => e.id);
+  const { data: statsMap = {} } = useQuery({
+    queryKey: ['paid-events-stats', eventIds.sort().join(',')],
+    queryFn: () => fetchPaidEventStats(eventIds),
+    enabled: eventIds.length > 0,
+    staleTime: 20_000,
   });
 
   // Create event mutation
@@ -264,16 +273,30 @@ export const PaidEventsList: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {availability ? (
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          <span className={availability.available === 0 ? 'text-destructive' : ''}>
-                            {availability.sold}/{availability.total}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">bez limitu</span>
-                      )}
+                      {(() => {
+                        const s = statsMap[event.id];
+                        const total = s?.total ?? 0;
+                        const max = event.max_tickets;
+                        const isFull = max != null && total >= max;
+                        return (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1">
+                              <Users className="w-4 h-4 text-muted-foreground" />
+                              <span className={isFull ? 'text-destructive font-medium' : ''}>
+                                {total}{max != null ? `/${max}` : ''}
+                              </span>
+                              {max == null && (
+                                <span className="text-xs text-muted-foreground">(bez limitu)</span>
+                              )}
+                            </div>
+                            {s && total > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Goście {s.guests} · PLC {s.guestsPlc} · Partnerzy {s.partners}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
