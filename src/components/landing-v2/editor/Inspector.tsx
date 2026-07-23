@@ -445,8 +445,6 @@ export const Inspector: React.FC<Props> = ({
         );
       })()}
 
-      <LayoutControls style={style} onChange={patchStyle} />
-
       {/* Add-to-list buttons where relevant */}
       {listInfo && (
         <div className="border-t pt-3">
@@ -454,10 +452,14 @@ export const Inspector: React.FC<Props> = ({
         </div>
       )}
         </>)}
+
+        {/* Position/size overrides apply to any selected element, incl. widgets */}
+        <LayoutControls style={style} onChange={patchStyle} />
       </div>
     </div>
   );
 };
+
 
 /** Editor for a dynamic widget's props (context-sensitive by kind). */
 function WidgetPropsEditor({ widget, onChange }: { widget: Widget; onChange: (w: Widget) => void }) {
