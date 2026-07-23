@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Trash2, ArrowUp, ArrowDown, Plus, Copy, Move } from 'lucide-react';
-import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
-import { getByPath, setByPath, getStyle, updateStyle, parseListItemPath, uid } from './pathUtils';
+import { Trash2, ArrowUp, ArrowDown, Plus, Copy, Move, LayoutGrid, Settings2 } from 'lucide-react';
+import type { HomepageV2Content, EditElementType, ElementStyle, Widget } from '@/types/homepageV2';
+import {
+  getByPath, setByPath, getStyle, updateStyle, parseListItemPath, uid,
+  removeWidgetAt, moveWidget, duplicateWidget, parseWidgetIndex,
+} from './pathUtils';
 import { StyleControls } from './StyleControls';
 import { ImageInput } from './inputs/ImageInput';
 import { VideoInput } from './inputs/VideoInput';
 import { IconInput } from './inputs/IconInput';
 import { LinkPicker } from './inputs/LinkPicker';
+import { WidgetPalette } from './WidgetPalette';
+
 
 
 interface Props {
