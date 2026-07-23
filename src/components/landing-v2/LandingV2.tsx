@@ -189,8 +189,8 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
 
   return (
     <div className="min-h-screen bg-white text-neutral-900" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", "Inter", sans-serif' }}>
-      {/* ================= TOP BAR (identical to V1) ================= */}
-      <Header siteLogo={siteLogo} publishedPages={publishedPages} />
+      {/* ================= TOP BAR (identical to V1) — only on the public page, not in the editor ================= */}
+      {!editable && <Header siteLogo={siteLogo} publishedPages={publishedPages} />}
 
       {/* ================= HERO ================= */}
       <section id="hero" className="relative overflow-hidden">
