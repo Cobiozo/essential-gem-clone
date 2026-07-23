@@ -62,6 +62,7 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
   alreadyRegisteredLoading = false,
   allowAttendeeInvites = false,
   inviteUrl = null,
+  stats = null,
 }) => {
   const { toast } = useToast();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
