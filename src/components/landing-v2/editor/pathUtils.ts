@@ -59,3 +59,48 @@ export function parseListItemPath(
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
+
+/** Widget helpers — operate on content.widgets (top-level list). */
+import type { Widget } from '@/types/homepageV2';
+
+export function addWidget(content: HomepageV2Content, widget: Widget): HomepageV2Content {
+  const clone = JSON.parse(JSON.stringify(content));
+  clone.widgets = Array.isArray(clone.widgets) ? [...clone.widgets, widget] : [widget];
+  return clone;
+}
+
+export function removeWidgetAt(content: HomepageV2Content, index: number): HomepageV2Content {
+  const clone = JSON.parse(JSON.stringify(content));
+  const list = Array.isArray(clone.widgets) ? clone.widgets : [];
+  clone.widgets = list.filter((_: any, i: number) => i !== index);
+  return clone;
+}
+
+export function moveWidget(content: HomepageV2Content, index: number, dir: -1 | 1): HomepageV2Content {
+  const clone = JSON.parse(JSON.stringify(content));
+  const list: Widget[] = Array.isArray(clone.widgets) ? clone.widgets : [];
+  const j = index + dir;
+  if (j < 0 || j >= list.length) return content;
+  [list[index], list[j]] = [list[j], list[index]];
+  clone.widgets = list;
+  return clone;
+}
+
+export function duplicateWidget(content: HomepageV2Content, index: number): HomepageV2Content {
+  const clone = JSON.parse(JSON.stringify(content));
+  const list: Widget[] = Array.isArray(clone.widgets) ? clone.widgets : [];
+  const copy: Widget = JSON.parse(JSON.stringify(list[index]));
+  copy.id = uid();
+  if (copy.children) copy.children = copy.children.map((c) => ({ ...c, id: uid() }));
+  list.splice(index + 1, 0, copy);
+  clone.widgets = list;
+  return clone;
+}
+
+/** Return index of top-level widget if the path is `widgets.<i>` or nested `widgets.<i>...`. */
+export function parseWidgetIndex(path: string): number | null {
+  const m = path.match(/^widgets\.(\d+)$/);
+  if (!m) return null;
+  return parseInt(m[1], 10);
+}
+
