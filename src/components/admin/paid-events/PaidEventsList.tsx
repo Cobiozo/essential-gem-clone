@@ -99,6 +99,14 @@ export const PaidEventsList: React.FC = () => {
     },
   });
 
+  const eventIds = events.map(e => e.id);
+  const { data: statsMap = {} } = useQuery({
+    queryKey: ['paid-events-stats', eventIds.sort().join(',')],
+    queryFn: () => fetchPaidEventStats(eventIds),
+    enabled: eventIds.length > 0,
+    staleTime: 20_000,
+  });
+
   // Create event mutation
   const createMutation = useMutation({
     mutationFn: async (data: Partial<PaidEvent>) => {
