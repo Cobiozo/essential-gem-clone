@@ -1,36 +1,42 @@
 ## Cel
-Naprawić błąd „Invalid token (jwt_secret_missing)" w panelu Weryfikacji biletów (i wszystkich innych funkcjach admin/ticket-verifier korzystających ze wspólnego `_shared/admin-auth.ts`).
+1. W panelu admina (lista wydarzeń płatnych) w kolumnie „Bilety" pokazać realną liczbę zarejestrowanych osób z podziałem: Goście / Goście PLC / Partnerzy.
+2. Na publicznej stronie wydarzenia licznik „Dostępnych miejsc" ma być realny — `max_tickets − (goście + goście PLC + partnerzy)`.
 
-## Diagnoza
-`supabase/functions/_shared/admin-auth.ts` weryfikuje JWT w dwóch krokach:
-1. `auth.getClaims(token)` — obecnie zwraca błąd (nowe wersje klienta wymagają JWKS/asymmetric keys, których projekt jeszcze nie ma skonfigurowanych).
-2. Fallback lokalny: jeśli token jest HS256, potrzebuje `SUPABASE_JWT_SECRET`. Ten sekret nie jest ustawiony w projekcie → funkcja zwraca 401 `jwt_secret_missing`.
+## Jak rozróżniamy typy rejestracji
+Na podstawie istniejącego schematu (bez zmian w bazie):
+- **Partner (zalogowany)** — rekord w `paid_event_orders` z `user_id IS NOT NULL`, gdzie profil ma rolę `partner`/`specjalista`.
+- **Gość PLC (zalogowany klient PLC)** — rekord w `paid_event_orders` z `user_id IS NOT NULL`, gdzie profil ma rolę `client` (Klient PLC).
+- **Gość (niezalogowany)** — rekordy z `guest_event_registrations` + `event_form_submissions` + `paid_event_orders` z `user_id IS NULL`.
 
-Efekt: **każda** funkcja używająca `verifyAdmin` / `verifyTicketVerifier` (m.in. `admin-list-event-orders`, `verify-event-ticket`, `admin-*`) odrzuca żądania.
+Liczymy „miejsca" tak jak dziś (attendees / fallback quantity dla zamówień bez attendees + submissions + guest_event_registrations), ale grupujemy po źródle.
 
-## Zmiana
+## Zmiany w kodzie (tylko frontend)
 
-### 1. `supabase/functions/_shared/admin-auth.ts`
-Dodać jako pierwszy, niezawodny mechanizm weryfikacji: `supabaseAdmin.auth.getUser(token)` przez klienta service-role. Auth API waliduje podpis po stronie serwera bez potrzeby posiadania `JWT_SECRET` ani JWKS w edge function.
+### 1) `src/pages/PaidEventPage.tsx`
+Rozbudować query `paid-event-occupied-seats`:
+- Dociągnąć `user_id` w `paid_event_orders` i policzyć role zamawiających jednym zapytaniem do `user_roles` (batch po `user_id`).
+- Zwracać obiekt `{ total, guests, guestsPlc, partners }` zamiast pojedynczej liczby.
+- `total` używamy dalej do `availableSpots`.
 
-Nowa kolejność w `verifyJwtClaims`:
-1. **`supabaseAdmin.auth.getUser(token)`** — jeśli zwróci usera → sukces (`method: "getUser"`), zwracamy `sub = user.id` + `exp` z payloadu.
-2. Dotychczasowy `getClaims` (dla nowych projektów z asymmetric JWT) — bez zmian.
-3. Dotychczasowy fallback HS256/JWKS — bez zmian (przydatny gdy Auth API jest offline).
+### 2) `src/components/paid-events/public/PaidEventSidebar.tsx`
+Pod linijką „Dostępnych miejsc: X" dodać drobny rozbicie: `Goście: A · PLC: B · Partnerzy: C` (widoczne tylko gdy `max_tickets` ustawione). Reszta logiki (Ostatnie miejsca / Brak miejsc) bez zmian — nadal na bazie `availableSpots`.
 
-Dzięki temu:
-- działa dla obecnego (HS256, legacy) tokena bez sekretu,
-- działa dla nowych projektów z JWKS,
-- brak nowej powierzchni ataku (Auth API weryfikuje JWT tak samo jak PostgREST).
+### 3) `src/components/admin/paid-events/PaidEventsList.tsx`
+- Nowy hook / query `usePaidEventStats(eventIds[])` (jedno wywołanie dla wszystkich wydarzeń na liście) zwracający mapę `eventId → { guests, guestsPlc, partners, total }` używając tej samej logiki co w (1).
+- Kolumna „Bilety": zamiast `tickets_sold/max_tickets` wyświetlać:
+  ```
+   12 / 155
+   Goście 5 · PLC 3 · Partnerzy 4
+  ```
+  (małe muted subline). Przy braku `max_tickets` — sam podział bez `/max`.
+- Kolor `text-destructive` gdy `total >= max_tickets`.
 
-### 2. Refactor sygnatur
-`verifyJwtClaims` dostaje dodatkowy parametr `supabaseAdmin: SupabaseClient` (klient service-role już tworzony w `verifyAdmin`/`verifyTicketVerifier`). Przenieść tworzenie klienta powyżej wywołania `verifyJwtClaims`.
-
-## Weryfikacja
-- Po deployu: w panelu `/weryfikacja-biletow` wybrać wydarzenie — lista uczestników ładuje się bez błędu.
-- Logi `admin-list-event-orders` mają `[verifyTicketVerifier] JWT verified { method: "getUser" }`.
-- Test regresji: dowolna funkcja admin (np. `admin-list-event-orders` z konta admina i konta bez roli) — 200 vs 403, żadne 401 `jwt_secret_missing`.
+### 4) Cache / realtime
+Query keye zawierają `event.id`; `staleTime: 20s` jak dziś. Bez realtime subskrypcji.
 
 ## Poza zakresem
-- Brak zmian w RLS, tabelach, konfiguracji Supabase Auth.
-- Nie dodajemy sekretu `SUPABASE_JWT_SECRET` — rozwiązanie działa bez niego i nie wymaga akcji użytkownika.
+- Brak migracji DB, brak zmian w edge functions.
+- Brak nowych filtrów/eksportów — tylko wyświetlanie liczników.
+
+## Weryfikacja
+Otworzyć `/admin` → Płatne wydarzenia → sprawdzić kolumnę „Bilety" dla wydarzenia z mieszanymi rejestracjami. Otworzyć publiczną stronę `/events/{slug}` → potwierdzić że „Dostępnych miejsc" = `max_tickets − total` i widać rozbicie.
