@@ -1,42 +1,59 @@
-## Cel
-1. W panelu admina (lista wydarzeń płatnych) w kolumnie „Bilety" pokazać realną liczbę zarejestrowanych osób z podziałem: Goście / Goście PLC / Partnerzy.
-2. Na publicznej stronie wydarzenia licznik „Dostępnych miejsc" ma być realny — `max_tickets − (goście + goście PLC + partnerzy)`.
+# Plan: Pasek V1 na V2 + panel widżetów w edytorze V2
 
-## Jak rozróżniamy typy rejestracji
-Na podstawie istniejącego schematu (bez zmian w bazie):
-- **Partner (zalogowany)** — rekord w `paid_event_orders` z `user_id IS NOT NULL`, gdzie profil ma rolę `partner`/`specjalista`.
-- **Gość PLC (zalogowany klient PLC)** — rekord w `paid_event_orders` z `user_id IS NOT NULL`, gdzie profil ma rolę `client` (Klient PLC).
-- **Gość (niezalogowany)** — rekordy z `guest_event_registrations` + `event_form_submissions` + `paid_event_orders` z `user_id IS NULL`.
+## 1. Wspólny pasek górny (Header V1 na stronie V2)
 
-Liczymy „miejsca" tak jak dziś (attendees / fallback quantity dla zamówień bez attendees + submissions + guest_event_registrations), ale grupujemy po źródle.
+- W `src/components/landing-v2/LandingV2.tsx`:
+  - Zaimportować `Header` z `@/components/Header`, `usePublishedPages` i `useSystemTexts` (tak jak w `src/pages/Index.tsx`).
+  - Wyliczyć `siteLogo` z `system_texts` (fallback do `newPureLifeLogo`).
+  - Wyrenderować `<Header siteLogo={siteLogo} publishedPages={publishedPages} />` na samej górze layoutu (nad hero), tak samo w trybie publicznym jak i edytora — dokładnie ten sam komponent i te same źródła danych co V1, więc logo, przełącznik motywu, wybór języka i przycisk „Zaloguj się" wyglądają identycznie.
+  - Usunąć obecny własny mini‑header V2 (jeżeli jego elementy powielają się z `Header`), tak żeby edytowalne pozostały tylko sekcje treści.
+- Uwaga: `Header` jest źródłem systemowym (edytowany globalnie w panelu admina), więc w edytorze V2 nie będzie klikalny — to zgodne z V1.
 
-## Zmiany w kodzie (tylko frontend)
+## 2. Panel „Widżety" w edytorze V2 (dodawanie bloków)
 
-### 1) `src/pages/PaidEventPage.tsx`
-Rozbudować query `paid-event-occupied-seats`:
-- Dociągnąć `user_id` w `paid_event_orders` i policzyć role zamawiających jednym zapytaniem do `user_roles` (batch po `user_id`).
-- Zwracać obiekt `{ total, guests, guestsPlc, partners }` zamiast pojedynczej liczby.
-- `total` używamy dalej do `availableSpots`.
+Model danych — nowy dynamiczny obszar treści (nie ruszamy istniejących sekcji hero/community/trustedBy):
 
-### 2) `src/components/paid-events/public/PaidEventSidebar.tsx`
-Pod linijką „Dostępnych miejsc: X" dodać drobny rozbicie: `Goście: A · PLC: B · Partnerzy: C` (widoczne tylko gdy `max_tickets` ustawione). Reszta logiki (Ostatnie miejsca / Brak miejsc) bez zmian — nadal na bazie `availableSpots`.
+- W `src/types/homepageV2.ts` dodać:
+  - `WidgetKind = 'container' | 'grid' | 'section' | 'collapsible' | 'heading' | 'text' | 'image' | 'video' | 'button' | 'icon' | 'divider' | 'spacer' | 'card' | 'stat' | 'bullet-list' | 'logo-row'`.
+  - `Widget { id: string; kind: WidgetKind; props: Record<string, any>; children?: Widget[]; style?: ElementStyle }`.
+  - Rozszerzenie `HomepageV2Content` o `widgets?: Widget[]` (opcjonalne, wstecznie kompatybilne — istniejące strony nadal działają).
+- W `useHomepageConfig.ts` (`withDefaults`) zapewnić `content.widgets ??= []`.
 
-### 3) `src/components/admin/paid-events/PaidEventsList.tsx`
-- Nowy hook / query `usePaidEventStats(eventIds[])` (jedno wywołanie dla wszystkich wydarzeń na liście) zwracający mapę `eventId → { guests, guestsPlc, partners, total }` używając tej samej logiki co w (1).
-- Kolumna „Bilety": zamiast `tickets_sold/max_tickets` wyświetlać:
-  ```
-   12 / 155
-   Goście 5 · PLC 3 · Partnerzy 4
-  ```
-  (małe muted subline). Przy braku `max_tickets` — sam podział bez `/max`.
-- Kolor `text-destructive` gdy `total >= max_tickets`.
+Renderer widżetów:
 
-### 4) Cache / realtime
-Query keye zawierają `event.id`; `staleTime: 20s` jak dziś. Bez realtime subskrypcji.
+- Nowy plik `src/components/landing-v2/widgets/WidgetRenderer.tsx` renderujący listę `Widget[]` po `kind`, każdy wrappowany w `<E path="widgets.{i}" type="...">` — dziedziczy istniejący system zaznaczania, drag/resize i style overrides.
+- W `LandingV2.tsx` po wyrenderowaniu istniejących sekcji dodać `<WidgetRenderer widgets={content.widgets || []} basePath="widgets" />` (osobna „strefa widżetów" dopinana na dole strony — dla V2 to naturalne miejsce rozbudowy).
 
-## Poza zakresem
-- Brak migracji DB, brak zmian w edge functions.
-- Brak nowych filtrów/eksportów — tylko wyświetlanie liczników.
+Panel widżetów w Inspectorze:
 
-## Weryfikacja
-Otworzyć `/admin` → Płatne wydarzenia → sprawdzić kolumnę „Bilety" dla wydarzenia z mieszanymi rejestracjami. Otworzyć publiczną stronę `/events/{slug}` → potwierdzić że „Dostępnych miejsc" = `max_tickets − total` i widać rozbicie.
+- W `src/components/landing-v2/editor/Inspector.tsx` dodać zakładki na górze: **Widżety** | **Globalne** | **Właściwości** (Właściwości = obecny widok wybranego elementu).
+- Nowy komponent `src/components/landing-v2/editor/WidgetPalette.tsx`:
+  - Zorganizowany w grupy zgodne ze zrzutem: **Układ** (Kontener, Siatka, Pure Life, Sekcja zwijana, Sekcja) i **Podstawowe** (Nagłówek, Tekst, Obraz, Wideo, Przycisk, Ikona, Karta, Statystyka, Punkt listy, Logo, Divider, Spacer, Avatar) — łącznie ~13 podstawowych.
+  - Pole „Szukaj widżetu…", grupy zwijane, karty z ikoną Lucide + nazwą.
+  - Kliknięcie karty = `addWidget(kind)` → dopisuje nowy `Widget` z sensownym `props` domyślnym na koniec `content.widgets` (lub do zaznaczonego kontenera, jeśli zaznaczony jest kontener/siatka/sekcja).
+- „Globalne" (drugi tab) — miejsce na późniejsze globalne style (kolory, typografia); w tej iteracji placeholder informacyjny (bez logiki).
+
+Właściwości widżetu:
+
+- Gdy zaznaczony `selectedPath` zaczyna się od `widgets.` — Inspector renderuje edytor właściwości zależny od `kind` (tekst, url, obraz, wideo, ikona, kolumny siatki, tytuł sekcji zwijanej itp.), plus istniejące `StyleControls` i `LayoutControls`.
+- Akcje na widżecie: Duplikuj, Usuń, ↑/↓ (kolejność), zagnieżdżanie w kontenerach jest w scopie tej iteracji tylko dla `container` / `grid` / `section` / `collapsible` (dodawanie dzieci przez „Dodaj widżet do…" gdy taki kontener jest zaznaczony).
+
+Utility:
+
+- W `src/components/landing-v2/editor/pathUtils.ts` dodać `addWidget`, `removeWidget`, `duplicateWidget`, `moveWidget` operujące na `content.widgets` i ścieżkach `widgets.{i}.children.{j}...`.
+
+## 3. Publikacja / draft
+
+Bez zmian — nowe pole `widgets` zapisuje się w istniejącym `draft_content` / `content` (`homepage_v2_content`). Undo/redo i autosave już obsługują dowolny kształt `HomepageV2Content`.
+
+## 4. Zakres poza planem (do potwierdzenia w kolejnej iteracji)
+
+- Drag‑and‑drop widżetów między kontenerami z palety (na razie: klik = dodaj na koniec, potem można przesuwać strzałkami i pozycją X/Y jak dziś).
+- Zakładka „Globalne" z realnymi globalnymi tokenami (kolory/typografia dla V2).
+
+## Szczegóły techniczne
+
+- Wszystkie kolory/style widżetów przez tokeny Tailwind/CSS zmienne — bez `text-white` itp.
+- `Header` zaimportowany bez modyfikacji, żeby zmiany w V1 automatycznie propagowały się na V2.
+- Nowe pola w `HomepageV2Content` są opcjonalne — brak migracji SQL.
+- Renderer widżetów używa istniejącego `<E>` wrappera, więc zaznaczanie, hover outline, drag/resize i style overrides działają od razu.

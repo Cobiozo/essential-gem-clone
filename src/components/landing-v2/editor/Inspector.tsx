@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Trash2, ArrowUp, ArrowDown, Plus, Copy, Move } from 'lucide-react';
-import type { HomepageV2Content, EditElementType, ElementStyle } from '@/types/homepageV2';
-import { getByPath, setByPath, getStyle, updateStyle, parseListItemPath, uid } from './pathUtils';
+import { Trash2, ArrowUp, ArrowDown, Plus, Copy, Move, LayoutGrid, Settings2 } from 'lucide-react';
+import type { HomepageV2Content, EditElementType, ElementStyle, Widget } from '@/types/homepageV2';
+import {
+  getByPath, setByPath, getStyle, updateStyle, parseListItemPath, uid,
+  removeWidgetAt, moveWidget, duplicateWidget, parseWidgetIndex,
+} from './pathUtils';
 import { StyleControls } from './StyleControls';
 import { ImageInput } from './inputs/ImageInput';
 import { VideoInput } from './inputs/VideoInput';
 import { IconInput } from './inputs/IconInput';
 import { LinkPicker } from './inputs/LinkPicker';
+import { WidgetPalette } from './WidgetPalette';
+
 
 
 interface Props {
@@ -34,6 +39,7 @@ const TYPE_LABEL: Record<EditElementType, string> = {
   video: 'Wideo',
   section: 'Sekcja',
   bullet: 'Punkt listy',
+  widget: 'Widżet',
 };
 
 function LayoutControls({ style, onChange }: { style: ElementStyle; onChange: (p: Partial<ElementStyle>) => void }) {
@@ -86,21 +92,60 @@ export const Inspector: React.FC<Props> = ({
   selectedType,
   onSelect,
 }) => {
+  const [tab, setTab] = useState<'widgets' | 'properties'>('properties');
+
+  // Auto-switch to Properties tab when user selects an element
+  React.useEffect(() => {
+    if (selectedPath) setTab('properties');
+  }, [selectedPath]);
+
+  const Tabs = (
+    <div className="flex items-center gap-1 p-1 border-b border-border bg-muted/30 sticky top-0 z-10">
+      <button
+        type="button"
+        onClick={() => setTab('widgets')}
+        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition ${tab === 'widgets' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+      >
+        <LayoutGrid className="w-3.5 h-3.5" /> Widżety
+      </button>
+      <button
+        type="button"
+        onClick={() => setTab('properties')}
+        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition ${tab === 'properties' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+      >
+        <Settings2 className="w-3.5 h-3.5" /> Właściwości
+      </button>
+    </div>
+  );
+
+  if (tab === 'widgets') {
+    return (
+      <div>
+        {Tabs}
+        <WidgetPalette content={content} onChange={onChange} />
+      </div>
+    );
+  }
+
   if (!selectedPath || !selectedType) {
     return (
-      <div className="p-6 text-center text-sm text-muted-foreground">
-        <div className="text-lg mb-2">👆</div>
-        Kliknij dowolny element w podglądzie po lewej, aby go edytować.
-        <div className="mt-6 text-xs text-left space-y-2 border-t pt-4">
-          <div className="font-semibold text-foreground">Wskazówki:</div>
-          <div>• Klikaj w tekst, obraz, ikonę lub przycisk — otworzy się dedykowany edytor.</div>
-          <div>• Zaznaczony element możesz <b>chwycić i przesunąć</b> lub złapać za narożnik i <b>zmienić rozmiar</b>.</div>
-          <div>• Na kartach, statystykach, avatarach i logotypach użyj strzałek, aby zmienić kolejność.</div>
-          <div>• Wszystkie zmiany są zapisywane jako <b>draft</b> — publikacja jednym kliknięciem.</div>
+      <div>
+        {Tabs}
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          <div className="text-lg mb-2">👆</div>
+          Kliknij dowolny element w podglądzie po lewej, aby go edytować.
+          <div className="mt-6 text-xs text-left space-y-2 border-t pt-4">
+            <div className="font-semibold text-foreground">Wskazówki:</div>
+            <div>• Zakładka <b>Widżety</b> pozwala dodawać nowe bloki (nagłówek, tekst, obraz, wideo, kartę itp.).</div>
+            <div>• Klikaj w tekst, obraz, ikonę lub przycisk — otworzy się dedykowany edytor.</div>
+            <div>• Zaznaczony element możesz <b>chwycić i przesunąć</b> lub złapać za narożnik i <b>zmienić rozmiar</b>.</div>
+            <div>• Wszystkie zmiany są zapisywane jako <b>draft</b> — publikacja jednym kliknięciem.</div>
+          </div>
         </div>
       </div>
     );
   }
+
 
   const val = getByPath(content, selectedPath);
   const style = getStyle(content, selectedPath);
@@ -138,34 +183,67 @@ export const Inspector: React.FC<Props> = ({
     onChange(setByPath(content, listInfo.listPath, next));
   };
 
-  return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {TYPE_LABEL[selectedType]}
-          </div>
-          <div className="text-xs font-mono text-muted-foreground break-all">{selectedPath}</div>
-        </div>
-        <Button size="sm" variant="ghost" onClick={() => onSelect(null, null)}>Zamknij</Button>
-      </div>
+  const widgetIndex = parseWidgetIndex(selectedPath);
+  const isWidget = selectedPath.startsWith('widgets.');
+  const widget: Widget | undefined = isWidget ? getByPath(content, selectedPath) : undefined;
 
-      {listInfo && (
-        <div className="flex flex-wrap gap-1 border-b pb-3">
-          <Button size="sm" variant="outline" onClick={() => moveInList(-1)}>
-            <ArrowUp className="w-3 h-3 mr-1" /> W górę
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => moveInList(1)}>
-            <ArrowDown className="w-3 h-3 mr-1" /> W dół
-          </Button>
-          <Button size="sm" variant="outline" onClick={duplicateInList}>
-            <Copy className="w-3 h-3 mr-1" /> Duplikuj
-          </Button>
-          <Button size="sm" variant="destructive" onClick={removeFromList}>
-            <Trash2 className="w-3 h-3 mr-1" /> Usuń
-          </Button>
+  return (
+    <div>
+      {Tabs}
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {widget ? `Widżet: ${widget.kind}` : TYPE_LABEL[selectedType]}
+            </div>
+            <div className="text-xs font-mono text-muted-foreground break-all">{selectedPath}</div>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => onSelect(null, null)}>Zamknij</Button>
         </div>
-      )}
+
+        {widgetIndex != null && (
+          <div className="flex flex-wrap gap-1 border-b pb-3">
+            <Button size="sm" variant="outline" onClick={() => onChange(moveWidget(content, widgetIndex, -1))}>
+              <ArrowUp className="w-3 h-3 mr-1" /> W górę
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onChange(moveWidget(content, widgetIndex, 1))}>
+              <ArrowDown className="w-3 h-3 mr-1" /> W dół
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onChange(duplicateWidget(content, widgetIndex))}>
+              <Copy className="w-3 h-3 mr-1" /> Duplikuj
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => { onChange(removeWidgetAt(content, widgetIndex)); onSelect(null, null); }}>
+              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+            </Button>
+          </div>
+        )}
+
+        {listInfo && !isWidget && (
+          <div className="flex flex-wrap gap-1 border-b pb-3">
+            <Button size="sm" variant="outline" onClick={() => moveInList(-1)}>
+              <ArrowUp className="w-3 h-3 mr-1" /> W górę
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => moveInList(1)}>
+              <ArrowDown className="w-3 h-3 mr-1" /> W dół
+            </Button>
+            <Button size="sm" variant="outline" onClick={duplicateInList}>
+              <Copy className="w-3 h-3 mr-1" /> Duplikuj
+            </Button>
+            <Button size="sm" variant="destructive" onClick={removeFromList}>
+              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+            </Button>
+          </div>
+        )}
+
+        {isWidget && widget && (
+          <WidgetPropsEditor
+            widget={widget}
+            onChange={(next) => onChange(setByPath(content, selectedPath, next))}
+          />
+        )}
+
+        {!isWidget && (<>
+
 
       {/* ==== EDITORS BY TYPE ==== */}
 
@@ -367,17 +445,175 @@ export const Inspector: React.FC<Props> = ({
         );
       })()}
 
-      <LayoutControls style={style} onChange={patchStyle} />
-
       {/* Add-to-list buttons where relevant */}
       {listInfo && (
         <div className="border-t pt-3">
           <AddSiblingButton listPath={listInfo.listPath} content={content} onChange={onChange} />
         </div>
       )}
+        </>)}
+
+        {/* Position/size overrides apply to any selected element, incl. widgets */}
+        <LayoutControls style={style} onChange={patchStyle} />
+      </div>
     </div>
   );
 };
+
+
+/** Editor for a dynamic widget's props (context-sensitive by kind). */
+function WidgetPropsEditor({ widget, onChange }: { widget: Widget; onChange: (w: Widget) => void }) {
+  const p = widget.props || {};
+  const set = (patch: Record<string, any>) => onChange({ ...widget, props: { ...p, ...patch } });
+
+  switch (widget.kind) {
+    case 'heading':
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Tekst nagłówka</Label>
+            <Input value={p.text || ''} onChange={(e) => set({ text: e.target.value })} className="h-9 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs">Poziom</Label>
+            <select value={p.level || 'h2'} onChange={(e) => set({ level: e.target.value })} className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="h1">H1</option><option value="h2">H2</option><option value="h3">H3</option><option value="h4">H4</option>
+            </select>
+          </div>
+        </>
+      );
+    case 'text':
+      return (
+        <div>
+          <Label className="text-xs">Treść</Label>
+          <Textarea value={p.text || ''} onChange={(e) => set({ text: e.target.value })} rows={4} className="text-sm" />
+        </div>
+      );
+    case 'image':
+      return (
+        <>
+          <ImageInput label="URL obrazu" value={p.url || ''} onChange={(v) => set({ url: v })} />
+          <div>
+            <Label className="text-xs">Alt tekst</Label>
+            <Input value={p.alt || ''} onChange={(e) => set({ alt: e.target.value })} className="h-9 text-xs" />
+          </div>
+        </>
+      );
+    case 'video':
+      return <VideoInput label="URL wideo (MP4 / YouTube / Vimeo)" value={p.url || ''} onChange={(v) => set({ url: v })} />;
+    case 'button':
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Tekst przycisku</Label>
+            <Input value={p.text || ''} onChange={(e) => set({ text: e.target.value })} className="h-9 text-sm" />
+          </div>
+          <LinkPicker url={p.url || ''} kind={p.kind} onChange={({ url, kind }) => set({ url, kind })} />
+        </>
+      );
+    case 'icon':
+      return <IconInput value={p.name || ''} onChange={(v) => set({ name: v })} />;
+    case 'card':
+      return (
+        <>
+          <div><Label className="text-xs">Ikona</Label><IconInput value={p.icon || ''} onChange={(v) => set({ icon: v })} /></div>
+          <div><Label className="text-xs">Tytuł</Label><Input value={p.title || ''} onChange={(e) => set({ title: e.target.value })} className="h-9 text-sm" /></div>
+          <div><Label className="text-xs">Opis</Label><Textarea value={p.description || ''} onChange={(e) => set({ description: e.target.value })} rows={3} className="text-sm" /></div>
+        </>
+      );
+    case 'stat':
+      return (
+        <>
+          <div><Label className="text-xs">Wartość</Label><Input value={p.value || ''} onChange={(e) => set({ value: e.target.value })} className="h-9 text-sm font-bold" /></div>
+          <div><Label className="text-xs">Podpis</Label><Input value={p.label || ''} onChange={(e) => set({ label: e.target.value })} className="h-9 text-sm" /></div>
+        </>
+      );
+    case 'bullet-list': {
+      const items: string[] = Array.isArray(p.items) ? p.items : [];
+      const setItem = (i: number, v: string) => set({ items: items.map((x, j) => j === i ? v : x) });
+      const remove = (i: number) => set({ items: items.filter((_, j) => j !== i) });
+      const add = () => set({ items: [...items, 'Nowy punkt'] });
+      return (
+        <div className="space-y-2">
+          <Label className="text-xs">Punkty listy</Label>
+          {items.map((it, i) => (
+            <div key={i} className="flex gap-1">
+              <Input value={it} onChange={(e) => setItem(i, e.target.value)} className="h-9 text-sm" />
+              <Button size="sm" variant="ghost" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj punkt</Button>
+        </div>
+      );
+    }
+    case 'logo-row': {
+      const logos: Array<{ url: string; alt?: string }> = Array.isArray(p.logos) ? p.logos : [];
+      const setLogo = (i: number, patch: Partial<{ url: string; alt: string }>) => set({ logos: logos.map((l, j) => j === i ? { ...l, ...patch } : l) });
+      const remove = (i: number) => set({ logos: logos.filter((_, j) => j !== i) });
+      const add = () => set({ logos: [...logos, { url: '', alt: '' }] });
+      return (
+        <div className="space-y-3">
+          <Label className="text-xs">Logotypy</Label>
+          {logos.map((l, i) => (
+            <div key={i} className="space-y-1 border rounded-md p-2">
+              <ImageInput label={`Logo #${i + 1}`} value={l.url} onChange={(v) => setLogo(i, { url: v })} />
+              <div className="flex gap-1">
+                <Input value={l.alt || ''} onChange={(e) => setLogo(i, { alt: e.target.value })} placeholder="Alt / nazwa" className="h-8 text-xs" />
+                <Button size="sm" variant="ghost" onClick={() => remove(i)}><Trash2 className="w-3 h-3" /></Button>
+              </div>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj logo</Button>
+        </div>
+      );
+    }
+    case 'grid':
+      return (
+        <div>
+          <Label className="text-xs">Liczba kolumn (1–6)</Label>
+          <Input type="number" min={1} max={6} value={p.cols || 3} onChange={(e) => set({ cols: Math.max(1, Math.min(6, Number(e.target.value) || 1)) })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'section':
+      return (
+        <div>
+          <Label className="text-xs">Tytuł sekcji</Label>
+          <Input value={p.title || ''} onChange={(e) => set({ title: e.target.value })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'spacer':
+      return (
+        <div>
+          <Label className="text-xs">Wysokość (px)</Label>
+          <Input type="number" value={p.height || 48} onChange={(e) => set({ height: Number(e.target.value) || 0 })} className="h-9 text-sm" />
+        </div>
+      );
+    case 'collapsible': {
+      const items: Array<{ title: string; body: string }> = Array.isArray(p.items) ? p.items : [];
+      const setItem = (i: number, patch: Partial<{ title: string; body: string }>) => set({ items: items.map((x, j) => j === i ? { ...x, ...patch } : x) });
+      const remove = (i: number) => set({ items: items.filter((_, j) => j !== i) });
+      const add = () => set({ items: [...items, { title: 'Nowe pytanie', body: 'Odpowiedź.' }] });
+      return (
+        <div className="space-y-3">
+          <Label className="text-xs">Sekcje zwijane</Label>
+          {items.map((it, i) => (
+            <div key={i} className="space-y-1 border rounded-md p-2">
+              <Input value={it.title} onChange={(e) => setItem(i, { title: e.target.value })} placeholder="Tytuł" className="h-8 text-xs" />
+              <Textarea value={it.body} onChange={(e) => setItem(i, { body: e.target.value })} rows={2} className="text-xs" />
+              <Button size="sm" variant="ghost" onClick={() => remove(i)} className="w-full"><Trash2 className="w-3 h-3 mr-1" /> Usuń</Button>
+            </div>
+          ))}
+          <Button size="sm" variant="outline" onClick={add} className="w-full"><Plus className="w-3 h-3 mr-1" /> Dodaj</Button>
+        </div>
+      );
+    }
+    case 'container':
+    case 'divider':
+    default:
+      return <div className="text-xs text-muted-foreground">Brak dodatkowych właściwości. Użyj sekcji Pozycja i rozmiar poniżej.</div>;
+  }
+}
+
 
 function AddSiblingButton({
   listPath,
