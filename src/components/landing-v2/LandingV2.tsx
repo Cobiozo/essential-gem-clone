@@ -574,7 +574,7 @@ const LandingV2: React.FC<Props> = ({ preferDraft = false, overrideContent, edit
         onUpdateStyle,
       }}
     >
-      <LandingV2Inner content={content} />
+      <LandingV2Inner content={content} editable={editable} />
     </EditProvider>
   );
 };
