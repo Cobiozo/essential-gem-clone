@@ -162,7 +162,7 @@ const TrustedBadge: React.FC<{ name: string; sub?: string; variant?: 'text' | 'm
   );
 };
 
-const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & { content: HomepageV2Content }> = ({ content }) => {
+const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & { content: HomepageV2Content }> = ({ content, editable = false }) => {
   useEffect(() => {
     if (content?.seo) {
       if (content.seo.title) document.title = content.seo.title;
