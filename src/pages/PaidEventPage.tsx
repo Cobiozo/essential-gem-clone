@@ -17,6 +17,7 @@ import { PaidEventSchedule } from '@/components/paid-events/public/PaidEventSche
 import { PurchaseDrawer } from '@/components/paid-events/public/PurchaseDrawer';
 import { MyEventTicketsInline } from '@/components/paid-events/MyEventTicketsInline';
 import { useHasOwnEventTicket } from '@/hooks/useHasOwnEventTicket';
+import { fetchPaidEventStats } from '@/lib/paidEventStats';
 import { toast as sonnerToast } from 'sonner';
 
 
