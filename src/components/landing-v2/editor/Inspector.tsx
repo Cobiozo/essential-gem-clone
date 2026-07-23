@@ -92,21 +92,60 @@ export const Inspector: React.FC<Props> = ({
   selectedType,
   onSelect,
 }) => {
+  const [tab, setTab] = useState<'widgets' | 'properties'>('properties');
+
+  // Auto-switch to Properties tab when user selects an element
+  React.useEffect(() => {
+    if (selectedPath) setTab('properties');
+  }, [selectedPath]);
+
+  const Tabs = (
+    <div className="flex items-center gap-1 p-1 border-b border-border bg-muted/30 sticky top-0 z-10">
+      <button
+        type="button"
+        onClick={() => setTab('widgets')}
+        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition ${tab === 'widgets' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+      >
+        <LayoutGrid className="w-3.5 h-3.5" /> Widżety
+      </button>
+      <button
+        type="button"
+        onClick={() => setTab('properties')}
+        className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-md transition ${tab === 'properties' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+      >
+        <Settings2 className="w-3.5 h-3.5" /> Właściwości
+      </button>
+    </div>
+  );
+
+  if (tab === 'widgets') {
+    return (
+      <div>
+        {Tabs}
+        <WidgetPalette content={content} onChange={onChange} />
+      </div>
+    );
+  }
+
   if (!selectedPath || !selectedType) {
     return (
-      <div className="p-6 text-center text-sm text-muted-foreground">
-        <div className="text-lg mb-2">👆</div>
-        Kliknij dowolny element w podglądzie po lewej, aby go edytować.
-        <div className="mt-6 text-xs text-left space-y-2 border-t pt-4">
-          <div className="font-semibold text-foreground">Wskazówki:</div>
-          <div>• Klikaj w tekst, obraz, ikonę lub przycisk — otworzy się dedykowany edytor.</div>
-          <div>• Zaznaczony element możesz <b>chwycić i przesunąć</b> lub złapać za narożnik i <b>zmienić rozmiar</b>.</div>
-          <div>• Na kartach, statystykach, avatarach i logotypach użyj strzałek, aby zmienić kolejność.</div>
-          <div>• Wszystkie zmiany są zapisywane jako <b>draft</b> — publikacja jednym kliknięciem.</div>
+      <div>
+        {Tabs}
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          <div className="text-lg mb-2">👆</div>
+          Kliknij dowolny element w podglądzie po lewej, aby go edytować.
+          <div className="mt-6 text-xs text-left space-y-2 border-t pt-4">
+            <div className="font-semibold text-foreground">Wskazówki:</div>
+            <div>• Zakładka <b>Widżety</b> pozwala dodawać nowe bloki (nagłówek, tekst, obraz, wideo, kartę itp.).</div>
+            <div>• Klikaj w tekst, obraz, ikonę lub przycisk — otworzy się dedykowany edytor.</div>
+            <div>• Zaznaczony element możesz <b>chwycić i przesunąć</b> lub złapać za narożnik i <b>zmienić rozmiar</b>.</div>
+            <div>• Wszystkie zmiany są zapisywane jako <b>draft</b> — publikacja jednym kliknięciem.</div>
+          </div>
         </div>
       </div>
     );
   }
+
 
   const val = getByPath(content, selectedPath);
   const style = getStyle(content, selectedPath);
