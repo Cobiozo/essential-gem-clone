@@ -46,6 +46,7 @@ export interface ElementStyle {
 export interface HeaderLogo { url: string; alt: string; link?: string; heightPx?: number; }
 
 export interface HomepageV2Content {
+  widgets?: Widget[];
   header?: {
     logo?: HeaderLogo;
   };

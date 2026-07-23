@@ -34,6 +34,7 @@ const TYPE_LABEL: Record<EditElementType, string> = {
   video: 'Wideo',
   section: 'Sekcja',
   bullet: 'Punkt listy',
+  widget: 'Widżet',
 };
 
 function LayoutControls({ style, onChange }: { style: ElementStyle; onChange: (p: Partial<ElementStyle>) => void }) {
