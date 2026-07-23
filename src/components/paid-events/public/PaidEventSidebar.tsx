@@ -136,18 +136,25 @@ export const PaidEventSidebar: React.FC<PaidEventSidebarProps> = ({
 
         {/* Availability */}
         {availableSpots !== null && (
-          <div className="flex items-center gap-2 text-sm mt-1">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            {availableSpots <= 0 ? (
-              <span className="text-destructive font-medium">Brak miejsc</span>
-            ) : showLastSpotsLabel ? (
-              <span className="text-destructive font-bold uppercase tracking-wide">
-                Ostatnie wolne miejsca!
-              </span>
-            ) : (
-              <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-                Dostępnych miejsc: {availableSpots}
-              </span>
+          <div className="mt-1 space-y-1">
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              {availableSpots <= 0 ? (
+                <span className="text-destructive font-medium">Brak miejsc</span>
+              ) : showLastSpotsLabel ? (
+                <span className="text-destructive font-bold uppercase tracking-wide">
+                  Ostatnie wolne miejsca!
+                </span>
+              ) : (
+                <span className={availableSpots < 10 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                  Dostępnych miejsc: {availableSpots}
+                </span>
+              )}
+            </div>
+            {stats && stats.total > 0 && (
+              <div className="text-xs text-muted-foreground pl-6">
+                Zarejestrowani: Goście {stats.guests} · PLC {stats.guestsPlc} · Partnerzy {stats.partners}
+              </div>
             )}
           </div>
         )}
