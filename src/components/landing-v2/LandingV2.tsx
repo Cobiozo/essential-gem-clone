@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
 import { ArrowRight, Play, Check, ImagePlus } from 'lucide-react';
@@ -6,6 +6,12 @@ import { useHomepageV2Content } from '@/hooks/useHomepageConfig';
 import type { HomepageV2Content, EditElementType, ElementStyle, CtaConfig } from '@/types/homepageV2';
 import { EditProvider, E, useEdit } from './editor/EditContext';
 import { videoMime } from '@/lib/videoMime';
+import { Header } from '@/components/Header';
+import { usePublishedPages } from '@/hooks/usePublishedPages';
+import { useSystemTexts } from '@/hooks/useSystemTexts';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
+import { WidgetRenderer } from './widgets/WidgetRenderer';
+
 
 /** Render a CTA link — internal <Link>, or <a> for anchors / external URLs. */
 function CtaLink({ cta, fallbackUrl, children, className, style }: { cta?: CtaConfig; fallbackUrl?: string; children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
@@ -174,10 +180,21 @@ const LandingV2Inner: React.FC<Omit<Props, 'preferDraft' | 'overrideContent'> & 
   const secondaryCta: CtaConfig = hero.secondaryCta || { text: hero.secondaryCtaText || '', url: hero.secondaryCtaUrl || '' };
   const communityCta: CtaConfig = community.cta || { text: community.ctaText || '', url: community.ctaUrl || '' };
 
+  const { data: publishedPages = [] } = usePublishedPages();
+  const { data: systemTextsData = [] } = useSystemTexts();
+  const siteLogo = useMemo(() => {
+    const logoText = systemTextsData.find((i: any) => i.type === 'site_logo');
+    return logoText?.content || newPureLifeLogo;
+  }, [systemTextsData]);
+
   return (
     <div className="min-h-screen bg-white text-neutral-900" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", "Inter", sans-serif' }}>
+      {/* ================= TOP BAR (identical to V1) ================= */}
+      <Header siteLogo={siteLogo} publishedPages={publishedPages} />
+
       {/* ================= HERO ================= */}
       <section id="hero" className="relative overflow-hidden">
+
         <svg className="absolute right-0 top-0 pointer-events-none opacity-70 hidden md:block" width="900" height="900" viewBox="0 0 900 900" fill="none" aria-hidden="true">
           <circle cx="700" cy="200" r="620" stroke={GOLD_SOFT} strokeWidth="1.5" opacity="0.5" />
         </svg>
