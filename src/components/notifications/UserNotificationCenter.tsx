@@ -296,34 +296,80 @@ export const UserNotificationCenter = () => {
                 </div>
 
                 <p className="text-sm text-muted-foreground mb-4 pt-2">
-                  Wybierz, jakie powiadomienia chcesz otrzymywać
+                  Wybierz, jakie powiadomienia chcesz otrzymywać. Powiadomienia bezpieczeństwa są wymagane i nie można ich wyłączyć.
                 </p>
-                {eventTypes.map(eventType => {
-                  const Icon = getIcon(eventType.icon_name);
-                  return (
-                    <div 
-                      key={eventType.id}
-                      className="flex items-center justify-between p-3 rounded-lg border"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-9 h-9 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: eventType.color + '20', color: eventType.color }}
-                        >
-                          <Icon className="h-4 w-4" />
+                <TooltipProvider>
+                  {CATEGORY_ORDER.map(cat => {
+                    const group = eventTypes.filter(et => (et.category || 'other') === cat);
+                    if (group.length === 0) return null;
+                    return (
+                      <div key={cat} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-foreground">{CATEGORY_LABELS[cat] || cat}</h4>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, true); })}
+                            >
+                              Włącz wszystkie
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, false); })}
+                            >
+                              Wyłącz wszystkie
+                            </Button>
+                          </div>
                         </div>
-                        <div>
-                          <Label className="font-medium">{eventType.name}</Label>
-                          <p className="text-xs text-muted-foreground">{eventType.description}</p>
-                        </div>
+                        {group.map(eventType => {
+                          const Icon = getIcon(eventType.icon_name);
+                          const mandatory = !!eventType.is_mandatory;
+                          const switchEl = (
+                            <Switch
+                              checked={mandatory ? true : isPreferenceEnabled(eventType.id)}
+                              disabled={mandatory}
+                              onCheckedChange={(checked) => togglePreference(eventType.id, checked)}
+                            />
+                          );
+                          return (
+                            <div
+                              key={eventType.id}
+                              className="flex items-center justify-between p-3 rounded-lg border"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                  style={{ backgroundColor: eventType.color + '20', color: eventType.color }}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <Label className="font-medium flex items-center gap-1.5">
+                                    {eventType.name}
+                                    {mandatory && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                  </Label>
+                                  {eventType.description && (
+                                    <p className="text-xs text-muted-foreground">{eventType.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {mandatory ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild><span>{switchEl}</span></TooltipTrigger>
+                                  <TooltipContent>Wymagane ze względów bezpieczeństwa</TooltipContent>
+                                </Tooltip>
+                              ) : switchEl}
+                            </div>
+                          );
+                        })}
                       </div>
-                      <Switch
-                        checked={isPreferenceEnabled(eventType.id)}
-                        onCheckedChange={(checked) => togglePreference(eventType.id, checked)}
-                      />
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </TooltipProvider>
               </div>
             )}
           </TabsContent>
