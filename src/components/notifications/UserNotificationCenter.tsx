@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { 
   Bell, 
@@ -275,104 +276,140 @@ export const UserNotificationCenter = () => {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold">Powiadomienia email</p>
-                  <div className="flex items-center justify-between p-3 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
-                        <Mail className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <Label className="font-medium">Email o nowych wiadomościach na czacie</Label>
-                        <p className="text-xs text-muted-foreground">Wysyłany, gdy ktoś napisze do Ciebie, a jesteś offline</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={emailOnOffline}
-                      onCheckedChange={toggleEmailOnOffline}
-                    />
-                  </div>
-                </div>
+              (() => {
+                const inAppTypes = eventTypes;
+                const emailTypes = eventTypes.filter(et => et.send_email);
 
-                <p className="text-sm text-muted-foreground mb-4 pt-2">
-                  Wybierz, jakie powiadomienia chcesz otrzymywać. Powiadomienia bezpieczeństwa są wymagane i nie można ich wyłączyć.
-                </p>
-                <TooltipProvider>
-                  {CATEGORY_ORDER.map(cat => {
-                    const group = eventTypes.filter(et => (et.category || 'other') === cat);
-                    if (group.length === 0) return null;
-                    return (
-                      <div key={cat} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-foreground">{CATEGORY_LABELS[cat] || cat}</h4>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, true); })}
-                            >
-                              Włącz wszystkie
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, false); })}
-                            >
-                              Wyłącz wszystkie
-                            </Button>
-                          </div>
-                        </div>
-                        {group.map(eventType => {
-                          const Icon = getIcon(eventType.icon_name);
-                          const mandatory = !!eventType.is_mandatory;
-                          const switchEl = (
-                            <Switch
-                              checked={mandatory ? true : isPreferenceEnabled(eventType.id)}
-                              disabled={mandatory}
-                              onCheckedChange={(checked) => togglePreference(eventType.id, checked)}
-                            />
-                          );
-                          return (
-                            <div
-                              key={eventType.id}
-                              className="flex items-center justify-between p-3 rounded-lg border"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                                  style={{ backgroundColor: eventType.color + '20', color: eventType.color }}
+                const renderGroups = (types: NotificationEventType[]) => (
+                  <TooltipProvider>
+                    <div className="space-y-4">
+                      {CATEGORY_ORDER.map(cat => {
+                        const group = types.filter(et => (et.category || 'other') === cat);
+                        if (group.length === 0) return null;
+                        return (
+                          <div key={cat} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-semibold text-foreground">{CATEGORY_LABELS[cat] || cat}</h4>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, true); })}
                                 >
-                                  <Icon className="h-4 w-4" />
-                                </div>
-                                <div>
-                                  <Label className="font-medium flex items-center gap-1.5">
-                                    {eventType.name}
-                                    {mandatory && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                  </Label>
-                                  {eventType.description && (
-                                    <p className="text-xs text-muted-foreground">{eventType.description}</p>
-                                  )}
-                                </div>
+                                  Włącz wszystkie
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => group.forEach(et => { if (!et.is_mandatory) togglePreference(et.id, false); })}
+                                >
+                                  Wyłącz wszystkie
+                                </Button>
                               </div>
-                              {mandatory ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild><span>{switchEl}</span></TooltipTrigger>
-                                  <TooltipContent>Wymagane ze względów bezpieczeństwa</TooltipContent>
-                                </Tooltip>
-                              ) : switchEl}
                             </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </TooltipProvider>
-              </div>
+                            {group.map(eventType => {
+                              const Icon = getIcon(eventType.icon_name);
+                              const mandatory = !!eventType.is_mandatory;
+                              const switchEl = (
+                                <Switch
+                                  checked={mandatory ? true : isPreferenceEnabled(eventType.id)}
+                                  disabled={mandatory}
+                                  onCheckedChange={(checked) => togglePreference(eventType.id, checked)}
+                                />
+                              );
+                              return (
+                                <div
+                                  key={eventType.id}
+                                  className="flex items-center justify-between p-3 rounded-lg border"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                      style={{ backgroundColor: eventType.color + '20', color: eventType.color }}
+                                    >
+                                      <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      <Label className="font-medium flex items-center gap-1.5">
+                                        {eventType.name}
+                                        {mandatory && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                      </Label>
+                                      {eventType.description && (
+                                        <p className="text-xs text-muted-foreground">{eventType.description}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {mandatory ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild><span>{switchEl}</span></TooltipTrigger>
+                                      <TooltipContent>Wymagane ze względów bezpieczeństwa</TooltipContent>
+                                    </Tooltip>
+                                  ) : switchEl}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </TooltipProvider>
+                );
+
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Wybierz, jakie powiadomienia chcesz otrzymywać. Powiadomienia bezpieczeństwa są wymagane i nie można ich wyłączyć.
+                    </p>
+                    <Accordion type="multiple" defaultValue={['in-app', 'email']} className="space-y-2">
+                      <AccordionItem value="in-app" className="border rounded-lg px-3">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-2">
+                            <Bell className="h-4 w-4" />
+                            <span className="font-semibold">Powiadomienia w aplikacji (dzwoneczek)</span>
+                            <Badge variant="secondary" className="ml-1">{inAppTypes.length}</Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2">
+                          {renderGroups(inAppTypes)}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="email" className="border rounded-lg px-3">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span className="font-semibold">Powiadomienia email</span>
+                            <Badge variant="secondary" className="ml-1">{emailTypes.length + 1}</Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2 space-y-4">
+                          <div className="flex items-center justify-between p-3 rounded-lg border">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                                <Mail className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <Label className="font-medium">Email o nowych wiadomościach na czacie</Label>
+                                <p className="text-xs text-muted-foreground">Wysyłany, gdy ktoś napisze do Ciebie, a jesteś offline</p>
+                              </div>
+                            </div>
+                            <Switch
+                              checked={emailOnOffline}
+                              onCheckedChange={toggleEmailOnOffline}
+                            />
+                          </div>
+                          {renderGroups(emailTypes)}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </div>
+                );
+              })()
             )}
           </TabsContent>
+
         </Tabs>
       </CardContent>
     </Card>
