@@ -7293,6 +7293,7 @@ export type Database = {
       }
       notification_event_types: {
         Row: {
+          category: string | null
           color: string | null
           created_at: string | null
           description: string | null
@@ -7301,6 +7302,7 @@ export type Database = {
           icon_name: string | null
           id: string
           is_active: boolean | null
+          is_mandatory: boolean
           name: string
           position: number | null
           send_email: boolean | null
@@ -7308,6 +7310,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          category?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -7316,6 +7319,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean | null
+          is_mandatory?: boolean
           name: string
           position?: number | null
           send_email?: boolean | null
@@ -7323,6 +7327,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          category?: string | null
           color?: string | null
           created_at?: string | null
           description?: string | null
@@ -7331,6 +7336,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean | null
+          is_mandatory?: boolean
           name?: string
           position?: number | null
           send_email?: boolean | null

@@ -12,6 +12,8 @@ export interface NotificationEventType {
   updated_at: string;
   email_template_id: string | null;
   send_email: boolean;
+  category?: string | null;
+  is_mandatory?: boolean;
 }
 
 export interface NotificationRoleRoute {
