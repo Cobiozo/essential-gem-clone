@@ -26,6 +26,25 @@ import {
 import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationEventType, UserNotificationPreference } from '@/types/notifications';
 import { MODULE_NAMES } from '@/types/notifications';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Lock } from 'lucide-react';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  account: 'Konto',
+  security: 'Bezpieczeństwo',
+  messaging: 'Wiadomości',
+  events: 'Wydarzenia',
+  meetings: 'Spotkania indywidualne',
+  knowledge: 'Baza Wiedzy',
+  news: 'Aktualności',
+  team: 'Zespół i struktura',
+  training: 'Szkolenia',
+  support: 'Wsparcie',
+  admin: 'Panel admina',
+  other: 'Pozostałe',
+};
+
+const CATEGORY_ORDER = ['messaging','account','security','events','meetings','knowledge','news','team','training','support','admin','other'];
 import { formatDistanceToNow } from 'date-fns';
 import { getAppDateLocale } from '@/utils/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
