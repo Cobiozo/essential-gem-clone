@@ -153,6 +153,7 @@ async function processQueue(
         .eq("street", street)
         .eq("city", it.city)
         .eq("country", it.country)
+        .eq("postal_code", postalCode)
         .maybeSingle();
 
       if (
@@ -176,6 +177,7 @@ async function processQueue(
           street,
           city: it.city,
           country: it.country,
+          postal_code: postalCode,
           lat: found?.lat ?? null,
           lng: found?.lng ?? null,
           display_country: found?.display_country ?? null,
@@ -183,7 +185,7 @@ async function processQueue(
           last_attempt_at: new Date().toISOString(),
           provider: "nominatim",
         },
-        { onConflict: "street,city,country" },
+        { onConflict: "street,city,country,postal_code" },
       );
       if (upErr) console.error("[geocode-cities] upsert error", upErr);
       else {
@@ -249,7 +251,7 @@ Deno.serve(async (req) => {
     for (const it of rawItems) {
       const city = norm(it.city);
       let country = norm(it.country);
-      // City-level precision: street intentionally ignored (cache key = city|country)
+      // City-level precision: street intentionally ignored; postal code is used only when sent for ambiguous cities.
       const street = "";
       const postalCode = norm(it.postalCode ?? it.postal_code ?? "");
       if (!city) continue;
@@ -269,12 +271,12 @@ Deno.serve(async (req) => {
     // Load cache for these items in one query
     const { data: cacheRows } = await admin
       .from("city_geocache")
-      .select("street,city,country,lat,lng,display_country,not_found,last_attempt_at");
+      .select("street,city,country,postal_code,lat,lng,display_country,not_found,last_attempt_at");
 
     const cache = new Map<string, any>();
     (cacheRows ?? []).forEach((r: any) => {
       cache.set(
-        `${(r.street || "").toLowerCase()}|${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}`,
+        `${(r.street || "").toLowerCase()}|${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}|${(r.postal_code || "").toLowerCase().replace(/\s+/g, "")}`,
         r,
       );
     });

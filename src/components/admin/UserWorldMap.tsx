@@ -11,6 +11,7 @@ import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, Map as MapIcon } fr
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCountry } from '@/lib/countryFlags';
+import eqologyIbpLogo from '@/assets/eqology-ibp-logo.png';
 
 export type UserLocationPoint = {
   user_id: string;
@@ -528,7 +529,7 @@ const UserWorldMap: React.FC<Props> = ({
       const size = count < 10 ? 28 : count < 50 ? 34 : 40;
       const marker: any = L.marker([g.lat, g.lng], {
         icon: L.divIcon({
-          html: `<div class="pl-point-marker" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 0 0 3px #ffffff,0 8px 18px rgba(15,23,42,.28);">${count}</div>`,
+          html: `<div class="pl-point-marker" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 0 0 3px #ffffff,0 8px 18px rgba(15,23,42,.28);border-radius:9999px;color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;line-height:1;">${count}</div>`,
           className: 'pl-point-marker-icon',
           iconSize: [size, size],
           iconAnchor: [size / 2, size / 2],
@@ -655,7 +656,7 @@ const UserWorldMap: React.FC<Props> = ({
             (() => {
               const DEFAULT_LEFT =
                 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
-              const DEFAULT_RIGHT = '/lovable-uploads/eqology-ibp-logo.png';
+              const DEFAULT_RIGHT = eqologyIbpLogo;
               // Each side falls back to its own default independently.
               const leftSrc = (logoLeftUrl ?? DEFAULT_LEFT).trim();
               const rightSrc = (logoRightUrl ?? DEFAULT_RIGHT).trim();
