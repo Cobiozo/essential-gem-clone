@@ -410,11 +410,17 @@ const UserWorldMap: React.FC<Props> = ({
       boundariesOverlayRef.current = null;
     }
     if (mapStyle === 'satellite') {
+      if (!map.getPane('satBoundaries')) {
+        const p = map.createPane('satBoundaries');
+        p.style.zIndex = '300';
+        p.style.pointerEvents = 'none';
+      }
       boundariesOverlayRef.current = L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'overlayPane' },
+        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'satBoundaries' },
       ).addTo(map);
     }
+
 
     if (countriesLayerRef.current) {
       try { (countriesLayerRef.current as any).bringToFront(); } catch {}
