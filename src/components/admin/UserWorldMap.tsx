@@ -351,7 +351,8 @@ const UserWorldMap: React.FC<Props> = ({
                 .openOn(m);
             });
           },
-        });
+        } as any) as L.GeoJSON);
+
         countriesLayerRef.current = layer;
         layer.addTo(mapRef.current);
         applyCountryLayerVisibility();
