@@ -30,11 +30,13 @@ type GeocodeResult = {
   lng: number | null;
 };
 
-const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v2';
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v3';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
 
-const keyOf = (i: { street: string; city: string; country: string }) =>
-  `${(i.street || '').toLowerCase()}|${(i.city || '').toLowerCase()}|${(i.country || '').toLowerCase()}`;
+// Precision: CITY level (street intentionally ignored in the key)
+const keyOf = (i: { street?: string; city: string; country: string }) =>
+  `${(i.city || '').toLowerCase().trim()}|${(i.country || '').toLowerCase().trim()}`;
+
 
 function readGeocodeCache(): GeocodeCache {
   try {
