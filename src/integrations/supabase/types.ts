@@ -2278,6 +2278,7 @@ export type Database = {
           lat: number | null
           lng: number | null
           not_found: boolean
+          postal_code: string
           provider: string | null
           street: string
           updated_at: string
@@ -2292,6 +2293,7 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           not_found?: boolean
+          postal_code?: string
           provider?: string | null
           street?: string
           updated_at?: string
@@ -2306,6 +2308,7 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           not_found?: boolean
+          postal_code?: string
           provider?: string | null
           street?: string
           updated_at?: string
