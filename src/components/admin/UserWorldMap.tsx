@@ -168,12 +168,12 @@ const UserWorldMap: React.FC<Props> = ({
     [users],
   );
 
-  // Unique geocode items (street|city|country)
+  // Unique geocode items (city|country)
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
     cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: u.street || '' };
+      const it = { city: u.city, country: u.country, street: '' };
       const k = keyOf(it);
       if (seen.has(k)) return;
       seen.add(k);
@@ -183,9 +183,10 @@ const UserWorldMap: React.FC<Props> = ({
   }, [cleanedUsers]);
 
   const queryKey = useMemo(
-    () => ['geocode-cities-v2', items.map((i) => keyOf(i)).sort().join(',')],
+    () => ['geocode-cities-v3', items.map((i) => keyOf(i)).sort().join(',')],
     [items],
   );
+
 
   const pollAttemptsRef = useRef(0);
   const { data, isFetching, refetch } = useQuery({
