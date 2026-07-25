@@ -253,17 +253,18 @@ const UserWorldMap: React.FC<Props> = ({
   const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
 
-  // Country counts — used in country popups
+  // Country counts keyed by ISO-2 — used in country popups
   const countryCountsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const acc: Record<string, number> = {};
     cleanedUsers.forEach((u) => {
-      const k = (u.country || '').toLowerCase().trim();
-      if (!k) return;
-      acc[k] = (acc[k] || 0) + 1;
+      const iso = normalizeCountry(u.country).iso;
+      if (!iso) return;
+      acc[iso] = (acc[iso] || 0) + 1;
     });
     countryCountsRef.current = acc;
   }, [cleanedUsers]);
+
 
   // Show/hide the clickable country layer based on zoom (markers stay clickable when zoomed in)
   const applyCountryLayerVisibility = () => {
