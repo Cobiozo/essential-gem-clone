@@ -452,14 +452,17 @@ const UserWorldMap: React.FC<Props> = ({
                 }
               } catch {}
               const cnt = countryCountsRef.current[iso] || 0;
+              const pendingCnt = pendingCountryCountsRef.current[iso] || 0;
               L.popup({ closeButton: true })
                 .setLatLng(e.latlng)
                 .setContent(
                   `<div style="font-size:12px;line-height:1.4">
                     <div style="font-weight:600">${escapeHtml(name)}</div>
                     <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
+                    ${pendingCnt > 0 ? `<div style="margin-top:2px;opacity:.7">(${pendingCnt} oczekuje na lokalizację)</div>` : ''}
                   </div>`,
                 )
+
                 .openOn(m);
             });
           },
