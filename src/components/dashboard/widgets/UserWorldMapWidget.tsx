@@ -11,7 +11,8 @@ const widthClass = (w: 'full' | 'two_thirds' | 'half') => {
   return 'col-span-full lg:max-w-[50%] lg:mx-auto w-full';
 };
 
-const CACHE_KEY = 'userWorldMap.userPoints.v1';
+const CACHE_KEY = 'userWorldMap.userPoints.v2';
+try { localStorage.removeItem('userWorldMap.userPoints.v1'); } catch {}
 const QUERY_KEY = ['user-location-points'];
 
 const readCache = (): UserLocationPoint[] => {
