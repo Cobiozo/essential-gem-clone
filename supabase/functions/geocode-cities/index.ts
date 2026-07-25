@@ -223,7 +223,8 @@ Deno.serve(async (req) => {
     for (const it of rawItems) {
       const city = norm(it.city);
       let country = norm(it.country);
-      const street = norm(it.street ?? "");
+      // City-level precision: street intentionally ignored (cache key = city|country)
+      const street = "";
       if (!city) continue;
       if (isUnknownCountry(country)) country = "";
       const k = `${street.toLowerCase()}|${city.toLowerCase()}|${country.toLowerCase()}`;

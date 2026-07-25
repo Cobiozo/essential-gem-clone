@@ -30,11 +30,13 @@ type GeocodeResult = {
   lng: number | null;
 };
 
-const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v2';
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v3';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
 
-const keyOf = (i: { street: string; city: string; country: string }) =>
-  `${(i.street || '').toLowerCase()}|${(i.city || '').toLowerCase()}|${(i.country || '').toLowerCase()}`;
+// Precision: CITY level (street intentionally ignored in the key)
+const keyOf = (i: { street?: string; city: string; country: string }) =>
+  `${(i.city || '').toLowerCase().trim()}|${(i.country || '').toLowerCase().trim()}`;
+
 
 function readGeocodeCache(): GeocodeCache {
   try {
@@ -166,12 +168,12 @@ const UserWorldMap: React.FC<Props> = ({
     [users],
   );
 
-  // Unique geocode items (street|city|country)
+  // Unique geocode items (city|country)
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
     cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: u.street || '' };
+      const it = { city: u.city, country: u.country, street: '' };
       const k = keyOf(it);
       if (seen.has(k)) return;
       seen.add(k);
@@ -181,9 +183,10 @@ const UserWorldMap: React.FC<Props> = ({
   }, [cleanedUsers]);
 
   const queryKey = useMemo(
-    () => ['geocode-cities-v2', items.map((i) => keyOf(i)).sort().join(',')],
+    () => ['geocode-cities-v3', items.map((i) => keyOf(i)).sort().join(',')],
     [items],
   );
+
 
   const pollAttemptsRef = useRef(0);
   const { data, isFetching, refetch } = useQuery({
@@ -217,10 +220,8 @@ const UserWorldMap: React.FC<Props> = ({
 
     const byCoord = new Map<string, LocationGroup>();
     cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: u.street || '' };
-      const coord = coordMap.get(keyOf(it));
+      const coord = coordMap.get(keyOf({ city: u.city, country: u.country }));
       if (!coord) return;
-      // Round to ~1m so effectively-identical addresses share a marker
       const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
       let grp = byCoord.get(ck);
       if (!grp) {
@@ -228,7 +229,7 @@ const UserWorldMap: React.FC<Props> = ({
           key: ck,
           city: u.city,
           country: u.country,
-          street: u.street || '',
+          street: '',
           lat: coord.lat,
           lng: coord.lng,
           users: [],
@@ -252,43 +253,30 @@ const UserWorldMap: React.FC<Props> = ({
   const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
 
-  // Country counts — used in country popups
+  // Country counts keyed by ISO-2 — used in country popups
   const countryCountsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const acc: Record<string, number> = {};
     cleanedUsers.forEach((u) => {
-      const k = (u.country || '').toLowerCase().trim();
-      if (!k) return;
-      acc[k] = (acc[k] || 0) + 1;
+      const iso = normalizeCountry(u.country).iso;
+      if (!iso) return;
+      acc[iso] = (acc[iso] || 0) + 1;
     });
     countryCountsRef.current = acc;
   }, [cleanedUsers]);
 
-  // Toggle country layer interactivity based on zoom
+
+  // Show/hide the clickable country layer based on zoom (markers stay clickable when zoomed in)
   const applyCountryLayerVisibility = () => {
     const map = mapRef.current;
     const layer = countriesLayerRef.current;
     if (!map || !layer) return;
-    const zoom = map.getZoom();
-    const enable = zoom <= COUNTRY_LAYER_MAX_ZOOM;
-    layer.eachLayer((lyr: any) => {
-      if (lyr.setStyle) {
-        lyr.setStyle({
-          color: 'transparent',
-          weight: 0,
-          fillColor: '#000',
-          fillOpacity: enable ? 0.001 : 0,
-          interactive: enable,
-        });
-      }
-      // Leaflet does not re-evaluate `interactive` from setStyle for all layer types,
-      // toggle DOM pointer-events instead.
-      if (lyr.getElement) {
-        const el = lyr.getElement();
-        if (el) el.style.pointerEvents = enable ? '' : 'none';
-      }
-    });
+    const enable = map.getZoom() <= COUNTRY_LAYER_MAX_ZOOM;
+    const present = map.hasLayer(layer as any);
+    if (enable && !present) map.addLayer(layer as any);
+    if (!enable && present) map.removeLayer(layer as any);
   };
+
 
   // Init map (once)
   useEffect(() => {
@@ -298,9 +286,15 @@ const UserWorldMap: React.FC<Props> = ({
       zoom: DEFAULT_ZOOM,
       zoomControl: false,
       worldCopyJump: true,
-      preferCanvas: true,
     });
     mapRef.current = map;
+
+    // Dedicated pane for country polygons — above tiles, below markers
+    if (!map.getPane('countries')) {
+      const pane = map.createPane('countries');
+      pane.style.zIndex = '350';
+    }
+    const countriesRenderer = L.svg({ pane: 'countries' });
 
     const cfg = TILE_LAYERS[mapStyle];
     tileLayerRef.current = L.tileLayer(cfg.url, {
@@ -308,42 +302,45 @@ const UserWorldMap: React.FC<Props> = ({
       maxZoom: cfg.maxZoom,
     }).addTo(map);
 
-    // Country boundaries GeoJSON — invisible fill, clickable only at low zoom
+    // Country boundaries GeoJSON — thin outline, clickable at low zoom
     fetch('/geo/countries-110m.geojson')
       .then((r) => (r.ok ? r.json() : null))
       .then((gj) => {
         if (!gj || !mapRef.current) return;
-        const layer = L.geoJSON(gj as any, {
-          style: () => ({
-            color: 'transparent',
-            weight: 0,
-            fillColor: '#000',
-            fillOpacity: 0.001,
-          }),
+        const baseStyle = {
+          color: '#94a3b8',
+          weight: 0.8,
+          opacity: 0.55,
+          fillColor: '#000000',
+          fillOpacity: 0.01,
+        };
+        const layer = L.geoJSON(gj as any, ({
+          pane: 'countries',
+          renderer: countriesRenderer,
+          interactive: true,
+
+          bubblingMouseEvents: false,
+          style: () => baseStyle,
           onEachFeature: (feature: any, lyr: any) => {
-            const name =
-              feature?.properties?.NAME ||
-              feature?.properties?.ADMIN ||
-              feature?.properties?.name ||
-              '';
+            const p = feature?.properties || {};
+            const name = p.NAME || p.ADMIN || p.name || '';
+            const iso: string = (p.ISO_A2 || p.iso_a2 || '').toUpperCase();
             lyr.on('mouseover', () => {
-              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
-              lyr.setStyle({ color: '#fbbf24', weight: 2, fillOpacity: 0.05 });
+              lyr.setStyle({ color: '#fbbf24', weight: 2, opacity: 1, fillOpacity: 0.08 });
             });
             lyr.on('mouseout', () => {
               try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
-              applyCountryLayerVisibility();
             });
             lyr.on('click', (e: any) => {
-              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
+              const m = mapRef.current;
+              if (!m) return;
               try {
                 const b = lyr.getBounds();
                 if (b && b.isValid()) {
-                  mapRef.current!.flyToBounds(b, { padding: [20, 20], duration: 0.6 });
+                  m.flyToBounds(b, { padding: [24, 24], maxZoom: 8, duration: 0.8 });
                 }
               } catch {}
-              const key = (name || '').toLowerCase().trim();
-              const cnt = countryCountsRef.current[key] || 0;
+              const cnt = countryCountsRef.current[iso] || 0;
               L.popup({ closeButton: true })
                 .setLatLng(e.latlng)
                 .setContent(
@@ -352,15 +349,17 @@ const UserWorldMap: React.FC<Props> = ({
                     <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
                   </div>`,
                 )
-                .openOn(mapRef.current!);
+                .openOn(m);
             });
           },
-        });
+        } as any));
+
         countriesLayerRef.current = layer;
         layer.addTo(mapRef.current);
         applyCountryLayerVisibility();
       })
       .catch(() => {});
+
 
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
@@ -411,11 +410,17 @@ const UserWorldMap: React.FC<Props> = ({
       boundariesOverlayRef.current = null;
     }
     if (mapStyle === 'satellite') {
+      if (!map.getPane('satBoundaries')) {
+        const p = map.createPane('satBoundaries');
+        p.style.zIndex = '300';
+        p.style.pointerEvents = 'none';
+      }
       boundariesOverlayRef.current = L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'overlayPane' },
+        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'satBoundaries' },
       ).addTo(map);
     }
+
 
     if (countriesLayerRef.current) {
       try { (countriesLayerRef.current as any).bringToFront(); } catch {}
@@ -557,8 +562,10 @@ const UserWorldMap: React.FC<Props> = ({
               const DEFAULT_LEFT =
                 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
               const DEFAULT_RIGHT = '/lovable-uploads/eqology-ibp-logo.png';
-              const leftSrc = logoLeftUrl ?? DEFAULT_LEFT;
-              const rightSrc = logoRightUrl ?? (logoLeftUrl === undefined ? DEFAULT_RIGHT : '');
+              // Each side falls back to its own default independently.
+              const leftSrc = (logoLeftUrl ?? DEFAULT_LEFT).trim();
+              const rightSrc = (logoRightUrl ?? DEFAULT_RIGHT).trim();
+
               if (!leftSrc && !rightSrc) return null;
               return (
                 <div className="absolute top-3 left-3 z-[500] flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
@@ -574,7 +581,8 @@ const UserWorldMap: React.FC<Props> = ({
                   )}
                   {rightSrc && (
                     <>
-                      <div className="h-5 w-px bg-border" />
+                      {leftSrc && <div className="h-5 w-px bg-border" />}
+
                       <img
                         src={rightSrc}
                         alt="Logo"
