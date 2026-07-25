@@ -406,7 +406,7 @@ const UserStatistics: React.FC = () => {
       <DashboardMapSettings />
 
       {/* Geografia */}
-      <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
+      <UserWorldMapForAdmin />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
