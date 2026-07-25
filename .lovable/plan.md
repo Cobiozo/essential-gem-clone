@@ -1,32 +1,39 @@
-## Podział ustawień powiadomień na "W aplikacji" i "Email"
+## Naprawa uploadu logo + poprawki mapy (Leaflet)
 
-W `src/components/notifications/UserNotificationCenter.tsx` (zakładka „Ustawienia") obecnie pokazujemy jedną płaską listę zdarzeń pogrupowanych po kategoriach. Podzielę ją na dwie zwijane sekcje najwyższego poziomu — każda z własnym kompletem kategorii i przełączników.
+### 1. Upload logo nie działa — brak bucketu w storage
+Polityki RLS dla `dashboard-map-logos` istnieją, ale **sam bucket nie został utworzony** (`storage.buckets` nie zawiera rekordu). Przez to każdy upload kończy się cichym błędem i podgląd zostaje pusty.
 
-### Struktura po zmianie
+**Do zrobienia (migracja SQL):**
+- `INSERT` do `storage.buckets` rekordu `dashboard-map-logos` jako publiczny (`public = true`, limit 5 MB, mimy `image/*`).
 
-```text
-Ustawienia
-├─ [Accordion] Powiadomienia w aplikacji (dzwoneczek)         [N pozycji]
-│    └─ zwinięte kategorie: Konto, Wiadomości, Wydarzenia, ...
-│         └─ przełącznik on/off per zdarzenie
-└─ [Accordion] Powiadomienia email                            [M pozycji]
-     ├─ Email o nowych wiadomościach na czacie (email_on_offline)
-     └─ zwinięte kategorie: Konto, Wydarzenia, ...
-          └─ przełącznik on/off per zdarzenie (tylko email)
-```
+Po tym istniejące polityki od razu zaczną działać, a `getPublicUrl` zwróci działający URL, który UI już poprawnie renderuje.
 
-### Zasady podziału
+### 2. Widok początkowy mapy = Europa (jak na screenie)
+Obecnie po pierwszym udanym geokodowaniu `initialFitDoneRef` wywołuje `fitBounds(points)` co odsuwa mapę na cały świat, jeśli są punkty poza Europą.
 
-- **W aplikacji (dzwoneczek):** wszystkie aktywne `notification_event_types` — reprezentują to, co ląduje w `user_notifications` (dzwoneczek).
-- **Email:** tylko te typy, które mają `send_email = true` w `notification_event_types`. Do tej sekcji przenoszę też istniejący toggle „Email o nowych wiadomościach na czacie" (`email_on_offline`) — trafia na górę sekcji Email.
-- W obu sekcjach zachowuję dotychczasowe pogrupowanie po `category` (Konto, Bezpieczeństwo, Wiadomości, Wydarzenia, Spotkania, Baza Wiedzy, Aktualności, Zespół, Szkolenia, Wsparcie, Panel admina, Pozostałe) oraz przyciski „Włącz/Wyłącz wszystkie" per kategoria.
-- Powiadomienia oznaczone `is_mandatory` pozostają zablokowane (Switch disabled + tooltip) w obu sekcjach.
-- Sekcje najwyższego poziomu użyją shadcn `Accordion` (`type="multiple"`, domyślnie obie otwarte), z licznikiem pozycji w tytule.
+**Zmiana w `src/components/admin/UserWorldMap.tsx`:**
+- Usunąć auto-`fitBounds` przy pierwszym załadowaniu. Zostawić stały `DEFAULT_CENTER = [52, 15]`, `DEFAULT_ZOOM = 4` (Europa Środkowa jak na screenie).
+- Przycisk „Reset" nadal `flyTo(DEFAULT_CENTER, DEFAULT_ZOOM)` (bez fitBounds).
 
-### Uwaga techniczna
+### 3. Granice państw również w trybie satelitarnym
+Warstwa Esri World Imagery nie ma granic. Dodać **overlay** z granicami/etykietami na obu trybach (Esri „Reference/Boundaries and Places"): `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`. Warstwa jest przezroczysta, nakłada tylko linie i nazwy — pasuje też na klasyczną OSM bez pogorszenia czytelności (można ograniczyć overlay tylko do satelity, jeśli za dużo — ale wg wymagania ma „również posiadać granice jak klasyczna", więc overlay tylko dla trybu satelitarnego).
 
-Ta zmiana jest czysto prezentacyjna. Przełącznik zapisuje do tej samej tabeli `user_notification_preferences` przez istniejące `togglePreference` / `toggleEmailOnOffline` — dziś jedna preferencja `is_enabled` steruje jednocześnie dzwoneczkiem i emailem dla danego typu. Rozdzielenie sterowania („wyłącz email, zostaw dzwoneczek") wymagałoby migracji (osobne kolumny `in_app_enabled` / `email_enabled`) i zmian po stronie edge functions — jeśli tego oczekujesz, powiedz i zaplanuję to jako rozszerzenie.
+**Zmiana w `UserWorldMap.tsx`:**
+- Nowy `overlayLayerRef`. Przy `mapStyle === 'satellite'` dodać overlay z Esri Boundaries (z `pane: 'overlayPane'`, `opacity: 0.9`). Usunąć przy zmianie stylu.
 
-### Pliki do zmiany
+### 4. Klik w kraj = przybliżenie do granic tego kraju
+Wprowadzić warstwę GeoJSON z granicami państw (lekki dataset ~250 KB: `world-countries.geo.json` z pakietu `world-countries` lub statyczny plik w `public/geo/countries.geojson` z Natural Earth 110m).
 
-- `src/components/notifications/UserNotificationCenter.tsx` — dwie zwijane sekcje najwyższego poziomu (`Accordion`), przeniesienie toggla `email_on_offline` do sekcji Email, filtrowanie listy po `send_email` dla sekcji Email.
+**Zmiana w `UserWorldMap.tsx`:**
+- Dodać `L.geoJSON(countries, { style: { color: 'transparent', weight: 0, fillOpacity: 0 } })` — niewidoczne polygony klikalne. Na hover: `weight: 2, color: '#fbbf24', fillOpacity: 0.05` (podświetlenie konturu).
+- `onEachFeature`: `click → map.flyToBounds(layer.getBounds(), { padding: [20,20], duration: 0.6 })`, co daje efekt „przybliżenie kraju na cały dostępny obszar".
+- Popup na kliknięciu z nazwą kraju + liczbą użytkowników (z `points` po kraju).
+
+**Plik do dodania:** `public/geo/countries-110m.geojson` (Natural Earth 110m, ok. 250 KB) — pobrany z `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson`.
+
+### Pliki objęte zmianami
+- migracja SQL (bucket `dashboard-map-logos`)
+- `src/components/admin/UserWorldMap.tsx` (init view, overlay granic, warstwa GeoJSON, klik kraju)
+- `public/geo/countries-110m.geojson` (nowy)
+
+Bez zmian w `DashboardMapSettings.tsx` i `useDashboardMapSettings.ts` — logika uploadu jest poprawna, wystarczy założyć bucket.
