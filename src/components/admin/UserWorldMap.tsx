@@ -188,8 +188,21 @@ const UserWorldMap: React.FC<Props> = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const boundariesOverlayRef = useRef<L.TileLayer | null>(null);
+  const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
-  const initialFitDoneRef = useRef(false);
+
+  // Country counts (aggregated from points) — used in country popups
+  const countryCountsRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    const acc: Record<string, number> = {};
+    points.forEach((p) => {
+      const k = (p.country || '').toLowerCase().trim();
+      if (!k) return;
+      acc[k] = (acc[k] || 0) + p.count;
+    });
+    countryCountsRef.current = acc;
+  }, [points]);
 
   // Init map (once)
   useEffect(() => {
@@ -208,6 +221,56 @@ const UserWorldMap: React.FC<Props> = ({
       attribution: cfg.attribution,
       maxZoom: cfg.maxZoom,
     }).addTo(map);
+
+    // Country boundaries GeoJSON — invisible fill, clickable, hover outline
+    fetch('/geo/countries-110m.geojson')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((gj) => {
+        if (!gj || !mapRef.current) return;
+        const layer = L.geoJSON(gj as any, {
+          style: () => ({
+            color: 'transparent',
+            weight: 0,
+            fillColor: '#000',
+            fillOpacity: 0.001, // effectively invisible, but clickable
+          }),
+          onEachFeature: (feature: any, lyr: any) => {
+            const name =
+              feature?.properties?.NAME ||
+              feature?.properties?.ADMIN ||
+              feature?.properties?.name ||
+              '';
+            lyr.on('mouseover', () => {
+              lyr.setStyle({ color: '#fbbf24', weight: 2, fillOpacity: 0.05 });
+            });
+            lyr.on('mouseout', () => {
+              try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
+            });
+            lyr.on('click', (e: any) => {
+              try {
+                const b = lyr.getBounds();
+                if (b && b.isValid()) {
+                  mapRef.current!.flyToBounds(b, { padding: [20, 20], duration: 0.6 });
+                }
+              } catch {}
+              const key = (name || '').toLowerCase().trim();
+              const cnt = countryCountsRef.current[key] || 0;
+              L.popup({ closeButton: true })
+                .setLatLng(e.latlng)
+                .setContent(
+                  `<div style="font-size:12px;line-height:1.4">
+                    <div style="font-weight:600">${escapeHtml(name)}</div>
+                    <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
+                  </div>`,
+                )
+                .openOn(mapRef.current!);
+            });
+          },
+        });
+        countriesLayerRef.current = layer;
+        layer.addTo(mapRef.current);
+      })
+      .catch(() => {});
 
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
@@ -230,8 +293,9 @@ const UserWorldMap: React.FC<Props> = ({
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
+      boundariesOverlayRef.current = null;
+      countriesLayerRef.current = null;
       clusterRef.current = null;
-      initialFitDoneRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
