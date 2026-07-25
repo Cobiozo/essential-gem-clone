@@ -19,13 +19,15 @@ export type UserLocationPoint = {
   city: string;
   country: string;
   street: string;
+  postal_code?: string;
 };
 
-type GeocodeItem = { city: string; country: string; street: string };
+type GeocodeItem = { city: string; country: string; street: string; postalCode?: string };
 type GeocodeResult = {
   city: string;
   country: string;
   street: string;
+  postalCode?: string;
   lat: number | null;
   lng: number | null;
 };
@@ -33,9 +35,18 @@ type GeocodeResult = {
 const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v3';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
 
-// Precision: CITY level (street intentionally ignored in the key)
-const keyOf = (i: { street?: string; city: string; country: string }) =>
+// Precision: city + country, with postal code only when needed to disambiguate duplicate city names.
+const keyOf = (i: { street?: string; city: string; country: string; postalCode?: string }) => {
+  const city = (i.city || '').toLowerCase().trim();
+  const country = (i.country || '').toLowerCase().trim();
+  const postal = (i.postalCode || '').toLowerCase().replace(/\s+/g, '').trim();
+  return postal ? `${city}|${country}|${postal}` : `${city}|${country}`;
+};
+
+const baseCityKeyOf = (i: { city: string; country: string }) =>
   `${(i.city || '').toLowerCase().trim()}|${(i.country || '').toLowerCase().trim()}`;
+
+const postalCodeOf = (u: Pick<UserLocationPoint, 'postal_code'>) => (u.postal_code || '').trim();
 
 
 function readGeocodeCache(): GeocodeCache {
@@ -123,9 +134,49 @@ type LocationGroup = {
   city: string;
   country: string;
   street: string;
+  postalCode: string;
   lat: number;
   lng: number;
   users: UserLocationPoint[];
+};
+
+const countryNamePl = (properties: Record<string, any>) => {
+  const iso = String(properties.ISO_A2_EH || properties.ISO_A2 || properties.WB_A2 || '').toUpperCase();
+  return String(
+    properties.NAME_PL ||
+      properties.NAME_LONG_PL ||
+      properties.ADMIN_PL ||
+      (iso === 'PL' ? 'Polska' : '') ||
+      properties.NAME ||
+      properties.ADMIN ||
+      'Wybrany kraj',
+  );
+};
+
+const countryIso = (properties: Record<string, any>) =>
+  String(properties.ISO_A2_EH || properties.ISO_A2 || properties.WB_A2 || '').toUpperCase();
+
+const baseCountryStyle: L.PathOptions = {
+  color: '#94a3b8',
+  weight: 0.8,
+  opacity: 0.55,
+  fillColor: '#000000',
+  fillOpacity: 0.01,
+};
+
+const hoverCountryStyle: L.PathOptions = {
+  color: '#fbbf24',
+  weight: 2,
+  opacity: 1,
+  fillOpacity: 0.08,
+};
+
+const selectedCountryStyle: L.PathOptions = {
+  color: '#facc15',
+  weight: 3,
+  opacity: 1,
+  fillColor: '#facc15',
+  fillOpacity: 0.09,
 };
 
 const UserWorldMap: React.FC<Props> = ({
@@ -168,19 +219,41 @@ const UserWorldMap: React.FC<Props> = ({
     [users],
   );
 
-  // Unique geocode items (city|country)
+  const ambiguousCityKeys = useMemo(() => {
+    const postalByCity = new Map<string, Set<string>>();
+    cleanedUsers.forEach((u) => {
+      const postal = postalCodeOf(u).toLowerCase().replace(/\s+/g, '');
+      if (!postal) return;
+      const base = baseCityKeyOf(u);
+      const set = postalByCity.get(base) ?? new Set<string>();
+      set.add(postal);
+      postalByCity.set(base, set);
+    });
+    const out = new Set<string>();
+    postalByCity.forEach((set, base) => {
+      if (set.size > 1) out.add(base);
+    });
+    return out;
+  }, [cleanedUsers]);
+
+  const postalForGeocode = (u: UserLocationPoint) => {
+    const base = baseCityKeyOf(u);
+    return ambiguousCityKeys.has(base) ? postalCodeOf(u) : '';
+  };
+
+  // Unique geocode items (city|country, postal only for duplicate city names)
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
     cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: '' };
+      const it = { city: u.city, country: u.country, street: '', postalCode: postalForGeocode(u) };
       const k = keyOf(it);
       if (seen.has(k)) return;
       seen.add(k);
       out.push(it);
     });
     return out;
-  }, [cleanedUsers]);
+  }, [cleanedUsers, ambiguousCityKeys]);
 
   const queryKey = useMemo(
     () => ['geocode-cities-v3', items.map((i) => keyOf(i)).sort().join(',')],
@@ -220,7 +293,7 @@ const UserWorldMap: React.FC<Props> = ({
 
     const byCoord = new Map<string, LocationGroup>();
     cleanedUsers.forEach((u) => {
-      const coord = coordMap.get(keyOf({ city: u.city, country: u.country }));
+      const coord = coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: postalForGeocode(u) }));
       if (!coord) return;
       const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
       let grp = byCoord.get(ck);
@@ -230,6 +303,7 @@ const UserWorldMap: React.FC<Props> = ({
           city: u.city,
           country: u.country,
           street: '',
+          postalCode: postalForGeocode(u),
           lat: coord.lat,
           lng: coord.lng,
           users: [],
@@ -239,7 +313,7 @@ const UserWorldMap: React.FC<Props> = ({
       grp.users.push(u);
     });
     return Array.from(byCoord.values());
-  }, [geo, cleanedUsers]);
+  }, [geo, cleanedUsers, ambiguousCityKeys]);
 
   const totalUsers = cleanedUsers.length;
   const locatedUsers = groups.reduce((n, g) => n + g.users.length, 0);
@@ -252,6 +326,8 @@ const UserWorldMap: React.FC<Props> = ({
   const boundariesOverlayRef = useRef<L.TileLayer | null>(null);
   const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
+  const activeCountryLayerRef = useRef<any>(null);
+  const activeCountryIsoRef = useRef<string | null>(null);
 
   // Country counts keyed by ISO-2 — used in country popups
   const countryCountsRef = useRef<Record<string, number>>({});
@@ -265,13 +341,22 @@ const UserWorldMap: React.FC<Props> = ({
     countryCountsRef.current = acc;
   }, [cleanedUsers]);
 
+  const resetActiveCountry = () => {
+    const layer = activeCountryLayerRef.current;
+    if (layer) {
+      try { (countriesLayerRef.current as any)?.resetStyle(layer); } catch {}
+    }
+    activeCountryLayerRef.current = null;
+    activeCountryIsoRef.current = null;
+  };
+
 
   // Show/hide the clickable country layer based on zoom (markers stay clickable when zoomed in)
   const applyCountryLayerVisibility = () => {
     const map = mapRef.current;
     const layer = countriesLayerRef.current;
     if (!map || !layer) return;
-    const enable = map.getZoom() <= COUNTRY_LAYER_MAX_ZOOM;
+    const enable = map.getZoom() <= COUNTRY_LAYER_MAX_ZOOM || !!activeCountryLayerRef.current;
     const present = map.hasLayer(layer as any);
     if (enable && !present) map.addLayer(layer as any);
     if (!enable && present) map.removeLayer(layer as any);
@@ -302,38 +387,40 @@ const UserWorldMap: React.FC<Props> = ({
       maxZoom: cfg.maxZoom,
     }).addTo(map);
 
-    // Country boundaries GeoJSON — thin outline, clickable at low zoom
-    fetch('/geo/countries-110m.geojson')
+    // Country boundaries GeoJSON — more detailed outline, clickable at low zoom
+    fetch('/geo/countries-50m.geojson')
       .then((r) => (r.ok ? r.json() : null))
       .then((gj) => {
         if (!gj || !mapRef.current) return;
-        const baseStyle = {
-          color: '#94a3b8',
-          weight: 0.8,
-          opacity: 0.55,
-          fillColor: '#000000',
-          fillOpacity: 0.01,
-        };
         const layer = L.geoJSON(gj as any, ({
           pane: 'countries',
           renderer: countriesRenderer,
           interactive: true,
 
           bubblingMouseEvents: false,
-          style: () => baseStyle,
+          style: () => baseCountryStyle,
           onEachFeature: (feature: any, lyr: any) => {
             const p = feature?.properties || {};
-            const name = p.NAME || p.ADMIN || p.name || '';
-            const iso: string = (p.ISO_A2 || p.iso_a2 || '').toUpperCase();
+            const name = countryNamePl(p);
+            const iso = countryIso(p);
             lyr.on('mouseover', () => {
-              lyr.setStyle({ color: '#fbbf24', weight: 2, opacity: 1, fillOpacity: 0.08 });
+              if (activeCountryIsoRef.current === iso) return;
+              lyr.setStyle(hoverCountryStyle);
             });
             lyr.on('mouseout', () => {
+              if (activeCountryIsoRef.current === iso) {
+                lyr.setStyle(selectedCountryStyle);
+                return;
+              }
               try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
             });
             lyr.on('click', (e: any) => {
               const m = mapRef.current;
               if (!m) return;
+              resetActiveCountry();
+              activeCountryLayerRef.current = lyr;
+              activeCountryIsoRef.current = iso;
+              lyr.setStyle(selectedCountryStyle);
               try {
                 const b = lyr.getBounds();
                 if (b && b.isValid()) {
@@ -438,13 +525,14 @@ const UserWorldMap: React.FC<Props> = ({
 
     const markers = groups.map((g) => {
       const count = g.users.length;
-      const radius = Math.max(6, Math.min(14, 5 + Math.log2(count + 1) * 2));
-      const marker: any = L.circleMarker([g.lat, g.lng], {
-        radius,
-        color: '#ffffff',
-        weight: 1,
-        fillColor: color,
-        fillOpacity: 0.9,
+      const size = count < 10 ? 28 : count < 50 ? 34 : 40;
+      const marker: any = L.marker([g.lat, g.lng], {
+        icon: L.divIcon({
+          html: `<div class="pl-point-marker" style="width:${size}px;height:${size}px;background:${color};box-shadow:0 0 0 3px #ffffff,0 8px 18px rgba(15,23,42,.28);">${count}</div>`,
+          className: 'pl-point-marker-icon',
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        }),
       });
       marker.options.__count = count;
       const norm = normalizeCountry(g.country);
@@ -461,10 +549,14 @@ const UserWorldMap: React.FC<Props> = ({
       const streetLine = g.street
         ? `<div style="opacity:0.85">ul. ${escapeHtml(g.street)}</div>`
         : '';
+      const postalLine = g.postalCode
+        ? `<div style="opacity:0.85">Kod pocztowy: ${escapeHtml(g.postalCode)}</div>`
+        : '';
       marker.bindPopup(
         `<div style="font-size:12px;line-height:1.5;min-width:180px;max-height:260px;overflow:auto">
           <div style="font-weight:600">${escapeHtml(g.city)}</div>
           <div style="opacity:0.8">${flag}${escapeHtml(g.country || '')}</div>
+          ${postalLine}
           ${streetLine}
           <div style="margin:6px 0 4px;font-weight:500">${count} ${count === 1 ? 'użytkownik' : 'użytkowników'}</div>
           <ul style="list-style:none;padding:0;margin:0">${names}</ul>
@@ -488,6 +580,8 @@ const UserWorldMap: React.FC<Props> = ({
   const handleReset = () => {
     const map = mapRef.current;
     if (!map) return;
+    resetActiveCountry();
+    applyCountryLayerVisibility();
     map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 0.6 });
   };
 
