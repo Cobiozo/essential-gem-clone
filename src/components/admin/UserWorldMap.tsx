@@ -220,29 +220,34 @@ const UserWorldMap: React.FC<Props> = ({
     [users],
   );
 
-  const ambiguousCityKeys = useMemo(() => {
-    const postalByCity = new Map<string, Set<string>>();
+  // One representative postal code per city|country (most frequent), used only to
+  // improve geocoder accuracy — grouping stays at city+country level so all users
+  // from the same city land on a single marker.
+  const representativePostal = useMemo(() => {
+    const counts = new Map<string, Map<string, number>>();
     cleanedUsers.forEach((u) => {
-      const postal = postalCodeOf(u).toLowerCase().replace(/\s+/g, '');
+      const postal = postalCodeOf(u);
       if (!postal) return;
       const base = baseCityKeyOf(u);
-      const set = postalByCity.get(base) ?? new Set<string>();
-      set.add(postal);
-      postalByCity.set(base, set);
+      const m = counts.get(base) ?? new Map<string, number>();
+      m.set(postal, (m.get(postal) || 0) + 1);
+      counts.set(base, m);
     });
-    const out = new Set<string>();
-    postalByCity.forEach((set, base) => {
-      if (set.size > 1) out.add(base);
+    const out = new Map<string, string>();
+    counts.forEach((m, base) => {
+      let best = '';
+      let bestN = 0;
+      m.forEach((n, postal) => {
+        if (n > bestN) { bestN = n; best = postal; }
+      });
+      if (best) out.set(base, best);
     });
     return out;
   }, [cleanedUsers]);
 
-  const postalForGeocode = (u: UserLocationPoint) => {
-    const base = baseCityKeyOf(u);
-    return ambiguousCityKeys.has(base) ? postalCodeOf(u) : '';
-  };
+  const postalForGeocode = (u: UserLocationPoint) => representativePostal.get(baseCityKeyOf(u)) || '';
 
-  // Unique geocode items (city|country, postal only for duplicate city names)
+  // Unique geocode items (one per city|country)
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
@@ -254,7 +259,8 @@ const UserWorldMap: React.FC<Props> = ({
       out.push(it);
     });
     return out;
-  }, [cleanedUsers, ambiguousCityKeys]);
+  }, [cleanedUsers, representativePostal]);
+
 
   const queryKey = useMemo(
     () => ['geocode-cities-v3', items.map((i) => keyOf(i)).sort().join(',')],
@@ -314,7 +320,7 @@ const UserWorldMap: React.FC<Props> = ({
       grp.users.push(u);
     });
     return Array.from(byCoord.values());
-  }, [geo, cleanedUsers, ambiguousCityKeys]);
+  }, [geo, cleanedUsers, representativePostal]);
 
   const totalUsers = cleanedUsers.length;
   const locatedUsers = groups.reduce((n, g) => n + g.users.length, 0);
@@ -330,17 +336,34 @@ const UserWorldMap: React.FC<Props> = ({
   const activeCountryLayerRef = useRef<any>(null);
   const activeCountryIsoRef = useRef<string | null>(null);
 
-  // Country counts keyed by ISO-2 — used in country popups
+  // Country counts keyed by ISO-2 — counts ONLY users actually plotted on the map,
+  // so popup numbers always match the marker badges. `pendingCountryCountsRef`
+  // holds users whose city could not be geocoded (yet).
   const countryCountsRef = useRef<Record<string, number>>({});
+  const pendingCountryCountsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const acc: Record<string, number> = {};
+    groups.forEach((g) => {
+      const iso = normalizeCountry(g.country).iso;
+      if (!iso) return;
+      acc[iso] = (acc[iso] || 0) + g.users.length;
+    });
+    countryCountsRef.current = acc;
+
+    const total: Record<string, number> = {};
     cleanedUsers.forEach((u) => {
       const iso = normalizeCountry(u.country).iso;
       if (!iso) return;
-      acc[iso] = (acc[iso] || 0) + 1;
+      total[iso] = (total[iso] || 0) + 1;
     });
-    countryCountsRef.current = acc;
-  }, [cleanedUsers]);
+    const pendingAcc: Record<string, number> = {};
+    Object.keys(total).forEach((iso) => {
+      const diff = total[iso] - (acc[iso] || 0);
+      if (diff > 0) pendingAcc[iso] = diff;
+    });
+    pendingCountryCountsRef.current = pendingAcc;
+  }, [groups, cleanedUsers]);
+
 
   const resetActiveCountry = () => {
     const layer = activeCountryLayerRef.current;
@@ -429,14 +452,17 @@ const UserWorldMap: React.FC<Props> = ({
                 }
               } catch {}
               const cnt = countryCountsRef.current[iso] || 0;
+              const pendingCnt = pendingCountryCountsRef.current[iso] || 0;
               L.popup({ closeButton: true })
                 .setLatLng(e.latlng)
                 .setContent(
                   `<div style="font-size:12px;line-height:1.4">
                     <div style="font-weight:600">${escapeHtml(name)}</div>
                     <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
+                    ${pendingCnt > 0 ? `<div style="margin-top:2px;opacity:.7">(${pendingCnt} oczekuje na lokalizację)</div>` : ''}
                   </div>`,
                 )
+
                 .openOn(m);
             });
           },
@@ -694,17 +720,19 @@ const UserWorldMap: React.FC<Props> = ({
 
           <div ref={mapContainerRef} className="absolute inset-0" />
 
-          <div className="absolute bottom-3 right-3 flex flex-col gap-1 z-[500]">
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn}>
+          {/* Horizontal control bar pinned to the bottom-right corner — fully covers the Leaflet/Esri attribution */}
+          <div className="absolute bottom-0 right-0 flex flex-row items-center gap-1 z-[500] bg-background/95 backdrop-blur rounded-tl-md border-t border-l pl-1.5 pr-1 py-1">
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn} aria-label="Przybliż">
               <Plus className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut}>
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut} aria-label="Oddal">
               <Minus className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset}>
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset} aria-label="Resetuj mapę">
               <RotateCcw className="h-3 w-3" />
             </Button>
           </div>
+
 
           {cleanedUsers.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground pointer-events-none z-[400]">
