@@ -119,10 +119,12 @@ async function processQueue(
 
   for (const it of items) {
     try {
+      const street = norm(it.street ?? "");
       // re-check cache (another invocation may have written it)
       const { data: existing } = await admin
         .from("city_geocache")
         .select("lat,lng,not_found,last_attempt_at")
+        .eq("street", street)
         .eq("city", it.city)
         .eq("country", it.country)
         .maybeSingle();
@@ -142,9 +144,10 @@ async function processQueue(
       }
       processed++;
 
-      const found = await nominatimSearch(it.city, it.country);
+      const found = await nominatimSearch(it.city, it.country, street);
       const { error: upErr } = await admin.from("city_geocache").upsert(
         {
+          street,
           city: it.city,
           country: it.country,
           lat: found?.lat ?? null,
@@ -154,12 +157,12 @@ async function processQueue(
           last_attempt_at: new Date().toISOString(),
           provider: "nominatim",
         },
-        { onConflict: "city,country" },
+        { onConflict: "street,city,country" },
       );
       if (upErr) console.error("[geocode-cities] upsert error", upErr);
       else {
         console.log(
-          `[geocode-cities] ${found ? "FOUND" : "MISS"} ${it.city} / ${it.country || "(no country)"}`,
+          `[geocode-cities] ${found ? "FOUND" : "MISS"} ${street ? street + ", " : ""}${it.city} / ${it.country || "(no country)"}`,
         );
       }
     } catch (e) {
