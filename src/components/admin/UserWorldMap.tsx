@@ -320,7 +320,7 @@ const UserWorldMap: React.FC<Props> = ({
       grp.users.push(u);
     });
     return Array.from(byCoord.values());
-  }, [geo, cleanedUsers, ambiguousCityKeys]);
+  }, [geo, cleanedUsers, representativePostal]);
 
   const totalUsers = cleanedUsers.length;
   const locatedUsers = groups.reduce((n, g) => n + g.users.length, 0);
