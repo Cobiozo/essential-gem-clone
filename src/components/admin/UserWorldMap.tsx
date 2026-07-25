@@ -310,6 +310,23 @@ const UserWorldMap: React.FC<Props> = ({
       attribution: cfg.attribution,
       maxZoom: cfg.maxZoom,
     }).addTo(map);
+
+    // Boundaries + place names overlay for satellite (classic OSM already has them)
+    if (boundariesOverlayRef.current) {
+      map.removeLayer(boundariesOverlayRef.current);
+      boundariesOverlayRef.current = null;
+    }
+    if (mapStyle === 'satellite') {
+      boundariesOverlayRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'overlayPane' },
+      ).addTo(map);
+    }
+
+    // Keep the invisible country click-layer above tiles
+    if (countriesLayerRef.current) {
+      try { (countriesLayerRef.current as any).bringToFront(); } catch {}
+    }
   }, [mapStyle]);
 
   // Update markers when points change
