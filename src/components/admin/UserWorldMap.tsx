@@ -336,17 +336,34 @@ const UserWorldMap: React.FC<Props> = ({
   const activeCountryLayerRef = useRef<any>(null);
   const activeCountryIsoRef = useRef<string | null>(null);
 
-  // Country counts keyed by ISO-2 — used in country popups
+  // Country counts keyed by ISO-2 — counts ONLY users actually plotted on the map,
+  // so popup numbers always match the marker badges. `pendingCountryCountsRef`
+  // holds users whose city could not be geocoded (yet).
   const countryCountsRef = useRef<Record<string, number>>({});
+  const pendingCountryCountsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const acc: Record<string, number> = {};
+    groups.forEach((g) => {
+      const iso = normalizeCountry(g.country).iso;
+      if (!iso) return;
+      acc[iso] = (acc[iso] || 0) + g.users.length;
+    });
+    countryCountsRef.current = acc;
+
+    const total: Record<string, number> = {};
     cleanedUsers.forEach((u) => {
       const iso = normalizeCountry(u.country).iso;
       if (!iso) return;
-      acc[iso] = (acc[iso] || 0) + 1;
+      total[iso] = (total[iso] || 0) + 1;
     });
-    countryCountsRef.current = acc;
-  }, [cleanedUsers]);
+    const pendingAcc: Record<string, number> = {};
+    Object.keys(total).forEach((iso) => {
+      const diff = total[iso] - (acc[iso] || 0);
+      if (diff > 0) pendingAcc[iso] = diff;
+    });
+    pendingCountryCountsRef.current = pendingAcc;
+  }, [groups, cleanedUsers]);
+
 
   const resetActiveCountry = () => {
     const layer = activeCountryLayerRef.current;
