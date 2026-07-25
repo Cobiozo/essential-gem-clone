@@ -555,8 +555,10 @@ const UserWorldMap: React.FC<Props> = ({
               const DEFAULT_LEFT =
                 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
               const DEFAULT_RIGHT = '/lovable-uploads/eqology-ibp-logo.png';
-              const leftSrc = logoLeftUrl ?? DEFAULT_LEFT;
-              const rightSrc = logoRightUrl ?? (logoLeftUrl === undefined ? DEFAULT_RIGHT : '');
+              // Each side falls back to its own default independently.
+              const leftSrc = (logoLeftUrl ?? DEFAULT_LEFT).trim();
+              const rightSrc = (logoRightUrl ?? DEFAULT_RIGHT).trim();
+
               if (!leftSrc && !rightSrc) return null;
               return (
                 <div className="absolute top-3 left-3 z-[500] flex items-center gap-3 rounded-md bg-background/70 backdrop-blur px-3 py-1.5 border pointer-events-none">
