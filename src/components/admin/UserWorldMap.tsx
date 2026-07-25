@@ -574,7 +574,8 @@ const UserWorldMap: React.FC<Props> = ({
                   )}
                   {rightSrc && (
                     <>
-                      <div className="h-5 w-px bg-border" />
+                      {leftSrc && <div className="h-5 w-px bg-border" />}
+
                       <img
                         src={rightSrc}
                         alt="Logo"
