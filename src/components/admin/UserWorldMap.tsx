@@ -285,9 +285,15 @@ const UserWorldMap: React.FC<Props> = ({
       zoom: DEFAULT_ZOOM,
       zoomControl: false,
       worldCopyJump: true,
-      preferCanvas: true,
     });
     mapRef.current = map;
+
+    // Dedicated pane for country polygons — above tiles, below markers
+    if (!map.getPane('countries')) {
+      const pane = map.createPane('countries');
+      pane.style.zIndex = '350';
+    }
+    const countriesRenderer = L.svg({ pane: 'countries' });
 
     const cfg = TILE_LAYERS[mapStyle];
     tileLayerRef.current = L.tileLayer(cfg.url, {
@@ -295,42 +301,44 @@ const UserWorldMap: React.FC<Props> = ({
       maxZoom: cfg.maxZoom,
     }).addTo(map);
 
-    // Country boundaries GeoJSON — invisible fill, clickable only at low zoom
+    // Country boundaries GeoJSON — thin outline, clickable at low zoom
     fetch('/geo/countries-110m.geojson')
       .then((r) => (r.ok ? r.json() : null))
       .then((gj) => {
         if (!gj || !mapRef.current) return;
+        const baseStyle = {
+          color: '#94a3b8',
+          weight: 0.8,
+          opacity: 0.55,
+          fillColor: '#000000',
+          fillOpacity: 0.01,
+        };
         const layer = L.geoJSON(gj as any, {
-          style: () => ({
-            color: 'transparent',
-            weight: 0,
-            fillColor: '#000',
-            fillOpacity: 0.001,
-          }),
+          pane: 'countries',
+          renderer: countriesRenderer,
+          interactive: true,
+          bubblingMouseEvents: false,
+          style: () => baseStyle,
           onEachFeature: (feature: any, lyr: any) => {
-            const name =
-              feature?.properties?.NAME ||
-              feature?.properties?.ADMIN ||
-              feature?.properties?.name ||
-              '';
+            const p = feature?.properties || {};
+            const name = p.NAME || p.ADMIN || p.name || '';
+            const iso: string = (p.ISO_A2 || p.iso_a2 || '').toUpperCase();
             lyr.on('mouseover', () => {
-              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
-              lyr.setStyle({ color: '#fbbf24', weight: 2, fillOpacity: 0.05 });
+              lyr.setStyle({ color: '#fbbf24', weight: 2, opacity: 1, fillOpacity: 0.08 });
             });
             lyr.on('mouseout', () => {
               try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
-              applyCountryLayerVisibility();
             });
             lyr.on('click', (e: any) => {
-              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
+              const m = mapRef.current;
+              if (!m) return;
               try {
                 const b = lyr.getBounds();
                 if (b && b.isValid()) {
-                  mapRef.current!.flyToBounds(b, { padding: [20, 20], duration: 0.6 });
+                  m.flyToBounds(b, { padding: [24, 24], maxZoom: 8, duration: 0.8 });
                 }
               } catch {}
-              const key = (name || '').toLowerCase().trim();
-              const cnt = countryCountsRef.current[key] || 0;
+              const cnt = countryCountsRef.current[iso] || 0;
               L.popup({ closeButton: true })
                 .setLatLng(e.latlng)
                 .setContent(
@@ -339,7 +347,7 @@ const UserWorldMap: React.FC<Props> = ({
                     <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
                   </div>`,
                 )
-                .openOn(mapRef.current!);
+                .openOn(m);
             });
           },
         });
@@ -348,6 +356,7 @@ const UserWorldMap: React.FC<Props> = ({
         applyCountryLayerVisibility();
       })
       .catch(() => {});
+
 
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
