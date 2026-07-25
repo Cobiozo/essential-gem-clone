@@ -40,6 +40,7 @@ const fetchUserPoints = async (): Promise<UserLocationPoint[]> => {
     city: r.city,
     country: r.country,
     street: r.street || '',
+    postal_code: r.postal_code || '',
   }));
   if (rows.length > 0) writeCache(rows);
   return rows;
