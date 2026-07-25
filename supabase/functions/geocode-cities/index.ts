@@ -26,7 +26,7 @@ function isUnknownCountry(c: string): boolean {
   return !low || low === "nieznane" || low === "unknown" || low === "n/a";
 }
 
-async function nominatimSearch(city: string, country: string) {
+async function nominatimSearch(city: string, country: string, street: string) {
   const tryFetch = async (params: URLSearchParams) => {
     const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
     const r = await fetch(url, {
@@ -49,7 +49,32 @@ async function nominatimSearch(city: string, country: string) {
     return { lat, lng, display_country };
   };
 
-  // 1) structured search with city + country (if real country)
+  // 1) structured street+city+country (highest precision)
+  if (street && !isUnknownCountry(country)) {
+    const p = new URLSearchParams({
+      format: "json",
+      limit: "1",
+      addressdetails: "1",
+      street,
+      city,
+      country,
+    });
+    const r = await tryFetch(p);
+    if (r) return r;
+  }
+  if (street) {
+    const p = new URLSearchParams({
+      format: "json",
+      limit: "1",
+      addressdetails: "1",
+      street,
+      city,
+    });
+    const r = await tryFetch(p);
+    if (r) return r;
+  }
+
+  // 2) structured city + country
   if (!isUnknownCountry(country)) {
     const p = new URLSearchParams({
       format: "json",
@@ -62,7 +87,7 @@ async function nominatimSearch(city: string, country: string) {
     if (r) return r;
   }
 
-  // 2) structured city-only
+  // 3) structured city-only
   const p2 = new URLSearchParams({
     format: "json",
     limit: "1",
@@ -72,13 +97,13 @@ async function nominatimSearch(city: string, country: string) {
   const r2 = await tryFetch(p2);
   if (r2) return r2;
 
-  // 3) free-text q=
-  const q = isUnknownCountry(country) ? city : `${city}, ${country}`;
+  // 4) free-text q=
+  const parts = [street, city, isUnknownCountry(country) ? "" : country].filter(Boolean);
   const p3 = new URLSearchParams({
     format: "json",
     limit: "1",
     addressdetails: "1",
-    q,
+    q: parts.join(", "),
   });
   return await tryFetch(p3);
 }
