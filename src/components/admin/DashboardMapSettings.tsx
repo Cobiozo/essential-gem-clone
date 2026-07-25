@@ -54,10 +54,10 @@ export const DashboardMapSettings: React.FC = () => {
       return;
     }
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    const path = `${side}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `dashboard-map-logos/${side}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error: upErr } = await supabase.storage
-      .from('dashboard-map-logos')
-      .upload(path, file, { upsert: true, contentType: file.type || undefined, cacheControl: '3600' });
+      .from('cms-images')
+      .upload(path, file, { upsert: false, contentType: file.type || undefined, cacheControl: '3600' });
     setUploadingSide(null);
     if (upErr) {
       const msg = upErr.message?.includes('row-level security')
@@ -66,7 +66,7 @@ export const DashboardMapSettings: React.FC = () => {
       toast.error(msg);
       return;
     }
-    const { data } = supabase.storage.from('dashboard-map-logos').getPublicUrl(path);
+    const { data } = supabase.storage.from('cms-images').getPublicUrl(path);
     const publicUrl = data.publicUrl;
     const next = { ...draft, [side === 'left' ? 'logo_left_url' : 'logo_right_url']: publicUrl };
     setDraft(next);

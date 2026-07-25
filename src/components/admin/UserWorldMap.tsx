@@ -188,8 +188,21 @@ const UserWorldMap: React.FC<Props> = ({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const boundariesOverlayRef = useRef<L.TileLayer | null>(null);
+  const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
-  const initialFitDoneRef = useRef(false);
+
+  // Country counts (aggregated from points) — used in country popups
+  const countryCountsRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    const acc: Record<string, number> = {};
+    points.forEach((p) => {
+      const k = (p.country || '').toLowerCase().trim();
+      if (!k) return;
+      acc[k] = (acc[k] || 0) + p.count;
+    });
+    countryCountsRef.current = acc;
+  }, [points]);
 
   // Init map (once)
   useEffect(() => {
@@ -208,6 +221,56 @@ const UserWorldMap: React.FC<Props> = ({
       attribution: cfg.attribution,
       maxZoom: cfg.maxZoom,
     }).addTo(map);
+
+    // Country boundaries GeoJSON — invisible fill, clickable, hover outline
+    fetch('/geo/countries-110m.geojson')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((gj) => {
+        if (!gj || !mapRef.current) return;
+        const layer = L.geoJSON(gj as any, {
+          style: () => ({
+            color: 'transparent',
+            weight: 0,
+            fillColor: '#000',
+            fillOpacity: 0.001, // effectively invisible, but clickable
+          }),
+          onEachFeature: (feature: any, lyr: any) => {
+            const name =
+              feature?.properties?.NAME ||
+              feature?.properties?.ADMIN ||
+              feature?.properties?.name ||
+              '';
+            lyr.on('mouseover', () => {
+              lyr.setStyle({ color: '#fbbf24', weight: 2, fillOpacity: 0.05 });
+            });
+            lyr.on('mouseout', () => {
+              try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
+            });
+            lyr.on('click', (e: any) => {
+              try {
+                const b = lyr.getBounds();
+                if (b && b.isValid()) {
+                  mapRef.current!.flyToBounds(b, { padding: [20, 20], duration: 0.6 });
+                }
+              } catch {}
+              const key = (name || '').toLowerCase().trim();
+              const cnt = countryCountsRef.current[key] || 0;
+              L.popup({ closeButton: true })
+                .setLatLng(e.latlng)
+                .setContent(
+                  `<div style="font-size:12px;line-height:1.4">
+                    <div style="font-weight:600">${escapeHtml(name)}</div>
+                    <div style="margin-top:2px">${cnt} ${cnt === 1 ? 'użytkownik' : 'użytkowników'}</div>
+                  </div>`,
+                )
+                .openOn(mapRef.current!);
+            });
+          },
+        });
+        countriesLayerRef.current = layer;
+        layer.addTo(mapRef.current);
+      })
+      .catch(() => {});
 
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
@@ -230,8 +293,9 @@ const UserWorldMap: React.FC<Props> = ({
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
+      boundariesOverlayRef.current = null;
+      countriesLayerRef.current = null;
       clusterRef.current = null;
-      initialFitDoneRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -246,6 +310,23 @@ const UserWorldMap: React.FC<Props> = ({
       attribution: cfg.attribution,
       maxZoom: cfg.maxZoom,
     }).addTo(map);
+
+    // Boundaries + place names overlay for satellite (classic OSM already has them)
+    if (boundariesOverlayRef.current) {
+      map.removeLayer(boundariesOverlayRef.current);
+      boundariesOverlayRef.current = null;
+    }
+    if (mapStyle === 'satellite') {
+      boundariesOverlayRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        { attribution: '', maxZoom: 19, opacity: 0.9, pane: 'overlayPane' },
+      ).addTo(map);
+    }
+
+    // Keep the invisible country click-layer above tiles
+    if (countriesLayerRef.current) {
+      try { (countriesLayerRef.current as any).bringToFront(); } catch {}
+    }
   }, [mapStyle]);
 
   // Update markers when points change
@@ -279,16 +360,8 @@ const UserWorldMap: React.FC<Props> = ({
     });
     cluster.addLayers(markers);
 
-    // Fit bounds once, on first successful load
-    if (!initialFitDoneRef.current) {
-      try {
-        const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as L.LatLngTuple));
-        if (bounds.isValid()) {
-          map.fitBounds(bounds.pad(0.2), { maxZoom: 6 });
-          initialFitDoneRef.current = true;
-        }
-      } catch {}
-    }
+    // Initial view stays fixed on Europe (DEFAULT_CENTER / DEFAULT_ZOOM).
+    // No automatic fitBounds — user can zoom manually or click a country.
   }, [points, color]);
 
   // Ensure size is right when height/container changes
@@ -302,13 +375,6 @@ const UserWorldMap: React.FC<Props> = ({
   const handleReset = () => {
     const map = mapRef.current;
     if (!map) return;
-    if (points.length > 0) {
-      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as L.LatLngTuple));
-      if (bounds.isValid()) {
-        map.flyToBounds(bounds.pad(0.2), { maxZoom: 6, duration: 0.6 });
-        return;
-      }
-    }
     map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 0.6 });
   };
 
