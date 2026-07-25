@@ -12160,6 +12160,7 @@ export type Database = {
           country: string
           first_name: string
           last_initial: string
+          postal_code: string
           street: string
           user_id: string
         }[]
