@@ -313,7 +313,7 @@ const UserWorldMap: React.FC<Props> = ({
           fillColor: '#000000',
           fillOpacity: 0.01,
         };
-        const layer = L.geoJSON(gj as any, {
+        const layer = L.geoJSON(gj as any, ({
           pane: 'countries',
           renderer: countriesRenderer,
           interactive: true,
