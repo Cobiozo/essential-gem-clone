@@ -265,31 +265,17 @@ const UserWorldMap: React.FC<Props> = ({
     countryCountsRef.current = acc;
   }, [cleanedUsers]);
 
-  // Toggle country layer interactivity based on zoom
+  // Show/hide the clickable country layer based on zoom (markers stay clickable when zoomed in)
   const applyCountryLayerVisibility = () => {
     const map = mapRef.current;
     const layer = countriesLayerRef.current;
     if (!map || !layer) return;
-    const zoom = map.getZoom();
-    const enable = zoom <= COUNTRY_LAYER_MAX_ZOOM;
-    layer.eachLayer((lyr: any) => {
-      if (lyr.setStyle) {
-        lyr.setStyle({
-          color: 'transparent',
-          weight: 0,
-          fillColor: '#000',
-          fillOpacity: enable ? 0.001 : 0,
-          interactive: enable,
-        });
-      }
-      // Leaflet does not re-evaluate `interactive` from setStyle for all layer types,
-      // toggle DOM pointer-events instead.
-      if (lyr.getElement) {
-        const el = lyr.getElement();
-        if (el) el.style.pointerEvents = enable ? '' : 'none';
-      }
-    });
+    const enable = map.getZoom() <= COUNTRY_LAYER_MAX_ZOOM;
+    const present = map.hasLayer(layer as any);
+    if (enable && !present) map.addLayer(layer as any);
+    if (!enable && present) map.removeLayer(layer as any);
   };
+
 
   // Init map (once)
   useEffect(() => {
