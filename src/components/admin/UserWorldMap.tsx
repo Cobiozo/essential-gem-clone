@@ -316,6 +316,8 @@ const UserWorldMap: React.FC<Props> = ({
         const layer = L.geoJSON(gj as any, {
           pane: 'countries',
           renderer: countriesRenderer,
+        } as any as L.GeoJSONOptions);
+
           interactive: true,
           bubblingMouseEvents: false,
           style: () => baseStyle,
