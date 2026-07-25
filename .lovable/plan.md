@@ -1,39 +1,40 @@
-## Naprawa uploadu logo + poprawki mapy (Leaflet)
+## Mapa użytkowników — precyzyjne punkty (ulica) i popup z imionami
 
-### 1. Upload logo nie działa — brak bucketu w storage
-Polityki RLS dla `dashboard-map-logos` istnieją, ale **sam bucket nie został utworzony** (`storage.buckets` nie zawiera rekordu). Przez to każdy upload kończy się cichym błędem i podgląd zostaje pusty.
+### Co jest nie tak dziś
+- RPC `get_user_city_counts` grupuje po `city + country`, więc dla każdego miasta jest **jeden punkt** dokładnie w centroidzie miasta zwróconym przez Nominatim. Nawet jeśli użytkownik ma ulicę w profilu, mapa nie „zna" ulicy → im wyższy zoom, tym punkt wygląda jak „w środku miasta", a wielu użytkowników tego samego miasta zlewa się w jedną kropkę.
+- `markerClusterGroup` nie ma `disableClusteringAtZoom`, więc klaster potrafi przetrwać do bardzo wysokiego zoomu i „chować" pojedyncze miasta.
+- Niewidoczna warstwa GeoJSON państw (`fillOpacity: 0.001`) siedzi na wierzchu i przy dużym zoomie może wchłaniać kliknięcia w markery.
+- Popup pokazuje tylko liczbę — brak imion.
 
-**Do zrobienia (migracja SQL):**
-- `INSERT` do `storage.buckets` rekordu `dashboard-map-logos` jako publiczny (`public = true`, limit 5 MB, mimy `image/*`).
+### Zmiany
 
-Po tym istniejące polityki od razu zaczną działać, a `getPublicUrl` zwróci działający URL, który UI już poprawnie renderuje.
+**1. Nowy RPC `get_user_location_points`** (SECURITY DEFINER, admin-only):
+Zwraca po jednym rekordzie na użytkownika z profilu, w formie:
+```
+user_id, first_name, last_initial, city, country, street
+```
+gdzie `last_initial = LEFT(last_name, 1) || '.'`, `street = NULLIF(TRIM(address_street), '')` (użyję istniejącej kolumny adresu — zweryfikuję nazwę w `profiles` przy implementacji: `address`, `street`, `address_line1`). Grant tylko dla `authenticated`; wewnątrz sprawdzenie `has_role(auth.uid(),'admin')` — inne role nie dostają danych osobowych.
 
-### 2. Widok początkowy mapy = Europa (jak na screenie)
-Obecnie po pierwszym udanym geokodowaniu `initialFitDoneRef` wywołuje `fitBounds(points)` co odsuwa mapę na cały świat, jeśli są punkty poza Europą.
+**2. Edge function `geocode-cities` — obsługa ulicy**:
+Dodaję opcjonalne pole `street` w `items[]`. Klucz cache i klucz Nominatim rozszerzam o ulicę:
+- gdy jest ulica → structured search `street=<ulica>&city=<miasto>&country=<kraj>`, cache pod kluczem `street|city|country`.
+- gdy brak ulicy → dotychczasowa ścieżka (klucz `|city|country`).
+Tabela `city_geocache` dostaje nową kolumnę `street text NOT NULL DEFAULT ''` i unique index `(street, city, country)` (migracja).
 
-**Zmiana w `src/components/admin/UserWorldMap.tsx`:**
-- Usunąć auto-`fitBounds` przy pierwszym załadowaniu. Zostawić stały `DEFAULT_CENTER = [52, 15]`, `DEFAULT_ZOOM = 4` (Europa Środkowa jak na screenie).
-- Przycisk „Reset" nadal `flyTo(DEFAULT_CENTER, DEFAULT_ZOOM)` (bez fitBounds).
+**3. Frontend `UserWorldMapWidget` + `UserWorldMap`**:
+- Widget pobiera nowy RPC (per-user) zamiast agregatu; buduje `items` z `street|city|country` do geokodowania.
+- Po geokodowaniu składam punkty per-user; jeżeli kilku użytkowników trafia na te same koordynaty, agreguję w jeden marker z listą osób i lekkim „jitterem" (±0.0002°) dla wizualnego rozdziału na najwyższym zoomie.
+- **Popup markera**: nagłówek „Miasto, Kraj" (+ ulica, gdy znana), liczba użytkowników, i lista „Imię N." (do 20, potem „+X więcej"). Bez pełnych nazwisk, bez adresu domowego innego niż nazwa ulicy — zgodnie z prośbą.
+- **Cluster**: dodaję `disableClusteringAtZoom: 12` i `spiderfyOnEveryZoom` na wysokich zoomach; klaster pokazuje sumę użytkowników.
+- **Warstwa państw**: gdy zoom ≥ 6, ustawiam ją jako `interactive: false` (i chowam kontur) — nie przechwytuje wtedy kliknięć w markery. Przy niższym zoomie działa jak dziś (klik = przybliżenie kraju).
 
-### 3. Granice państw również w trybie satelitarnym
-Warstwa Esri World Imagery nie ma granic. Dodać **overlay** z granicami/etykietami na obu trybach (Esri „Reference/Boundaries and Places"): `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`. Warstwa jest przezroczysta, nakłada tylko linie i nazwy — pasuje też na klasyczną OSM bez pogorszenia czytelności (można ograniczyć overlay tylko do satelity, jeśli za dużo — ale wg wymagania ma „również posiadać granice jak klasyczna", więc overlay tylko dla trybu satelitarnego).
+**4. Brak zmian w**: uploadzie logo, przełączniku klasyczna/satelita, widoku początkowym Europy.
 
-**Zmiana w `UserWorldMap.tsx`:**
-- Nowy `overlayLayerRef`. Przy `mapStyle === 'satellite'` dodać overlay z Esri Boundaries (z `pane: 'overlayPane'`, `opacity: 0.9`). Usunąć przy zmianie stylu.
+### Prywatność
+Pełne nazwiska nie wychodzą z bazy — RPC zwraca tylko `first_name` i inicjał. Adres pełny nigdy nie trafia do klienta; przekazujemy tylko nazwę ulicy do geokodera i cache'ujemy tylko współrzędne. RPC dostępne wyłącznie dla adminów.
 
-### 4. Klik w kraj = przybliżenie do granic tego kraju
-Wprowadzić warstwę GeoJSON z granicami państw (lekki dataset ~250 KB: `world-countries.geo.json` z pakietu `world-countries` lub statyczny plik w `public/geo/countries.geojson` z Natural Earth 110m).
-
-**Zmiana w `UserWorldMap.tsx`:**
-- Dodać `L.geoJSON(countries, { style: { color: 'transparent', weight: 0, fillOpacity: 0 } })` — niewidoczne polygony klikalne. Na hover: `weight: 2, color: '#fbbf24', fillOpacity: 0.05` (podświetlenie konturu).
-- `onEachFeature`: `click → map.flyToBounds(layer.getBounds(), { padding: [20,20], duration: 0.6 })`, co daje efekt „przybliżenie kraju na cały dostępny obszar".
-- Popup na kliknięciu z nazwą kraju + liczbą użytkowników (z `points` po kraju).
-
-**Plik do dodania:** `public/geo/countries-110m.geojson` (Natural Earth 110m, ok. 250 KB) — pobrany z `https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson`.
-
-### Pliki objęte zmianami
-- migracja SQL (bucket `dashboard-map-logos`)
-- `src/components/admin/UserWorldMap.tsx` (init view, overlay granic, warstwa GeoJSON, klik kraju)
-- `public/geo/countries-110m.geojson` (nowy)
-
-Bez zmian w `DashboardMapSettings.tsx` i `useDashboardMapSettings.ts` — logika uploadu jest poprawna, wystarczy założyć bucket.
+### Pliki
+- migracja SQL: nowa funkcja `get_user_location_points`, kolumna `street` w `city_geocache` + unikalny indeks.
+- `supabase/functions/geocode-cities/index.ts` — obsługa `street`.
+- `src/components/dashboard/widgets/UserWorldMapWidget.tsx` — nowe źródło danych.
+- `src/components/admin/UserWorldMap.tsx` — per-user punkty, popup z listą imion, `disableClusteringAtZoom`, wyłączanie warstwy państw na wysokim zoomie.
