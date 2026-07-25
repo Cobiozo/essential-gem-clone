@@ -343,16 +343,8 @@ const UserWorldMap: React.FC<Props> = ({
     });
     cluster.addLayers(markers);
 
-    // Fit bounds once, on first successful load
-    if (!initialFitDoneRef.current) {
-      try {
-        const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as L.LatLngTuple));
-        if (bounds.isValid()) {
-          map.fitBounds(bounds.pad(0.2), { maxZoom: 6 });
-          initialFitDoneRef.current = true;
-        }
-      } catch {}
-    }
+    // Initial view stays fixed on Europe (DEFAULT_CENTER / DEFAULT_ZOOM).
+    // No automatic fitBounds — user can zoom manually or click a country.
   }, [points, color]);
 
   // Ensure size is right when height/container changes
@@ -366,13 +358,6 @@ const UserWorldMap: React.FC<Props> = ({
   const handleReset = () => {
     const map = mapRef.current;
     if (!map) return;
-    if (points.length > 0) {
-      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as L.LatLngTuple));
-      if (bounds.isValid()) {
-        map.flyToBounds(bounds.pad(0.2), { maxZoom: 6, duration: 0.6 });
-        return;
-      }
-    }
     map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 0.6 });
   };
 
