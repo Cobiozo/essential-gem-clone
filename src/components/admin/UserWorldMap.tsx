@@ -12,11 +12,29 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCountry } from '@/lib/countryFlags';
 
-export type CityPoint = { city: string; country: string; count: number };
-type GeocodeResult = { city: string; country: string; lat: number | null; lng: number | null };
+export type UserLocationPoint = {
+  user_id: string;
+  first_name: string;
+  last_initial: string;
+  city: string;
+  country: string;
+  street: string;
+};
 
-const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v1';
+type GeocodeItem = { city: string; country: string; street: string };
+type GeocodeResult = {
+  city: string;
+  country: string;
+  street: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v2';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
+
+const keyOf = (i: { street: string; city: string; country: string }) =>
+  `${(i.street || '').toLowerCase()}|${(i.city || '').toLowerCase()}|${(i.country || '').toLowerCase()}`;
 
 function readGeocodeCache(): GeocodeCache {
   try {
@@ -37,21 +55,21 @@ function mergeGeocodeCache(results: GeocodeResult[]) {
   let changed = false;
   results.forEach((r) => {
     if (r && typeof r.lat === 'number' && typeof r.lng === 'number' && isFinite(r.lat) && isFinite(r.lng)) {
-      cache[`${r.city.toLowerCase()}|${r.country.toLowerCase()}`] = { lat: r.lat, lng: r.lng, ts: Date.now() };
+      cache[keyOf(r)] = { lat: r.lat, lng: r.lng, ts: Date.now() };
       changed = true;
     }
   });
   if (changed) writeGeocodeCache(cache);
 }
-function fromCacheResults(items: { city: string; country: string }[]): GeocodeResult[] {
+function fromCacheResults(items: GeocodeItem[]): GeocodeResult[] {
   const cache = readGeocodeCache();
   return items.map((i) => {
-    const hit = cache[`${i.city.toLowerCase()}|${i.country.toLowerCase()}`];
-    return { city: i.city, country: i.country, lat: hit?.lat ?? null, lng: hit?.lng ?? null };
+    const hit = cache[keyOf(i)];
+    return { ...i, lat: hit?.lat ?? null, lng: hit?.lng ?? null };
   });
 }
 async function geocodeCities(
-  items: { city: string; country: string }[],
+  items: GeocodeItem[],
   forceRetry = false,
 ): Promise<{ results: GeocodeResult[]; pending: number }> {
   if (items.length === 0) return { results: [], pending: 0 };
@@ -69,7 +87,7 @@ async function geocodeCities(
 }
 
 interface Props {
-  cities: CityPoint[];
+  users: UserLocationPoint[];
   initialMode?: 'classic' | 'satellite';
   markerColor?: string;
   showLogos?: boolean;
@@ -96,9 +114,20 @@ const TILE_LAYERS = {
 
 const DEFAULT_CENTER: L.LatLngTuple = [52, 15];
 const DEFAULT_ZOOM = 4;
+const COUNTRY_LAYER_MAX_ZOOM = 6; // above this zoom, disable country click layer so markers stay clickable
+
+type LocationGroup = {
+  key: string;
+  city: string;
+  country: string;
+  street: string;
+  lat: number;
+  lng: number;
+  users: UserLocationPoint[];
+};
 
 const UserWorldMap: React.FC<Props> = ({
-  cities,
+  users,
   initialMode,
   markerColor,
   showLogos = true,
@@ -128,19 +157,31 @@ const UserWorldMap: React.FC<Props> = ({
 
   const color = markerColor || '#ef4444';
 
-  // Clean cities
-  const cleaned = useMemo(
+  // Clean users (skip Nieznane/Unknown)
+  const cleanedUsers = useMemo(
     () =>
-      (Array.isArray(cities) ? cities : []).filter(
-        (c) => c && c.city && c.city.toLowerCase() !== 'nieznane' && c.city.toLowerCase() !== 'unknown',
+      (Array.isArray(users) ? users : []).filter(
+        (u) => u && u.city && u.city.toLowerCase() !== 'nieznane' && u.city.toLowerCase() !== 'unknown',
       ),
-    [cities],
+    [users],
   );
 
-  const items = useMemo(() => cleaned.map((c) => ({ city: c.city, country: c.country })), [cleaned]);
+  // Unique geocode items (street|city|country)
+  const items = useMemo<GeocodeItem[]>(() => {
+    const seen = new Set<string>();
+    const out: GeocodeItem[] = [];
+    cleanedUsers.forEach((u) => {
+      const it = { city: u.city, country: u.country, street: u.street || '' };
+      const k = keyOf(it);
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(it);
+    });
+    return out;
+  }, [cleanedUsers]);
 
   const queryKey = useMemo(
-    () => ['geocode-cities', items.map((i) => `${i.city}|${i.country}`).sort().join(',')],
+    () => ['geocode-cities-v2', items.map((i) => keyOf(i)).sort().join(',')],
     [items],
   );
 
@@ -165,24 +206,43 @@ const UserWorldMap: React.FC<Props> = ({
   const geo = Array.isArray(data?.results) ? data!.results : [];
   const pending = data?.pending ?? 0;
 
-  const points = useMemo(() => {
-    const map = new Map<string, { lat: number; lng: number }>();
+  // Group users by geocoded coordinates
+  const groups = useMemo<LocationGroup[]>(() => {
+    const coordMap = new Map<string, { lat: number; lng: number }>();
     geo.forEach((g) => {
       if (g && typeof g.lat === 'number' && typeof g.lng === 'number' && isFinite(g.lat) && isFinite(g.lng)) {
-        map.set(`${g.city.toLowerCase()}|${g.country.toLowerCase()}`, { lat: g.lat, lng: g.lng });
+        coordMap.set(keyOf(g), { lat: g.lat, lng: g.lng });
       }
     });
-    return cleaned
-      .map((c) => {
-        const p = map.get(`${c.city.toLowerCase()}|${c.country.toLowerCase()}`);
-        if (!p) return null;
-        return { ...c, lat: p.lat, lng: p.lng };
-      })
-      .filter(Boolean) as Array<CityPoint & { lat: number; lng: number }>;
-  }, [geo, cleaned]);
 
-  const located = points.length;
-  const missing = cleaned.length - located;
+    const byCoord = new Map<string, LocationGroup>();
+    cleanedUsers.forEach((u) => {
+      const it = { city: u.city, country: u.country, street: u.street || '' };
+      const coord = coordMap.get(keyOf(it));
+      if (!coord) return;
+      // Round to ~1m so effectively-identical addresses share a marker
+      const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
+      let grp = byCoord.get(ck);
+      if (!grp) {
+        grp = {
+          key: ck,
+          city: u.city,
+          country: u.country,
+          street: u.street || '',
+          lat: coord.lat,
+          lng: coord.lng,
+          users: [],
+        };
+        byCoord.set(ck, grp);
+      }
+      grp.users.push(u);
+    });
+    return Array.from(byCoord.values());
+  }, [geo, cleanedUsers]);
+
+  const totalUsers = cleanedUsers.length;
+  const locatedUsers = groups.reduce((n, g) => n + g.users.length, 0);
+  const uniqueCities = new Set(cleanedUsers.map((u) => `${u.city.toLowerCase()}|${u.country.toLowerCase()}`)).size;
 
   // Leaflet map refs
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -192,17 +252,43 @@ const UserWorldMap: React.FC<Props> = ({
   const countriesLayerRef = useRef<L.GeoJSON | null>(null);
   const clusterRef = useRef<any>(null);
 
-  // Country counts (aggregated from points) — used in country popups
+  // Country counts — used in country popups
   const countryCountsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const acc: Record<string, number> = {};
-    points.forEach((p) => {
-      const k = (p.country || '').toLowerCase().trim();
+    cleanedUsers.forEach((u) => {
+      const k = (u.country || '').toLowerCase().trim();
       if (!k) return;
-      acc[k] = (acc[k] || 0) + p.count;
+      acc[k] = (acc[k] || 0) + 1;
     });
     countryCountsRef.current = acc;
-  }, [points]);
+  }, [cleanedUsers]);
+
+  // Toggle country layer interactivity based on zoom
+  const applyCountryLayerVisibility = () => {
+    const map = mapRef.current;
+    const layer = countriesLayerRef.current;
+    if (!map || !layer) return;
+    const zoom = map.getZoom();
+    const enable = zoom <= COUNTRY_LAYER_MAX_ZOOM;
+    layer.eachLayer((lyr: any) => {
+      if (lyr.setStyle) {
+        lyr.setStyle({
+          color: 'transparent',
+          weight: 0,
+          fillColor: '#000',
+          fillOpacity: enable ? 0.001 : 0,
+          interactive: enable,
+        });
+      }
+      // Leaflet does not re-evaluate `interactive` from setStyle for all layer types,
+      // toggle DOM pointer-events instead.
+      if (lyr.getElement) {
+        const el = lyr.getElement();
+        if (el) el.style.pointerEvents = enable ? '' : 'none';
+      }
+    });
+  };
 
   // Init map (once)
   useEffect(() => {
@@ -222,7 +308,7 @@ const UserWorldMap: React.FC<Props> = ({
       maxZoom: cfg.maxZoom,
     }).addTo(map);
 
-    // Country boundaries GeoJSON — invisible fill, clickable, hover outline
+    // Country boundaries GeoJSON — invisible fill, clickable only at low zoom
     fetch('/geo/countries-110m.geojson')
       .then((r) => (r.ok ? r.json() : null))
       .then((gj) => {
@@ -232,7 +318,7 @@ const UserWorldMap: React.FC<Props> = ({
             color: 'transparent',
             weight: 0,
             fillColor: '#000',
-            fillOpacity: 0.001, // effectively invisible, but clickable
+            fillOpacity: 0.001,
           }),
           onEachFeature: (feature: any, lyr: any) => {
             const name =
@@ -241,12 +327,15 @@ const UserWorldMap: React.FC<Props> = ({
               feature?.properties?.name ||
               '';
             lyr.on('mouseover', () => {
+              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
               lyr.setStyle({ color: '#fbbf24', weight: 2, fillOpacity: 0.05 });
             });
             lyr.on('mouseout', () => {
               try { (countriesLayerRef.current as any)?.resetStyle(lyr); } catch {}
+              applyCountryLayerVisibility();
             });
             lyr.on('click', (e: any) => {
+              if ((mapRef.current?.getZoom() ?? 0) > COUNTRY_LAYER_MAX_ZOOM) return;
               try {
                 const b = lyr.getBounds();
                 if (b && b.isValid()) {
@@ -269,12 +358,15 @@ const UserWorldMap: React.FC<Props> = ({
         });
         countriesLayerRef.current = layer;
         layer.addTo(mapRef.current);
+        applyCountryLayerVisibility();
       })
       .catch(() => {});
 
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
+      zoomToBoundsOnClick: true,
+      disableClusteringAtZoom: 12,
       maxClusterRadius: 50,
       iconCreateFunction: (c: any) => {
         const total = c.getAllChildMarkers().reduce((acc: number, m: any) => acc + (m.options.__count || 1), 0);
@@ -289,7 +381,10 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
+    map.on('zoomend', applyCountryLayerVisibility);
+
     return () => {
+      map.off('zoomend', applyCountryLayerVisibility);
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
@@ -311,7 +406,6 @@ const UserWorldMap: React.FC<Props> = ({
       maxZoom: cfg.maxZoom,
     }).addTo(map);
 
-    // Boundaries + place names overlay for satellite (classic OSM already has them)
     if (boundariesOverlayRef.current) {
       map.removeLayer(boundariesOverlayRef.current);
       boundariesOverlayRef.current = null;
@@ -323,46 +417,60 @@ const UserWorldMap: React.FC<Props> = ({
       ).addTo(map);
     }
 
-    // Keep the invisible country click-layer above tiles
     if (countriesLayerRef.current) {
       try { (countriesLayerRef.current as any).bringToFront(); } catch {}
+      applyCountryLayerVisibility();
     }
   }, [mapStyle]);
 
-  // Update markers when points change
+  // Update markers when groups change
   useEffect(() => {
     const cluster = clusterRef.current;
     const map = mapRef.current;
     if (!cluster || !map) return;
     cluster.clearLayers();
-    if (points.length === 0) return;
+    if (groups.length === 0) return;
 
-    const markers = points.map((p) => {
-      const radius = Math.max(6, Math.min(14, 5 + Math.log2(p.count + 1) * 2));
-      const marker: any = L.circleMarker([p.lat, p.lng], {
+    const markers = groups.map((g) => {
+      const count = g.users.length;
+      const radius = Math.max(6, Math.min(14, 5 + Math.log2(count + 1) * 2));
+      const marker: any = L.circleMarker([g.lat, g.lng], {
         radius,
         color: '#ffffff',
         weight: 1,
         fillColor: color,
-        fillOpacity: 0.85,
+        fillOpacity: 0.9,
       });
-      marker.options.__count = p.count;
-      const norm = normalizeCountry(p.country);
+      marker.options.__count = count;
+      const norm = normalizeCountry(g.country);
       const flag = norm.flag ? `${norm.flag} ` : '';
+      const MAX_NAMES = 20;
+      const names = g.users
+        .slice(0, MAX_NAMES)
+        .map((u) => escapeHtml(`${u.first_name}${u.last_initial ? ' ' + u.last_initial : ''}`.trim()))
+        .map((n) => `<li style="padding:2px 0">• ${n}</li>`)
+        .join('');
+      const extra = g.users.length > MAX_NAMES
+        ? `<div style="margin-top:4px;opacity:0.7">+ ${g.users.length - MAX_NAMES} więcej</div>`
+        : '';
+      const streetLine = g.street
+        ? `<div style="opacity:0.85">ul. ${escapeHtml(g.street)}</div>`
+        : '';
       marker.bindPopup(
-        `<div style="font-size:12px;line-height:1.4">
-          <div style="font-weight:600">${escapeHtml(p.city)}</div>
-          <div style="opacity:0.8">${flag}${escapeHtml(p.country || '')}</div>
-          <div style="margin-top:4px">${p.count} ${p.count === 1 ? 'użytkownik' : 'użytkowników'}</div>
+        `<div style="font-size:12px;line-height:1.5;min-width:180px;max-height:260px;overflow:auto">
+          <div style="font-weight:600">${escapeHtml(g.city)}</div>
+          <div style="opacity:0.8">${flag}${escapeHtml(g.country || '')}</div>
+          ${streetLine}
+          <div style="margin:6px 0 4px;font-weight:500">${count} ${count === 1 ? 'użytkownik' : 'użytkowników'}</div>
+          <ul style="list-style:none;padding:0;margin:0">${names}</ul>
+          ${extra}
         </div>`,
+        { maxWidth: 260 },
       );
       return marker;
     });
     cluster.addLayers(markers);
-
-    // Initial view stays fixed on Europe (DEFAULT_CENTER / DEFAULT_ZOOM).
-    // No automatic fitBounds — user can zoom manually or click a country.
-  }, [points, color]);
+  }, [groups, color]);
 
   // Ensure size is right when height/container changes
   useEffect(() => {
@@ -390,7 +498,7 @@ const UserWorldMap: React.FC<Props> = ({
             {!hideHeaderMeta && (
               <span className="flex items-center gap-1.5">
                 <span>
-                  Zlokalizowano <span className="text-emerald-600 font-medium">{located}</span> / {cleaned.length} miast
+                  Zlokalizowano <span className="text-emerald-600 font-medium">{locatedUsers}</span> / {totalUsers} użytkowników ({uniqueCities} miast)
                 </span>
                 {pending > 0 && (
                   <span className="flex items-center gap-1 text-sky-600">
@@ -398,7 +506,6 @@ const UserWorldMap: React.FC<Props> = ({
                     Geokoduję w tle: {pending}…
                   </span>
                 )}
-                {pending === 0 && missing > 0 && <span className="text-amber-600">· {missing} bez lokalizacji</span>}
               </span>
             )}
             <ToggleGroup
@@ -425,7 +532,7 @@ const UserWorldMap: React.FC<Props> = ({
                   pollAttemptsRef.current = 0;
                   geocodeCities(items, true).then(() => refetch());
                 }}
-                disabled={isFetching || missing === 0}
+                disabled={isFetching}
               >
                 <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
                 Odśwież
@@ -439,7 +546,7 @@ const UserWorldMap: React.FC<Props> = ({
           className="relative w-full overflow-hidden rounded-md"
           style={heightPx ? { height: heightPx } : { aspectRatio: '2 / 1' }}
         >
-          {isFetching && points.length === 0 && (
+          {isFetching && groups.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-[400]">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -496,7 +603,7 @@ const UserWorldMap: React.FC<Props> = ({
             </Button>
           </div>
 
-          {cleaned.length === 0 && (
+          {cleanedUsers.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground pointer-events-none z-[400]">
               Brak danych adresowych do wyświetlenia.
             </div>

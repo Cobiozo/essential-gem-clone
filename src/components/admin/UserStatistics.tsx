@@ -16,7 +16,29 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area, ComposedChart,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
-import UserWorldMap from './UserWorldMap';
+
+const UserWorldMapForAdmin: React.FC = () => {
+  const { data: users = [] } = useQuery({
+    queryKey: ['user-location-points-admin'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_user_location_points');
+      if (error || !Array.isArray(data)) return [] as UserLocationPoint[];
+      return data.map((r: any) => ({
+        user_id: r.user_id,
+        first_name: r.first_name || '',
+        last_initial: r.last_initial || '',
+        city: r.city,
+        country: r.country,
+        street: r.street || '',
+      })) as UserLocationPoint[];
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  return <UserWorldMap users={users} />;
+};
+
+import UserWorldMap, { UserLocationPoint } from './UserWorldMap';
 import DashboardMapSettings from './DashboardMapSettings';
 
 
@@ -406,7 +428,7 @@ const UserStatistics: React.FC = () => {
       <DashboardMapSettings />
 
       {/* Geografia */}
-      <UserWorldMap cities={stats.cities.map((c) => ({ city: c.label, country: c.country, count: c.count }))} />
+      <UserWorldMapForAdmin />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 

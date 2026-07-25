@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Item = { city: string; country: string };
+type Item = { city: string; country: string; street?: string };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,7 +26,7 @@ function isUnknownCountry(c: string): boolean {
   return !low || low === "nieznane" || low === "unknown" || low === "n/a";
 }
 
-async function nominatimSearch(city: string, country: string) {
+async function nominatimSearch(city: string, country: string, street: string) {
   const tryFetch = async (params: URLSearchParams) => {
     const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
     const r = await fetch(url, {
@@ -49,7 +49,32 @@ async function nominatimSearch(city: string, country: string) {
     return { lat, lng, display_country };
   };
 
-  // 1) structured search with city + country (if real country)
+  // 1) structured street+city+country (highest precision)
+  if (street && !isUnknownCountry(country)) {
+    const p = new URLSearchParams({
+      format: "json",
+      limit: "1",
+      addressdetails: "1",
+      street,
+      city,
+      country,
+    });
+    const r = await tryFetch(p);
+    if (r) return r;
+  }
+  if (street) {
+    const p = new URLSearchParams({
+      format: "json",
+      limit: "1",
+      addressdetails: "1",
+      street,
+      city,
+    });
+    const r = await tryFetch(p);
+    if (r) return r;
+  }
+
+  // 2) structured city + country
   if (!isUnknownCountry(country)) {
     const p = new URLSearchParams({
       format: "json",
@@ -62,7 +87,7 @@ async function nominatimSearch(city: string, country: string) {
     if (r) return r;
   }
 
-  // 2) structured city-only
+  // 3) structured city-only
   const p2 = new URLSearchParams({
     format: "json",
     limit: "1",
@@ -72,13 +97,13 @@ async function nominatimSearch(city: string, country: string) {
   const r2 = await tryFetch(p2);
   if (r2) return r2;
 
-  // 3) free-text q=
-  const q = isUnknownCountry(country) ? city : `${city}, ${country}`;
+  // 4) free-text q=
+  const parts = [street, city, isUnknownCountry(country) ? "" : country].filter(Boolean);
   const p3 = new URLSearchParams({
     format: "json",
     limit: "1",
     addressdetails: "1",
-    q,
+    q: parts.join(", "),
   });
   return await tryFetch(p3);
 }
@@ -94,10 +119,12 @@ async function processQueue(
 
   for (const it of items) {
     try {
+      const street = norm(it.street ?? "");
       // re-check cache (another invocation may have written it)
       const { data: existing } = await admin
         .from("city_geocache")
         .select("lat,lng,not_found,last_attempt_at")
+        .eq("street", street)
         .eq("city", it.city)
         .eq("country", it.country)
         .maybeSingle();
@@ -117,9 +144,10 @@ async function processQueue(
       }
       processed++;
 
-      const found = await nominatimSearch(it.city, it.country);
+      const found = await nominatimSearch(it.city, it.country, street);
       const { error: upErr } = await admin.from("city_geocache").upsert(
         {
+          street,
           city: it.city,
           country: it.country,
           lat: found?.lat ?? null,
@@ -129,12 +157,12 @@ async function processQueue(
           last_attempt_at: new Date().toISOString(),
           provider: "nominatim",
         },
-        { onConflict: "city,country" },
+        { onConflict: "street,city,country" },
       );
       if (upErr) console.error("[geocode-cities] upsert error", upErr);
       else {
         console.log(
-          `[geocode-cities] ${found ? "FOUND" : "MISS"} ${it.city} / ${it.country || "(no country)"}`,
+          `[geocode-cities] ${found ? "FOUND" : "MISS"} ${street ? street + ", " : ""}${it.city} / ${it.country || "(no country)"}`,
         );
       }
     } catch (e) {
@@ -195,12 +223,13 @@ Deno.serve(async (req) => {
     for (const it of rawItems) {
       const city = norm(it.city);
       let country = norm(it.country);
+      const street = norm(it.street ?? "");
       if (!city) continue;
       if (isUnknownCountry(country)) country = "";
-      const k = `${city.toLowerCase()}|${country.toLowerCase()}`;
+      const k = `${street.toLowerCase()}|${city.toLowerCase()}|${country.toLowerCase()}`;
       if (seen.has(k)) continue;
       seen.add(k);
-      unique.push({ city, country });
+      unique.push({ city, country, street });
     }
 
     if (unique.length === 0) {
@@ -212,12 +241,12 @@ Deno.serve(async (req) => {
     // Load cache for these items in one query
     const { data: cacheRows } = await admin
       .from("city_geocache")
-      .select("city,country,lat,lng,display_country,not_found,last_attempt_at");
+      .select("street,city,country,lat,lng,display_country,not_found,last_attempt_at");
 
     const cache = new Map<string, any>();
     (cacheRows ?? []).forEach((r: any) => {
       cache.set(
-        `${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}`,
+        `${(r.street || "").toLowerCase()}|${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}`,
         r,
       );
     });
@@ -226,6 +255,7 @@ Deno.serve(async (req) => {
     const results: Array<{
       city: string;
       country: string;
+      street: string;
       lat: number | null;
       lng: number | null;
       display_country: string | null;
@@ -233,13 +263,15 @@ Deno.serve(async (req) => {
     const pending: Item[] = [];
 
     for (const it of unique) {
-      const k = `${it.city.toLowerCase()}|${it.country.toLowerCase()}`;
+      const street = it.street ?? "";
+      const k = `${street.toLowerCase()}|${it.city.toLowerCase()}|${it.country.toLowerCase()}`;
       const cached = cache.get(k);
 
       if (cached?.lat != null && cached?.lng != null && !forceRetry) {
         results.push({
           city: it.city,
           country: it.country,
+          street,
           lat: cached.lat,
           lng: cached.lng,
           display_country: cached.display_country ?? null,
@@ -254,6 +286,7 @@ Deno.serve(async (req) => {
         results.push({
           city: it.city,
           country: it.country,
+          street,
           lat: null,
           lng: null,
           display_country: cached.display_country ?? null,
@@ -264,6 +297,7 @@ Deno.serve(async (req) => {
       results.push({
         city: it.city,
         country: it.country,
+        street,
         lat: null,
         lng: null,
         display_country: cached?.display_country ?? null,

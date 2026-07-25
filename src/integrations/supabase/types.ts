@@ -2279,6 +2279,7 @@ export type Database = {
           lng: number | null
           not_found: boolean
           provider: string | null
+          street: string
           updated_at: string
         }
         Insert: {
@@ -2292,6 +2293,7 @@ export type Database = {
           lng?: number | null
           not_found?: boolean
           provider?: string | null
+          street?: string
           updated_at?: string
         }
         Update: {
@@ -2305,6 +2307,7 @@ export type Database = {
           lng?: number | null
           not_found?: boolean
           provider?: string | null
+          street?: string
           updated_at?: string
         }
         Relationships: []
@@ -12150,6 +12153,17 @@ export type Database = {
         }[]
       }
       get_user_leader_ids: { Args: { p_user_id: string }; Returns: string[] }
+      get_user_location_points: {
+        Args: never
+        Returns: {
+          city: string
+          country: string
+          first_name: string
+          last_initial: string
+          street: string
+          user_id: string
+        }[]
+      }
       get_user_meeting_rooms: { Args: { p_user_id: string }; Returns: string[] }
       get_user_profiles_with_confirmation: {
         Args: never
