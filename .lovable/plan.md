@@ -1,42 +1,26 @@
-## Plan wdrożenia
+## Co jest nie tak (zweryfikowane w bazie i kodzie)
 
-1. **Pełne polskie etykiety na mapie**
-   - Zmienię popup po kliknięciu kraju tak, aby używał polskiej nazwy z GeoJSON (`NAME_PL`) zamiast angielskiej (`Poland`, `Germany`).
-   - Ujednolicę teksty w popupach i przy najmniejszych markerach: `użytkownik/użytkowników`, `miasto`, `kraj`, `więcej`, bez angielskich nazw z danych mapy.
+1. **„Austria — 4 użytkowników", a widać 1 znacznik.** Popup kraju liczy wszystkich użytkowników z danego kraju (`countryCountsRef` na podstawie surowej listy), a znaczniki powstają tylko dla adresów, które udało się zgeokodować. W bazie Austria ma 4 profile (Wien x3, Wiener Neustadt), z czego **tylko 1 jest aktywny** (`is_active = true`), reszta nieaktywna. Stąd rozjazd.
+2. **Rzeszów pokazuje „1 użytkownik".** Rzeszów ma w bazie 11 różnych kodów pocztowych (35-036, 35-083, 35-213, 35-317, 36002, brak kodu…). Obecna logika `ambiguousCityKeys` uznaje miasto za „niejednoznaczne", gdy występuje więcej niż jeden kod pocztowy, i geokoduje **osobno każdy kod** — powstaje kilkanaście osobnych punktów po 1–4 osoby zamiast jednego znacznika Rzeszowa.
+3. **Napis „Leaflet | Tiles © Esri"** w prawym dolnym rogu nie jest zasłonięty — kontrolki są ułożone pionowo powyżej.
 
-2. **Znaczniki po otwarciu najmniejszych clusterów**
-   - Po maksymalnym rozbiciu klastra / kliknięciu najmniejszych punktów popup ma pokazywać czytelną listę: miasto, kraj, liczba osób oraz imię + pierwsza litera nazwiska.
-   - Jeżeli w jednym punkcie jest wiele osób, lista pozostanie przewijalna i nie będzie rozpychać mapy.
+## Plan naprawy
 
-3. **Kod pocztowy jako warunek rozróżniania miast o tej samej nazwie**
-   - Rozszerzę typ danych mapy o `postal_code`.
-   - Zaktualizuję RPC `get_user_location_points()` tak, aby zwracało `postal_code` z profilu użytkownika.
-   - Zaktualizuję widget mapy, grupowanie i geokodowanie tak, aby klucz lokalizacji był oparty o:
-     ```text
-     miasto + kraj + kod pocztowy, jeśli kod pocztowy istnieje
-     miasto + kraj, jeśli kodu pocztowego brak
-     ```
-   - Edge Function `geocode-cities` dostanie `postalCode` i przekaże go do Nominatim jako część zapytania. Dzięki temu miejscowości o tej samej nazwie będą rozróżniane kodem pocztowym, ale użytkownicy bez kodu nadal będą działać na poziomie miasta.
+### 1. Filtr danych — tylko aktywni z kompletnym adresem
+Migracja: aktualizacja funkcji `get_user_location_points()` tak, aby zwracała wyłącznie profile, które mają jednocześnie:
+- `is_active = true`,
+- niepuste `city`, `country`, `postal_code`,
+- brak trwającego usuwania konta (`deletion_status` puste/`none`) i brak blokady (`blocked_at IS NULL`).
 
-4. **Trwały żółty kontur wybranego kraju**
-   - Dodam stan/refs dla aktywnie wybranego kraju.
-   - Po kliknięciu kraju jego granica zostanie żółta i pozostanie widoczna do kliknięcia innego kraju lub resetu mapy.
-   - Poprawię `mouseout`, żeby nie kasował stylu aktywnego kraju.
+Dodatkowo poprawka dostępu: obecnie funkcja zwraca dane tylko adminowi (`has_role(auth.uid(),'admin')`), więc dla pozostałych ról widget pokazuje wyłącznie stary cache z localStorage. Widoczność mapy i tak jest sterowana ustawieniami `dashboard_map_settings`, więc funkcja będzie zwracać dane każdemu zalogowanemu użytkownikowi (dane są anonimizowane: imię + inicjał nazwiska).
 
-5. **Dokładniejsze odzwierciedlenie granic**
-   - Obecny plik `countries-110m.geojson` jest uproszczony, więc nie daje idealnego konturu przy przybliżeniu.
-   - Zamienię albo dołożę dokładniejszy plik granic, np. `countries-50m.geojson` z Natural Earth, i użyję go dla warstwy klikanej/podświetlanej.
-   - Granice satelitarne pozostaną widoczne, ale nie będą przechwytywać kliknięć markerów.
+### 2. Spójne liczniki i grupowanie (`src/components/admin/UserWorldMap.tsx`)
+- **Geokodowanie po `miasto|kraj`** — rezygnacja z rozbijania po kodzie pocztowym w obrębie tego samego miasta i kraju. Kod pocztowy pozostaje wysyłany jako pomocniczy parametr zapytania (pierwszy pasujący, do trafności geokodera), ale klucz grupowania to miasto+kraj, więc wszyscy z Rzeszowa trafią do jednego znacznika. Nazwy miast powtarzające się w różnych krajach nadal rozróżnia kraj.
+- **Popup kraju liczy tylko te osoby, które są faktycznie naniesione na mapę** (suma z grup znaczników w danym kraju), więc „4 użytkowników" nigdy nie rozjedzie się z liczbą na znacznikach. Jeśli część adresów czeka na geokodowanie, popup dopisuje informację „(x oczekuje na lokalizację)".
 
-6. **Weryfikacja**
-   - Sprawdzę w podglądzie: przełącznik klasyczna/satelitarna, klik w Polskę, trwały żółty kontur, polskie nazwy w popupach oraz popup najmniejszego punktu/klastra.
-   - Zweryfikuję, że kod pocztowy przechodzi od RPC przez frontend do Edge Function i cache geokodowania.
+### 3. Kontrolki nad napisem Leaflet
+Kontener przycisków `+ / − / reset` zmieniony z pionowego na **poziomy pasek w prawym dolnym rogu** (`bottom-0 right-0`, tło `bg-background/90`, zaokrąglony lewy górny róg), o wysokości i szerokości wystarczającej, by całkowicie zakryć atrybucję Leaflet/Esri.
 
-## Pliki do zmiany
-
+## Pliki
+- migracja SQL: `get_user_location_points()`
 - `src/components/admin/UserWorldMap.tsx`
-- `src/components/dashboard/widgets/UserWorldMapWidget.tsx`
-- `src/components/admin/UserStatistics.tsx` jeśli korzysta z tego samego typu punktów mapy
-- `supabase/functions/geocode-cities/index.ts`
-- nowa migracja Supabase aktualizująca `get_user_location_points()`
-- potencjalnie `public/geo/countries-50m.geojson` jako dokładniejsza warstwa granic
