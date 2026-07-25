@@ -720,17 +720,19 @@ const UserWorldMap: React.FC<Props> = ({
 
           <div ref={mapContainerRef} className="absolute inset-0" />
 
-          <div className="absolute bottom-3 right-3 flex flex-col gap-1 z-[500]">
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn}>
+          {/* Horizontal control bar pinned to the bottom-right corner — fully covers the Leaflet/Esri attribution */}
+          <div className="absolute bottom-0 right-0 flex flex-row items-center gap-1 z-[500] bg-background/95 backdrop-blur rounded-tl-md border-t border-l pl-1.5 pr-1 py-1">
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn} aria-label="Przybliż">
               <Plus className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut}>
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut} aria-label="Oddal">
               <Minus className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset}>
+            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset} aria-label="Resetuj mapę">
               <RotateCcw className="h-3 w-3" />
             </Button>
           </div>
+
 
           {cleanedUsers.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground pointer-events-none z-[400]">
