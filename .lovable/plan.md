@@ -1,32 +1,42 @@
-## Co jest nie tak (zweryfikowane)
+## Plan wdrożenia
 
-- **Geolokalizacja**: w bazie `city_geocache` jest **153 wpisy, wszystkie z współrzędnymi, ale wszystkie bez ulicy**. Frontend od ostatniej zmiany buduje klucz `ulica|miasto|kraj`, a 160 z 172 profili ma wypełnioną ulicę — więc prawie każde zapytanie **nie trafia w cache** i ląduje w wolnej kolejce Nominatim (1,1 s/wpis, z limitami). Stąd „Zlokalizowano 12 / 172".
-- **Drugie logo**: w `UserWorldMap.tsx` prawy logotyp liczony jest jako `logoRightUrl ?? (logoLeftUrl === undefined ? DEFAULT_RIGHT : '')` — gdy admin ustawi tylko lewe logo, prawe dostaje pusty string i **nigdy się nie renderuje**.
-- **Klik w kraj**: warstwa GeoJSON krajów jest dodawana przy `preferCanvas: true` z `fillOpacity: 0.001` i ręcznym przełączaniem `pointer-events` przez `getElement()` — przy rendererze canvas ta metoda nie działa jak przy SVG, więc kliknięcia nie docierają do polygonów i `flyToBounds` się nie uruchamia.
+1. **Pełne polskie etykiety na mapie**
+   - Zmienię popup po kliknięciu kraju tak, aby używał polskiej nazwy z GeoJSON (`NAME_PL`) zamiast angielskiej (`Poland`, `Germany`).
+   - Ujednolicę teksty w popupach i przy najmniejszych markerach: `użytkownik/użytkowników`, `miasto`, `kraj`, `więcej`, bez angielskich nazw z danych mapy.
 
-## Plan naprawy
+2. **Znaczniki po otwarciu najmniejszych clusterów**
+   - Po maksymalnym rozbiciu klastra / kliknięciu najmniejszych punktów popup ma pokazywać czytelną listę: miasto, kraj, liczba osób oraz imię + pierwsza litera nazwiska.
+   - Jeżeli w jednym punkcie jest wiele osób, lista pozostanie przewijalna i nie będzie rozpychać mapy.
 
-### 1. Geolokalizacja wszystkich użytkowników — precyzja do miasta
-- W `src/components/admin/UserWorldMap.tsx` zmienić klucz geokodowania na **`miasto|kraj`** (bez ulicy), zgodnie z prośbą. Ulica zostaje tylko jako informacja w popupie, nie wpływa na punkt.
-- Dzięki temu 153 istniejące wpisy cache trafiają od razu — mapa pokazuje komplet użytkowników bez czekania na Nominatim.
-- Grupowanie markerów po współrzędnych miasta; popup: miasto, kraj (flaga), liczba użytkowników i lista „Imię N.".
-- Wyliczyć i dokłdanie pokazać w nagłówku „Zlokalizowano X / Y użytkowników (Z miast)"; brakujące miasta (nowe, spoza cache) nadal dogeokodowane w tle z licznikiem „Geokoduję w tle".
-- W widżecie `UserWorldMapWidget.tsx` nic nie zmieniamy w źródle danych (RPC `get_user_location_points` już zwraca po jednym rekordzie na użytkownika).
+3. **Kod pocztowy jako warunek rozróżniania miast o tej samej nazwie**
+   - Rozszerzę typ danych mapy o `postal_code`.
+   - Zaktualizuję RPC `get_user_location_points()` tak, aby zwracało `postal_code` z profilu użytkownika.
+   - Zaktualizuję widget mapy, grupowanie i geokodowanie tak, aby klucz lokalizacji był oparty o:
+     ```text
+     miasto + kraj + kod pocztowy, jeśli kod pocztowy istnieje
+     miasto + kraj, jeśli kodu pocztowego brak
+     ```
+   - Edge Function `geocode-cities` dostanie `postalCode` i przekaże go do Nominatim jako część zapytania. Dzięki temu miejscowości o tej samej nazwie będą rozróżniane kodem pocztowym, ale użytkownicy bez kodu nadal będą działać na poziomie miasta.
 
-### 2. Drugie logo
-- Poprawić logikę w `UserWorldMap.tsx`: lewy i prawy logotyp niezależnie — jeśli admin ustawił URL, użyj go; jeśli nie, użyj domyślnego (Pure Life po lewej, Eqology IBP po prawej). Pusty string w ustawieniach = świadome ukrycie danego logo.
-- Separator między logotypami tylko gdy oba widoczne.
+4. **Trwały żółty kontur wybranego kraju**
+   - Dodam stan/refs dla aktywnie wybranego kraju.
+   - Po kliknięciu kraju jego granica zostanie żółta i pozostanie widoczna do kliknięcia innego kraju lub resetu mapy.
+   - Poprawię `mouseout`, żeby nie kasował stylu aktywnego kraju.
 
-### 3. Klik w kraj = przybliżenie
-- Wyłączyć `preferCanvas` dla warstwy krajów: renderować GeoJSON przez `L.svg()` we własnym panie (poniżej markerów), z widocznym cienkim obrysem granic i minimalnym wypełnieniem.
-- Klik w kraj → `flyToBounds(bounds, { padding, maxZoom: 7 })` + popup z nazwą kraju i liczbą użytkowników; hover podświetla obrys.
-- Zamiast ręcznego manipulowania `pointer-events` — sterować przez `removeLayer/addLayer` panelu krajów przy zoomie > 6, tak aby markery pozostały klikalne po przybliżeniu.
-- Granice widoczne również w trybie satelitarnym (obecna nakładka Esri zostaje, GeoJSON dodaje spójny obrys).
+5. **Dokładniejsze odzwierciedlenie granic**
+   - Obecny plik `countries-110m.geojson` jest uproszczony, więc nie daje idealnego konturu przy przybliżeniu.
+   - Zamienię albo dołożę dokładniejszy plik granic, np. `countries-50m.geojson` z Natural Earth, i użyję go dla warstwy klikanej/podświetlanej.
+   - Granice satelitarne pozostaną widoczne, ale nie będą przechwytywać kliknięć markerów.
 
-## Szczegóły techniczne
+6. **Weryfikacja**
+   - Sprawdzę w podglądzie: przełącznik klasyczna/satelitarna, klik w Polskę, trwały żółty kontur, polskie nazwy w popupach oraz popup najmniejszego punktu/klastra.
+   - Zweryfikuję, że kod pocztowy przechodzi od RPC przez frontend do Edge Function i cache geokodowania.
 
-Pliki do zmiany:
-- `src/components/admin/UserWorldMap.tsx` — klucz geokodowania (usunięcie `street`), logika logotypów, warstwa krajów na rendererze SVG w dedykowanym panie, obsługa zoomu.
-- `supabase/functions/geocode-cities/index.ts` — priorytet miasto+kraj, ulica ignorowana w kluczu cache (zachowanie zgodności z istniejącymi 153 wpisami).
+## Pliki do zmiany
 
-Bez zmian w schemacie bazy — istniejący cache `city_geocache` (city, country) jest w pełni wykorzystany.
+- `src/components/admin/UserWorldMap.tsx`
+- `src/components/dashboard/widgets/UserWorldMapWidget.tsx`
+- `src/components/admin/UserStatistics.tsx` jeśli korzysta z tego samego typu punktów mapy
+- `supabase/functions/geocode-cities/index.ts`
+- nowa migracja Supabase aktualizująca `get_user_location_points()`
+- potencjalnie `public/geo/countries-50m.geojson` jako dokładniejsza warstwa granic
