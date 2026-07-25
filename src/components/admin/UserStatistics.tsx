@@ -16,7 +16,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend, AreaChart, Area, ComposedChart,
 } from 'recharts';
 import { normalizeCountry } from '@/lib/countryFlags';
-import UserWorldMap from './UserWorldMap';
+import UserWorldMap, { UserLocationPoint } from './UserWorldMap';
 import DashboardMapSettings from './DashboardMapSettings';
 
 
