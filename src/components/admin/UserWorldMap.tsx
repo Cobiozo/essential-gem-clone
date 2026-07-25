@@ -220,29 +220,34 @@ const UserWorldMap: React.FC<Props> = ({
     [users],
   );
 
-  const ambiguousCityKeys = useMemo(() => {
-    const postalByCity = new Map<string, Set<string>>();
+  // One representative postal code per city|country (most frequent), used only to
+  // improve geocoder accuracy — grouping stays at city+country level so all users
+  // from the same city land on a single marker.
+  const representativePostal = useMemo(() => {
+    const counts = new Map<string, Map<string, number>>();
     cleanedUsers.forEach((u) => {
-      const postal = postalCodeOf(u).toLowerCase().replace(/\s+/g, '');
+      const postal = postalCodeOf(u);
       if (!postal) return;
       const base = baseCityKeyOf(u);
-      const set = postalByCity.get(base) ?? new Set<string>();
-      set.add(postal);
-      postalByCity.set(base, set);
+      const m = counts.get(base) ?? new Map<string, number>();
+      m.set(postal, (m.get(postal) || 0) + 1);
+      counts.set(base, m);
     });
-    const out = new Set<string>();
-    postalByCity.forEach((set, base) => {
-      if (set.size > 1) out.add(base);
+    const out = new Map<string, string>();
+    counts.forEach((m, base) => {
+      let best = '';
+      let bestN = 0;
+      m.forEach((n, postal) => {
+        if (n > bestN) { bestN = n; best = postal; }
+      });
+      if (best) out.set(base, best);
     });
     return out;
   }, [cleanedUsers]);
 
-  const postalForGeocode = (u: UserLocationPoint) => {
-    const base = baseCityKeyOf(u);
-    return ambiguousCityKeys.has(base) ? postalCodeOf(u) : '';
-  };
+  const postalForGeocode = (u: UserLocationPoint) => representativePostal.get(baseCityKeyOf(u)) || '';
 
-  // Unique geocode items (city|country, postal only for duplicate city names)
+  // Unique geocode items (one per city|country)
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
@@ -254,7 +259,8 @@ const UserWorldMap: React.FC<Props> = ({
       out.push(it);
     });
     return out;
-  }, [cleanedUsers, ambiguousCityKeys]);
+  }, [cleanedUsers, representativePostal]);
+
 
   const queryKey = useMemo(
     () => ['geocode-cities-v3', items.map((i) => keyOf(i)).sort().join(',')],
