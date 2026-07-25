@@ -223,12 +223,13 @@ Deno.serve(async (req) => {
     for (const it of rawItems) {
       const city = norm(it.city);
       let country = norm(it.country);
+      const street = norm(it.street ?? "");
       if (!city) continue;
       if (isUnknownCountry(country)) country = "";
-      const k = `${city.toLowerCase()}|${country.toLowerCase()}`;
+      const k = `${street.toLowerCase()}|${city.toLowerCase()}|${country.toLowerCase()}`;
       if (seen.has(k)) continue;
       seen.add(k);
-      unique.push({ city, country });
+      unique.push({ city, country, street });
     }
 
     if (unique.length === 0) {
@@ -240,12 +241,12 @@ Deno.serve(async (req) => {
     // Load cache for these items in one query
     const { data: cacheRows } = await admin
       .from("city_geocache")
-      .select("city,country,lat,lng,display_country,not_found,last_attempt_at");
+      .select("street,city,country,lat,lng,display_country,not_found,last_attempt_at");
 
     const cache = new Map<string, any>();
     (cacheRows ?? []).forEach((r: any) => {
       cache.set(
-        `${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}`,
+        `${(r.street || "").toLowerCase()}|${(r.city || "").toLowerCase()}|${(r.country || "").toLowerCase()}`,
         r,
       );
     });
@@ -254,6 +255,7 @@ Deno.serve(async (req) => {
     const results: Array<{
       city: string;
       country: string;
+      street: string;
       lat: number | null;
       lng: number | null;
       display_country: string | null;
@@ -261,13 +263,15 @@ Deno.serve(async (req) => {
     const pending: Item[] = [];
 
     for (const it of unique) {
-      const k = `${it.city.toLowerCase()}|${it.country.toLowerCase()}`;
+      const street = it.street ?? "";
+      const k = `${street.toLowerCase()}|${it.city.toLowerCase()}|${it.country.toLowerCase()}`;
       const cached = cache.get(k);
 
       if (cached?.lat != null && cached?.lng != null && !forceRetry) {
         results.push({
           city: it.city,
           country: it.country,
+          street,
           lat: cached.lat,
           lng: cached.lng,
           display_country: cached.display_country ?? null,
@@ -282,6 +286,7 @@ Deno.serve(async (req) => {
         results.push({
           city: it.city,
           country: it.country,
+          street,
           lat: null,
           lng: null,
           display_country: cached.display_country ?? null,
@@ -292,6 +297,7 @@ Deno.serve(async (req) => {
       results.push({
         city: it.city,
         country: it.country,
+        street,
         lat: null,
         lng: null,
         display_country: cached?.display_country ?? null,
