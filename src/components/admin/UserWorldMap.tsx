@@ -220,10 +220,8 @@ const UserWorldMap: React.FC<Props> = ({
 
     const byCoord = new Map<string, LocationGroup>();
     cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: u.street || '' };
-      const coord = coordMap.get(keyOf(it));
+      const coord = coordMap.get(keyOf({ city: u.city, country: u.country }));
       if (!coord) return;
-      // Round to ~1m so effectively-identical addresses share a marker
       const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
       let grp = byCoord.get(ck);
       if (!grp) {
@@ -231,7 +229,7 @@ const UserWorldMap: React.FC<Props> = ({
           key: ck,
           city: u.city,
           country: u.country,
-          street: u.street || '',
+          street: '',
           lat: coord.lat,
           lng: coord.lng,
           users: [],
