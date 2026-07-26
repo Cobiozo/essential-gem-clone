@@ -405,8 +405,16 @@ const UserWorldMap: React.FC<Props> = ({
         icon: createMarkerIcon(count, color, allInactive),
       });
       marker.options.__count = count;
+      marker.options.__group = g;
       // Lazy popup content — built only when the user opens it.
-      marker.bindPopup(() => buildGroupPopupHtml(g), { maxWidth: 260, className: 'pl-popup' });
+      marker.bindPopup(() => buildGroupPopupHtml(g), {
+        maxWidth: 260,
+        className: 'pl-popup',
+        autoPan: true,
+        autoPanPadding: [24, 24],
+        keepInView: true,
+        offset: [0, -Math.round(count < 10 ? 14 : count < 50 ? 17 : 20)],
+      });
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
         direction: 'top',
         offset: [0, -12],
