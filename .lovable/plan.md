@@ -1,33 +1,71 @@
-## 1. Panel administratora — zwinięty sidebar i start na „Użytkownicy”
+## Cel
 
-Sprawdzone w kodzie:
-- `src/pages/Admin.tsx` (linia 321): domyślna zakładka to `content` („Zarządzanie sekcjami”).
-- `src/components/admin/AdminSidebar.tsx`: kategoria otwiera się automatycznie, gdy zawiera aktywną pozycję (`openCategoryId === category.id || category.items.some(isNavItemActive)`), więc po wejściu zawsze jedna grupa jest rozwinięta.
+Kompleksowy refaktoring modułu mapy użytkowników PLC: poprawna geometria granic państw (bez terytoriów zamorskich), premium warstwa wizualna/animacyjna, lepszy UX i wydajność — bez zmiany API komponentu (`Props` w `UserWorldMap`), struktury danych ani logiki biznesowej (geokodowanie, grupowanie, zliczanie użytkowników pozostaje bez zmian).
 
-Zmiany:
-- Domyślna zakładka: `searchParams.get('tab') || 'users'`.
-- Sidebar: rozwijanie tylko na podstawie `openCategoryId` (oraz trybu wyszukiwania) — usunięcie automatycznego otwierania po aktywnej pozycji, `openCategoryId` startuje jako `null`. Efekt: po wejściu wszystkie zakładki zwinięte, otwierają się dopiero po kliknięciu.
+## 1. Naprawa geometrii państw (priorytet)
 
-## 2. Przyciski nawigacji mapy
+Nowy moduł `src/lib/geoSanitize.ts` — uniwersalny, bez wyjątków per-kraj:
 
-W `src/components/admin/UserWorldMap.tsx` pasek kontrolek (linia ~724) jest przyklejony do samego rogu i przykrywa atrybucję. Zmiana:
-- Powiększenie przycisków (ikony i pola dotykowe ok. 40 px zamiast obecnych małych).
-- Przesunięcie paska w lewo od napisu „Leaflet | Tiles © Esri” (offset od prawej krawędzi), tak aby przyciski były **przed** napisem, a nie na nim.
+- Wejście: surowy FeatureCollection z `/geo/countries-50m.geojson`.
+- Dla każdego `Feature` typu `MultiPolygon`:
+  1. Policz przybliżone pole każdego ringu zewnętrznego (wzór shoelace na współrzędnych geograficznych, skalowany przez `cos(lat)` — wystarczająco dokładny do rankingu).
+  2. Wyznacz polygon największy = „rdzeń kraju”.
+  3. Zachowaj tylko te polygony, które: są rdzeniem **lub** leżą w promieniu progowym od rdzenia (centroid w odległości < ~1000 km) **oraz** mieszczą się w oknie kontynentalnym wyznaczonym dynamicznie z rdzenia.
+  4. Odrzuć resztę (terytoria zamorskie, wyspy zależne).
+- Dla `Polygon` — bez zmian.
+- Wynik: nowy FeatureCollection, liczony **raz** i cache'owany w module (mapa modułowa), więc kolejne montowania komponentu nie przeliczają geometrii.
 
-## 3. Brak użytkowników/clusterów na mapie — przyczyna i naprawa
+Efekt: Francja bez Gujany/Reunion, Norwegia bez Svalbardu, Dania bez Grenlandii, Portugalia bez Azorów/Madery, Hiszpania bez Kanarów, Holandia bez Karaibów, UK bez terytoriów zamorskich — wynikające z reguły odległościowej, nie z listy wyjątków. `getBounds()` po kliknięciu kraju obejmuje wtedy tylko część główną, więc `flyToBounds` przybliża poprawnie.
 
-Zweryfikowane w bazie:
-- Warunki funkcji `get_user_location_points()` spełnia **96 profili** — dane są, więc problem nie leży po stronie RPC.
-- Tabela `city_geocache` ma **153 wpisy**, ale wszystkie z **pustym `postal_code`** (klucz `miasto|kraj`).
-- Frontend od ostatniej zmiany dokleja do klucza reprezentatywny kod pocztowy (`miasto|kraj|kod`), więc każde miasto trafia w **cache miss** → wszyscy lądują w „oczekuje na lokalizację” (73 na zrzucie), a cluster nie ma czego pokazać.
+## 2. Warstwa wizualna i animacje
 
-Naprawa (tylko frontend, bez migracji):
-- Zapytanie o geokodowanie wysyła dla każdego miasta **dwa klucze**: z kodem pocztowym (precyzja przy powtarzających się nazwach miast) i bazowy `miasto|kraj`.
-- Przy przypisywaniu współrzędnych: najpierw klucz z kodem pocztowym, przy braku — fallback do bazowego `miasto|kraj` (trafia w istniejący cache 153 miast), a dopiero brak obu = „oczekuje na lokalizację”.
-- Fallback także dla profili z pustym krajem: dopasowanie po samym mieście.
-- Podbicie wersji klucza `localStorage` cache geokodowania, żeby stare puste wyniki nie blokowały renderu.
-- Kod pocztowy używany do rozróżniania miast o tej samej nazwie pozostaje bez zmian; clustry i liczniki w popupach krajów liczone na tej samej, poprawionej liście.
+Nowy plik stylów mapy dołączony do `src/index.css` (sekcja mapy, wyłącznie tokeny semantyczne):
+
+- **Markery**: wejście `scale-in` z opóźnieniem kaskadowym, subtelny pierścień pulsujący (`@keyframes` z `transform`/`opacity`, GPU-friendly), hover z lekkim uniesieniem.
+- **Klastry**: animowane rozdzielanie (`animateAddingMarkers: true`, `spiderfyDistanceMultiplier`), płynne skalowanie ikony.
+- **Popupy**: fade + scale in/out z easingiem, zaokrąglenia i cień w stylu premium.
+- **Kraje**: przejście koloru/wypełnienia przez CSS `transition` na ścieżkach SVG (hover i stan wybrany), zamiast twardej podmiany stylu.
+- **Przełączanie warstw**: nowa warstwa kafli dodawana z `opacity: 0`, po `load` fade-in i dopiero wtedy usunięcie starej — koniec migotania.
+- **Pierwsze załadowanie**: fade-in kontenera + delikatny `flyTo` z pozycji lekko oddalonej.
+- Wszystkie animacje respektują `prefers-reduced-motion`.
+
+## 3. UX
+
+- Auto-dopasowanie widoku (`fitBounds`) do wszystkich zgeokodowanych użytkowników przy pierwszym udanym załadowaniu punktów (tylko raz, nie przy każdej aktualizacji).
+- Klik klastra: `zoomToBoundsOnClick` z dłuższą, wygładzoną animacją.
+- Przycisk „wstecz” obok zoom/reset — powrót do poprzedniego widoku (stos ostatnich widoków, max 10).
+- Skalowanie markerów zależne od poziomu zoomu (klasa CSS na kontenerze mapy przełączana przy `zoomend`, bez re-renderu Reacta).
+- Zachowany obecny układ przycisków w prawym dolnym rogu.
+
+## 4. Wydajność
+
+- `escapeHtml`, builder HTML popupu i ikony wydzielone do modułu pomocniczego; treść popupu tworzona **leniwie** (`bindPopup(fn)`) zamiast dla wszystkich markerów naraz.
+- Handlery (`applyCountryLayerVisibility`, `resetActiveCountry`, zoom/reset) w `useCallback`/`useRef`, listenery rejestrowane raz z poprawnym cleanupem.
+- Jeden delegowany zestaw handlerów na warstwie GeoJSON zamiast trzech listenerów na każdy z ~240 krajów.
+- Geometria filtrowana raz i memoizowana modułowo; `canvas`/`svg` renderer bez ponownego tworzenia.
+- Aktualizacja markerów bez pełnego `clearLayers()` gdy zestaw grup jest identyczny (porównanie po kluczach).
+- `requestAnimationFrame` + `ResizeObserver` zamiast `setTimeout` do `invalidateSize`.
+
+## 5. Refaktoring struktury
+
+Rozbicie 768-liniowego pliku, przy zachowaniu domyślnego eksportu i tego samego `Props`:
+
+```text
+src/components/admin/UserWorldMap.tsx        // komponent (UI + orkiestracja), API bez zmian
+src/components/admin/user-world-map/
+  constants.ts        // TILE_LAYERS, style krajów, zoomy
+  geocodeCache.ts     // cache localStorage + geocodeCities (bez zmian logiki)
+  useUserGroups.ts    // memoizacja items/queryKey/groups/liczników
+  markers.ts          // ikony + HTML popupów
+  countriesLayer.ts   // ładowanie i konfiguracja warstwy krajów
+src/lib/geoSanitize.ts // filtr geometrii kontynentalnej
+```
 
 ## Szczegóły techniczne
-- Pliki: `src/pages/Admin.tsx`, `src/components/admin/AdminSidebar.tsx`, `src/components/admin/UserWorldMap.tsx`.
-- Brak zmian w bazie i w Edge Function `geocode-cities` — istniejący cache miast zostaje wykorzystany, brakujące miasta dogeokodują się w tle jak dotąd.
+
+- Zależności bez zmian (`leaflet`, `leaflet.markercluster` już obecne).
+- `/geo/countries-50m.geojson` pozostaje źródłem; filtrowanie po stronie klienta przy pierwszym fetchu (wynik w module-cache).
+- Brak zmian w bazie danych, RPC `get_user_location_points`, edge function `geocode-cities` i w `UserWorldMapWidget.tsx`.
+- Weryfikacja: Playwright — zrzuty po kliknięciu Francji, Norwegii i Danii oraz sprawdzenie płynności przełączania warstw.
+
+Uwaga: widoczne na zrzucie „Francja — 0 użytkowników” to kwestia danych/geokodowania, nie geometrii; ten plan nie zmienia liczenia użytkowników. Mogę to zbadać osobno, jeśli chcesz.
