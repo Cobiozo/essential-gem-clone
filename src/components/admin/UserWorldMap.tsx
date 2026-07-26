@@ -52,6 +52,24 @@ interface Props {
   logoRightUrl?: string;
 }
 
+/** Popup sizing/panning that adapts to the real map container size (mobile/tablet/desktop). */
+const responsivePopupOptions = (map: any): L.PopupOptions => {
+  const size = map?.getSize?.() ?? { x: 640, y: 480 };
+  const compact = size.x < 640;
+  const maxWidth = Math.max(170, Math.min(260, size.x - (compact ? 40 : 64)));
+  const maxHeight = Math.max(140, Math.round(size.y * (compact ? 0.5 : 0.6)));
+  const pad = compact ? 12 : 24;
+  return {
+    maxWidth,
+    maxHeight,
+    autoPan: true,
+    // Extra top-left room so the popup never hides under the logo overlay.
+    autoPanPaddingTopLeft: L.point(pad, compact ? 56 : 72),
+    autoPanPaddingBottomRight: L.point(pad, compact ? 56 : 64),
+    keepInView: true,
+  };
+};
+
 const DEFAULT_LEFT_LOGO =
   'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
 
@@ -234,6 +252,25 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
+    // Make sure an opened popup is always fully inside the map viewport.
+    map.on('popupopen', (e: any) => {
+      const opts = responsivePopupOptions(map);
+      const el = e.popup?.getElement?.() as HTMLElement | undefined;
+      if (el) el.style.maxWidth = `${opts.maxWidth}px`;
+      window.setTimeout(() => {
+        try {
+          map.panInside(e.popup.getLatLng(), {
+            paddingTopLeft: opts.autoPanPaddingTopLeft,
+            paddingBottomRight: opts.autoPanPaddingBottomRight,
+          });
+        } catch {
+          /* map removed */
+        }
+      }, 60);
+    });
+
+
+
     // Click on a cluster → info popup anchored right next to the cluster icon.
     cluster.on('clusterclick', (e: any) => {
       const layer = e.layer;
@@ -247,11 +284,8 @@ const UserWorldMap: React.FC<Props> = ({
       layer.closeTooltip?.();
 
       const popup = L.popup({
+        ...responsivePopupOptions(map),
         className: 'pl-popup',
-        maxWidth: 260,
-        autoPan: true,
-        autoPanPadding: [24, 24],
-        keepInView: true,
         offset: [0, -Math.round(size / 2) - 4],
       })
         .setLatLng(layer.getLatLng())
@@ -408,11 +442,8 @@ const UserWorldMap: React.FC<Props> = ({
       marker.options.__group = g;
       // Lazy popup content — built only when the user opens it.
       marker.bindPopup(() => buildGroupPopupHtml(g), {
-        maxWidth: 260,
+        ...responsivePopupOptions(map),
         className: 'pl-popup',
-        autoPan: true,
-        autoPanPadding: [24, 24],
-        keepInView: true,
         offset: [0, -Math.round(count < 10 ? 14 : count < 50 ? 17 : 20)],
       });
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {

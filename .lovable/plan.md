@@ -1,22 +1,29 @@
-## Cel
+## Problem
 
-Po kliknięciu w klaster (i w pojedynczy znacznik) okno informacyjne ma pojawiać się bezpośrednio przy tym klastrze, a nie w oderwanym miejscu mapy.
+Dymek (popup) klastra/markera na mapie „Nasi użytkownicy PLC” zostaje ucięty na krawędzi kontenera mapy — na desktopie widać tylko fragment okna, a na tablecie/mobile dymek o szerokości 260 px nie mieści się przy wąskim kontenerze.
 
 ## Co zrobię
 
-1. **Popup dla klastra** (`src/components/admin/UserWorldMap.tsx`)
-   - Podpięcie obsługi `clusterclick` do warstwy klastrującej: zamiast domyślnego zoomu, otwarcie popupu zakotwiczonego w `latlng` klastra, z listą miast i liczbą użytkowników (dane z `layer.getAllChildMarkers()`).
-   - Popup dostaje `offset` w górę o wysokość ikony klastra, żeby „dymek" stykał się z kółkiem klastra.
-   - Zoom do zawartości klastra zostaje dostępny jako przycisk w popupie („Przybliż"), żeby nie tracić obecnej funkcji.
+**1. Popup zawsze w widocznym obszarze**
+- Włączyć `autoPan` z większym marginesem (`autoPanPadding` ok. 32 px, na mobile 12 px) i `keepInView: true` dla obu typów dymków (klaster i marker).
+- Po otwarciu dymka wywołać `map.panInside(latlng, { padding })`, żeby Leaflet dosunął widok, gdy dymek wystaje poza kontener.
+- Dodać `autoPanPaddingTopLeft` uwzględniające logo w lewym górnym rogu, aby dymek nie chował się pod nakładką z logotypami.
 
-2. **Stabilne kotwiczenie popupu**
-   - Popupy markerów i klastrów: `autoPan: true` z `autoPanPadding`, `keepInView: true` oraz `closeOnClick`, tak aby przy przesunięciu mapy dymek nadal wskazywał na znacznik.
-   - Usunięcie kolizji z animacją: popup otwierany po zakończeniu ewentualnego ruchu mapy (`map.once('moveend')`), co eliminuje obecny efekt „popup w rogu, znacznik gdzie indziej".
+**2. Responsywne rozmiary dymka**
+- Szerokość liczona z rzeczywistej szerokości kontenera mapy: `maxWidth = min(260, szerokość - 48)`, minimum ~180 px.
+- Na mobile (<640 px) zmniejszona czcionka, mniejszy padding i `max-height` listy miejscowości (ok. 40% wysokości mapy) z własnym przewijaniem.
+- Przycisk „Przybliż” i przycisk zamknięcia powiększone do minimum 32 px celu dotykowego.
 
-3. **Treść popupu klastra** (`src/components/admin/user-world-map/markers.ts`)
-   - Nowa funkcja budująca HTML popupu klastra: nagłówek z liczbą użytkowników i liczbą lokalizacji, lista miast (max ~8 + „i X więcej"), spójna z obecnym stylem `pl-popup`.
+**3. Poprawki CSS mapy dla tablet/mobile**
+- `.pl-popup .leaflet-popup-content` — responsywny `max-width`/`max-height` z `overflow:auto`, `overscroll-behavior: contain`.
+- Media query <768 px: mniejsze ikony markerów/klastrów, mniejszy pasek kontrolek zoomu, aby nie zasłaniały dymka.
+- Zapewnić, że kontener mapy nie ma `overflow: hidden` obcinającego warstwę popupów (jeśli ma — przenieść zaokrąglenie na wrapper i pozostawić pane popupów widoczny w granicach mapy).
 
 ## Szczegóły techniczne
 
-- Pliki: `src/components/admin/UserWorldMap.tsx`, `src/components/admin/user-world-map/markers.ts`, ewentualnie drobny styl w `src/index.css` dla przycisku w popupie klastra.
-- Bez zmian w bazie danych i logice pobierania punktów.
+Pliki:
+- `src/components/admin/UserWorldMap.tsx` — opcje popupów (klaster: ok. linii 248-256, marker: ok. 409-417), obliczanie `maxWidth` z `map.getSize()`, `panInside` po `popupopen`.
+- `src/components/admin/user-world-map/markers.ts` — usunięcie inline `min-width:180px` na rzecz klas CSS, ograniczenie listy z przewijaniem.
+- `src/index.css` — klasy `.pl-popup` responsywne + media query mobile.
+
+Bez zmian w logice danych, RPC ani filtrach użytkowników.
