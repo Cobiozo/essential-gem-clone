@@ -252,6 +252,25 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
+    // Make sure an opened popup is always fully inside the map viewport.
+    map.on('popupopen', (e: any) => {
+      const opts = responsivePopupOptions(map);
+      const el = e.popup?.getElement?.() as HTMLElement | undefined;
+      if (el) el.style.maxWidth = `${opts.maxWidth}px`;
+      window.setTimeout(() => {
+        try {
+          map.panInside(e.popup.getLatLng(), {
+            paddingTopLeft: opts.autoPanPaddingTopLeft,
+            paddingBottomRight: opts.autoPanPaddingBottomRight,
+          });
+        } catch {
+          /* map removed */
+        }
+      }, 60);
+    });
+
+
+
     // Click on a cluster → info popup anchored right next to the cluster icon.
     cluster.on('clusterclick', (e: any) => {
       const layer = e.layer;
