@@ -493,6 +493,19 @@ All colors MUST be HSL.
   from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.96); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
+.pl-popup .pl-popup__zoom {
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  transition: opacity 150ms ease;
+}
+.pl-popup .pl-popup__zoom:hover { opacity: 0.9; }
 
 /* Smooth tile layer cross-fade (classic <-> satellite) */
 .pl-tile-layer {
