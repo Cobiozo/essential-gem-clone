@@ -82,6 +82,7 @@ export const LeaderApprovalView: React.FC = () => {
   }
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-4">
       <Card>
         <CardHeader>
