@@ -12162,6 +12162,7 @@ export type Database = {
           city: string
           country: string
           first_name: string
+          is_inactive: boolean
           last_initial: string
           postal_code: string
           street: string
