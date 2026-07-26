@@ -298,15 +298,23 @@ const UserWorldMap: React.FC<Props> = ({
   // Group users by geocoded coordinates
   const groups = useMemo<LocationGroup[]>(() => {
     const coordMap = new Map<string, { lat: number; lng: number }>();
+    const cityOnlyMap = new Map<string, { lat: number; lng: number }>();
     geo.forEach((g) => {
       if (g && typeof g.lat === 'number' && typeof g.lng === 'number' && isFinite(g.lat) && isFinite(g.lng)) {
         coordMap.set(keyOf(g), { lat: g.lat, lng: g.lng });
+        const cityKey = (g.city || '').toLowerCase().trim();
+        if (cityKey && !cityOnlyMap.has(cityKey)) cityOnlyMap.set(cityKey, { lat: g.lat, lng: g.lng });
       }
     });
 
     const byCoord = new Map<string, LocationGroup>();
     cleanedUsers.forEach((u) => {
-      const coord = coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: postalForGeocode(u) }));
+      const postal = postalForGeocode(u);
+      // 1) postal-code keyed match, 2) plain city|country, 3) city-only fallback
+      const coord =
+        (postal ? coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: postal })) : undefined) ??
+        coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: '' })) ??
+        cityOnlyMap.get((u.city || '').toLowerCase().trim());
       if (!coord) return;
       const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
       let grp = byCoord.get(ck);
@@ -316,7 +324,7 @@ const UserWorldMap: React.FC<Props> = ({
           city: u.city,
           country: u.country,
           street: '',
-          postalCode: postalForGeocode(u),
+          postalCode: postal,
           lat: coord.lat,
           lng: coord.lng,
           users: [],
