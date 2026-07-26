@@ -564,6 +564,30 @@ All colors MUST be HSL.
 }
 .pl-point-marker-icon:hover .pl-point-marker { transform: scale(1.12) translateY(-2px); }
 
+/* Muted marker — location where every user account is inactive/auto-blocked */
+.pl-point-marker--muted { opacity: 0.55; filter: saturate(0.5); }
+.pl-point-marker--muted .pl-point-marker__pulse { display: none; }
+
+/* Premium hover tooltip for markers and clusters */
+.leaflet-tooltip.pl-map-tooltip {
+  background: hsl(var(--popover) / 0.96);
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -8px hsl(var(--foreground) / 0.35);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(6px);
+  animation: pl-popup-in 160ms ease-out both;
+}
+.leaflet-tooltip.pl-map-tooltip::before { display: none; }
+.pl-map-tip { display: flex; flex-direction: column; line-height: 1.35; white-space: nowrap; }
+.pl-map-tip__title { font-weight: 600; }
+.pl-map-tip__count { opacity: 0.75; font-size: 11px; }
+
+
+
 @keyframes pl-marker-in {
   from { opacity: 0; transform: scale(0.4); }
   to { opacity: 1; transform: scale(1); }
