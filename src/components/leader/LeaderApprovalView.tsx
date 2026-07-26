@@ -291,6 +291,7 @@ export const LeaderApprovalView: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
