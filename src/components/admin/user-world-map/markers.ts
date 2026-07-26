@@ -62,7 +62,7 @@ export const buildGroupPopupHtml = (g: LocationGroup): string => {
     ? `<div style="opacity:0.85">Kod pocztowy: ${escapeHtml(g.postalCode)}</div>`
     : '';
 
-  return `<div style="font-size:12px;line-height:1.5;min-width:180px;max-height:260px;overflow:auto">
+  return `<div class="pl-popup__body">
       <div style="font-weight:600">${escapeHtml(g.city)}</div>
       <div style="opacity:0.8">${flag}${escapeHtml(g.country || '')}</div>
       ${postalLine}
@@ -100,7 +100,7 @@ export const buildClusterPopupHtml = (groups: LocationGroup[]): string => {
       ? `<div style="margin-top:4px;opacity:.7">+ ${groups.length - MAX_PLACES} więcej</div>`
       : '';
 
-  return `<div style="font-size:12px;line-height:1.5;min-width:180px;max-height:260px;overflow:auto">
+  return `<div class="pl-popup__body">
       <div style="font-weight:600">${users} ${usersWord(users)}</div>
       <div style="opacity:.8">${groups.length} ${groups.length === 1 ? 'miejscowość' : 'miejscowości'}</div>
       <ul style="list-style:none;padding:0;margin:6px 0 0">${rows}</ul>
