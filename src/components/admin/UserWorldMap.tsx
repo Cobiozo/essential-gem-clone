@@ -247,11 +247,8 @@ const UserWorldMap: React.FC<Props> = ({
       layer.closeTooltip?.();
 
       const popup = L.popup({
+        ...responsivePopupOptions(map),
         className: 'pl-popup',
-        maxWidth: 260,
-        autoPan: true,
-        autoPanPadding: [24, 24],
-        keepInView: true,
         offset: [0, -Math.round(size / 2) - 4],
       })
         .setLatLng(layer.getLatLng())
