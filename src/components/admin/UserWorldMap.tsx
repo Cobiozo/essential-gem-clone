@@ -33,7 +33,7 @@ type GeocodeResult = {
   lng: number | null;
 };
 
-const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v3';
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v4';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
 
 // Precision: city + country, with postal code only when needed to disambiguate duplicate city names.
@@ -247,16 +247,22 @@ const UserWorldMap: React.FC<Props> = ({
 
   const postalForGeocode = (u: UserLocationPoint) => representativePostal.get(baseCityKeyOf(u)) || '';
 
-  // Unique geocode items (one per city|country)
+  // Unique geocode items — for every city we request BOTH the postal-code keyed
+  // variant (precision for duplicate city names) and the plain city|country
+  // variant, which hits the existing city-level cache immediately.
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
-    cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: '', postalCode: postalForGeocode(u) };
+    const push = (it: GeocodeItem) => {
       const k = keyOf(it);
       if (seen.has(k)) return;
       seen.add(k);
       out.push(it);
+    };
+    cleanedUsers.forEach((u) => {
+      push({ city: u.city, country: u.country, street: '', postalCode: '' });
+      const postal = postalForGeocode(u);
+      if (postal) push({ city: u.city, country: u.country, street: '', postalCode: postal });
     });
     return out;
   }, [cleanedUsers, representativePostal]);
@@ -292,15 +298,23 @@ const UserWorldMap: React.FC<Props> = ({
   // Group users by geocoded coordinates
   const groups = useMemo<LocationGroup[]>(() => {
     const coordMap = new Map<string, { lat: number; lng: number }>();
+    const cityOnlyMap = new Map<string, { lat: number; lng: number }>();
     geo.forEach((g) => {
       if (g && typeof g.lat === 'number' && typeof g.lng === 'number' && isFinite(g.lat) && isFinite(g.lng)) {
         coordMap.set(keyOf(g), { lat: g.lat, lng: g.lng });
+        const cityKey = (g.city || '').toLowerCase().trim();
+        if (cityKey && !cityOnlyMap.has(cityKey)) cityOnlyMap.set(cityKey, { lat: g.lat, lng: g.lng });
       }
     });
 
     const byCoord = new Map<string, LocationGroup>();
     cleanedUsers.forEach((u) => {
-      const coord = coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: postalForGeocode(u) }));
+      const postal = postalForGeocode(u);
+      // 1) postal-code keyed match, 2) plain city|country, 3) city-only fallback
+      const coord =
+        (postal ? coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: postal })) : undefined) ??
+        coordMap.get(keyOf({ city: u.city, country: u.country, postalCode: '' })) ??
+        cityOnlyMap.get((u.city || '').toLowerCase().trim());
       if (!coord) return;
       const ck = `${coord.lat.toFixed(5)}|${coord.lng.toFixed(5)}`;
       let grp = byCoord.get(ck);
@@ -310,7 +324,7 @@ const UserWorldMap: React.FC<Props> = ({
           city: u.city,
           country: u.country,
           street: '',
-          postalCode: postalForGeocode(u),
+          postalCode: postal,
           lat: coord.lat,
           lng: coord.lng,
           users: [],
@@ -720,16 +734,16 @@ const UserWorldMap: React.FC<Props> = ({
 
           <div ref={mapContainerRef} className="absolute inset-0" />
 
-          {/* Horizontal control bar pinned to the bottom-right corner — fully covers the Leaflet/Esri attribution */}
-          <div className="absolute bottom-0 right-0 flex flex-row items-center gap-1 z-[500] bg-background/95 backdrop-blur rounded-tl-md border-t border-l pl-1.5 pr-1 py-1">
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn} aria-label="Przybliż">
-              <Plus className="h-3 w-3" />
+          {/* Horizontal control bar in the bottom-right corner, placed BEFORE (to the left of) the Leaflet attribution */}
+          <div className="absolute bottom-1 right-[200px] flex flex-row items-center gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1.5 py-1">
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomIn} aria-label="Przybliż">
+              <Plus className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut} aria-label="Oddal">
-              <Minus className="h-3 w-3" />
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomOut} aria-label="Oddal">
+              <Minus className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset} aria-label="Resetuj mapę">
-              <RotateCcw className="h-3 w-3" />
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleReset} aria-label="Resetuj mapę">
+              <RotateCcw className="h-5 w-5" />
             </Button>
           </div>
 

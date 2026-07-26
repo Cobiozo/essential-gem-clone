@@ -318,7 +318,7 @@ const Admin = () => {
   });
   // Admin tab persistence via URL query params
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'content';
+  const activeTab = searchParams.get('tab') || 'users';
   
   const setActiveTab = useCallback((tab: string) => {
     setSearchParams(prev => {
