@@ -80,6 +80,35 @@ export const buildMarkerTooltipHtml = (g: LocationGroup): string =>
       <span class="pl-map-tip__count">${g.users.length} ${usersWord(g.users.length)}</span>
     </div>`;
 
+const MAX_PLACES = 8;
+
+/** Popup shown right next to a cluster when it is clicked. */
+export const buildClusterPopupHtml = (groups: LocationGroup[]): string => {
+  const users = groups.reduce((acc, g) => acc + g.users.length, 0);
+  const rows = groups
+    .slice(0, MAX_PLACES)
+    .map(
+      (g) =>
+        `<li style="display:flex;justify-content:space-between;gap:12px;padding:2px 0">
+          <span>${escapeHtml(g.city)}</span>
+          <span style="opacity:.7">${g.users.length}</span>
+        </li>`,
+    )
+    .join('');
+  const extra =
+    groups.length > MAX_PLACES
+      ? `<div style="margin-top:4px;opacity:.7">+ ${groups.length - MAX_PLACES} więcej</div>`
+      : '';
+
+  return `<div style="font-size:12px;line-height:1.5;min-width:180px;max-height:260px;overflow:auto">
+      <div style="font-weight:600">${users} ${usersWord(users)}</div>
+      <div style="opacity:.8">${groups.length} ${groups.length === 1 ? 'miejscowość' : 'miejscowości'}</div>
+      <ul style="list-style:none;padding:0;margin:6px 0 0">${rows}</ul>
+      ${extra}
+      <button type="button" data-pl-zoom="1" class="pl-popup__zoom">Przybliż</button>
+    </div>`;
+};
+
 /** Hover tooltip for a cluster — total users + number of locations. */
 export const buildClusterTooltipHtml = (users: number, places: number): string =>
   `<div class="pl-map-tip">

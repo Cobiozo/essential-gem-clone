@@ -22,13 +22,16 @@ import {
   selectedCountryStyle,
   type MapStyle,
   type UserLocationPoint,
+  type LocationGroup,
 } from './user-world-map/constants';
 import { geocodeCities } from './user-world-map/geocodeCache';
 import { useUserGroups } from './user-world-map/useUserGroups';
 import {
+  buildClusterPopupHtml,
   buildClusterTooltipHtml,
   buildGroupPopupHtml,
   buildMarkerTooltipHtml,
+  clusterSizeFor,
   createClusterIcon,
   createMarkerIcon,
 } from './user-world-map/markers';
@@ -214,7 +217,7 @@ const UserWorldMap: React.FC<Props> = ({
     const cluster = (L as any).markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
-      zoomToBoundsOnClick: true,
+      zoomToBoundsOnClick: false,
       disableClusteringAtZoom: 12,
       maxClusterRadius: 50,
       animate: !prefersReducedMotion(),
@@ -230,6 +233,44 @@ const UserWorldMap: React.FC<Props> = ({
     });
     clusterRef.current = cluster;
     map.addLayer(cluster);
+
+    // Click on a cluster → info popup anchored right next to the cluster icon.
+    cluster.on('clusterclick', (e: any) => {
+      const layer = e.layer;
+      const children = layer.getAllChildMarkers();
+      const groupsInCluster = children
+        .map((m: any) => m.options.__group)
+        .filter(Boolean) as LocationGroup[];
+      const users = groupsInCluster.reduce((acc, g) => acc + g.users.length, 0);
+      const size = clusterSizeFor(users);
+
+      layer.closeTooltip?.();
+
+      const popup = L.popup({
+        className: 'pl-popup',
+        maxWidth: 260,
+        autoPan: true,
+        autoPanPadding: [24, 24],
+        keepInView: true,
+        offset: [0, -Math.round(size / 2) - 4],
+      })
+        .setLatLng(layer.getLatLng())
+        .setContent(buildClusterPopupHtml(groupsInCluster));
+
+      popup.on('add', () => {
+        const el = popup.getElement();
+        el?.querySelector('[data-pl-zoom]')?.addEventListener('click', () => {
+          map.closePopup(popup);
+          try {
+            layer.zoomToBounds({ padding: [40, 40] });
+          } catch {
+            /* degenerate bounds */
+          }
+        });
+      });
+
+      popup.openOn(map);
+    });
 
     // Hover on a cluster → show how many users (and locations) it contains.
     cluster.on('clustermouseover', (e: any) => {
@@ -248,6 +289,7 @@ const UserWorldMap: React.FC<Props> = ({
       e.layer.closeTooltip();
       e.layer.unbindTooltip();
     });
+
 
     const onZoomEnd = () => {
       applyCountryLayerVisibility();
@@ -363,8 +405,16 @@ const UserWorldMap: React.FC<Props> = ({
         icon: createMarkerIcon(count, color, allInactive),
       });
       marker.options.__count = count;
+      marker.options.__group = g;
       // Lazy popup content — built only when the user opens it.
-      marker.bindPopup(() => buildGroupPopupHtml(g), { maxWidth: 260, className: 'pl-popup' });
+      marker.bindPopup(() => buildGroupPopupHtml(g), {
+        maxWidth: 260,
+        className: 'pl-popup',
+        autoPan: true,
+        autoPanPadding: [24, 24],
+        keepInView: true,
+        offset: [0, -Math.round(count < 10 ? 14 : count < 50 ? 17 : 20)],
+      });
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
         direction: 'top',
         offset: [0, -12],
