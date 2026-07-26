@@ -22,6 +22,7 @@ import {
   selectedCountryStyle,
   type MapStyle,
   type UserLocationPoint,
+  type LocationGroup,
 } from './user-world-map/constants';
 import { geocodeCities } from './user-world-map/geocodeCache';
 import { useUserGroups } from './user-world-map/useUserGroups';
