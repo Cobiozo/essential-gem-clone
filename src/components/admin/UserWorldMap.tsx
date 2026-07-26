@@ -25,7 +25,13 @@ import {
 } from './user-world-map/constants';
 import { geocodeCities } from './user-world-map/geocodeCache';
 import { useUserGroups } from './user-world-map/useUserGroups';
-import { buildGroupPopupHtml, createClusterIcon, createMarkerIcon } from './user-world-map/markers';
+import {
+  buildClusterTooltipHtml,
+  buildGroupPopupHtml,
+  buildMarkerTooltipHtml,
+  createClusterIcon,
+  createMarkerIcon,
+} from './user-world-map/markers';
 import { createCountriesLayer, resetCountryStyle } from './user-world-map/countriesLayer';
 
 export type { UserLocationPoint };
