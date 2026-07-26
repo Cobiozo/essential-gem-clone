@@ -247,16 +247,22 @@ const UserWorldMap: React.FC<Props> = ({
 
   const postalForGeocode = (u: UserLocationPoint) => representativePostal.get(baseCityKeyOf(u)) || '';
 
-  // Unique geocode items (one per city|country)
+  // Unique geocode items — for every city we request BOTH the postal-code keyed
+  // variant (precision for duplicate city names) and the plain city|country
+  // variant, which hits the existing city-level cache immediately.
   const items = useMemo<GeocodeItem[]>(() => {
     const seen = new Set<string>();
     const out: GeocodeItem[] = [];
-    cleanedUsers.forEach((u) => {
-      const it = { city: u.city, country: u.country, street: '', postalCode: postalForGeocode(u) };
+    const push = (it: GeocodeItem) => {
       const k = keyOf(it);
       if (seen.has(k)) return;
       seen.add(k);
       out.push(it);
+    };
+    cleanedUsers.forEach((u) => {
+      push({ city: u.city, country: u.country, street: '', postalCode: '' });
+      const postal = postalForGeocode(u);
+      if (postal) push({ city: u.city, country: u.country, street: '', postalCode: postal });
     });
     return out;
   }, [cleanedUsers, representativePostal]);
