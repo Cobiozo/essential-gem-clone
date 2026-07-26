@@ -12,10 +12,10 @@ export function escapeHtml(s: string): string {
 export const markerSizeFor = (count: number) => (count < 10 ? 28 : count < 50 ? 34 : 40);
 export const clusterSizeFor = (count: number) => (count < 10 ? 32 : count < 50 ? 40 : 48);
 
-export const createMarkerIcon = (count: number, color: string) => {
+export const createMarkerIcon = (count: number, color: string, muted = false) => {
   const size = markerSizeFor(count);
   return L.divIcon({
-    html: `<div class="pl-point-marker" style="--pl-marker-color:${color};width:${size}px;height:${size}px">
+    html: `<div class="pl-point-marker${muted ? ' pl-point-marker--muted' : ''}" style="--pl-marker-color:${color};width:${size}px;height:${size}px">
         <span class="pl-point-marker__pulse"></span>
         <span class="pl-point-marker__value">${count}</span>
       </div>`,
