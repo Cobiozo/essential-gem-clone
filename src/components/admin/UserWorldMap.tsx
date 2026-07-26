@@ -720,16 +720,16 @@ const UserWorldMap: React.FC<Props> = ({
 
           <div ref={mapContainerRef} className="absolute inset-0" />
 
-          {/* Horizontal control bar pinned to the bottom-right corner — fully covers the Leaflet/Esri attribution */}
-          <div className="absolute bottom-0 right-0 flex flex-row items-center gap-1 z-[500] bg-background/95 backdrop-blur rounded-tl-md border-t border-l pl-1.5 pr-1 py-1">
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomIn} aria-label="Przybliż">
-              <Plus className="h-3 w-3" />
+          {/* Horizontal control bar in the bottom-right corner, placed BEFORE (to the left of) the Leaflet attribution */}
+          <div className="absolute bottom-1 right-[200px] flex flex-row items-center gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1.5 py-1">
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomIn} aria-label="Przybliż">
+              <Plus className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleZoomOut} aria-label="Oddal">
-              <Minus className="h-3 w-3" />
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomOut} aria-label="Oddal">
+              <Minus className="h-5 w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-7 w-7" onClick={handleReset} aria-label="Resetuj mapę">
-              <RotateCcw className="h-3 w-3" />
+            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleReset} aria-label="Resetuj mapę">
+              <RotateCcw className="h-5 w-5" />
             </Button>
           </div>
 
