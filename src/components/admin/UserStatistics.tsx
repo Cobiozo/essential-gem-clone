@@ -30,6 +30,8 @@ const UserWorldMapForAdmin: React.FC = () => {
         city: r.city,
         country: r.country,
         street: r.street || '',
+        postal_code: r.postal_code || '',
+        is_inactive: !!r.is_inactive,
       })) as UserLocationPoint[];
     },
     staleTime: 60_000,

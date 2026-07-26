@@ -11,8 +11,10 @@ const widthClass = (w: 'full' | 'two_thirds' | 'half') => {
   return 'col-span-full lg:max-w-[50%] lg:mx-auto w-full';
 };
 
-const CACHE_KEY = 'userWorldMap.userPoints.v2';
-try { localStorage.removeItem('userWorldMap.userPoints.v1'); } catch {}
+const CACHE_KEY = 'userWorldMap.userPoints.v5';
+try {
+  ['v1', 'v2', 'v3', 'v4'].forEach((v) => localStorage.removeItem(`userWorldMap.userPoints.${v}`));
+} catch {}
 const QUERY_KEY = ['user-location-points'];
 
 const readCache = (): UserLocationPoint[] => {
@@ -42,6 +44,7 @@ const fetchUserPoints = async (): Promise<UserLocationPoint[]> => {
     country: r.country,
     street: r.street || '',
     postal_code: r.postal_code || '',
+    is_inactive: !!r.is_inactive,
   }));
   if (rows.length > 0) writeCache(rows);
   return rows;

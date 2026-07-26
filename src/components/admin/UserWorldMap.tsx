@@ -25,7 +25,13 @@ import {
 } from './user-world-map/constants';
 import { geocodeCities } from './user-world-map/geocodeCache';
 import { useUserGroups } from './user-world-map/useUserGroups';
-import { buildGroupPopupHtml, createClusterIcon, createMarkerIcon } from './user-world-map/markers';
+import {
+  buildClusterTooltipHtml,
+  buildGroupPopupHtml,
+  buildMarkerTooltipHtml,
+  createClusterIcon,
+  createMarkerIcon,
+} from './user-world-map/markers';
 import { createCountriesLayer, resetCountryStyle } from './user-world-map/countriesLayer';
 
 export type { UserLocationPoint };
@@ -225,6 +231,24 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
+    // Hover on a cluster → show how many users (and locations) it contains.
+    cluster.on('clustermouseover', (e: any) => {
+      const children = e.layer.getAllChildMarkers();
+      const users = children.reduce((acc: number, m: any) => acc + (m.options.__count || 1), 0);
+      e.layer
+        .bindTooltip(buildClusterTooltipHtml(users, children.length), {
+          direction: 'top',
+          offset: [0, -14],
+          opacity: 1,
+          className: 'pl-map-tooltip',
+        })
+        .openTooltip();
+    });
+    cluster.on('clustermouseout', (e: any) => {
+      e.layer.closeTooltip();
+      e.layer.unbindTooltip();
+    });
+
     const onZoomEnd = () => {
       applyCountryLayerVisibility();
       applyZoomScaleClass();
@@ -334,10 +358,19 @@ const UserWorldMap: React.FC<Props> = ({
 
     const markers = groups.map((g) => {
       const count = g.users.length;
-      const marker: any = L.marker([g.lat, g.lng], { icon: createMarkerIcon(count, color) });
+      const allInactive = g.users.every((u) => u.is_inactive);
+      const marker: any = L.marker([g.lat, g.lng], {
+        icon: createMarkerIcon(count, color, allInactive),
+      });
       marker.options.__count = count;
       // Lazy popup content — built only when the user opens it.
       marker.bindPopup(() => buildGroupPopupHtml(g), { maxWidth: 260, className: 'pl-popup' });
+      marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
+        direction: 'top',
+        offset: [0, -12],
+        opacity: 1,
+        className: 'pl-map-tooltip',
+      });
       return marker;
     });
     cluster.addLayers(markers);

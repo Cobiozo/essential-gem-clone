@@ -24,6 +24,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   CheckCircle,
   XCircle,
   Loader2,
@@ -31,6 +37,8 @@ import {
   Clock,
   Users,
   Mail,
+  MailCheck,
+  AlertTriangle,
   User,
 } from 'lucide-react';
 
@@ -74,6 +82,7 @@ export const LeaderApprovalView: React.FC = () => {
   }
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-4">
       <Card>
         <CardHeader>
@@ -110,12 +119,14 @@ export const LeaderApprovalView: React.FC = () => {
                     <TableHead>Opiekun</TableHead>
                     <TableHead>Data rejestracji</TableHead>
                     <TableHead>Zatw. opiekuna</TableHead>
+                    <TableHead>E-mail potwierdzony</TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pendingApprovals.map((person) => {
                     const isProcessing = processingId === person.user_id;
+                    const emailConfirmed = !!person.email_confirmed_at;
                     return (
                       <TableRow key={person.user_id}>
                         <TableCell>
@@ -166,22 +177,55 @@ export const LeaderApprovalView: React.FC = () => {
                               : '—'}
                           </div>
                         </TableCell>
+                        <TableCell>
+                          {emailConfirmed ? (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-green-600/40 text-green-700 dark:text-green-400"
+                            >
+                              <MailCheck className="h-3.5 w-3.5" />
+                              {format(new Date(person.email_confirmed_at!), 'd MMM yyyy', {
+                                locale: pl,
+                              })}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              Nie potwierdził e-maila
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="gap-1.5"
-                              disabled={isProcessing || isApproving || isRejecting}
-                              onClick={() => handleApprove(person.user_id)}
-                            >
-                              {isProcessing && isApproving ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-3.5 w-3.5" />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="gap-1.5"
+                                    disabled={
+                                      !emailConfirmed || isProcessing || isApproving || isRejecting
+                                    }
+                                    onClick={() => handleApprove(person.user_id)}
+                                  >
+                                    {isProcessing && isApproving ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    )}
+                                    Zatwierdź
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              {!emailConfirmed && (
+                                <TooltipContent>
+                                  Zatwierdzenie możliwe dopiero po potwierdzeniu adresu e-mail przez
+                                  użytkownika.
+                                </TooltipContent>
                               )}
-                              Zatwierdź
-                            </Button>
+                            </Tooltip>
+
                             <Button
                               size="sm"
                               variant="outline"
@@ -247,6 +291,7 @@ export const LeaderApprovalView: React.FC = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 

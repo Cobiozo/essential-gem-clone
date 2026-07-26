@@ -12032,9 +12032,12 @@ export type Database = {
         Returns: {
           created_at: string
           email: string
+          email_activated: boolean
+          email_confirmed_at: string
           eq_id: string
           first_name: string
           guardian_approved_at: string
+          is_active: boolean
           last_name: string
           upline_eq_id: string
           upline_first_name: string

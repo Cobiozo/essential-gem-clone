@@ -8,6 +8,8 @@ export type UserLocationPoint = {
   country: string;
   street: string;
   postal_code?: string;
+  /** Konto zablokowane automatycznie (nieaktywność) lub nieaktywne. */
+  is_inactive?: boolean;
 };
 
 export type LocationGroup = {

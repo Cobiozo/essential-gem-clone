@@ -14,6 +14,9 @@ export interface PendingLeaderApproval {
   upline_last_name: string | null;
   created_at: string;
   guardian_approved_at: string | null;
+  email_confirmed_at: string | null;
+  email_activated: boolean | null;
+  is_active: boolean | null;
 }
 
 export function useLeaderApprovals(hasApprovalPermission?: boolean) {
