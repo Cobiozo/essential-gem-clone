@@ -24,6 +24,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   CheckCircle,
   XCircle,
   Loader2,
@@ -31,6 +37,8 @@ import {
   Clock,
   Users,
   Mail,
+  MailCheck,
+  AlertTriangle,
   User,
 } from 'lucide-react';
 
