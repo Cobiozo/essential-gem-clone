@@ -26,9 +26,11 @@ import {
 import { geocodeCities } from './user-world-map/geocodeCache';
 import { useUserGroups } from './user-world-map/useUserGroups';
 import {
+  buildClusterPopupHtml,
   buildClusterTooltipHtml,
   buildGroupPopupHtml,
   buildMarkerTooltipHtml,
+  clusterSizeFor,
   createClusterIcon,
   createMarkerIcon,
 } from './user-world-map/markers';
