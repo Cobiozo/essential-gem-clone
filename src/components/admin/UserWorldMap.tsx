@@ -340,10 +340,19 @@ const UserWorldMap: React.FC<Props> = ({
 
     const markers = groups.map((g) => {
       const count = g.users.length;
-      const marker: any = L.marker([g.lat, g.lng], { icon: createMarkerIcon(count, color) });
+      const allInactive = g.users.every((u) => u.is_inactive);
+      const marker: any = L.marker([g.lat, g.lng], {
+        icon: createMarkerIcon(count, color, allInactive),
+      });
       marker.options.__count = count;
       // Lazy popup content — built only when the user opens it.
       marker.bindPopup(() => buildGroupPopupHtml(g), { maxWidth: 260, className: 'pl-popup' });
+      marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
+        direction: 'top',
+        offset: [0, -12],
+        opacity: 1,
+        className: 'pl-map-tooltip',
+      });
       return marker;
     });
     cluster.addLayers(markers);
