@@ -110,12 +110,14 @@ export const LeaderApprovalView: React.FC = () => {
                     <TableHead>Opiekun</TableHead>
                     <TableHead>Data rejestracji</TableHead>
                     <TableHead>Zatw. opiekuna</TableHead>
+                    <TableHead>E-mail potwierdzony</TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pendingApprovals.map((person) => {
                     const isProcessing = processingId === person.user_id;
+                    const emailConfirmed = !!person.email_confirmed_at;
                     return (
                       <TableRow key={person.user_id}>
                         <TableCell>
