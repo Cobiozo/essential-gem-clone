@@ -33,7 +33,7 @@ type GeocodeResult = {
   lng: number | null;
 };
 
-const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v3';
+const GEOCODE_CACHE_KEY = 'userWorldMap.geocodeCache.v4';
 type GeocodeCache = Record<string, { lat: number; lng: number; ts: number }>;
 
 // Precision: city + country, with postal code only when needed to disambiguate duplicate city names.
