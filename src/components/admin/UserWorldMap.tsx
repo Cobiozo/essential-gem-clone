@@ -231,6 +231,24 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
+    // Hover on a cluster → show how many users (and locations) it contains.
+    cluster.on('clustermouseover', (e: any) => {
+      const children = e.layer.getAllChildMarkers();
+      const users = children.reduce((acc: number, m: any) => acc + (m.options.__count || 1), 0);
+      e.layer
+        .bindTooltip(buildClusterTooltipHtml(users, children.length), {
+          direction: 'top',
+          offset: [0, -14],
+          opacity: 1,
+          className: 'pl-map-tooltip',
+        })
+        .openTooltip();
+    });
+    cluster.on('clustermouseout', (e: any) => {
+      e.layer.closeTooltip();
+      e.layer.unbindTooltip();
+    });
+
     const onZoomEnd = () => {
       applyCountryLayerVisibility();
       applyZoomScaleClass();
