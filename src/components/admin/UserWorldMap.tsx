@@ -34,6 +34,7 @@ import {
   clusterSizeFor,
   createClusterIcon,
   createMarkerIcon,
+  markerSizeFor,
 } from './user-world-map/markers';
 import { createCountriesLayer, resetCountryStyle } from './user-world-map/countriesLayer';
 
@@ -69,6 +70,58 @@ const responsivePopupOptions = (map: any): L.PopupOptions => {
     keepInView: true,
   };
 };
+
+type PopupSide = 'top' | 'bottom' | 'left' | 'right';
+
+/**
+ * Picks the side of the icon where the popup fits best inside the current
+ * viewport: above by default, below when the point sits high in the frame, and
+ * sideways when there is not enough vertical room at all.
+ */
+const popupPlacementFor = (
+  map: any,
+  latlng: L.LatLng,
+  iconHalf: number,
+  popupEl?: HTMLElement | null,
+): { side: PopupSide; offset: L.Point } => {
+  const size = map?.getSize?.() ?? L.point(640, 480);
+  const compact = size.x < 640;
+  const pt = map.latLngToContainerPoint(latlng);
+
+  const measured = popupEl?.getBoundingClientRect?.();
+  const popupH = Math.max(90, Math.round(measured?.height || Math.min(size.y * 0.5, 220)));
+  const popupW = Math.max(160, Math.round(measured?.width || Math.min(size.x - 40, 260)));
+
+  const topGuard = compact ? 56 : 72; // logo overlay
+  const bottomGuard = compact ? 48 : 56;
+  const gap = 6;
+
+  const roomTop = pt.y - iconHalf - topGuard;
+  const roomBottom = size.y - pt.y - iconHalf - bottomGuard;
+
+  if (roomTop >= popupH + gap) {
+    return { side: 'top', offset: L.point(0, -(iconHalf + gap)) };
+  }
+  if (roomBottom >= popupH + gap) {
+    return { side: 'bottom', offset: L.point(0, popupH + iconHalf + gap) };
+  }
+
+  // Not enough vertical room — go sideways, towards the roomier half.
+  const halfH = Math.round(popupH / 2);
+  const roomRight = size.x - pt.x - iconHalf;
+  const roomLeft = pt.x - iconHalf;
+  if (roomRight >= roomLeft) {
+    return { side: 'right', offset: L.point(Math.round(popupW / 2) + iconHalf + gap, halfH) };
+  }
+  return { side: 'left', offset: L.point(-(Math.round(popupW / 2) + iconHalf + gap), halfH) };
+};
+
+const applyPopupSideClass = (el: HTMLElement | null | undefined, side: PopupSide) => {
+  if (!el) return;
+  el.classList.remove('pl-popup--top', 'pl-popup--bottom', 'pl-popup--left', 'pl-popup--right');
+  el.classList.add(`pl-popup--${side}`);
+};
+
 
 const DEFAULT_LEFT_LOGO =
   'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
@@ -252,14 +305,30 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
-    // Make sure an opened popup is always fully inside the map viewport.
+    // Make sure an opened popup is always fully inside the map viewport and
+    // flips to the side (top/bottom/left/right) with the most free space.
     map.on('popupopen', (e: any) => {
       const opts = responsivePopupOptions(map);
-      const el = e.popup?.getElement?.() as HTMLElement | undefined;
+      const popup = e.popup;
+      const el = popup?.getElement?.() as HTMLElement | undefined;
       if (el) el.style.maxWidth = `${opts.maxWidth}px`;
+
+      const iconHalf = Number(popup?.options?.__iconHalf) || 14;
+      const latlng = popup?.getLatLng?.();
+      if (latlng) {
+        const { side, offset } = popupPlacementFor(map, latlng, iconHalf, el);
+        applyPopupSideClass(el, side);
+        popup.options.offset = offset;
+        try {
+          popup.update();
+        } catch {
+          /* popup detached */
+        }
+      }
+
       window.setTimeout(() => {
         try {
-          map.panInside(e.popup.getLatLng(), {
+          map.panInside(popup.getLatLng(), {
             paddingTopLeft: opts.autoPanPaddingTopLeft,
             paddingBottomRight: opts.autoPanPaddingBottomRight,
           });
@@ -269,7 +338,14 @@ const UserWorldMap: React.FC<Props> = ({
       }, 60);
     });
 
-
+    // Double click on empty map area → smooth zoom into that exact spot.
+    map.doubleClickZoom.disable();
+    map.on('dblclick', (e: any) => {
+      pushViewHistory();
+      const target = Math.min(map.getMaxZoom?.() ?? 19, map.getZoom() + 2);
+      if (prefersReducedMotion()) map.setView(e.latlng, target);
+      else map.flyTo(e.latlng, target, { duration: 0.7 });
+    });
 
     // Click on a cluster → info popup anchored right next to the cluster icon.
     cluster.on('clusterclick', (e: any) => {
@@ -280,21 +356,24 @@ const UserWorldMap: React.FC<Props> = ({
         .filter(Boolean) as LocationGroup[];
       const users = groupsInCluster.reduce((acc, g) => acc + g.users.length, 0);
       const size = clusterSizeFor(users);
+      const iconHalf = Math.round(size / 2) + 4;
 
       layer.closeTooltip?.();
 
       const popup = L.popup({
         ...responsivePopupOptions(map),
         className: 'pl-popup',
-        offset: [0, -Math.round(size / 2) - 4],
+        offset: [0, -iconHalf],
       })
         .setLatLng(layer.getLatLng())
         .setContent(buildClusterPopupHtml(groupsInCluster));
+      (popup.options as any).__iconHalf = iconHalf;
 
       popup.on('add', () => {
         const el = popup.getElement();
         el?.querySelector('[data-pl-zoom]')?.addEventListener('click', () => {
           map.closePopup(popup);
+          pushViewHistory();
           try {
             layer.zoomToBounds({ padding: [40, 40] });
           } catch {
@@ -305,6 +384,19 @@ const UserWorldMap: React.FC<Props> = ({
 
       popup.openOn(map);
     });
+
+    // Double click on a cluster → zoom straight into its bounds.
+    cluster.on('clusterdblclick', (e: any) => {
+      L.DomEvent.stop(e.originalEvent ?? e);
+      map.closePopup();
+      pushViewHistory();
+      try {
+        e.layer.zoomToBounds({ padding: [40, 40] });
+      } catch {
+        /* degenerate bounds */
+      }
+    });
+
 
     // Hover on a cluster → show how many users (and locations) it contains.
     cluster.on('clustermouseover', (e: any) => {
@@ -435,6 +527,7 @@ const UserWorldMap: React.FC<Props> = ({
     const markers = groups.map((g) => {
       const count = g.users.length;
       const allInactive = g.users.every((u) => u.is_inactive);
+      const iconHalf = Math.round(markerSizeFor(count) / 2);
       const marker: any = L.marker([g.lat, g.lng], {
         icon: createMarkerIcon(count, color, allInactive),
       });
@@ -444,16 +537,27 @@ const UserWorldMap: React.FC<Props> = ({
       marker.bindPopup(() => buildGroupPopupHtml(g), {
         ...responsivePopupOptions(map),
         className: 'pl-popup',
-        offset: [0, -Math.round(count < 10 ? 14 : count < 50 ? 17 : 20)],
-      });
+        offset: [0, -iconHalf],
+        __iconHalf: iconHalf,
+      } as any);
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
         direction: 'top',
         offset: [0, -12],
         opacity: 1,
         className: 'pl-map-tooltip',
       });
+      // Double click on a point → zoom straight into that place.
+      marker.on('dblclick', (e: any) => {
+        L.DomEvent.stop(e.originalEvent ?? e);
+        marker.closePopup();
+        pushViewHistory();
+        const target = Math.max(map.getZoom() + 2, 13);
+        if (prefersReducedMotion()) map.setView([g.lat, g.lng], target);
+        else map.flyTo([g.lat, g.lng], target, { duration: 0.8 });
+      });
       return marker;
     });
+
     cluster.addLayers(markers);
 
     // Fit to all users once, on the first successful render of points.

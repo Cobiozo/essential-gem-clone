@@ -523,6 +523,22 @@ All colors MUST be HSL.
 }
 .pl-map-shell .leaflet-popup-pane { z-index: 700; }
 
+/* Direction-aware popup placement (auto-flips to stay inside the map view) */
+.pl-popup.pl-popup--top { transform-origin: bottom center; }
+.pl-popup.pl-popup--bottom { transform-origin: top center; }
+.pl-popup.pl-popup--left { transform-origin: center right; }
+.pl-popup.pl-popup--right { transform-origin: center left; }
+.pl-popup.pl-popup--bottom .leaflet-popup-tip-container,
+.pl-popup.pl-popup--left .leaflet-popup-tip-container,
+.pl-popup.pl-popup--right .leaflet-popup-tip-container {
+  display: none;
+}
+.pl-popup.pl-popup--bottom .leaflet-popup-content-wrapper,
+.pl-popup.pl-popup--left .leaflet-popup-content-wrapper,
+.pl-popup.pl-popup--right .leaflet-popup-content-wrapper {
+  box-shadow: 0 10px 28px hsl(0 0% 0% / 0.35);
+}
+
 @media (max-width: 767px) {
   .pl-popup__body {
     font-size: 11.5px;
