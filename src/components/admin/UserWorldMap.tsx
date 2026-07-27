@@ -34,6 +34,7 @@ import {
   clusterSizeFor,
   createClusterIcon,
   createMarkerIcon,
+  markerSizeFor,
 } from './user-world-map/markers';
 import { createCountriesLayer, resetCountryStyle } from './user-world-map/countriesLayer';
 
