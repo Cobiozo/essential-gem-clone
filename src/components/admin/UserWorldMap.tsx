@@ -93,28 +93,59 @@ const popupPlacementFor = (
   const popupW = Math.max(160, Math.round(measured?.width || Math.min(size.x - 40, 260)));
 
   const topGuard = compact ? 56 : 72; // logo overlay
-  const bottomGuard = compact ? 48 : 56;
+  const bottomGuard = compact ? 56 : 64; // attribution + nav bar
+  const sideGuard = compact ? 8 : 12;
   const gap = 6;
 
   const roomTop = pt.y - iconHalf - topGuard;
   const roomBottom = size.y - pt.y - iconHalf - bottomGuard;
 
+  let side: PopupSide;
+  let offset: L.Point;
+
   if (roomTop >= popupH + gap) {
-    return { side: 'top', offset: L.point(0, -(iconHalf + gap)) };
-  }
-  if (roomBottom >= popupH + gap) {
-    return { side: 'bottom', offset: L.point(0, popupH + iconHalf + gap) };
+    side = 'top';
+    offset = L.point(0, -(iconHalf + gap));
+  } else if (roomBottom >= popupH + gap) {
+    side = 'bottom';
+    offset = L.point(0, popupH + iconHalf + gap);
+  } else {
+    // Not enough vertical room — go sideways, towards the roomier half.
+    const halfH = Math.round(popupH / 2);
+    const roomRight = size.x - pt.x - iconHalf;
+    const roomLeft = pt.x - iconHalf;
+    side = roomRight >= roomLeft ? 'right' : 'left';
+    offset =
+      side === 'right'
+        ? L.point(Math.round(popupW / 2) + iconHalf + gap, halfH)
+        : L.point(-(Math.round(popupW / 2) + iconHalf + gap), halfH);
   }
 
-  // Not enough vertical room — go sideways, towards the roomier half.
-  const halfH = Math.round(popupH / 2);
-  const roomRight = size.x - pt.x - iconHalf;
-  const roomLeft = pt.x - iconHalf;
-  if (roomRight >= roomLeft) {
-    return { side: 'right', offset: L.point(Math.round(popupW / 2) + iconHalf + gap, halfH) };
-  }
-  return { side: 'left', offset: L.point(-(Math.round(popupW / 2) + iconHalf + gap), halfH) };
+  // --- Clamp the resulting popup rectangle inside the map container ---
+  // Leaflet anchors the popup so that its bottom-center sits at point + offset.
+  const halfW = Math.round(popupW / 2);
+  let left = pt.x + offset.x - halfW;
+  let right = pt.x + offset.x + halfW;
+  let bottom = pt.y + offset.y;
+  let top = bottom - popupH;
+
+  let dx = 0;
+  if (left < sideGuard) dx = sideGuard - left;
+  else if (right > size.x - sideGuard) dx = size.x - sideGuard - right;
+
+  let dy = 0;
+  if (top < topGuard) dy = topGuard - top;
+  else if (bottom > size.y - bottomGuard) dy = size.y - bottomGuard - bottom;
+
+  // Never push the popup so far that it covers the guard zones on both sides.
+  if (popupW + 2 * sideGuard >= size.x) dx = Math.round(size.x / 2 - pt.x - offset.x);
+  if (popupH + topGuard + bottomGuard >= size.y) dy = topGuard + popupH - bottom;
+
+  offset = L.point(offset.x + dx, offset.y + dy);
+
+  return { side, offset };
 };
+
 
 const applyPopupSideClass = (el: HTMLElement | null | undefined, side: PopupSide) => {
   if (!el) return;
