@@ -543,7 +543,15 @@ All colors MUST be HSL.
   .pl-popup__body {
     font-size: 11.5px;
     min-width: 140px;
-    max-height: min(200px, 38vh);
+    max-height: var(--pl-popup-max-h, min(200px, 38vh));
+  }
+  .leaflet-control-attribution {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+    max-width: 60vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .pl-popup .leaflet-popup-content { margin: 8px 10px; }
   .pl-popup .pl-popup__zoom { min-height: 34px; }
