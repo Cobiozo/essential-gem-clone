@@ -507,6 +507,77 @@ All colors MUST be HSL.
 }
 .pl-popup .pl-popup__zoom:hover { opacity: 0.9; }
 
+/* Controlled React popup for the PLC user map. It is clamped in JS to the
+   actual map shell, so it cannot be clipped by Leaflet pane positioning. */
+.pl-react-popup {
+  position: absolute;
+  z-index: 760;
+  min-width: 170px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 18px 42px hsl(var(--foreground) / 0.24);
+  padding: 10px 12px;
+  pointer-events: auto;
+  animation: pl-popup-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pl-react-popup__close {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.75);
+  transition: background 140ms ease, color 140ms ease;
+}
+.pl-react-popup__close:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+.pl-react-popup__arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.pl-react-popup--top .pl-react-popup__arrow {
+  left: calc(var(--pl-popup-arrow-x) - 6px);
+  bottom: -6px;
+  border-left: 0;
+  border-top: 0;
+}
+.pl-react-popup--bottom .pl-react-popup__arrow {
+  left: calc(var(--pl-popup-arrow-x) - 6px);
+  top: -6px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.pl-react-popup--left .pl-react-popup__arrow {
+  top: calc(var(--pl-popup-arrow-y) - 6px);
+  right: -6px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.pl-react-popup--right .pl-react-popup__arrow {
+  top: calc(var(--pl-popup-arrow-y) - 6px);
+  left: -6px;
+  border-right: 0;
+  border-top: 0;
+}
+.pl-react-popup .pl-popup__body {
+  padding-right: 18px;
+}
+
 /* Responsive popup body — never overflows the map container */
 .pl-popup__body {
   font-size: 12px;
@@ -555,6 +626,14 @@ All colors MUST be HSL.
   }
   .pl-popup .leaflet-popup-content { margin: 8px 10px; }
   .pl-popup .pl-popup__zoom { min-height: 34px; }
+  .pl-react-popup {
+    min-width: 150px;
+    padding: 9px 10px;
+    border-radius: 10px;
+  }
+  .pl-react-popup .pl-popup__body {
+    padding-right: 16px;
+  }
   .pl-popup .leaflet-popup-close-button {
     width: 32px;
     height: 32px;
