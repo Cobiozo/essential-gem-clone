@@ -512,7 +512,7 @@ All colors MUST be HSL.
   font-size: 12px;
   line-height: 1.5;
   min-width: 160px;
-  max-height: min(260px, 45vh);
+  max-height: var(--pl-popup-max-h, min(260px, 45vh));
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
