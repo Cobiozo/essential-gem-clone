@@ -775,25 +775,25 @@ const UserWorldMap: React.FC<Props> = ({
           <div ref={mapContainerRef} className="pl-map-canvas absolute inset-0" />
 
           {/* Navigation bar, positioned before the Leaflet attribution */}
-          <div className="absolute bottom-1 right-[200px] flex flex-row items-center gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1.5 py-1">
-            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomIn} aria-label="Przybliż">
-              <Plus className="h-5 w-5" />
+          <div className="absolute bottom-6 right-2 sm:bottom-1 sm:right-[200px] max-w-[calc(100%-1rem)] flex flex-row items-center gap-1 sm:gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1 py-1 sm:px-1.5">
+            <Button size="icon" variant="secondary" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleZoomIn} aria-label="Przybliż">
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleZoomOut} aria-label="Oddal">
-              <Minus className="h-5 w-5" />
+            <Button size="icon" variant="secondary" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleZoomOut} aria-label="Oddal">
+              <Minus className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             <Button
               size="icon"
               variant="secondary"
-              className="h-10 w-10"
+              className="h-8 w-8 sm:h-10 sm:w-10"
               onClick={handleBack}
               disabled={!canGoBack}
               aria-label="Poprzedni widok"
             >
-              <Undo2 className="h-5 w-5" />
+              <Undo2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <Button size="icon" variant="secondary" className="h-10 w-10" onClick={handleReset} aria-label="Resetuj mapę">
-              <RotateCcw className="h-5 w-5" />
+            <Button size="icon" variant="secondary" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleReset} aria-label="Resetuj mapę">
+              <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
 
