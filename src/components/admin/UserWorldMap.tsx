@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import 'leaflet/dist/leaflet.css';
@@ -6,7 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, Undo2, Map as MapIcon } from 'lucide-react';
+import { Loader2, RefreshCw, Globe2, Plus, Minus, RotateCcw, Undo2, Map as MapIcon, X } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import eqologyIbpLogo from '@/assets/eqology-ibp-logo.png';
 
@@ -53,104 +53,102 @@ interface Props {
   logoRightUrl?: string;
 }
 
-/** Popup sizing/panning that adapts to the real map container size (mobile/tablet/desktop). */
-const responsivePopupOptions = (map: any): L.PopupOptions => {
-  const size = map?.getSize?.() ?? { x: 640, y: 480 };
-  const compact = size.x < 640;
-  const maxWidth = Math.max(170, Math.min(260, size.x - (compact ? 40 : 64)));
-  const maxHeight = Math.max(140, Math.round(size.y * (compact ? 0.5 : 0.6)));
-  const pad = compact ? 12 : 24;
-  return {
-    maxWidth,
-    maxHeight,
-    autoPan: true,
-    // Extra top-left room so the popup never hides under the logo overlay.
-    autoPanPaddingTopLeft: L.point(pad, compact ? 56 : 72),
-    autoPanPaddingBottomRight: L.point(pad, compact ? 56 : 64),
-    keepInView: true,
-  };
+type PopupSide = 'top' | 'bottom' | 'left' | 'right';
+type PopupPreference = 'auto' | 'horizontal';
+
+interface ActiveMapPopup {
+  id: string;
+  kind: 'marker' | 'cluster';
+  latlng: L.LatLng;
+  iconHalf: number;
+  html: string;
+  preference: PopupPreference;
+  onZoom?: () => void;
+}
+
+interface PopupLayout {
+  side: PopupSide;
+  left: number;
+  top: number;
+  maxWidth: number;
+  maxHeight: number;
+  arrowX: number;
+  arrowY: number;
+}
+
+const clampNumber = (value: number, min: number, max: number) => {
+  if (max < min) return min;
+  return Math.min(Math.max(value, min), max);
 };
 
-type PopupSide = 'top' | 'bottom' | 'left' | 'right';
-
-/**
- * Picks the side of the icon where the popup fits best inside the current
- * viewport: above by default, below when the point sits high in the frame, and
- * sideways when there is not enough vertical room at all.
- */
-const popupPlacementFor = (
-  map: any,
+const calculatePopupLayout = (
+  map: L.Map,
   latlng: L.LatLng,
   iconHalf: number,
-  popupEl?: HTMLElement | null,
-): { side: PopupSide; offset: L.Point } => {
+  popupEl: HTMLElement | null,
+  preference: PopupPreference,
+): PopupLayout => {
   const size = map?.getSize?.() ?? L.point(640, 480);
   const compact = size.x < 640;
   const pt = map.latLngToContainerPoint(latlng);
 
   const measured = popupEl?.getBoundingClientRect?.();
-  const popupH = Math.max(90, Math.round(measured?.height || Math.min(size.y * 0.5, 220)));
-  const popupW = Math.max(160, Math.round(measured?.width || Math.min(size.x - 40, 260)));
+  const guard = {
+    top: compact ? 54 : 64,
+    bottom: compact ? 92 : 76,
+    left: compact ? 8 : 12,
+    right: compact ? 8 : 12,
+  };
+  const gap = compact ? 8 : 10;
+  const maxWidth = Math.max(150, Math.min(compact ? 250 : 300, size.x - guard.left - guard.right));
+  const maxHeight = Math.max(92, size.y - guard.top - guard.bottom);
+  const popupW = Math.max(150, Math.min(maxWidth, Math.round(measured?.width || (compact ? 220 : 260))));
+  const popupH = Math.max(72, Math.min(maxHeight, Math.round(measured?.height || 150)));
 
-  const topGuard = compact ? 56 : 72; // logo overlay
-  const bottomGuard = compact ? 56 : 64; // attribution + nav bar
-  const sideGuard = compact ? 8 : 12;
-  const gap = 6;
+  const room = {
+    right: size.x - guard.right - (pt.x + iconHalf + gap),
+    left: pt.x - iconHalf - gap - guard.left,
+    top: pt.y - iconHalf - gap - guard.top,
+    bottom: size.y - guard.bottom - (pt.y + iconHalf + gap),
+  };
 
-  const roomTop = pt.y - iconHalf - topGuard;
-  const roomBottom = size.y - pt.y - iconHalf - bottomGuard;
+  const sideCandidates: PopupSide[] =
+    preference === 'horizontal'
+      ? room.right >= room.left
+        ? (['right', 'left', 'top', 'bottom'] as PopupSide[])
+        : (['left', 'right', 'top', 'bottom'] as PopupSide[])
+      : (['top', 'right', 'left', 'bottom'] as PopupSide[]).sort((a, b) => {
+          const score = (s: PopupSide) => (s === 'left' || s === 'right' ? room[s] - popupW : room[s] - popupH);
+          return score(b) - score(a);
+        });
 
-  let side: PopupSide;
-  let offset: L.Point;
+  const fits = (s: PopupSide) => (s === 'left' || s === 'right' ? room[s] >= popupW : room[s] >= popupH);
+  const side = sideCandidates.find(fits) ?? sideCandidates[0] ?? 'top';
 
-  if (roomTop >= popupH + gap) {
-    side = 'top';
-    offset = L.point(0, -(iconHalf + gap));
-  } else if (roomBottom >= popupH + gap) {
-    side = 'bottom';
-    offset = L.point(0, popupH + iconHalf + gap);
-  } else {
-    // Not enough vertical room — go sideways, towards the roomier half.
-    const halfH = Math.round(popupH / 2);
-    const roomRight = size.x - pt.x - iconHalf;
-    const roomLeft = pt.x - iconHalf;
-    side = roomRight >= roomLeft ? 'right' : 'left';
-    offset =
-      side === 'right'
-        ? L.point(Math.round(popupW / 2) + iconHalf + gap, halfH)
-        : L.point(-(Math.round(popupW / 2) + iconHalf + gap), halfH);
+  let left = pt.x - popupW / 2;
+  let top = pt.y - popupH - iconHalf - gap;
+  if (side === 'bottom') top = pt.y + iconHalf + gap;
+  if (side === 'right') {
+    left = pt.x + iconHalf + gap;
+    top = pt.y - popupH / 2;
+  }
+  if (side === 'left') {
+    left = pt.x - iconHalf - gap - popupW;
+    top = pt.y - popupH / 2;
   }
 
-  // --- Clamp the resulting popup rectangle inside the map container ---
-  // Leaflet anchors the popup so that its bottom-center sits at point + offset.
-  const halfW = Math.round(popupW / 2);
-  let left = pt.x + offset.x - halfW;
-  let right = pt.x + offset.x + halfW;
-  let bottom = pt.y + offset.y;
-  let top = bottom - popupH;
+  left = Math.round(clampNumber(left, guard.left, size.x - guard.right - popupW));
+  top = Math.round(clampNumber(top, guard.top, size.y - guard.bottom - popupH));
 
-  let dx = 0;
-  if (left < sideGuard) dx = sideGuard - left;
-  else if (right > size.x - sideGuard) dx = size.x - sideGuard - right;
-
-  let dy = 0;
-  if (top < topGuard) dy = topGuard - top;
-  else if (bottom > size.y - bottomGuard) dy = size.y - bottomGuard - bottom;
-
-  // Never push the popup so far that it covers the guard zones on both sides.
-  if (popupW + 2 * sideGuard >= size.x) dx = Math.round(size.x / 2 - pt.x - offset.x);
-  if (popupH + topGuard + bottomGuard >= size.y) dy = topGuard + popupH - bottom;
-
-  offset = L.point(offset.x + dx, offset.y + dy);
-
-  return { side, offset };
-};
-
-
-const applyPopupSideClass = (el: HTMLElement | null | undefined, side: PopupSide) => {
-  if (!el) return;
-  el.classList.remove('pl-popup--top', 'pl-popup--bottom', 'pl-popup--left', 'pl-popup--right');
-  el.classList.add(`pl-popup--${side}`);
+  return {
+    side,
+    left,
+    top,
+    maxWidth,
+    maxHeight,
+    arrowX: Math.round(clampNumber(pt.x - left, 16, popupW - 16)),
+    arrowY: Math.round(clampNumber(pt.y - top, 16, popupH - 16)),
+  };
 };
 
 
@@ -178,6 +176,8 @@ const UserWorldMap: React.FC<Props> = ({
     }
   });
   const [canGoBack, setCanGoBack] = useState(false);
+  const [activePopup, setActivePopup] = useState<ActiveMapPopup | null>(null);
+  const [popupLayout, setPopupLayout] = useState<PopupLayout | null>(null);
 
   useEffect(() => {
     if (initialMode) setMapStyle(initialMode);
@@ -219,6 +219,8 @@ const UserWorldMap: React.FC<Props> = ({
   const viewHistoryRef = useRef<Array<{ center: L.LatLng; zoom: number }>>([]);
   const didAutoFitRef = useRef(false);
   const renderedKeysRef = useRef('');
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const activePopupRef = useRef<ActiveMapPopup | null>(null);
 
   countryCountsRef.current = countryCounts;
 
@@ -255,6 +257,37 @@ const UserWorldMap: React.FC<Props> = ({
     const z = map.getZoom();
     const bucket = z <= 3 ? 'sm' : z <= 6 ? 'md' : 'lg';
     if (el.dataset.zoomBucket !== bucket) el.dataset.zoomBucket = bucket;
+  }, []);
+
+  const updateActivePopupLayout = useCallback(() => {
+    const map = mapRef.current;
+    const popup = activePopupRef.current;
+    if (!map || !popup) {
+      setPopupLayout(null);
+      return;
+    }
+    setPopupLayout(calculatePopupLayout(map, popup.latlng, popup.iconHalf, popupRef.current, popup.preference));
+  }, []);
+
+  useLayoutEffect(() => {
+    activePopupRef.current = activePopup;
+    if (!activePopup) {
+      setPopupLayout(null);
+      return;
+    }
+
+    updateActivePopupLayout();
+    const raf = requestAnimationFrame(updateActivePopupLayout);
+    const timeout = window.setTimeout(updateActivePopupLayout, 80);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+    };
+  }, [activePopup, updateActivePopupLayout]);
+
+  const closeActivePopup = useCallback(() => {
+    activePopupRef.current = null;
+    setActivePopup(null);
   }, []);
 
   // ---- Init map (once) ----------------------------------------------------
@@ -336,75 +369,18 @@ const UserWorldMap: React.FC<Props> = ({
     clusterRef.current = cluster;
     map.addLayer(cluster);
 
-    // Make sure an opened popup is always fully inside the map viewport and
-    // flips to the side (top/bottom/left/right) with the most free space.
-    map.on('popupopen', (e: any) => {
-      const opts = responsivePopupOptions(map);
-      const popup = e.popup;
-      const el = popup?.getElement?.() as HTMLElement | undefined;
-      const size = map.getSize();
-      const compact = size.x < 640;
-      if (el) {
-        el.style.maxWidth = `${opts.maxWidth}px`;
-        // Body can never be taller than the free space inside the container.
-        const free = size.y - (compact ? 56 : 72) - (compact ? 56 : 64) - 60;
-        const body = el.querySelector('.pl-popup__body') as HTMLElement | null;
-        if (body) body.style.setProperty('--pl-popup-max-h', `${Math.max(90, free)}px`);
-      }
-
-      const iconHalf = Number(popup?.options?.__iconHalf) || 14;
-
-      const place = () => {
-        const latlng = popup?.getLatLng?.();
-        const node = popup?.getElement?.() as HTMLElement | undefined;
-        if (!latlng || !node) return;
-        const { side, offset } = popupPlacementFor(map, latlng, iconHalf, node);
-        applyPopupSideClass(node, side);
-        popup.options.offset = offset;
-        try {
-          popup.update();
-        } catch {
-          /* popup detached */
-        }
-      };
-
-      // First pass on estimates, second one once the popup has its real size.
-      place();
-      requestAnimationFrame(place);
-
-      window.setTimeout(() => {
-        try {
-          const latlng = popup.getLatLng();
-          const node = popup.getElement() as HTMLElement | undefined;
-          const rect = node?.getBoundingClientRect?.();
-          const mapRect = map.getContainer().getBoundingClientRect();
-          const fits =
-            !!rect &&
-            rect.left >= mapRect.left - 1 &&
-            rect.right <= mapRect.right + 1 &&
-            rect.top >= mapRect.top - 1 &&
-            rect.bottom <= mapRect.bottom + 1;
-          if (!fits) {
-            map.panInside(latlng, {
-              paddingTopLeft: opts.autoPanPaddingTopLeft,
-              paddingBottomRight: opts.autoPanPaddingBottomRight,
-            });
-          }
-        } catch {
-          /* map removed */
-        }
-      }, 60);
-    });
-
-
     // Double click on empty map area → smooth zoom into that exact spot.
     map.doubleClickZoom.disable();
     map.on('dblclick', (e: any) => {
+      closeActivePopup();
       pushViewHistory();
       const target = Math.min(map.getMaxZoom?.() ?? 19, map.getZoom() + 2);
       if (prefersReducedMotion()) map.setView(e.latlng, target);
       else map.flyTo(e.latlng, target, { duration: 0.7 });
     });
+
+    const syncPopupLayout = () => updateActivePopupLayout();
+    map.on('move zoom resize moveend zoomend', syncPopupLayout);
 
     // Click on a cluster → info popup anchored right next to the cluster icon.
     cluster.on('clusterclick', (e: any) => {
@@ -419,34 +395,29 @@ const UserWorldMap: React.FC<Props> = ({
 
       layer.closeTooltip?.();
 
-      const popup = L.popup({
-        ...responsivePopupOptions(map),
-        className: 'pl-popup',
-        offset: [0, -iconHalf],
-      })
-        .setLatLng(layer.getLatLng())
-        .setContent(buildClusterPopupHtml(groupsInCluster));
-      (popup.options as any).__iconHalf = iconHalf;
-
-      popup.on('add', () => {
-        const el = popup.getElement();
-        el?.querySelector('[data-pl-zoom]')?.addEventListener('click', () => {
-          map.closePopup(popup);
+      setActivePopup({
+        id: `cluster-${layer._leaflet_id ?? Date.now()}`,
+        kind: 'cluster',
+        latlng: layer.getLatLng(),
+        iconHalf,
+        html: buildClusterPopupHtml(groupsInCluster),
+        preference: 'horizontal',
+        onZoom: () => {
+          closeActivePopup();
           pushViewHistory();
           try {
             layer.zoomToBounds({ padding: [40, 40] });
           } catch {
             /* degenerate bounds */
           }
-        });
+        },
       });
-
-      popup.openOn(map);
     });
 
     // Double click on a cluster → zoom straight into its bounds.
     cluster.on('clusterdblclick', (e: any) => {
       L.DomEvent.stop(e.originalEvent ?? e);
+      closeActivePopup();
       map.closePopup();
       pushViewHistory();
       try {
@@ -492,6 +463,7 @@ const UserWorldMap: React.FC<Props> = ({
 
     return () => {
       map.off('zoomend', onZoomEnd);
+      map.off('move zoom resize moveend zoomend', syncPopupLayout);
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
@@ -592,13 +564,17 @@ const UserWorldMap: React.FC<Props> = ({
       });
       marker.options.__count = count;
       marker.options.__group = g;
-      // Lazy popup content — built only when the user opens it.
-      marker.bindPopup(() => buildGroupPopupHtml(g), {
-        ...responsivePopupOptions(map),
-        className: 'pl-popup',
-        offset: [0, -iconHalf],
-        __iconHalf: iconHalf,
-      } as any);
+      marker.on('click', () => {
+        marker.closeTooltip?.();
+        setActivePopup({
+          id: `marker-${g.key}`,
+          kind: 'marker',
+          latlng: L.latLng(g.lat, g.lng),
+          iconHalf,
+          html: buildGroupPopupHtml(g),
+          preference: 'auto',
+        });
+      });
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
         direction: 'top',
         offset: [0, -12],
@@ -608,7 +584,7 @@ const UserWorldMap: React.FC<Props> = ({
       // Double click on a point → zoom straight into that place.
       marker.on('dblclick', (e: any) => {
         L.DomEvent.stop(e.originalEvent ?? e);
-        marker.closePopup();
+        closeActivePopup();
         pushViewHistory();
         const target = Math.max(map.getZoom() + 2, 13);
         if (prefersReducedMotion()) map.setView([g.lat, g.lng], target);
@@ -631,7 +607,7 @@ const UserWorldMap: React.FC<Props> = ({
         /* invalid bounds */
       }
     }
-  }, [groups, groupsSignature, color]);
+  }, [groups, groupsSignature, color, closeActivePopup, pushViewHistory]);
 
   // ---- Container resize ---------------------------------------------------
   useEffect(() => {
@@ -661,20 +637,22 @@ const UserWorldMap: React.FC<Props> = ({
     setCanGoBack(viewHistoryRef.current.length > 0);
     if (!map || !prev) return;
     resetActiveCountry();
+    closeActivePopup();
     map.closePopup();
     map.flyTo(prev.center, prev.zoom, { duration: dur(0.9) });
     applyCountryLayerVisibility();
-  }, [applyCountryLayerVisibility, resetActiveCountry]);
+  }, [applyCountryLayerVisibility, closeActivePopup, resetActiveCountry]);
 
   const handleReset = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
     pushViewHistory();
     resetActiveCountry();
+    closeActivePopup();
     map.closePopup();
     applyCountryLayerVisibility();
     map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: dur(0.9) });
-  }, [applyCountryLayerVisibility, pushViewHistory, resetActiveCountry]);
+  }, [applyCountryLayerVisibility, closeActivePopup, pushViewHistory, resetActiveCountry]);
 
   const handleRefresh = useCallback(() => {
     resetPollAttempts();
@@ -683,6 +661,14 @@ const UserWorldMap: React.FC<Props> = ({
 
   const leftSrc = (logoLeftUrl ?? DEFAULT_LEFT_LOGO).trim();
   const rightSrc = (logoRightUrl ?? eqologyIbpLogo).trim();
+
+  const handlePopupClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-pl-zoom]')) activePopupRef.current?.onZoom?.();
+    },
+    [],
+  );
 
   return (
     <Card>
@@ -774,8 +760,35 @@ const UserWorldMap: React.FC<Props> = ({
 
           <div ref={mapContainerRef} className="pl-map-canvas absolute inset-0" />
 
+          {activePopup && popupLayout && (
+            <div
+              ref={popupRef}
+              className={`pl-react-popup pl-popup pl-react-popup--${popupLayout.side}`}
+              style={
+                {
+                  left: popupLayout.left,
+                  top: popupLayout.top,
+                  maxWidth: popupLayout.maxWidth,
+                  maxHeight: popupLayout.maxHeight,
+                  '--pl-popup-arrow-x': `${popupLayout.arrowX}px`,
+                  '--pl-popup-arrow-y': `${popupLayout.arrowY}px`,
+                  '--pl-popup-max-h': `${Math.max(72, popupLayout.maxHeight - 28)}px`,
+                } as React.CSSProperties
+              }
+              onClick={handlePopupClick}
+              role="dialog"
+              aria-label={activePopup.kind === 'cluster' ? 'Szczegóły klastra użytkowników' : 'Szczegóły miasta'}
+            >
+              <button type="button" className="pl-react-popup__close" onClick={closeActivePopup} aria-label="Zamknij dymek">
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <div className="pl-react-popup__arrow" aria-hidden="true" />
+              <div dangerouslySetInnerHTML={{ __html: activePopup.html }} />
+            </div>
+          )}
+
           {/* Navigation bar, positioned before the Leaflet attribution */}
-          <div className="absolute bottom-6 right-2 sm:bottom-1 sm:right-[200px] max-w-[calc(100%-1rem)] flex flex-row items-center gap-1 sm:gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1 py-1 sm:px-1.5">
+          <div className="absolute bottom-8 right-3 max-w-[calc(100%-1.5rem)] flex flex-row items-center gap-1 sm:gap-1.5 z-[500] bg-background/95 backdrop-blur rounded-md border shadow-md px-1 py-1 sm:px-1.5">
             <Button size="icon" variant="secondary" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleZoomIn} aria-label="Przybliż">
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
