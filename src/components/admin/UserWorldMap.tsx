@@ -779,9 +779,9 @@ const UserWorldMap: React.FC<Props> = ({
               role="dialog"
               aria-label={activePopup.kind === 'cluster' ? 'Szczegóły klastra użytkowników' : 'Szczegóły miasta'}
             >
-              <button type="button" className="pl-react-popup__close" onClick={closeActivePopup} aria-label="Zamknij dymek">
+              <Button type="button" variant="ghost" size="icon" className="pl-react-popup__close" onClick={closeActivePopup} aria-label="Zamknij dymek">
                 <X className="h-3.5 w-3.5" />
-              </button>
+              </Button>
               <div className="pl-react-popup__arrow" aria-hidden="true" />
               <div dangerouslySetInnerHTML={{ __html: activePopup.html }} />
             </div>
