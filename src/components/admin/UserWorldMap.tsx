@@ -342,32 +342,60 @@ const UserWorldMap: React.FC<Props> = ({
       const opts = responsivePopupOptions(map);
       const popup = e.popup;
       const el = popup?.getElement?.() as HTMLElement | undefined;
-      if (el) el.style.maxWidth = `${opts.maxWidth}px`;
+      const size = map.getSize();
+      const compact = size.x < 640;
+      if (el) {
+        el.style.maxWidth = `${opts.maxWidth}px`;
+        // Body can never be taller than the free space inside the container.
+        const free = size.y - (compact ? 56 : 72) - (compact ? 56 : 64) - 60;
+        const body = el.querySelector('.pl-popup__body') as HTMLElement | null;
+        if (body) body.style.setProperty('--pl-popup-max-h', `${Math.max(90, free)}px`);
+      }
 
       const iconHalf = Number(popup?.options?.__iconHalf) || 14;
-      const latlng = popup?.getLatLng?.();
-      if (latlng) {
-        const { side, offset } = popupPlacementFor(map, latlng, iconHalf, el);
-        applyPopupSideClass(el, side);
+
+      const place = () => {
+        const latlng = popup?.getLatLng?.();
+        const node = popup?.getElement?.() as HTMLElement | undefined;
+        if (!latlng || !node) return;
+        const { side, offset } = popupPlacementFor(map, latlng, iconHalf, node);
+        applyPopupSideClass(node, side);
         popup.options.offset = offset;
         try {
           popup.update();
         } catch {
           /* popup detached */
         }
-      }
+      };
+
+      // First pass on estimates, second one once the popup has its real size.
+      place();
+      requestAnimationFrame(place);
 
       window.setTimeout(() => {
         try {
-          map.panInside(popup.getLatLng(), {
-            paddingTopLeft: opts.autoPanPaddingTopLeft,
-            paddingBottomRight: opts.autoPanPaddingBottomRight,
-          });
+          const latlng = popup.getLatLng();
+          const node = popup.getElement() as HTMLElement | undefined;
+          const rect = node?.getBoundingClientRect?.();
+          const mapRect = map.getContainer().getBoundingClientRect();
+          const fits =
+            !!rect &&
+            rect.left >= mapRect.left - 1 &&
+            rect.right <= mapRect.right + 1 &&
+            rect.top >= mapRect.top - 1 &&
+            rect.bottom <= mapRect.bottom + 1;
+          if (!fits) {
+            map.panInside(latlng, {
+              paddingTopLeft: opts.autoPanPaddingTopLeft,
+              paddingBottomRight: opts.autoPanPaddingBottomRight,
+            });
+          }
         } catch {
           /* map removed */
         }
       }, 60);
     });
+
 
     // Double click on empty map area → smooth zoom into that exact spot.
     map.doubleClickZoom.disable();
