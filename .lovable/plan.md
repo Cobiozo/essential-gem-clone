@@ -1,31 +1,24 @@
-## Cel
+## Problemy widoczne na zrzutach
 
-1. Dymek (marker i klaster) sam wybiera stronę wyświetlania — nad, pod, po lewej lub po prawej od ikony — zależnie od tego, gdzie w kadrze mapy znajduje się punkt, więc nigdy nie wychodzi poza widok.
-2. Podwójne kliknięcie w mapę, marker lub klaster przybliża to konkretne miejsce.
+1. Dymek (marker i klaster) potrafi wylądować częściowo **poza kadrem mapy** — wychodzi w lewo poza kontener i pod dolną krawędź, przez co jest ucinany (`overflow-hidden` na `pl-map-shell`).
+2. Pasek nawigacji mapy (+ / − / cofnij / reset) ma sztywne `right-[200px]` i na wąskich ekranach **wychodzi poza lewą krawędź mapy**.
 
 ## Co zrobię
 
-**1. Automatyczne przełączanie położenia dymka**
-- Nowa funkcja pomocnicza `popupPlacementFor(map, latlng, iconSize)`: liczy pozycję punktu w pikselach kontenera (`map.latLngToContainerPoint`) i porównuje z rozmiarem kontenera oraz szacowaną wysokością/szerokością dymka.
-  - Punkt wysoko w kadrze (mało miejsca nad ikoną) → dymek pod ikoną (offset dodatni w osi Y).
-  - Punkt nisko → dymek nad ikoną (obecne zachowanie).
-  - Punkt blisko lewej/prawej krawędzi, gdy pion nie wystarcza → dymek obok, z przesunięciem poziomym o pół szerokości dymka + margines.
-- Offset wyliczany dynamicznie w momencie otwarcia (a nie raz przy tworzeniu markera), bo zależy od aktualnego kadru:
-  - klaster: offset ustawiany tuż przed `popup.openOn(map)`,
-  - marker: przeliczany w handlerze `popupopen` przez `popup.options.offset` + `popup.update()`.
-- Klasa CSS kierunku (`pl-popup--top/bottom/left/right`) dodawana do elementu dymka, żeby ogonek/strzałka wskazywała właściwą stronę (dla dołu/boków strzałka Leafletu jest ukrywana, dodawany drobny cień kierunkowy).
-- Zachowane dotychczasowe zabezpieczenia: `keepInView`, `autoPan` i `panInside` z paddingiem pod logotypy — teraz jako uzupełnienie, nie jedyny mechanizm.
+**1. Dymek zawsze w kadrze**
+- W `popupPlacementFor` po wybraniu strony dodam **klamrowanie offsetu do granic kontenera**: liczę prostokąt dymka (pozycja punktu + offset ± połowa szerokości / wysokość) i koryguję offset X/Y tak, aby prostokąt mieścił się między marginesami (góra: pas logotypów, dół: atrybucja + pasek przycisków, boki: 8–12 px).
+- Wybór strony oparty na realnie zmierzonym rozmiarze dymka: pierwszy pomiar po otwarciu, potem drugie przeliczenie w `requestAnimationFrame` (dymek ma już finalną wysokość) — dziś placement liczony jest raz na wartościach szacunkowych, stąd ucięcia.
+- Gdy dymek jest wyższy/szerszy niż dostępne miejsce, ograniczę jego `maxHeight`/`maxWidth` do wymiaru kontenera (minus marginesy), zamiast pozwalać mu wystawać.
+- `panInside` zostaje jako uzupełnienie, ale wykonywane po korekcie offsetu i tylko jeśli po klamrowaniu nadal brakuje miejsca.
 
-**2. Dwuklik = przybliżenie miejsca**
-- `doubleClickZoom` mapy pozostaje włączony dla pustego obszaru, ale zamieniony na płynny `flyTo` w punkt kliknięcia z krokiem +2 poziomy zoomu (respektując `prefersReducedMotion`).
-- Dwuklik na markerze: zamyka dymek i `flyTo` na współrzędne grupy z zoomem `max(obecny + 2, 13)`.
-- Dwuklik na klastrze: `zoomToBounds` dla jego dzieci (to samo, co przycisk „Przybliż”), z wcześniejszym `pushViewHistory()`, żeby przycisk „Cofnij widok” działał.
-- Blokada propagacji dwukliku z ikony do mapy, żeby nie nakładały się dwie animacje zoomu.
+**2. Pasek nawigacji responsywny**
+- Zamiana `right-[200px]` na pozycjonowanie responsywne: na desktopie pasek zostaje nad atrybucją po prawej, na wąskich mapach (`<640 px`) przechodzi do prawego dolnego rogu w rzędzie nad atrybucją, z mniejszymi przyciskami (h-8/w-8) i `max-w-full`, żeby nigdy nie wychodził poza kontener.
+- Atrybucja Leafletu dostanie na mobile mniejszy font/padding, aby nie kolidowała z paskiem.
 
 ## Szczegóły techniczne
 
 Pliki:
-- `src/components/admin/UserWorldMap.tsx` — `responsivePopupOptions` rozszerzone o wyliczanie kierunku, handler `popupopen`, `clusterclick`, nowe handlery `dblclick` (mapa, marker, klaster).
-- `src/index.css` — klasy kierunkowe `.pl-popup--top/bottom/left/right` (pozycja strzałki, marginesy) oraz drobne korekty dla mobile.
+- `src/components/admin/UserWorldMap.tsx` — `popupPlacementFor` (klamrowanie do kontenera), handler `popupopen` (drugi pomiar w rAF, dynamiczny `maxHeight`), kontener przycisków nawigacji (klasy responsywne).
+- `src/index.css` — korekty `.pl-popup__body` (max-height liczony ze zmiennej ustawianej w JS) oraz `.leaflet-control-attribution` na mobile.
 
-Bez zmian w danych, RPC, geokodowaniu i filtrach użytkowników.
+Bez zmian w danych, RPC, geokodowaniu i logice filtrów.
