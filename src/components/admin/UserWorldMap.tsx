@@ -526,6 +526,7 @@ const UserWorldMap: React.FC<Props> = ({
     const markers = groups.map((g) => {
       const count = g.users.length;
       const allInactive = g.users.every((u) => u.is_inactive);
+      const iconHalf = Math.round(markerSizeFor(count) / 2);
       const marker: any = L.marker([g.lat, g.lng], {
         icon: createMarkerIcon(count, color, allInactive),
       });
@@ -535,16 +536,27 @@ const UserWorldMap: React.FC<Props> = ({
       marker.bindPopup(() => buildGroupPopupHtml(g), {
         ...responsivePopupOptions(map),
         className: 'pl-popup',
-        offset: [0, -Math.round(count < 10 ? 14 : count < 50 ? 17 : 20)],
-      });
+        offset: [0, -iconHalf],
+        __iconHalf: iconHalf,
+      } as any);
       marker.bindTooltip(() => buildMarkerTooltipHtml(g), {
         direction: 'top',
         offset: [0, -12],
         opacity: 1,
         className: 'pl-map-tooltip',
       });
+      // Double click on a point → zoom straight into that place.
+      marker.on('dblclick', (e: any) => {
+        L.DomEvent.stop(e.originalEvent ?? e);
+        marker.closePopup();
+        pushViewHistory();
+        const target = Math.max(map.getZoom() + 2, 13);
+        if (prefersReducedMotion()) map.setView([g.lat, g.lng], target);
+        else map.flyTo([g.lat, g.lng], target, { duration: 0.8 });
+      });
       return marker;
     });
+
     cluster.addLayers(markers);
 
     // Fit to all users once, on the first successful render of points.
