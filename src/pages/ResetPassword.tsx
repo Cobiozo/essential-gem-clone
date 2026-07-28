@@ -171,11 +171,12 @@ const ResetPassword = () => {
           <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
           <h1 className="text-2xl font-bold text-foreground">Nieprawidłowy link</h1>
           <p className="text-muted-foreground">
-            Link do resetowania hasła jest nieprawidłowy lub wygasł. Spróbuj ponownie poprosić o reset hasła.
+            {linkError || "Link do resetowania hasła jest nieprawidłowy lub wygasł. Spróbuj ponownie poprosić o reset hasła."}
           </p>
-          <Button onClick={() => navigate("/auth")} className="mt-4">
-            Przejdź do logowania
+          <Button onClick={() => navigate("/auth?reset=1")} className="mt-4">
+            Wyślij nowy link
           </Button>
+
         </div>
       </div>
     );
