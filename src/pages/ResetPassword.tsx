@@ -173,8 +173,8 @@ const ResetPassword = () => {
           <p className="text-muted-foreground">
             {linkError || "Link do resetowania hasła jest nieprawidłowy lub wygasł. Spróbuj ponownie poprosić o reset hasła."}
           </p>
-          <Button onClick={() => navigate("/auth?reset=1")} className="mt-4">
-            Wyślij nowy link
+          <Button onClick={() => navigate("/auth")} className="mt-4">
+            Przejdź do logowania i wyślij nowy link
           </Button>
 
         </div>
