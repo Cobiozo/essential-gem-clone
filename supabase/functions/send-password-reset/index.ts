@@ -195,6 +195,13 @@ function resolveSafeBaseUrl(rawUrl?: string | null): string {
   }
 }
 
+function buildRecoveryLink(baseUrl: string, hashedToken: string): string {
+  const url = new URL('/reset-password', baseUrl);
+  url.searchParams.set('token_hash', hashedToken);
+  url.searchParams.set('type', 'recovery');
+  return url.toString();
+}
+
 serve(async (req) => {
   console.log('[send-password-reset] Request received:', req.method);
   
@@ -260,8 +267,15 @@ serve(async (req) => {
       throw new Error('Nie udało się wygenerować bezpiecznego linku resetowania hasła. Spróbuj ponownie za chwilę.');
     }
 
-    const recoveryLink = `${baseUrl}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
-    console.log('[send-password-reset] Recovery link generated', { usedTokenHash: true, baseUrl });
+    const recoveryLink = buildRecoveryLink(baseUrl, hashedToken);
+    const recoveryUrl = new URL(recoveryLink);
+    console.log('[send-password-reset] Recovery link generated', {
+      usedTokenHash: true,
+      baseUrl,
+      path: recoveryUrl.pathname,
+      hasTokenHash: recoveryUrl.searchParams.has('token_hash'),
+      hasRecoveryType: recoveryUrl.searchParams.get('type') === 'recovery',
+    });
 
 
     // Fetch SMTP settings
@@ -350,7 +364,9 @@ serve(async (req) => {
         recovery_link_generated: true,
         base_url: baseUrl,
         reset_path: '/reset-password',
-        token_hash_link: true
+        token_hash_link: true,
+        link_has_token_hash: recoveryUrl.searchParams.has('token_hash'),
+        link_has_type_recovery: recoveryUrl.searchParams.get('type') === 'recovery'
       },
     });
 
