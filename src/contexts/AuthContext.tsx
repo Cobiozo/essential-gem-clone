@@ -602,9 +602,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshProfile,
   };
 
+  const isPasswordResetRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/reset-password');
+
   // Don't render children until auth is initialized AND roles are ready (if user exists)
   // This prevents React Error #306 by ensuring all auth state is complete before rendering
-  if (!initialized || (user && !rolesReady)) {
+  if (!initialized || (user && !rolesReady && !isPasswordResetRoute)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -616,7 +618,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   // Guard: guest pending email confirmation
-  if (user && profile && isGuest && !isAdmin && profile.email_activated === false) {
+  if (!isPasswordResetRoute && user && profile && isGuest && !isAdmin && profile.email_activated === false) {
     return (
       <AuthContext.Provider value={value}>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -643,7 +645,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Guard: guest awaiting admin approval (email confirmed, but admin_approved/is_active still false)
   if (
-    user && profile && isGuest && !isAdmin &&
+    !isPasswordResetRoute && user && profile && isGuest && !isAdmin &&
     profile.email_activated === true &&
     (profile.admin_approved === false || profile.is_active === false)
   ) {
@@ -672,7 +674,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   // Guard: blocked user screen (is_active === false and not admin)
-  if (user && profile && !profile.is_active && !isAdmin) {
+  if (!isPasswordResetRoute && user && profile && !profile.is_active && !isAdmin) {
     return (
       <AuthContext.Provider value={value}>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">

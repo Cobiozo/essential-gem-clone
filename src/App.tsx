@@ -364,7 +364,9 @@ const AppContent = () => {
   }, []);
   
   // CRITICAL: Block routing until roles are loaded to prevent race conditions
-  if (user && !rolesReady) {
+  const isPasswordResetRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/reset-password');
+
+  if (user && !rolesReady && !isPasswordResetRoute) {
     return (
       <TooltipProvider>
         <Toaster />
@@ -383,7 +385,7 @@ const AppContent = () => {
   }
 
   // MFA gate: block all app access until MFA is verified
-  if (user && mfaPending) {
+  if (user && mfaPending && !isPasswordResetRoute) {
     return (
       <TooltipProvider>
         <Toaster />
