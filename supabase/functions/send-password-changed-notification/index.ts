@@ -1,0 +1,177 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface SmtpSettings {
+  host: string;
+  port: number;
+  encryption: string;
+  username: string;
+  password: string;
+  from_email: string;
+  from_name: string;
+}
+
+// Base64 encode for SMTP (handles UTF-8 characters)
+function base64Encode(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// Base64 encode for simple ASCII strings (like credentials)
+function base64EncodeAscii(str: string): string {
+  return btoa(str);
+}
+
+// Helper function to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]);
+}
+
+// Send email via raw SMTP connection
+async function sendSmtpEmail(
+  settings: SmtpSettings,
+  to: string,
+  subject: string,
+  htmlBody: string
+): Promise<{ success: boolean; error?: string }> {
+  const senderDomain = settings.from_email.split('@')[1] || 'localhost';
+  console.log(`[SMTP] Attempting to send email to ${to}`);
+  console.log(`[SMTP] Using server: ${settings.host}:${settings.port} (${settings.encryption})`);
+
+  let conn: Deno.Conn | null = null;
+  
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    if (settings.encryption === 'ssl') {
+      conn = await withTimeout(Deno.connectTls({ hostname: settings.host, port: settings.port }), 30000);
+    } else {
+      conn = await withTimeout(Deno.connect({ hostname: settings.host, port: settings.port }), 30000);
+    }
+
+    const readResponse = async (): Promise<string> => {
+      const buffer = new Uint8Array(4096);
+      const n = await conn!.read(buffer);
+      if (n === null) return '';
+      const response = decoder.decode(buffer.subarray(0, n));
+      console.log('[SMTP] Response:', response.trim());
+      return response;
+    };
+
+    const sendCommand = async (command: string, hideLog = false): Promise<string> => {
+      if (!hideLog) console.log('[SMTP] Sending:', command.trim().substring(0, 200));
+      else console.log('[SMTP] Sending: [HIDDEN - credentials]');
+      await conn!.write(encoder.encode(command + '\r\n'));
+      return await readResponse();
+    };
+
+    await readResponse();
+    await sendCommand(`EHLO ${senderDomain}`);
+
+    if (settings.encryption === 'starttls') {
+      await sendCommand('STARTTLS');
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
+      await sendCommand(`EHLO ${senderDomain}`);
+    }
+
+    await sendCommand('AUTH LOGIN');
+    await sendCommand(base64EncodeAscii(settings.username), true);
+    const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
+    
+    if (!authResponse.startsWith('235')) {
+      throw new Error(`Authentication failed: ${authResponse}`);
+    }
+
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+
+    const rcptResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
+
+    const dataResp = await sendCommand('DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
+
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+    const emailContent = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${settings.from_email}>`,
+      `Return-Path: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(htmlBody),
+      ``,
+      `--${boundary}--`,
+      `.`,
+    ].join('\r\n');
+
+    const sendResp = await sendCommand(emailContent);
+    if (!sendResp.startsWith('250')) throw new Error(`Failed to send email: ${sendResp}`);
+
+    await sendCommand('QUIT');
+    conn.close();
+
+    console.log('[SMTP] Email sent successfully');
+    return { success: true };
+    
+  } catch (error) {
+    console.error('[SMTP] Error:', error);
+    return { success: false, error: error.message };
+  } finally {
+    if (conn) {
+      try { conn.close(); } catch {}
+    }
+  }
+}
+
+// Replace template variables
+function replaceVariables(text: string, variables: Record<string, string>): string {
+  let result = text;
+  for (const [key, value] of Object.entries(variables)) {
+    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    result = result.replace(regex, value || '');
+  }
+  return result;
+}
+
+const PURE_LIFE_LOGO = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
+function wrapWithBranding(html: string): string {
+  const c = html.replace(/<!DOCTYPE[^>]*>/gi,'').replace(/<\/?html[^>]*>/gi,'').replace(/<head[\s\S]*?<\/head>/gi,'').replace(/<\/?body[^>]*>/gi,'');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
+}
+
+serve(async (req) => {
+  console.log('[send-password-reset] Request received:', req.method);
+  
