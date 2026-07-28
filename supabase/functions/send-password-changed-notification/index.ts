@@ -172,6 +172,118 @@ function wrapWithBranding(html: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
 }
 
+const SUPPORT_EMAIL = 'support@purelifecenter.pl';
+
 serve(async (req) => {
-  console.log('[send-password-reset] Request received:', req.method);
-  
+  console.log('[send-password-changed] Request received:', req.method);
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Identify the caller from their JWT (recovery session or logged-in user)
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const user = userData?.user;
+    if (userError || !user?.email) {
+      console.error('[send-password-changed] Invalid token', userError);
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("user_id, email, first_name, last_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const recipientEmail = profileData?.email || user.email;
+
+    // SMTP settings
+    const { data: smtpData, error: smtpError } = await supabase
+      .from("smtp_settings")
+      .select("*")
+      .eq("is_active", true)
+      .single();
+
+    if (smtpError || !smtpData) {
+      throw new Error("No active SMTP configuration found.");
+    }
+
+    const smtpSettings: SmtpSettings = {
+      host: smtpData.smtp_host,
+      port: Number(smtpData.smtp_port),
+      encryption: smtpData.smtp_encryption,
+      username: smtpData.smtp_username,
+      password: smtpData.smtp_password,
+      from_email: smtpData.sender_email,
+      from_name: smtpData.sender_name,
+    };
+
+    const { data: templateData, error: templateError } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("internal_name", "password_changed")
+      .eq("is_active", true)
+      .single();
+
+    if (templateError || !templateData) {
+      throw new Error("Email template 'password_changed' not found or inactive");
+    }
+
+    const now = new Date();
+    const variables: Record<string, string> = {
+      imię: profileData?.first_name || '',
+      nazwisko: profileData?.last_name || '',
+      email: recipientEmail,
+      support_email: SUPPORT_EMAIL,
+      data: now.toLocaleDateString('pl-PL'),
+      godzina: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const subject = replaceVariables(templateData.subject, variables);
+    let htmlBody = replaceVariables(templateData.body_html, variables);
+    if (templateData.footer_html) {
+      htmlBody += replaceVariables(templateData.footer_html, variables);
+    }
+
+    const result = await sendSmtpEmail(smtpSettings, recipientEmail, subject, wrapWithBranding(htmlBody));
+
+    await supabase.from("email_logs").insert({
+      template_id: templateData.id,
+      recipient_email: recipientEmail,
+      recipient_user_id: user.id,
+      subject,
+      status: result.success ? "sent" : "error",
+      error_message: result.error || null,
+      sent_at: result.success ? new Date().toISOString() : null,
+      metadata: { action: 'password_changed' },
+    });
+
+    if (!result.success) {
+      throw new Error(result.error || "Failed to send email");
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error("[send-password-changed] Error:", error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+});
