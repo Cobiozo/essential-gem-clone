@@ -7,6 +7,66 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 
+const parseRecoveryParams = () => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+  const tokenHash = searchParams.get("token_hash") || hashParams.get("token_hash");
+  const type = searchParams.get("type") || hashParams.get("type") || (tokenHash ? "recovery" : null);
+
+  return { tokenHash, type };
+};
+
+const getRecoveryLinkErrorMessage = (message: string) => {
+  const msg = message.toLowerCase();
+
+  if (msg.includes("expired")) {
+    return "Link do resetowania hasła wygasł. Poproś o nowy link.";
+  }
+
+  if (msg.includes("already") || msg.includes("used") || msg.includes("invalid")) {
+    return "Link do resetowania hasła jest nieprawidłowy lub został już wykorzystany. Poproś o nowy link.";
+  }
+
+  return "Nie udało się potwierdzić linku resetowania hasła. Poproś o nowy link i spróbuj ponownie.";
+};
+
+let recoveryVerification:
+  | {
+      tokenHash: string;
+      promise: Promise<{ ok: boolean; errorMessage?: string }>;
+    }
+  | null = null;
+
+const verifyRecoveryTokenOnce = (tokenHash: string) => {
+  if (recoveryVerification?.tokenHash === tokenHash) {
+    return recoveryVerification.promise;
+  }
+
+  const promise = (async () => {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+
+    if (error) {
+      console.error("[ResetPassword] verifyOtp failed:", error);
+      return { ok: false, errorMessage: getRecoveryLinkErrorMessage(error.message || "") };
+    }
+
+    const recoverySession = data.session || (await supabase.auth.getSession()).data.session;
+    if (!recoverySession) {
+      console.error("[ResetPassword] verifyOtp succeeded but recovery session is missing");
+      return {
+        ok: false,
+        errorMessage: "Link został rozpoznany, ale nie udało się otworzyć bezpiecznej sesji zmiany hasła. Poproś o nowy link.",
+      };
+    }
+
+    return { ok: true };
+  })();
+
+  recoveryVerification = { tokenHash, promise };
+  return promise;
+};
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -35,28 +95,30 @@ const ResetPassword = () => {
     });
 
     const init = async () => {
-      // 1) New link format: ?token_hash=...&type=recovery (independent of GoTrue Site URL)
-      const params = new URLSearchParams(window.location.search);
-      const tokenHash = params.get("token_hash");
-      const type = params.get("type");
+      // 1) New link format: ?token_hash=...&type=recovery.
+      // Some clients strip the trailing type parameter; token_hash alone is treated as recovery.
+      const { tokenHash, type } = parseRecoveryParams();
 
-      if (tokenHash && type === "recovery") {
-        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
-        // Clean the URL either way
-        window.history.replaceState({}, "", window.location.pathname);
+      if (tokenHash) {
         resolved = true;
         clearTimeout(timeoutId);
-        if (error) {
-          console.error("[ResetPassword] verifyOtp failed:", error);
-          const msg = (error.message || "").toLowerCase();
-          setLinkError(
-            msg.includes("expired")
-              ? "Link do resetowania hasła wygasł. Poproś o nowy link."
-              : "Link do resetowania hasła jest nieprawidłowy lub został już wykorzystany. Poproś o nowy link."
-          );
+
+        if (type && type !== "recovery") {
+          setLinkError("Ten link nie jest linkiem do resetowania hasła. Poproś o nowy link resetujący hasło.");
           setIsRecoverySession(false);
+          setSessionChecked(true);
+          return;
+        }
+
+        const result = await verifyRecoveryTokenOnce(tokenHash);
+
+        if (!result.ok) {
+          setLinkError(result.errorMessage || "Link do resetowania hasła jest nieprawidłowy lub wygasł. Poproś o nowy link.");
+          setIsRecoverySession(false);
+          window.history.replaceState({}, "", window.location.pathname);
         } else {
           setIsRecoverySession(true);
+          window.history.replaceState({}, "", window.location.pathname);
         }
         setSessionChecked(true);
         return;

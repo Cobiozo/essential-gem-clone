@@ -1,26 +1,40 @@
-Plan naprawy resetowania hasła:
+## Plan naprawy resetu hasła
 
-1. Uporządkuję generowanie linku resetu w `send-password-reset`:
-   - link w mailu będzie zawsze budowany jako `https://purelifecenter.pl/reset-password?token_hash=...&type=recovery`, bez fallbacku do `action_link`, który może prowadzić do błędnego `localhost:3000`;
-   - funkcja przerwie wysyłkę, jeśli Supabase nie zwróci `hashed_token`, zamiast wysłać potencjalnie błędny link;
-   - dodam bezpieczną normalizację domeny, aby baza nie mogła przypadkowo wymusić `localhost`, pustego adresu lub adresu bez `https`.
+Potwierdzone z audytu:
+- Ostatni mail resetujący jest już generowany dla `https://purelifecenter.pl` i zawiera `token_hash` w metadanych wysyłki.
+- Problem widoczny na screenie jest po stronie obsługi linku na `/reset-password`: strona wymaga `type=recovery`, a link na screenie ma tylko `token_hash`, więc aplikacja od razu pokazuje „Nieprawidłowy link”.
+- Trzeba uszczelnić frontend tak, żeby każdy poprawny link z `token_hash` prowadził do formularza nowego hasła, również gdy parametr `type` nie występuje.
 
-2. Poprawię treść maila resetującego w bazie:
-   - usunę stare odwołania do `purelife.info.pl`;
-   - dodam widoczny tekstowy link awaryjny pod przyciskiem, żeby użytkownik mógł skopiować pełny URL z `token_hash`;
-   - dopiszę jasną instrukcję, że link prowadzi do ustawienia nowego hasła oraz kontakt `support@purelifecenter.pl`.
+## Co zrobię
 
-3. Wzmocnię stronę `/reset-password`:
-   - po wejściu z `token_hash` strona ma jednoznacznie zweryfikować token i pokazać formularz nowego hasła;
-   - jeśli link jest starym formatem z hashem Supabase, strona nadal obsłuży sesję odzyskiwania;
-   - usunę ryzyko, że globalny AuthContext lub redirect po zalogowanej sesji przeszkodzi użytkownikowi w ustawieniu hasła.
+1. **Poprawię stronę `/reset-password`**
+   - Będzie akceptować linki z samym `token_hash` jako reset hasła.
+   - Jeśli `type` jest pusty, aplikacja użyje domyślnie `recovery`.
+   - Obsłuży też częsty wariant Supabase, gdy parametry są w `#hash`, a nie w query stringu.
+   - Usunie z URL token dopiero po udanej weryfikacji albo po zapisaniu konkretnego błędu, żeby nie tracić możliwości diagnozy.
 
-4. Zweryfikuję mail potwierdzający zmianę hasła:
-   - upewnię się, że po `updateUser` wywoływane jest powiadomienie o zmianie hasła;
-   - treść powiadomienia będzie zawierała informację: jeśli to nie Ty zmieniłeś hasło, skontaktuj się z `support@purelifecenter.pl`.
+2. **Dodam odporniejszą weryfikację sesji recovery**
+   - Po `verifyOtp` aplikacja sprawdzi, czy faktycznie powstała sesja umożliwiająca `updateUser`.
+   - Formularz ustawiania hasła pokaże się tylko po realnym potwierdzeniu sesji resetu.
+   - Błąd będzie konkretny: wygasły link, wykorzystany link, błędny token albo brak sesji resetowania.
 
-5. Wdrożę funkcje edge i sprawdzę logi:
-   - wdrożę `send-password-reset` oraz `send-password-changed-notification`;
-   - sprawdzę, czy nowe wywołanie generuje `usedTokenHash: true` i bazowy URL `https://purelifecenter.pl`.
+3. **Wzmocnię funkcję wysyłającą mail resetu**
+   - Link w mailu będzie generowany jednoznacznie jako:  
+     `https://purelifecenter.pl/reset-password?token_hash=...&type=recovery`
+   - Dodam do metadanych logu skrócony format diagnostyczny bez ujawniania tokenu: domena, ścieżka, obecność `token_hash`, obecność `type=recovery`.
+   - Sprawdzę, czy szablon używa wyłącznie `{{link_resetowania}}`, bez starego `action_link`.
 
-Technicznie: obecny kod już generuje `hashed_token`, ale nadal ma fallback do `action_link`; w bazie szablon resetu nadal zawiera stary adres supportu `support@purelife.info.pl`, więc oba elementy zostaną poprawione.
+4. **Zweryfikuję przepływ po zmianie hasła**
+   - Po ustawieniu nowego hasła nadal zostanie wysłane powiadomienie o zmianie hasła z adresem `support@purelifecenter.pl`.
+   - Następnie użytkownik zostanie wylogowany i przekierowany do logowania.
+
+5. **Test końcowy**
+   - Sprawdzę lokalnie warianty URL:
+     - `/reset-password?token_hash=TEST&type=recovery`
+     - `/reset-password?token_hash=TEST`
+     - `/reset-password#token_hash=TEST&type=recovery`
+   - Po wdrożeniu funkcji wyślę testowe wywołanie edge function i sprawdzę logi, czy nowy mail zawiera poprawny format linku.
+
+## Efekt
+
+Użytkownik klikający świeżo wygenerowany link z maila ma trafić bezpośrednio na formularz „Ustaw nowe hasło”, ustawić hasło, otrzymać powiadomienie e-mail o zmianie i wrócić do logowania.
