@@ -44,11 +44,6 @@ const verifyRecoveryTokenOnce = (tokenHash: string) => {
   }
 
   const promise = (async () => {
-    const existingSession = (await supabase.auth.getSession()).data.session;
-    if (existingSession) {
-      return { ok: true };
-    }
-
     const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
 
     if (error) {
