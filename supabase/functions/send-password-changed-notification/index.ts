@@ -172,9 +172,11 @@ function wrapWithBranding(html: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
 }
 
+const SUPPORT_EMAIL = 'support@purelifecenter.pl';
+
 serve(async (req) => {
-  console.log('[send-password-reset] Request received:', req.method);
-  
+  console.log('[send-password-changed] Request received:', req.method);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -184,61 +186,33 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email } = await req.json();
-    console.log('[send-password-reset] Request for email:', email);
-
-    if (!email) {
-      throw new Error("Email is required");
+    // Identify the caller from their JWT (recovery session or logged-in user)
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    // Find user profile by email
-    const { data: profileData, error: profileError } = await supabase
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const user = userData?.user;
+    if (userError || !user?.email) {
+      console.error('[send-password-changed] Invalid token', userError);
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("user_id, email, first_name, last_name")
-      .eq("email", email)
-      .single();
-
-    // For security, always return success even if user not found
-    if (profileError || !profileData) {
-      console.log('[send-password-reset] User not found, returning success for security');
-      return new Response(
-        JSON.stringify({ success: true, message: "Jeśli konto istnieje, link do resetowania hasła został wysłany" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Resolve app base URL (fallback to production domain)
-    const { data: settingsData } = await supabase
-      .from('page_settings')
-      .select('app_base_url')
-      .limit(1)
+      .eq("user_id", user.id)
       .maybeSingle();
-    const baseUrl = (settingsData?.app_base_url || 'https://purelifecenter.pl').replace(/\/+$/, '');
 
-    // Generate recovery link using admin API
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: `${baseUrl}/reset-password`
-      }
-    });
+    const recipientEmail = profileData?.email || user.email;
 
-    if (linkError || !linkData) {
-      console.error('[send-password-reset] Failed to generate recovery link:', linkError);
-      throw new Error("Failed to generate recovery link");
-    }
-
-    // Build our own link based on the hashed OTP token so that the email link
-    // never depends on GoTrue Site URL / redirect allow-list configuration.
-    const hashedToken = (linkData.properties as any)?.hashed_token;
-    const recoveryLink = hashedToken
-      ? `${baseUrl}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
-      : linkData.properties?.action_link;
-    console.log('[send-password-reset] Recovery link generated', { usedTokenHash: !!hashedToken, baseUrl });
-
-
-    // Fetch SMTP settings
+    // SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
       .from("smtp_settings")
       .select("*")
@@ -246,7 +220,7 @@ serve(async (req) => {
       .single();
 
     if (smtpError || !smtpData) {
-      throw new Error("No active SMTP configuration found. Please configure SMTP settings first.");
+      throw new Error("No active SMTP configuration found.");
     }
 
     const smtpSettings: SmtpSettings = {
@@ -259,96 +233,57 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Validate SMTP settings
-    if (!smtpSettings.host || !smtpSettings.port || !smtpSettings.username || !smtpSettings.password) {
-      throw new Error("Incomplete SMTP configuration. Please check SMTP settings.");
-    }
-
-    console.log('[send-password-reset] SMTP config loaded:', {
-      host: smtpSettings.host,
-      port: smtpSettings.port,
-      encryption: smtpSettings.encryption,
-      from_email: smtpSettings.from_email
-    });
-
-    // Fetch email template by internal_name
     const { data: templateData, error: templateError } = await supabase
       .from("email_templates")
       .select("*")
-      .eq("internal_name", "password_reset")
+      .eq("internal_name", "password_changed")
       .eq("is_active", true)
       .single();
 
     if (templateError || !templateData) {
-      console.error('[send-password-reset] Template not found:', templateError);
-      throw new Error("Email template 'password_reset' not found or inactive");
+      throw new Error("Email template 'password_changed' not found or inactive");
     }
 
-    // Build variables for replacement
+    const now = new Date();
     const variables: Record<string, string> = {
-      imię: profileData.first_name || '',
-      nazwisko: profileData.last_name || '',
-      email: profileData.email,
-      link_resetowania: recoveryLink || '',
-      data: new Date().toLocaleDateString('pl-PL'),
-      godzina: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+      imię: profileData?.first_name || '',
+      nazwisko: profileData?.last_name || '',
+      email: recipientEmail,
+      support_email: SUPPORT_EMAIL,
+      data: now.toLocaleDateString('pl-PL'),
+      godzina: now.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    // Replace variables in template
     const subject = replaceVariables(templateData.subject, variables);
     let htmlBody = replaceVariables(templateData.body_html, variables);
-    
     if (templateData.footer_html) {
       htmlBody += replaceVariables(templateData.footer_html, variables);
     }
 
-    // Send email via SMTP
-    const result = await sendSmtpEmail(
-      smtpSettings,
-      profileData.email,
-      subject,
-      wrapWithBranding(htmlBody)
-    );
+    const result = await sendSmtpEmail(smtpSettings, recipientEmail, subject, wrapWithBranding(htmlBody));
 
-    // Log the email
     await supabase.from("email_logs").insert({
       template_id: templateData.id,
-      recipient_email: profileData.email,
-      recipient_user_id: profileData.user_id,
-      subject: subject,
+      recipient_email: recipientEmail,
+      recipient_user_id: user.id,
+      subject,
       status: result.success ? "sent" : "error",
       error_message: result.error || null,
       sent_at: result.success ? new Date().toISOString() : null,
-      metadata: { 
-        action: 'password_reset',
-        recovery_link_generated: !!recoveryLink
-      },
+      metadata: { action: 'password_changed' },
     });
 
     if (!result.success) {
       throw new Error(result.error || "Failed to send email");
     }
 
-    console.log('[send-password-reset] Email sent successfully to:', profileData.email);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Link do resetowania hasła został wysłany na podany adres email",
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   } catch (error: any) {
-    console.error("[send-password-reset] Error:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    console.error("[send-password-changed] Error:", error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 });

@@ -18,6 +18,8 @@ const ResetPassword = () => {
   const [isRecoverySession, setIsRecoverySession] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
 
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     let resolved = false;
@@ -32,11 +34,36 @@ const ResetPassword = () => {
       }
     });
 
-    // Fallback: Supabase clears the URL hash after consuming the token,
-    // so we can't rely on window.location.hash.
-    // Instead, check if a session already exists — if user landed here
-    // with a session, it's from a recovery link.
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const init = async () => {
+      // 1) New link format: ?token_hash=...&type=recovery (independent of GoTrue Site URL)
+      const params = new URLSearchParams(window.location.search);
+      const tokenHash = params.get("token_hash");
+      const type = params.get("type");
+
+      if (tokenHash && type === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        // Clean the URL either way
+        window.history.replaceState({}, "", window.location.pathname);
+        resolved = true;
+        clearTimeout(timeoutId);
+        if (error) {
+          console.error("[ResetPassword] verifyOtp failed:", error);
+          const msg = (error.message || "").toLowerCase();
+          setLinkError(
+            msg.includes("expired")
+              ? "Link do resetowania hasła wygasł. Poproś o nowy link."
+              : "Link do resetowania hasła jest nieprawidłowy lub został już wykorzystany. Poproś o nowy link."
+          );
+          setIsRecoverySession(false);
+        } else {
+          setIsRecoverySession(true);
+        }
+        setSessionChecked(true);
+        return;
+      }
+
+      // 2) Legacy links: Supabase consumes the hash and creates a session
+      const { data: { session } } = await supabase.auth.getSession();
       if (session && !resolved) {
         console.log("[ResetPassword] Session exists, treating as recovery");
         resolved = true;
@@ -44,7 +71,9 @@ const ResetPassword = () => {
         setSessionChecked(true);
         clearTimeout(timeoutId);
       }
-    });
+    };
+
+    init();
 
     // Final timeout — one last session check
     timeoutId = setTimeout(() => {
@@ -64,6 +93,7 @@ const ResetPassword = () => {
       clearTimeout(timeoutId);
     };
   }, []);
+
 
   const passwordValid = newPassword.length >= 8 
     && /[A-Z]/.test(newPassword) 
@@ -97,8 +127,16 @@ const ResetPassword = () => {
       
       if (error) throw error;
 
+      // Notify the user by email that their password has been changed (non-blocking)
+      try {
+        await supabase.functions.invoke('send-password-changed-notification');
+      } catch (notifyError) {
+        console.warn("[ResetPassword] Password-changed email failed:", notifyError);
+      }
+
       // Sign out and redirect to login
       await supabase.auth.signOut();
+
       
       toast({
         title: "Hasło zmienione",
@@ -133,11 +171,12 @@ const ResetPassword = () => {
           <AlertCircle className="w-16 h-16 text-destructive mx-auto" />
           <h1 className="text-2xl font-bold text-foreground">Nieprawidłowy link</h1>
           <p className="text-muted-foreground">
-            Link do resetowania hasła jest nieprawidłowy lub wygasł. Spróbuj ponownie poprosić o reset hasła.
+            {linkError || "Link do resetowania hasła jest nieprawidłowy lub wygasł. Spróbuj ponownie poprosić o reset hasła."}
           </p>
-          <Button onClick={() => navigate("/auth")} className="mt-4">
-            Przejdź do logowania
+          <Button onClick={() => navigate("/auth?reset=1")} className="mt-4">
+            Wyślij nowy link
           </Button>
+
         </div>
       </div>
     );
