@@ -127,8 +127,16 @@ const ResetPassword = () => {
       
       if (error) throw error;
 
+      // Notify the user by email that their password has been changed (non-blocking)
+      try {
+        await supabase.functions.invoke('send-password-changed-notification');
+      } catch (notifyError) {
+        console.warn("[ResetPassword] Password-changed email failed:", notifyError);
+      }
+
       // Sign out and redirect to login
       await supabase.auth.signOut();
+
       
       toast({
         title: "Hasło zmienione",
