@@ -347,7 +347,10 @@ serve(async (req) => {
       sent_at: result.success ? new Date().toISOString() : null,
       metadata: { 
         action: 'password_reset',
-        recovery_link_generated: !!recoveryLink
+        recovery_link_generated: true,
+        base_url: baseUrl,
+        reset_path: '/reset-password',
+        token_hash_link: true
       },
     });
 
