@@ -172,6 +172,29 @@ function wrapWithBranding(html: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
 }
 
+const PRODUCTION_BASE_URL = 'https://purelifecenter.pl';
+
+function resolveSafeBaseUrl(rawUrl?: string | null): string {
+  const candidate = (rawUrl || PRODUCTION_BASE_URL).trim().replace(/\/+$/, '');
+  const withProtocol = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+
+  try {
+    const url = new URL(withProtocol);
+    const hostname = url.hostname.toLowerCase();
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname.endsWith('.local');
+
+    if (url.protocol !== 'https:' || isLocalhost) {
+      console.warn('[send-password-reset] Unsafe app_base_url ignored:', { hostname, protocol: url.protocol });
+      return PRODUCTION_BASE_URL;
+    }
+
+    return `${url.origin}${url.pathname === '/' ? '' : url.pathname}`.replace(/\/+$/, '');
+  } catch (_error) {
+    console.warn('[send-password-reset] Invalid app_base_url ignored');
+    return PRODUCTION_BASE_URL;
+  }
+}
+
 serve(async (req) => {
   console.log('[send-password-reset] Request received:', req.method);
   
@@ -213,7 +236,7 @@ serve(async (req) => {
       .select('app_base_url')
       .limit(1)
       .maybeSingle();
-    const baseUrl = (settingsData?.app_base_url || 'https://purelifecenter.pl').replace(/\/+$/, '');
+    const baseUrl = resolveSafeBaseUrl(settingsData?.app_base_url);
 
     // Generate recovery link using admin API
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -232,10 +255,13 @@ serve(async (req) => {
     // Build our own link based on the hashed OTP token so that the email link
     // never depends on GoTrue Site URL / redirect allow-list configuration.
     const hashedToken = (linkData.properties as any)?.hashed_token;
-    const recoveryLink = hashedToken
-      ? `${baseUrl}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
-      : linkData.properties?.action_link;
-    console.log('[send-password-reset] Recovery link generated', { usedTokenHash: !!hashedToken, baseUrl });
+    if (!hashedToken) {
+      console.error('[send-password-reset] Missing hashed_token from Supabase generateLink response');
+      throw new Error('Nie udało się wygenerować bezpiecznego linku resetowania hasła. Spróbuj ponownie za chwilę.');
+    }
+
+    const recoveryLink = `${baseUrl}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
+    console.log('[send-password-reset] Recovery link generated', { usedTokenHash: true, baseUrl });
 
 
     // Fetch SMTP settings
