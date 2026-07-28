@@ -207,12 +207,20 @@ serve(async (req) => {
       );
     }
 
+    // Resolve app base URL (fallback to production domain)
+    const { data: settingsData } = await supabase
+      .from('page_settings')
+      .select('app_base_url')
+      .limit(1)
+      .maybeSingle();
+    const baseUrl = (settingsData?.app_base_url || 'https://purelifecenter.pl').replace(/\/+$/, '');
+
     // Generate recovery link using admin API
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://purelifecenter.pl/reset-password'
+        redirectTo: `${baseUrl}/reset-password`
       }
     });
 
@@ -221,8 +229,14 @@ serve(async (req) => {
       throw new Error("Failed to generate recovery link");
     }
 
-    const recoveryLink = linkData.properties?.action_link;
-    console.log('[send-password-reset] Recovery link generated');
+    // Build our own link based on the hashed OTP token so that the email link
+    // never depends on GoTrue Site URL / redirect allow-list configuration.
+    const hashedToken = (linkData.properties as any)?.hashed_token;
+    const recoveryLink = hashedToken
+      ? `${baseUrl}/reset-password?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
+      : linkData.properties?.action_link;
+    console.log('[send-password-reset] Recovery link generated', { usedTokenHash: !!hashedToken, baseUrl });
+
 
     // Fetch SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
