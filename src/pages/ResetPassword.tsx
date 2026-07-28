@@ -31,6 +31,47 @@ const getRecoveryLinkErrorMessage = (message: string) => {
   return "Nie udało się potwierdzić linku resetowania hasła. Poproś o nowy link i spróbuj ponownie.";
 };
 
+let recoveryVerification:
+  | {
+      tokenHash: string;
+      promise: Promise<{ ok: boolean; errorMessage?: string }>;
+    }
+  | null = null;
+
+const verifyRecoveryTokenOnce = (tokenHash: string) => {
+  if (recoveryVerification?.tokenHash === tokenHash) {
+    return recoveryVerification.promise;
+  }
+
+  const promise = (async () => {
+    const existingSession = (await supabase.auth.getSession()).data.session;
+    if (existingSession) {
+      return { ok: true };
+    }
+
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+
+    if (error) {
+      console.error("[ResetPassword] verifyOtp failed:", error);
+      return { ok: false, errorMessage: getRecoveryLinkErrorMessage(error.message || "") };
+    }
+
+    const recoverySession = data.session || (await supabase.auth.getSession()).data.session;
+    if (!recoverySession) {
+      console.error("[ResetPassword] verifyOtp succeeded but recovery session is missing");
+      return {
+        ok: false,
+        errorMessage: "Link został rozpoznany, ale nie udało się otworzyć bezpiecznej sesji zmiany hasła. Poproś o nowy link.",
+      };
+    }
+
+    return { ok: true };
+  })();
+
+  recoveryVerification = { tokenHash, promise };
+  return promise;
+};
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -74,24 +115,15 @@ const ResetPassword = () => {
           return;
         }
 
-        const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+        const result = await verifyRecoveryTokenOnce(tokenHash);
 
-        if (error) {
-          console.error("[ResetPassword] verifyOtp failed:", error);
-          setLinkError(getRecoveryLinkErrorMessage(error.message || ""));
+        if (!result.ok) {
+          setLinkError(result.errorMessage || "Link do resetowania hasła jest nieprawidłowy lub wygasł. Poproś o nowy link.");
           setIsRecoverySession(false);
           window.history.replaceState({}, "", window.location.pathname);
         } else {
-          const recoverySession = data.session || (await supabase.auth.getSession()).data.session;
-          if (recoverySession) {
-            setIsRecoverySession(true);
-            window.history.replaceState({}, "", window.location.pathname);
-          } else {
-            console.error("[ResetPassword] verifyOtp succeeded but recovery session is missing");
-            setLinkError("Link został rozpoznany, ale nie udało się otworzyć bezpiecznej sesji zmiany hasła. Poproś o nowy link.");
-            setIsRecoverySession(false);
-            window.history.replaceState({}, "", window.location.pathname);
-          }
+          setIsRecoverySession(true);
+          window.history.replaceState({}, "", window.location.pathname);
         }
         setSessionChecked(true);
         return;
