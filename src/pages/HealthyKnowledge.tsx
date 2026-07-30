@@ -248,7 +248,7 @@ const HealthyKnowledgePage: React.FC = () => {
     });
   }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage, activeTab]);
 
-  const canShare = isPartner || isAdmin;
+  const canShare = isPartner || isAdmin || sharingAccess.canShare;
 
   const handleOpenShare = (material: HealthyKnowledge) => {
     setSelectedMaterial(material);
