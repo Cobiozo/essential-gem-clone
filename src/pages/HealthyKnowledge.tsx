@@ -431,6 +431,7 @@ const HealthyKnowledgePage: React.FC = () => {
               </p>
             </div>
           </div>
+          <ClientSharingNotice access={sharingAccess} className="sm:ml-auto" />
         </div>
 
         <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'materials' | 'testimonials'); setSelectedCategory(null); }}>
