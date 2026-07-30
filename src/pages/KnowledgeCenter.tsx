@@ -882,7 +882,7 @@ export default function KnowledgeCenter() {
           title={selectedGraphic?.title || ''}
           resourceId={selectedGraphic?.id || ''}
           allowDownload={selectedGraphic?.allow_download ?? true}
-          allowShare={selectedGraphic?.allow_share ?? true}
+          allowShare={(selectedGraphic?.allow_share ?? true) && canShareResources}
           allowCopyLink={selectedGraphic?.allow_copy_link ?? true}
         />
       </main>
