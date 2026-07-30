@@ -177,6 +177,7 @@ const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type,
 const HealthyKnowledgePage: React.FC = () => {
   const { t, tf, language } = useLanguage();
   const { user, isPartner, isAdmin } = useAuth();
+  const sharingAccess = useClientSharingAccess();
   const navigate = useNavigate();
   const contentTypeLabels = useContentTypeLabels();
   
