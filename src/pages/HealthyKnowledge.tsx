@@ -22,6 +22,8 @@ import { TestimonialPreviewDialog } from '@/components/testimonials/TestimonialP
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 import { useContentTypeLabels } from '@/types/healthyKnowledge';
+import { useClientSharingAccess } from '@/hooks/useClientSharingAccess';
+import { ClientSharingNotice } from '@/components/sharing/ClientSharingNotice';
 
 const SHARE_MESSAGE_TEMPLATES: Record<string, string> = {
   pl: DEFAULT_SHARE_MESSAGE_TEMPLATE,
