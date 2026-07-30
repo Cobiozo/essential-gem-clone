@@ -29,6 +29,8 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
 import { generateTeamName } from '@/hooks/useTeamName';
 import { TeamKnowledgeSection } from '@/components/knowledge/TeamKnowledgeSection';
+import { useClientSharingAccess } from '@/hooks/useClientSharingAccess';
+import { ClientSharingNotice } from '@/components/sharing/ClientSharingNotice';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
