@@ -44,6 +44,8 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 
 export default function KnowledgeCenter() {
   const { user, isAdmin } = useAuth();
+  const sharingAccess = useClientSharingAccess();
+  const canShareResources = sharingAccess.canShare;
   const { language } = useLanguage();
   
   // Block right-click and other security measures
