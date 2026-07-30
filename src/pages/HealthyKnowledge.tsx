@@ -22,6 +22,8 @@ import { TestimonialPreviewDialog } from '@/components/testimonials/TestimonialP
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 import { useContentTypeLabels } from '@/types/healthyKnowledge';
+import { useClientSharingAccess } from '@/hooks/useClientSharingAccess';
+import { ClientSharingNotice } from '@/components/sharing/ClientSharingNotice';
 
 const SHARE_MESSAGE_TEMPLATES: Record<string, string> = {
   pl: DEFAULT_SHARE_MESSAGE_TEMPLATE,
@@ -177,6 +179,7 @@ const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type,
 const HealthyKnowledgePage: React.FC = () => {
   const { t, tf, language } = useLanguage();
   const { user, isPartner, isAdmin } = useAuth();
+  const sharingAccess = useClientSharingAccess();
   const navigate = useNavigate();
   const contentTypeLabels = useContentTypeLabels();
   
@@ -248,7 +251,7 @@ const HealthyKnowledgePage: React.FC = () => {
     });
   }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage, activeTab]);
 
-  const canShare = isPartner || isAdmin;
+  const canShare = isPartner || isAdmin || sharingAccess.canShare;
 
   const handleOpenShare = (material: HealthyKnowledge) => {
     setSelectedMaterial(material);
@@ -428,6 +431,7 @@ const HealthyKnowledgePage: React.FC = () => {
               </p>
             </div>
           </div>
+          <ClientSharingNotice access={sharingAccess} className="sm:ml-auto" />
         </div>
 
         <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'materials' | 'testimonials'); setSelectedCategory(null); }}>

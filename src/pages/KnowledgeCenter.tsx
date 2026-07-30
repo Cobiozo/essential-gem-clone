@@ -29,6 +29,8 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
 import { generateTeamName } from '@/hooks/useTeamName';
 import { TeamKnowledgeSection } from '@/components/knowledge/TeamKnowledgeSection';
+import { useClientSharingAccess } from '@/hooks/useClientSharingAccess';
+import { ClientSharingNotice } from '@/components/sharing/ClientSharingNotice';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
@@ -42,6 +44,8 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 
 export default function KnowledgeCenter() {
   const { user, isAdmin } = useAuth();
+  const sharingAccess = useClientSharingAccess();
+  const canShareResources = sharingAccess.canShare;
   const { language } = useLanguage();
   
   // Block right-click and other security measures
@@ -359,7 +363,7 @@ export default function KnowledgeCenter() {
             <Copy className="h-4 w-4" />
           </Button>
         )}
-        {resource.allow_share && hasValidDownloadUrl(resource) && (
+        {resource.allow_share && canShareResources && hasValidDownloadUrl(resource) && (
           <Button 
             variant="ghost" 
             size="icon"
@@ -464,11 +468,14 @@ export default function KnowledgeCenter() {
       
       <main className="container mx-auto px-4 py-6 sm:py-8 pt-20 sm:pt-24">
         {/* Header */}
-        <div className="mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Dokumenty, materiały i grafiki do Twojej dyspozycji
-          </p>
+        <div className="mb-4 sm:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Dokumenty, materiały i grafiki do Twojej dyspozycji
+            </p>
+          </div>
+          <ClientSharingNotice access={sharingAccess} />
         </div>
 
         {/* Main Tabs - Documents / Graphics / Team */}
@@ -878,7 +885,7 @@ export default function KnowledgeCenter() {
           title={selectedGraphic?.title || ''}
           resourceId={selectedGraphic?.id || ''}
           allowDownload={selectedGraphic?.allow_download ?? true}
-          allowShare={selectedGraphic?.allow_share ?? true}
+          allowShare={(selectedGraphic?.allow_share ?? true) && canShareResources}
           allowCopyLink={selectedGraphic?.allow_copy_link ?? true}
         />
       </main>

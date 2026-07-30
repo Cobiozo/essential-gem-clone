@@ -11915,6 +11915,19 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_client_sharing_status: {
+        Args: { _user_id: string }
+        Returns: {
+          approved_at: string
+          can_share: boolean
+          completed_lessons: number
+          first_login_at: string
+          time_condition_met: boolean
+          total_lessons: number
+          training_completed: boolean
+          unlock_at: string
+        }[]
+      }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
