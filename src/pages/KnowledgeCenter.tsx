@@ -363,7 +363,7 @@ export default function KnowledgeCenter() {
             <Copy className="h-4 w-4" />
           </Button>
         )}
-        {resource.allow_share && hasValidDownloadUrl(resource) && (
+        {resource.allow_share && canShareResources && hasValidDownloadUrl(resource) && (
           <Button 
             variant="ghost" 
             size="icon"
