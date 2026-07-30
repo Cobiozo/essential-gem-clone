@@ -468,11 +468,14 @@ export default function KnowledgeCenter() {
       
       <main className="container mx-auto px-4 py-6 sm:py-8 pt-20 sm:pt-24">
         {/* Header */}
-        <div className="mb-4 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Dokumenty, materiały i grafiki do Twojej dyspozycji
-          </p>
+        <div className="mb-4 sm:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Biblioteka</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Dokumenty, materiały i grafiki do Twojej dyspozycji
+            </p>
+          </div>
+          <ClientSharingNotice access={sharingAccess} />
         </div>
 
         {/* Main Tabs - Documents / Graphics / Team */}
