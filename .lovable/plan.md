@@ -1,40 +1,39 @@
-## Plan naprawy resetu hasła
+## Cel
 
-Potwierdzone z audytu:
-- Ostatni mail resetujący jest już generowany dla `https://purelifecenter.pl` i zawiera `token_hash` w metadanych wysyłki.
-- Problem widoczny na screenie jest po stronie obsługi linku na `/reset-password`: strona wymaga `type=recovery`, a link na screenie ma tylko `token_hash`, więc aplikacja od razu pokazuje „Nieprawidłowy link”.
-- Trzeba uszczelnić frontend tak, żeby każdy poprawny link z `token_hash` prowadził do formularza nowego hasła, również gdy parametr `type` nie występuje.
+Klient ma widzieć przycisk „Udostępnij” w Bazie wiedzy i Bibliotece — ale dopiero po spełnieniu dwóch warunków. Dodatkowo w nagłówku Bazy wiedzy ma być dla klienta informacja o tych warunkach.
 
-## Co zrobię
+## Dlaczego dziś klient nie widzi przycisku
 
-1. **Poprawię stronę `/reset-password`**
-   - Będzie akceptować linki z samym `token_hash` jako reset hasła.
-   - Jeśli `type` jest pusty, aplikacja użyje domyślnie `recovery`.
-   - Obsłuży też częsty wariant Supabase, gdy parametry są w `#hash`, a nie w query stringu.
-   - Usunie z URL token dopiero po udanej weryfikacji albo po zapisaniu konkretnego błędu, żeby nie tracić możliwości diagnozy.
+W `src/pages/HealthyKnowledge.tsx` (Baza wiedzy) jest twarda reguła:
+`const canShare = isPartner || isAdmin;` — rola „klient” jest wykluczona niezależnie od ustawienia admina `allow_external_share` na materiale. W Bibliotece (`src/pages/KnowledgeCenter.tsx`) przycisk zależy od flagi `resource.allow_share`, więc tam gating rolowy trzeba dołożyć analogicznie.
 
-2. **Dodam odporniejszą weryfikację sesji recovery**
-   - Po `verifyOtp` aplikacja sprawdzi, czy faktycznie powstała sesja umożliwiająca `updateUser`.
-   - Formularz ustawiania hasła pokaże się tylko po realnym potwierdzeniu sesji resetu.
-   - Błąd będzie konkretny: wygasły link, wykorzystany link, błędny token albo brak sesji resetowania.
+## Warunki odblokowania dla klienta
 
-3. **Wzmocnię funkcję wysyłającą mail resetu**
-   - Link w mailu będzie generowany jednoznacznie jako:  
-     `https://purelifecenter.pl/reset-password?token_hash=...&type=recovery`
-   - Dodam do metadanych logu skrócony format diagnostyczny bez ujawniania tokenu: domena, ścieżka, obecność `token_hash`, obecność `type=recovery`.
-   - Sprawdzę, czy szablon używa wyłącznie `{{link_resetowania}}`, bez starego `action_link`.
+1. Minęło 48 godzin od momentu startowego = późniejsza z dat: zatwierdzenie konta (`profiles.leader_approved_at` / `admin_approved_at` / `guardian_approved_at`) oraz pierwsze poprawne logowanie (najstarszy udany wpis w `login_audit_log`).
+2. Ukończony moduł Akademii „NIEZBĘDNIK KLIENTA” (moduł istnieje: `4ddc1abc-f8a6-430c-be86-c16e992b55e2`, widoczny dla klientów) — 100% ukończonych aktywnych lekcji, liczone tak jak w `fetchBatchModuleProgress` (`training_lessons` + `training_progress`).
 
-4. **Zweryfikuję przepływ po zmianie hasła**
-   - Po ustawieniu nowego hasła nadal zostanie wysłane powiadomienie o zmianie hasła z adresem `support@purelifecenter.pl`.
-   - Następnie użytkownik zostanie wylogowany i przekierowany do logowania.
+Partnerzy, specjaliści, liderzy i admini — bez zmian (mają dostęp od razu).
 
-5. **Test końcowy**
-   - Sprawdzę lokalnie warianty URL:
-     - `/reset-password?token_hash=TEST&type=recovery`
-     - `/reset-password?token_hash=TEST`
-     - `/reset-password#token_hash=TEST&type=recovery`
-   - Po wdrożeniu funkcji wyślę testowe wywołanie edge function i sprawdzę logi, czy nowy mail zawiera poprawny format linku.
+## Zakres zmian
 
-## Efekt
+1. **Nowy hook `src/hooks/useClientSharingAccess.ts`**
+   - Zwraca `{ canShare, isClientGated, hoursRemaining, unlockAt, trainingCompleted, loading }`.
+   - Dla ról nie-klienckich: `canShare = true` natychmiast.
+   - Dla klienta: pobiera daty zatwierdzenia z `profiles`, pierwsze udane logowanie (RPC lub zapytanie do `login_audit_log`), postęp modułu „NIEZBĘDNIK KLIENTA” (dopasowanie po tytule, z uwzględnieniem wariantu językowego).
+   - Jeżeli odczyt `login_audit_log` jest zablokowany przez RLS, dodam funkcję `SECURITY DEFINER` `get_client_sharing_status(_user_id uuid)` zwracającą komplet danych jednym wywołaniem (`SET search_path TO public`).
 
-Użytkownik klikający świeżo wygenerowany link z maila ma trafić bezpośrednio na formularz „Ustaw nowe hasło”, ustawić hasło, otrzymać powiadomienie e-mail o zmianie i wrócić do logowania.
+2. **Baza wiedzy — `src/pages/HealthyKnowledge.tsx`**
+   - `canShare` z hooka zamiast `isPartner || isAdmin`.
+   - Przycisk „Udostępnij” pokazuje się klientowi tylko gdy admin włączył `allow_external_share` i warunki spełnione.
+   - W nagłówku, po prawej stronie na wysokości tytułu „Baza wiedzy”, dla klienta z zablokowanym udostępnianiem: karta/badge z informacją, że udostępnianie materiałów zostanie włączone po 48 godzinach od dołączenia do platformy oraz ukończeniu w Akademii „Niezbędnika klienta”, z checklistą statusu obu warunków (np. „48h: pozostało 12 h”, „Niezbędnik klienta: w trakcie”) i linkiem do Akademii. Responsywnie: obok tytułu na desktopie, pod tytułem na mobile.
+
+3. **Biblioteka — `src/pages/KnowledgeCenter.tsx`**
+   - Ten sam hook: akcja udostępniania (`allow_share`, w tym `allowShare` w dialogu grafik) widoczna dla klienta wyłącznie po spełnieniu warunków.
+
+4. **Zabezpieczenie serwerowe (opcjonalne, zalecane)**
+   - Funkcja edge generująca kody OTP/linki udostępnień odrzuca żądania klientów, którzy nie spełniają warunków — aby ukrycie przycisku nie było jedyną barierą.
+
+## Uwagi techniczne
+
+- Teksty przez istniejący mechanizm `tf(...)` z polskimi fallbackami; brak twardych kolorów — tylko tokeny motywu.
+- Wynik hooka cache’owany na czas sesji widoku, aby nie powtarzać zapytań przy każdym renderze listy.
