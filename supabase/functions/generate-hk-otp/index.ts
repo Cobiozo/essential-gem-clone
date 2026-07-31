@@ -70,6 +70,32 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub as string;
 
+    // Gating dla roli "client": udostępnianie dopiero po 48h + ukończeniu "Niezbędnika klienta"
+    const { data: roleRows } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+    const roles = (roleRows || []).map((r: any) => r.role);
+    const isClientOnly = roles.length > 0 && roles.every((r: string) => r === 'client');
+
+    if (isClientOnly) {
+      const { data: statusRows } = await supabaseAdmin.rpc('get_client_sharing_status', {
+        _user_id: userId,
+      });
+      const status = Array.isArray(statusRows) ? statusRows[0] : statusRows;
+      if (!status?.can_share) {
+        return new Response(
+          JSON.stringify({
+            error:
+              'Udostępnianie materiałów zostanie włączone po 48 godzinach od dołączenia do platformy oraz po ukończeniu w Akademii szkolenia „Niezbędnik klienta”.',
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+
+
     // Parse request body
     const { knowledge_id, recipient_name, recipient_email, message_language } = await req.json();
     const lang = typeof message_language === 'string' ? message_language.trim().toLowerCase() : 'pl';
