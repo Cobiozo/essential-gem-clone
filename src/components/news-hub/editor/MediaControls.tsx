@@ -21,7 +21,10 @@ export const MediaControls: React.FC<Props> = ({ draft, update }) => {
     setUploading(field);
     try {
       const kind = field === 'media_url' && draft.type === 'video' ? 'video' as const : undefined;
-      const url = await uploadNewsHubFile(file, folder, kind ? { kind } : {});
+      const url = await uploadNewsHubFile(file, folder, {
+        onWarning: (msg) => toast.warning(msg),
+        ...(kind ? { kind } : {}),
+      });
       if (url) {
         const patch: any = { [field]: url };
         if (field === 'file_url') { patch.file_name = file.name; patch.file_size = file.size; }
