@@ -82,6 +82,7 @@ export const PostFormDialog: React.FC<Props> = ({ open, post, initialBlocks, onC
     try {
       const url = await uploadNewsHubFile(file, folder, {
         onProgress: (p) => setUploadPct(p),
+        onWarning: (msg) => toast.warning(msg),
         ...(kind ? { kind } : {}),
       });
       if (url) {
