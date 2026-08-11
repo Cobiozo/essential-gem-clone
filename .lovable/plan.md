@@ -1,39 +1,28 @@
-## Cel
+# Naprawa dodawania wideo w Aktualnościach
 
-Klient ma widzieć przycisk „Udostępnij” w Bazie wiedzy i Bibliotece — ale dopiero po spełnieniu dwóch warunków. Dodatkowo w nagłówku Bazy wiedzy ma być dla klienta informacja o tych warunkach.
+## Problem
 
-## Dlaczego dziś klient nie widzi przycisku
+Plik wideo faktycznie wgrywa się na serwer plików, ale zaraz po uploadzie Aktualności robią własną kontrolę pliku i przy pierwszym niepowodzeniu sieciowym odrzucają cały upload komunikatem „Nie można zweryfikować wgranego pliku wideo (brak dostępu sieciowego do serwera plików)”. URL nigdy nie trafia do pola „URL pliku”, więc blok wideo zostaje pusty („Brak URL wideo”).
 
-W `src/pages/HealthyKnowledge.tsx` (Baza wiedzy) jest twarda reguła:
-`const canShare = isPartner || isAdmin;` — rola „klient” jest wykluczona niezależnie od ustawienia admina `allow_external_share` na materiale. W Bibliotece (`src/pages/KnowledgeCenter.tsx`) przycisk zależy od flagi `resource.allow_share`, więc tam gating rolowy trzeba dołożyć analogicznie.
+Powód: moduł Aktualności sprawdza wyłącznie pełny adres zwrócony przez serwer (inna domena → blokada przeglądarki/CORS), robi tylko jedną próbę i całkowicie ignoruje potwierdzenie zapisu wysyłane przez serwer. Akademia ma już poprawną, odporną wersję tej samej kontroli i tam wideo działa.
 
-## Warunki odblokowania dla klienta
+## Rozwiązanie
 
-1. Minęło 48 godzin od momentu startowego = późniejsza z dat: zatwierdzenie konta (`profiles.leader_approved_at` / `admin_approved_at` / `guardian_approved_at`) oraz pierwsze poprawne logowanie (najstarszy udany wpis w `login_audit_log`).
-2. Ukończony moduł Akademii „NIEZBĘDNIK KLIENTA” (moduł istnieje: `4ddc1abc-f8a6-430c-be86-c16e992b55e2`, widoczny dla klientów) — 100% ukończonych aktywnych lekcji, liczone tak jak w `fetchBatchModuleProgress` (`training_lessons` + `training_progress`).
+Ujednolicić weryfikację w Aktualnościach z tą z Akademii:
 
-Partnerzy, specjaliści, liderzy i admini — bez zmian (mają dostęp od razu).
+1. Używać ścieżki względnej `/uploads/...` (ten sam adres co aplikacja) jako pierwszego kandydata do sprawdzenia, a pełnego URL-a jako zapasowego.
+2. Wykonywać 3 próby z krótkimi przerwami (~0.9 s, 1.8 s) — serwer bywa gotowy chwilę po zapisie.
+3. Jeśli serwer potwierdził zapis pliku, a sprawdzenie sieciowe nie doszło do skutku: zapisać URL i pokazać tylko ostrzeżenie („plik zapisany, odtwarzanie może być dostępne za chwilę”) zamiast blokować dodanie wideo.
+4. Twardy błąd zostawić wyłącznie dla realnie złych odpowiedzi (404, HTML zamiast pliku, zły typ zawartości przy udanym połączeniu).
+5. Preferować w zapisanym poście adres względny, żeby odtwarzanie działało niezależnie od domeny.
 
-## Zakres zmian
+## Szczegóły techniczne
 
-1. **Nowy hook `src/hooks/useClientSharingAccess.ts`**
-   - Zwraca `{ canShare, isClientGated, hoursRemaining, unlockAt, trainingCompleted, loading }`.
-   - Dla ról nie-klienckich: `canShare = true` natychmiast.
-   - Dla klienta: pobiera daty zatwierdzenia z `profiles`, pierwsze udane logowanie (RPC lub zapytanie do `login_audit_log`), postęp modułu „NIEZBĘDNIK KLIENTA” (dopasowanie po tytule, z uwzględnieniem wariantu językowego).
-   - Jeżeli odczyt `login_audit_log` jest zablokowany przez RLS, dodam funkcję `SECURITY DEFINER` `get_client_sharing_status(_user_id uuid)` zwracającą komplet danych jednym wywołaniem (`SET search_path TO public`).
+- `src/hooks/useNewsHub.ts`:
+  - `uploadWithMulter` zwraca obiekt `{ url, relativePath, publicUrl, serverVerified }` zamiast samego `data.url` (odczyt `data.relativePath`, `data.publicUrl`, `data.verified`), z helperem `getUploadRelativePath` jak w `useLocalStorage.ts`.
+  - `verifyUploadedUrl` → przyjmuje listę kandydatów, 3 próby z `sleep`, zwraca `null` przy pierwszym sukcesie.
+  - `uploadNewsHubFile` dla wideo: przy błędzie weryfikacji, gdy `serverVerified === true`, zwraca URL i loguje ostrzeżenie (opcjonalny callback `onWarning`), w przeciwnym razie rzuca błąd.
+  - Ta sama, łagodniejsza ścieżka dla dużych plików nie-wideo.
+- Komunikat ostrzegawczy w edytorze Aktualności pokazywany jako toast informacyjny, nie błąd.
 
-2. **Baza wiedzy — `src/pages/HealthyKnowledge.tsx`**
-   - `canShare` z hooka zamiast `isPartner || isAdmin`.
-   - Przycisk „Udostępnij” pokazuje się klientowi tylko gdy admin włączył `allow_external_share` i warunki spełnione.
-   - W nagłówku, po prawej stronie na wysokości tytułu „Baza wiedzy”, dla klienta z zablokowanym udostępnianiem: karta/badge z informacją, że udostępnianie materiałów zostanie włączone po 48 godzinach od dołączenia do platformy oraz ukończeniu w Akademii „Niezbędnika klienta”, z checklistą statusu obu warunków (np. „48h: pozostało 12 h”, „Niezbędnik klienta: w trakcie”) i linkiem do Akademii. Responsywnie: obok tytułu na desktopie, pod tytułem na mobile.
-
-3. **Biblioteka — `src/pages/KnowledgeCenter.tsx`**
-   - Ten sam hook: akcja udostępniania (`allow_share`, w tym `allowShare` w dialogu grafik) widoczna dla klienta wyłącznie po spełnieniu warunków.
-
-4. **Zabezpieczenie serwerowe (opcjonalne, zalecane)**
-   - Funkcja edge generująca kody OTP/linki udostępnień odrzuca żądania klientów, którzy nie spełniają warunków — aby ukrycie przycisku nie było jedyną barierą.
-
-## Uwagi techniczne
-
-- Teksty przez istniejący mechanizm `tf(...)` z polskimi fallbackami; brak twardych kolorów — tylko tokeny motywu.
-- Wynik hooka cache’owany na czas sesji widoku, aby nie powtarzać zapytań przy każdym renderze listy.
+Bez zmian w bazie danych i bez zmian po stronie serwera plików.
