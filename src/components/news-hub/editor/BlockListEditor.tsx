@@ -576,7 +576,11 @@ const FileUploadInput: React.FC<{ value?: string; fileName?: string; accept?: st
     setUploading(true);
     setPct(0);
     try {
-      const url = await uploadNewsHubFile(file, folder, { onProgress: setPct, kind });
+      const url = await uploadNewsHubFile(file, folder, {
+        onProgress: setPct,
+        kind,
+        onWarning: (msg) => toast.warning(msg),
+      });
       if (url) onChange(url, file.name, file.size);
       else toast.error('Błąd uploadu');
     } catch (err: any) {

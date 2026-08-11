@@ -127,6 +127,29 @@ export interface UploadOptions {
   onProgress?: (pct: number) => void;
   /** Nadpisuje typ wykrywany z folderu/MIME — używaj gdy field to wideo niezależnie od MIME pliku. */
   kind?: NewsHubUploadKind;
+  /** Wywoływane, gdy plik zapisał się na serwerze, ale weryfikacja streamingu jeszcze się nie powiodła. */
+  onWarning?: (message: string) => void;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function getUploadRelativePath(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  if (value.startsWith('/uploads/')) return value;
+  try {
+    const parsed = new URL(value);
+    if (parsed.pathname.startsWith('/uploads/')) return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+interface MulterUploadResult {
+  url: string;
+  relativePath?: string;
+  publicUrl: string;
+  serverVerified: boolean;
 }
 
 export async function uploadNewsHubFile(
@@ -147,26 +170,26 @@ export async function uploadNewsHubFile(
   if (mimeErr) throw new Error(mimeErr);
 
   // WIDEO: ZAWSZE multer przez /upload (omijamy Supabase i jego limit bucketu)
-  if (isVideo) {
-    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
-    const verr = await verifyUploadedUrl(url, 'video');
+  // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
+  if (isVideo || file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
+    const res = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
+    // Preferujemy ścieżkę względną — działa niezależnie od domeny i omija CORS.
+    const preferredUrl = res.relativePath || res.url;
+    const candidates = [res.relativePath, res.publicUrl, res.url].filter(Boolean) as string[];
+
+    const verr = await verifyUploadedUrl(candidates, kind);
     if (verr) {
-      console.error('[useNewsHub] Video verification failed:', verr, url);
-      throw new Error(verr);
+      if (res.serverVerified || !verr.hard) {
+        console.warn('[useNewsHub] Upload zapisany, weryfikacja odtwarzania opóźniona:', verr.message, preferredUrl);
+        options.onWarning?.(`${verr.message} Plik został zapisany — odtwarzanie może być dostępne za chwilę.`);
+        return preferredUrl;
+      }
+      console.error('[useNewsHub] Verification failed:', verr.message, preferredUrl);
+      throw new Error(verr.message);
     }
-    return url;
+    return preferredUrl;
   }
 
-  // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
-  if (file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
-    const url = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
-    const verr = await verifyUploadedUrl(url, kind);
-    if (verr) {
-      console.error('[useNewsHub] Verification failed:', verr, url);
-      throw new Error(verr);
-    }
-    return url;
-  }
   return uploadToSupabase(file, effectiveFolder);
 }
 
@@ -182,54 +205,79 @@ async function uploadToSupabase(file: File, folder: string): Promise<string | nu
   return pub.publicUrl;
 }
 
-// Po uploadzie sprawdzamy realną dostępność pliku przez GET Range bytes=0-0.
-// HEAD bywa blokowane przez CORS preflight, GET z Range jest niezawodny.
-// Wymaga: status 200/206, content-type pasujący do typu uploadu, NIE text/html.
-// Dla wideo: każda inna odpowiedź = błąd (nie zapisujemy URL-a).
-async function verifyUploadedUrl(url: string, kind: NewsHubUploadKind): Promise<string | null> {
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
-  } catch (e) {
-    // CORS / sieć — dla wideo nie ryzykujemy zapisania złego URL-a.
-    if (kind === 'video') {
-      return 'Nie można zweryfikować wgranego pliku wideo (brak dostępu sieciowego do serwera plików). Spróbuj jeszcze raz.';
-    }
-    return null;
-  }
-  if (res.status === 404) {
-    return 'Serwer zwrócił 404 dla wgranego pliku — upload nie został zapisany w docelowym folderze. Spróbuj ponownie lub skontaktuj się z administratorem.';
-  }
-  if (res.status !== 200 && res.status !== 206) {
-    return `Serwer zwrócił status ${res.status} dla wgranego pliku — upload jest nieprawidłowy.`;
-  }
-  const ct = (res.headers.get('content-type') || '').toLowerCase();
-  if (ct.startsWith('text/html')) {
-    return 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł. Spróbuj ponownie lub skontaktuj się z administratorem.';
-  }
-  if (kind === 'video') {
-    if (ct.startsWith('video/') || ct.startsWith('application/octet-stream') || ct === '') {
-      // dopuszczamy gdy nginx/Express nie ustawi content-type, ale status jest OK
-      return null;
-    }
-    return `Serwer nie zwraca pliku wideo (content-type: ${ct || 'brak'}). Upload jest nieprawidłowy.`;
-  }
-  if (kind === 'image' || kind === 'cover') {
-    if (ct.startsWith('image/') || ct.startsWith('application/octet-stream') || ct === '') return null;
-    return `Serwer nie zwraca obrazu (content-type: ${ct}).`;
-  }
-  return null;
+interface VerifyFailure {
+  message: string;
+  /** true = serwer realnie odpowiedział czymś złym (404/HTML/zły typ) — nie zapisujemy URL-a. */
+  hard: boolean;
 }
 
-function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number) => void): Promise<string> {
+// Po uploadzie sprawdzamy realną dostępność pliku przez GET Range bytes=0-0.
+// HEAD bywa blokowane przez CORS preflight, GET z Range jest niezawodny.
+// Sprawdzamy kolejno kandydatów (najpierw /uploads/... same-origin) i robimy 3 próby.
+async function verifyUploadedUrl(urls: string[], kind: NewsHubUploadKind): Promise<VerifyFailure | null> {
+  const candidates = Array.from(new Set(urls.filter(Boolean)));
+  if (!candidates.length) return { message: 'Serwer nie zwrócił adresu wgranego pliku.', hard: true };
+
+  let last: VerifyFailure = {
+    message: 'Nie można zweryfikować wgranego pliku (brak dostępu sieciowego do serwera plików).',
+    hard: false,
+  };
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (const url of candidates) {
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+      } catch {
+        last = {
+          message: 'Nie można zweryfikować wgranego pliku (brak dostępu sieciowego do serwera plików).',
+          hard: false,
+        };
+        continue;
+      }
+
+      if (res.status === 404) {
+        last = { message: 'Serwer zwrócił 404 dla wgranego pliku — plik nie jest jeszcze dostępny.', hard: false };
+        continue;
+      }
+      if (res.status !== 200 && res.status !== 206) {
+        last = { message: `Serwer zwrócił status ${res.status} dla wgranego pliku.`, hard: false };
+        continue;
+      }
+
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('text/html')) {
+        last = { message: 'Serwer zwraca stronę HTML zamiast pliku — upload się nie powiódł.', hard: true };
+        continue;
+      }
+      if (kind === 'video') {
+        if (ct.startsWith('video/') || ct.startsWith('application/octet-stream') || ct === '') return null;
+        last = { message: `Serwer nie zwraca pliku wideo (content-type: ${ct}).`, hard: true };
+        continue;
+      }
+      if (kind === 'image' || kind === 'cover') {
+        if (ct.startsWith('image/') || ct.startsWith('application/octet-stream') || ct === '') return null;
+        last = { message: `Serwer nie zwraca obrazu (content-type: ${ct}).`, hard: true };
+        continue;
+      }
+      return null;
+    }
+
+    if (attempt < 2) await sleep(900 * (attempt + 1));
+  }
+
+  return last;
+}
+
+function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number) => void): Promise<MulterUploadResult> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append('folder', folder);
     form.append('file', file);
 
     const xhr = new XMLHttpRequest();
-    // 10 minut dla dużych plików
-    xhr.timeout = 10 * 60 * 1000;
+    // 30 minut dla dużych plików wideo
+    xhr.timeout = 30 * 60 * 1000;
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -245,14 +293,25 @@ function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number)
       }
       let data: any;
       try { data = JSON.parse(xhr.responseText); } catch { reject(new Error('Nieprawidłowa odpowiedź serwera')); return; }
-      if (xhr.status < 200 || xhr.status >= 300 || !data?.success || !data?.url) {
+      if (xhr.status < 200 || xhr.status >= 300 || !data?.success) {
         reject(new Error(data?.error || `Upload nieudany (status ${xhr.status})`));
         return;
       }
-      resolve(data.url as string);
+      const publicUrl: string = typeof data.url === 'string' ? data.url : (typeof data.publicUrl === 'string' ? data.publicUrl : '');
+      const relativePath = getUploadRelativePath(data.relativePath) || getUploadRelativePath(publicUrl);
+      if (!publicUrl && !relativePath) {
+        reject(new Error('Serwer nie zwrócił prawidłowego URL wgranego pliku.'));
+        return;
+      }
+      resolve({
+        url: relativePath || publicUrl,
+        relativePath,
+        publicUrl: publicUrl || relativePath!,
+        serverVerified: data.verified === true,
+      });
     };
     xhr.onerror = () => reject(new Error('Błąd połączenia z serwerem uploadu.'));
-    xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (10 min). Spróbuj jeszcze raz.'));
+    xhr.ontimeout = () => reject(new Error('Upload przekroczył limit czasu (30 min). Spróbuj jeszcze raz.'));
 
     xhr.open('POST', STORAGE_CONFIG.UPLOAD_API_URL);
     xhr.send(form);
