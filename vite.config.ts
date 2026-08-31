@@ -38,6 +38,10 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
+        // Keep manual chunks limited to the matched modules only — shared deps
+        // must not be merged into lib-* chunks (otherwise entry imports them
+        // and the heavy libs get modulepreloaded on every page).
+        onlyExplicitManualChunks: true,
         manualChunks(id) {
           // Only isolate heavy, on-demand libraries
           if (id.includes('node_modules/xlsx')) return 'lib-xlsx';
