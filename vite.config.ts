@@ -36,20 +36,12 @@ export default defineConfig(({ mode }) => ({
   },
   esbuild: mode === 'production' ? { drop: ['console', 'debugger'] } : undefined,
   build: {
+    // No manualChunks: hand-picked vendor chunks hoisted shared CJS helpers
+    // and deps into lib-* chunks, which forced the entry to import (and
+    // modulepreload) heavy libs like recharts/jspdf/xlsx on every page.
+    // Rollup's default splitting keeps those libs in on-demand chunks.
     rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // Only isolate heavy, on-demand libraries that are NOT reachable
-          // from the entry's static import graph. recharts / jspdf /
-          // html2canvas / embla-carousel must NOT be manual-chunked: their
-          // shared deps would be hoisted into the lib chunk, forcing the
-          // entry to import (and modulepreload) them on every page.
-          if (id.includes('node_modules/xlsx')) return 'lib-xlsx';
-          if (id.includes('node_modules/fabric')) return 'lib-fabric';
-          if (id.includes('node_modules/jszip')) return 'lib-zip';
-          // Everything else (React, Radix, dnd-kit, Supabase, etc.) — let Vite decide
-        },
-      },
+      output: {},
     },
     commonjsOptions: {
       transformMixedEsModules: true,
