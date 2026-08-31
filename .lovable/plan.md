@@ -107,7 +107,7 @@ Metryka przed/po: requests/10 min, writes/10 min, per 100 i 1000 użytkowników.
 ### Etap 4 — Route shells
 Zakres: oddzielenie pracy globalnej dla tras publicznych, auth i zalogowanych (`PublicApp` / `AppShell`): inactivity timeout, last-seen, banery, chat, MFA — tylko tam, gdzie mają sens. Usunięcie produkcyjnych `console.log` stanu auth.
 **`useSecurityPreventions` — nie przenosić automatycznie.** Najpierw ustalić, co realnie chroni (publiczne formularze, checkout, rejestracja na wydarzenia, publiczne linki, materiały Bazy Wiedzy) i dopiero na tej podstawie zdecydować: globalny / wybrane trasy publiczne / tylko po zalogowaniu. Bezpieczeństwo i funkcjonalność mają pierwszeństwo przed mikrooptymalizacją.
-Kryteria akceptacji: brak timerów i requestów użytkownikowych na trasach publicznych, brak utraty ochrony na trasach, gdzie była wymagana.
+Kryteria akceptacji: na trasach publicznych usunięte są **zbędne** timery, polling i heartbeaty użytkownikowe (inactivity timeout, last-seen, version polling, panele 30 s) — nie wymaga się eliminacji wszystkich requestów (np. niezbędne zapytania CMS treści publicznej zostają). Brak utraty ochrony na trasach, gdzie była wymagana.
 
 ### Etap 5 — Assets / GeoJSON / PWA (dopiero po pomiarze transferu)
 Najpierw klasyfikacja każdego assetu >200 kB: pobierany na initial load / preloadowany / pobierany po otwarciu funkcji / obecny w `public/`, ale nieużywany. Rozmiar pliku w repo ≠ transfer użytkownika.
@@ -125,7 +125,7 @@ Przepisywane są wyłącznie P1 i wybrane P2 z uzasadnionym zyskiem.
 
 ### Etap 7 — `lazyWithRetry` (dopiero po stabilizacji chunków)
 Nie ruszać przed Etapem 1 i 2, bo obie zmiany przebudowują strukturę chunków i assetów.
-Zakres po stabilizacji: zmierzyć realne `ChunkLoadError` w produkcji, następnie uprościć do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko po potwierdzonej zmianie wersji → ErrorBoundary. Usunięcie globalnego purge Cache Storage i hard reloadu z `?v=`.
+Zakres po stabilizacji: zmierzyć realne `ChunkLoadError` w produkcji — **jeśli brak dedykowanej telemetrii `ChunkLoadError`, użyć istniejących logów (observability, console-logs, runtime-errors) i istniejących testów/smoke testów; NIE budować nowego dużego systemu telemetrycznego**. Następnie uprościć do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko po potwierdzonej zmianie wersji → ErrorBoundary. Usunięcie globalnego purge Cache Storage i hard reloadu z `?v=`.
 Kryterium: brak wzrostu liczby błędów ładowania chunków po zmianie.
 
 ### Etap 8 — Dependency cleanup + performance budgets
