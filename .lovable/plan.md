@@ -53,36 +53,96 @@ Wszystkie liczby pochodzą z realnego production buildu (`vite build`, 38.7 s) i
 3. `AuthContext` → rozdział na `SessionContext` (user/session), `ProfileContext`, `RolesContext`, `MfaContext`.
 4. Duże komponenty: `TrainingManagement` 3018, `VideoRoom` 2673, `SecureMedia` 2574, `LivePreviewEditor` 2326, `EventRegistrationsManagement` 1987.
 
-## F. Plan wdrożenia (etapami, każdy = osobne wdrożenie)
+## F. Plan wdrożenia (Etap 0–8)
 
-**Etap 1 — initial bundle (największy zysk, najmniejsze ryzyko)**
-1. Usunąć `recharts`/`lib-pdf` z grafu entry (dynamiczny import `ui/chart` i eksporterów PDF) → znikną modulepreloady w `index.html`.
-2. `docx` i `xlsx` w `platformStructureExport` → `await import()` w handlerze eksportu.
-3. Weryfikacja: nowy build, porównanie `index.js` gzip i listy `modulepreload`.
-Oczekiwane: initial ~750 kB gzip → **~390 kB**.
+Zasady nadrzędne:
+- Etap jest zakończony wyłącznie wtedy, gdy **metryka poprawiła się w output buildu / Network / Profilerze** i nie wystąpiła regresja. Sam fakt „zmieniono kod na dynamiczny import” nie kończy etapu.
+- Każdy etap kończy się: production build, `eslint`, istniejące testy, smoke testy `/`, `/login`, `/dashboard`, `/admin`, porównanie bundla, porównanie Network, kontrola błędów w console, kontrola regresji funkcjonalnej.
+- Nie wolno stosować barrel exports (`admin/index.ts`) na granicach lazy modułów — dynamiczne importy wskazują konkretny plik (`import("./admin/modules/UsersAdmin")`), inaczej rollup ponownie skleja zależności i code splitting przestaje działać.
 
-**Etap 2 — AdminShell**
-Zamiana 59 statycznych importów na `lazy()` per moduł, zakładka renderowana dopiero po wybraniu. Cel: chunk `/admin` **2 477 kB → < 400 kB**, reszta on-demand. Test: wejście na każdą zakładkę + smoke CMS/Events/Users.
+### Etap 0 — Baseline (obowiązkowy, bez zmian w kodzie)
+Zapis do repo/notatki referencyjnej:
+- production build + zachowany `dist/stats.html`,
+- rozmiar `index.js` raw i gzip, pełna lista `modulepreload` z `dist/index.html`,
+- rozmiar `Admin.js` raw i gzip, TOP 20 chunków,
+- Network dla `/`, `/login`, `/dashboard`, `/admin`: liczba requestów, transfer JS, transfer assetów, transfer obrazów/GeoJSON,
+- requesty i DB writes przez 10 min idle (zalogowany użytkownik),
+- smoke testy kluczowych tras (wynik zapisany).
+Kryterium: komplet danych baseline istnieje i jest porównywalny po każdym kolejnym etapie.
+Zależność: blokuje wszystkie pozostałe etapy.
 
-**Etap 3 — assety statyczne**
-Kompresja `pwa-*.png` (1012 kB → < 60 kB każda), `favicon.png` (191 kB → < 20 kB), ocena `countries-50m.geojson` vs `110m` (porównanie wizualne przy zoomie mapy) + ładowanie GeoJSON tylko po otwarciu mapy. Cel: −3 do −6 MB transferu.
+### Etap 1 — Initial bundle / preload
+Zakres: usunięcie `recharts` (`components/ui/chart.tsx` i konsumentów), `jspdf`/`html2canvas`/`html2pdf.js` oraz `docx`/`xlsx` w `platformStructureExport` z critical path — dynamiczny import w miejscu użycia funkcji.
+Ryzyko: przeniesienie ciężkiej biblioteki do innego shared chunka, który nadal ładuje się na starcie; opóźnienie pierwszego renderu wykresu.
+Kryteria akceptacji (twarde):
+- `dist/index.html` **nie zawiera** `modulepreload` dla `lib-pdf`,
+- `dist/index.html` **nie zawiera** `modulepreload` dla `lib-charts`,
+- gzip `index.js` faktycznie zmalał vs baseline (390 kB),
+- graf importów potwierdza, że biblioteki nie trafiły do innego chunka ładowanego na starcie,
+- wykresy i eksporty nadal działają (Statystyki, Security, Omega, eksport struktury).
+Metryka przed/po: initial JS gzip; lista modulepreload; liczba requestów na `/`.
+„Etap zakończony tylko wtedy, gdy graf importów i output buildu potwierdzają zniknięcie ciężkich bibliotek z critical path.”
 
-**Etap 4 — shelle tras**
-`PublicApp` bez version pollingu, last-seen, inactivity, security hooks i banerów; usunięcie `console.log` auth state z produkcji.
+### Etap 2 — AdminShell
+Zakres: mały `AdminShell` (routing zakładek, layout, uprawnienia) + **10–15 logicznych modułów lazy**, nie 59 osobnych chunków: Users, CMS/Content, Events, Payments, Notifications/Communication, Email, Security, Integrations, AI, Media, System, Training, Reports/Statistics.
+Drugi poziom lazy tylko dla wyjątkowo ciężkich funkcji wewnątrz modułu (np. `TemplateDndEditor`/fabric, `TrainingManagement`, edytory CMS).
+Ryzyka: utrata stanu przy przełączaniu zakładek, rozjazd uprawnień moderatora, setki drobnych requestów przy zbyt drobnym podziale, przypadkowe scalenie modułów przez barrel export.
+Kryteria akceptacji:
+- chunk wejściowy `/admin` istotnie mniejszy (cel do potwierdzenia: ≤ 400–450 kB raw vs 2 477 kB),
+- wejście na `/admin` nie pobiera kodu nieotwartych zakładek (potwierdzone w Network),
+- liczba requestów przy otwarciu zakładki pozostaje jednocyfrowa,
+- każda zakładka otwiera się bez błędu w console; smoke Users/CMS/Events.
+Metryka przed/po: rozmiar chunku `/admin`, transfer JS przy wejściu, transfer przy otwarciu 3 typowych zakładek.
+Zależność: po Etapie 1.
 
-**Etap 5 — sieć w idle**
-Ujednolicenie pollingu (version 60 s → 5 min lub reakcja na SW `updatefound`), last-seen 2 min → 10 min i tylko przy realnej aktywności, wyłączenie 30-sekundowych refetchy przy `document.hidden`.
+### Etap 3 — Idle network
+Zakres:
+- **Version polling** — najpierw audyt istniejącego SW (`public/sw-push.js`, rejestracja i `updatefound` w `main.tsx`, `SWUpdateBanner`). Rekomendowany model do potwierdzenia: SW `updatefound` jako mechanizm główny, `/version.json` wyłącznie jako fallback co 5–10 min, zatrzymany przy `document.hidden` (obecnie pauza już istnieje). Wariant końcowy podać po sprawdzeniu, czy SW faktycznie aktualizuje się przy każdym deployu.
+- **`last_seen_at`** — najpierw znaleźć wszystkich konsumentów (`last_seen_at`, statusy online/offline, progi „online”) i opisać: jaki próg oznacza online, gdzie jest używany, czy rzadszy heartbeat wywoła fałszywe offline. Dopiero potem dobrać częstotliwość; model do oceny: zapis przy realnej aktywności + throttle, rzadszy heartbeat jako fallback, Presence tam, gdzie potrzebny jest realny realtime.
+- **Refetche 30 s** (`SecurityDashboard`, `SubscriptionStatsPanel`) — wstrzymanie przy `document.hidden`/nieaktywnej zakładce.
+Ryzyko: fałszywy status offline, opóźnione wykrycie nowej wersji.
+Kryteria akceptacji: mniejsza liczba requestów i DB writes w 10 min idle vs baseline, brak regresji w wykrywaniu nowej wersji i w statusach online.
+Metryka przed/po: requests/10 min, writes/10 min, per 100 i 1000 użytkowników.
 
-**Etap 6 — Context split + hotspoty render**
-Rozdzielenie `AuthContext`; memoizacja wyłącznie tam, gdzie profiler React pokaże koszt (bez masowego `memo`/`useMemo`).
+### Etap 4 — Route shells
+Zakres: oddzielenie pracy globalnej dla tras publicznych, auth i zalogowanych (`PublicApp` / `AppShell`): inactivity timeout, last-seen, banery, chat, MFA — tylko tam, gdzie mają sens. Usunięcie produkcyjnych `console.log` stanu auth.
+**`useSecurityPreventions` — nie przenosić automatycznie.** Najpierw ustalić, co realnie chroni (publiczne formularze, checkout, rejestracja na wydarzenia, publiczne linki, materiały Bazy Wiedzy) i dopiero na tej podstawie zdecydować: globalny / wybrane trasy publiczne / tylko po zalogowaniu. Bezpieczeństwo i funkcjonalność mają pierwszeństwo przed mikrooptymalizacją.
+Kryteria akceptacji: brak timerów i requestów użytkownikowych na trasach publicznych, brak utraty ochrony na trasach, gdzie była wymagana.
 
-**Etap 7 — `lazyWithRetry`**
-Uproszczenie do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko przy zmianie wersji → ErrorBoundary. Bez czyszczenia całego Cache Storage.
+### Etap 5 — Assets / GeoJSON / PWA (dopiero po pomiarze transferu)
+Najpierw klasyfikacja każdego assetu >200 kB: pobierany na initial load / preloadowany / pobierany po otwarciu funkcji / obecny w `public/`, ale nieużywany. Rozmiar pliku w repo ≠ transfer użytkownika.
+Zakres po klasyfikacji: kompresja `pwa-*.png` (3× 1012 kB), `favicon.png` (191 kB), porównanie wizualne `countries-50m` (3,0 MB) vs `countries-110m` (838 kB) przy realnych poziomach zoomu, ładowanie GeoJSON dopiero po otwarciu mapy, usunięcie nieużywanych `news-hub-demo`/`reference*.jpg`/`textures` jeśli potwierdzone jako martwe.
+Raport przed/po podaje osobno: rozmiar assetu, transfer initial, transfer po wejściu do funkcji. Bez obietnicy „−3 do −6 MB initial”, dopóki Network tego nie potwierdzi.
 
-Po każdym etapie: production build + `eslint` + przejście `/`, `/login`, `/dashboard`, `/admin`, porównanie rozmiarów chunków i liczby requestów.
+### Etap 6 — Render hotspots / AuthContext
+Najpierw React Profiler: które zmiany Contextu wyzwalają re-render, ile komponentów, które rendery są kosztowne. Dopiero potem wybór rozwiązania: podział Contextu, osobne Providery, store z selectorami, memoizacja `value` Providera albo pozostawienie obecnej architektury. Podział na 4 konteksty nie jest z góry przesądzony.
+Kryterium: zmierzone zmniejszenie render fan-out, nie liczba nowych plików. Bez masowego `React.memo`/`useMemo`/`useCallback`.
+W tym etapie także priorytetyzacja `select('*')` (296 wystąpień) wg kosztu:
+- **P1** — częste, duże tabele/rekordy, listy bez limitu (m.in. `AiCompassWidget` 9×, `QuickStatsWidget`, `NotificationSystemManagement`, `useTranslations`),
+- **P2** — średnie kolekcje pobierane przy wejściu na ekran,
+- **P3** — pojedynczy mały rekord, sporadycznie — **nie zmieniać**.
+Przepisywane są wyłącznie P1 i wybrane P2 z uzasadnionym zyskiem.
+
+### Etap 7 — `lazyWithRetry` (dopiero po stabilizacji chunków)
+Nie ruszać przed Etapem 1 i 2, bo obie zmiany przebudowują strukturę chunków i assetów.
+Zakres po stabilizacji: zmierzyć realne `ChunkLoadError` w produkcji, następnie uprościć do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko po potwierdzonej zmianie wersji → ErrorBoundary. Usunięcie globalnego purge Cache Storage i hard reloadu z `?v=`.
+Kryterium: brak wzrostu liczby błędów ładowania chunków po zmianie.
+
+### Etap 8 — Dependency cleanup + performance budgets
+Zakres: weryfikacja martwych zależności (`d3-geo`, `topojson-client`, `world-atlas`), duplikatów (`xlsx` vs `xlsx-js-style`, `jspdf`/`html2pdf.js`), poprawna klasyfikacja `@playwright/test` i `rollup-plugin-visualizer` (dopiero po potwierdzeniu, że pipeline produkcyjny instaluje devDependencies). Bez zmiany package managera i lockfile.
+**Performance budgets** (wartości do potwierdzenia po Etapie 1–2, nie ustawiać ślepo):
+- initial JS gzip ≤ 450 kB,
+- AdminShell raw ≤ 400–450 kB,
+- pojedynczy zwykły route chunk ≤ 500 kB raw,
+- funkcje >500 kB wyłącznie on-demand,
+- brak `lib-pdf` i `lib-charts` w `modulepreload` entry,
+- limity: liczba requestów initial, requestów idle/10 min, DB writes idle/10 min.
+
+### Kolejność zależności
+0 → 1 → 2 → (3 i 4 równolegle) → 5 → 6 → 7 → 8. Etap 5 wymaga danych Network z Etapu 0, Etap 7 wymaga zakończonych 1 i 2, Etap 8 domyka budżety na podstawie wyników 1–2.
 
 ## Uwagi
 
 - `package-lock.json` + `bun.lock` + `bun.lockb` — pozostawione bez zmian, zgodnie z ustaleniem. Nie wykryto konfliktu wersji wymagającego działania.
-- `@playwright/test` i `rollup-plugin-visualizer` są w `dependencies` — nie trafiają do bundla (nieimportowane z `src`), ale to nieprawidłowa klasyfikacja; do przeniesienia dopiero po potwierdzeniu, że pipeline produkcyjny instaluje devDependencies. Zmiana nie daje zysku runtime.
-- `d3-geo`, `topojson-client`, `world-atlas`, `compression`, `cors`, `express`, `multer` w `dependencies` — pierwsze trzy do weryfikacji jako martwe po migracji na Leaflet; ostatnie cztery obsługują `server.js`, nie SPA.
+- `compression`, `cors`, `express`, `multer` obsługują `server.js`, nie SPA — nie trafiają do bundla.
+
