@@ -131,15 +131,15 @@ Kryterium: brak wzrostu liczby błędów ładowania chunków po zmianie.
 ### Etap 8 — Dependency cleanup + performance budgets
 Zakres: weryfikacja martwych zależności (`d3-geo`, `topojson-client`, `world-atlas`), duplikatów (`xlsx` vs `xlsx-js-style`, `jspdf`/`html2pdf.js`), poprawna klasyfikacja `@playwright/test` i `rollup-plugin-visualizer` (dopiero po potwierdzeniu, że pipeline produkcyjny instaluje devDependencies). Bez zmiany package managera i lockfile.
 **Performance budgets** (wartości do potwierdzenia po Etapie 1–2, nie ustawiać ślepo):
-- initial JS gzip ≤ 450 kB,
-- AdminShell raw ≤ 400–450 kB,
+- initial JS gzip ≤ 450 kB — liczone jako **cały JS pobierany automatycznie przed interakcją użytkownika**: entry + wszystkie chunki z `modulepreload` + shared chunks ładowane z entry, nie tylko sam `index.js`,
+- AdminShell raw ≤ 400–450 kB — **cel orientacyjny**, nie twardy próg; kryterium nadrzędne: wejście na `/admin` nie pobiera kodu nieotwartych modułów (potwierdzone w Network),
 - pojedynczy zwykły route chunk ≤ 500 kB raw,
 - funkcje >500 kB wyłącznie on-demand,
 - brak `lib-pdf` i `lib-charts` w `modulepreload` entry,
 - limity: liczba requestów initial, requestów idle/10 min, DB writes idle/10 min.
 
 ### Kolejność zależności
-0 → 1 → 2 → (3 i 4 równolegle) → 5 → 6 → 7 → 8. Etap 5 wymaga danych Network z Etapu 0, Etap 7 wymaga zakończonych 1 i 2, Etap 8 domyka budżety na podstawie wyników 1–2.
+0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. **Etapy 3 i 4 NIE mogą być prowadzone równolegle** — Etap 4 zaczyna się dopiero po zamknięciu Etapu 3 (oba dotykają pollingu/timerów i App.tsx; równoległa praca powoduje konflikty i niemierzalne wyniki). Etap 5 wymaga danych Network z Etapu 0, Etap 7 wymaga zakończonych 1 i 2, Etap 8 domyka budżety na podstawie wyników 1–2.
 
 ## Uwagi
 
