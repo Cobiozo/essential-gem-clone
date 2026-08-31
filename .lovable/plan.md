@@ -77,10 +77,10 @@ Ryzyko: przeniesienie ciężkiej biblioteki do innego shared chunka, który nada
 Kryteria akceptacji (twarde):
 - `dist/index.html` **nie zawiera** `modulepreload` dla `lib-pdf`,
 - `dist/index.html` **nie zawiera** `modulepreload` dla `lib-charts`,
-- gzip `index.js` faktycznie zmalał vs baseline (390 kB),
-- graf importów potwierdza, że biblioteki nie trafiły do innego chunka ładowanego na starcie,
+- **initial JS gzip** (definicja: cały JS pobierany automatycznie przed interakcją = entry + wszystkie `modulepreload` + shared chunks ładowane z entry, nie tylko `index.js`) faktycznie zmalał vs baseline (~750 kB gzip),
+- weryfikacja po **rzeczywistym grafie modułów** (rollup `stats.html` / `manifest`), nie tylko po nazwach chunków: potwierdzić, że moduły `lib-pdf`/`lib-charts` nie trafiły do żadnego chunka ładowanego automatycznie na starcie (nazwa chunka może się zmienić — liczy się graf zależności),
 - wykresy i eksporty nadal działają (Statystyki, Security, Omega, eksport struktury).
-Metryka przed/po: initial JS gzip; lista modulepreload; liczba requestów na `/`.
+Metryka przed/po: initial JS gzip (entry + preloady + shared); lista modulepreload; liczba requestów na `/`.
 „Etap zakończony tylko wtedy, gdy graf importów i output buildu potwierdzają zniknięcie ciężkich bibliotek z critical path.”
 
 ### Etap 2 — AdminShell
