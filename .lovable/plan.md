@@ -77,10 +77,10 @@ Ryzyko: przeniesienie ciężkiej biblioteki do innego shared chunka, który nada
 Kryteria akceptacji (twarde):
 - `dist/index.html` **nie zawiera** `modulepreload` dla `lib-pdf`,
 - `dist/index.html` **nie zawiera** `modulepreload` dla `lib-charts`,
-- gzip `index.js` faktycznie zmalał vs baseline (390 kB),
-- graf importów potwierdza, że biblioteki nie trafiły do innego chunka ładowanego na starcie,
+- **initial JS gzip** (definicja: cały JS pobierany automatycznie przed interakcją = entry + wszystkie `modulepreload` + shared chunks ładowane z entry, nie tylko `index.js`) faktycznie zmalał vs baseline (~750 kB gzip),
+- weryfikacja po **rzeczywistym grafie modułów** (rollup `stats.html` / `manifest`), nie tylko po nazwach chunków: potwierdzić, że moduły `lib-pdf`/`lib-charts` nie trafiły do żadnego chunka ładowanego automatycznie na starcie (nazwa chunka może się zmienić — liczy się graf zależności),
 - wykresy i eksporty nadal działają (Statystyki, Security, Omega, eksport struktury).
-Metryka przed/po: initial JS gzip; lista modulepreload; liczba requestów na `/`.
+Metryka przed/po: initial JS gzip (entry + preloady + shared); lista modulepreload; liczba requestów na `/`.
 „Etap zakończony tylko wtedy, gdy graf importów i output buildu potwierdzają zniknięcie ciężkich bibliotek z critical path.”
 
 ### Etap 2 — AdminShell
@@ -88,8 +88,8 @@ Zakres: mały `AdminShell` (routing zakładek, layout, uprawnienia) + **10–15 
 Drugi poziom lazy tylko dla wyjątkowo ciężkich funkcji wewnątrz modułu (np. `TemplateDndEditor`/fabric, `TrainingManagement`, edytory CMS).
 Ryzyka: utrata stanu przy przełączaniu zakładek, rozjazd uprawnień moderatora, setki drobnych requestów przy zbyt drobnym podziale, przypadkowe scalenie modułów przez barrel export.
 Kryteria akceptacji:
-- chunk wejściowy `/admin` istotnie mniejszy (cel do potwierdzenia: ≤ 400–450 kB raw vs 2 477 kB),
-- wejście na `/admin` nie pobiera kodu nieotwartych zakładek (potwierdzone w Network),
+- wejście na `/admin` nie pobiera kodu nieotwartych modułów/zakładek (potwierdzone w Network) — **kryterium nadrzędne**,
+- chunk wejściowy `/admin` istotnie mniejszy; wartość 400–450 kB raw (vs 2 477 kB) traktowana jako **cel orientacyjny**, nie twardy próg blokujący etap,
 - liczba requestów przy otwarciu zakładki pozostaje jednocyfrowa,
 - każda zakładka otwiera się bez błędu w console; smoke Users/CMS/Events.
 Metryka przed/po: rozmiar chunku `/admin`, transfer JS przy wejściu, transfer przy otwarciu 3 typowych zakładek.
@@ -107,7 +107,7 @@ Metryka przed/po: requests/10 min, writes/10 min, per 100 i 1000 użytkowników.
 ### Etap 4 — Route shells
 Zakres: oddzielenie pracy globalnej dla tras publicznych, auth i zalogowanych (`PublicApp` / `AppShell`): inactivity timeout, last-seen, banery, chat, MFA — tylko tam, gdzie mają sens. Usunięcie produkcyjnych `console.log` stanu auth.
 **`useSecurityPreventions` — nie przenosić automatycznie.** Najpierw ustalić, co realnie chroni (publiczne formularze, checkout, rejestracja na wydarzenia, publiczne linki, materiały Bazy Wiedzy) i dopiero na tej podstawie zdecydować: globalny / wybrane trasy publiczne / tylko po zalogowaniu. Bezpieczeństwo i funkcjonalność mają pierwszeństwo przed mikrooptymalizacją.
-Kryteria akceptacji: brak timerów i requestów użytkownikowych na trasach publicznych, brak utraty ochrony na trasach, gdzie była wymagana.
+Kryteria akceptacji: na trasach publicznych usunięte są **zbędne** timery, polling i heartbeaty użytkownikowe (inactivity timeout, last-seen, version polling, panele 30 s) — nie wymaga się eliminacji wszystkich requestów (np. niezbędne zapytania CMS treści publicznej zostają). Brak utraty ochrony na trasach, gdzie była wymagana.
 
 ### Etap 5 — Assets / GeoJSON / PWA (dopiero po pomiarze transferu)
 Najpierw klasyfikacja każdego assetu >200 kB: pobierany na initial load / preloadowany / pobierany po otwarciu funkcji / obecny w `public/`, ale nieużywany. Rozmiar pliku w repo ≠ transfer użytkownika.
@@ -125,21 +125,21 @@ Przepisywane są wyłącznie P1 i wybrane P2 z uzasadnionym zyskiem.
 
 ### Etap 7 — `lazyWithRetry` (dopiero po stabilizacji chunków)
 Nie ruszać przed Etapem 1 i 2, bo obie zmiany przebudowują strukturę chunków i assetów.
-Zakres po stabilizacji: zmierzyć realne `ChunkLoadError` w produkcji, następnie uprościć do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko po potwierdzonej zmianie wersji → ErrorBoundary. Usunięcie globalnego purge Cache Storage i hard reloadu z `?v=`.
+Zakres po stabilizacji: zmierzyć realne `ChunkLoadError` w produkcji — **jeśli brak dedykowanej telemetrii `ChunkLoadError`, użyć istniejących logów (observability, console-logs, runtime-errors) i istniejących testów/smoke testów; NIE budować nowego dużego systemu telemetrycznego**. Następnie uprościć do: 1 kontrolowana ponowna próba → sprawdzenie `/version.json` → reload tylko po potwierdzonej zmianie wersji → ErrorBoundary. Usunięcie globalnego purge Cache Storage i hard reloadu z `?v=`.
 Kryterium: brak wzrostu liczby błędów ładowania chunków po zmianie.
 
 ### Etap 8 — Dependency cleanup + performance budgets
 Zakres: weryfikacja martwych zależności (`d3-geo`, `topojson-client`, `world-atlas`), duplikatów (`xlsx` vs `xlsx-js-style`, `jspdf`/`html2pdf.js`), poprawna klasyfikacja `@playwright/test` i `rollup-plugin-visualizer` (dopiero po potwierdzeniu, że pipeline produkcyjny instaluje devDependencies). Bez zmiany package managera i lockfile.
 **Performance budgets** (wartości do potwierdzenia po Etapie 1–2, nie ustawiać ślepo):
-- initial JS gzip ≤ 450 kB,
-- AdminShell raw ≤ 400–450 kB,
+- initial JS gzip ≤ 450 kB — liczone jako **cały JS pobierany automatycznie przed interakcją użytkownika**: entry + wszystkie chunki z `modulepreload` + shared chunks ładowane z entry, nie tylko sam `index.js`,
+- AdminShell raw ≤ 400–450 kB — **cel orientacyjny**, nie twardy próg; kryterium nadrzędne: wejście na `/admin` nie pobiera kodu nieotwartych modułów (potwierdzone w Network),
 - pojedynczy zwykły route chunk ≤ 500 kB raw,
 - funkcje >500 kB wyłącznie on-demand,
 - brak `lib-pdf` i `lib-charts` w `modulepreload` entry,
 - limity: liczba requestów initial, requestów idle/10 min, DB writes idle/10 min.
 
 ### Kolejność zależności
-0 → 1 → 2 → (3 i 4 równolegle) → 5 → 6 → 7 → 8. Etap 5 wymaga danych Network z Etapu 0, Etap 7 wymaga zakończonych 1 i 2, Etap 8 domyka budżety na podstawie wyników 1–2.
+0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8. **Etapy 3 i 4 NIE mogą być prowadzone równolegle** — Etap 4 zaczyna się dopiero po zamknięciu Etapu 3 (oba dotykają pollingu/timerów i App.tsx; równoległa praca powoduje konflikty i niemierzalne wyniki). Etap 5 wymaga danych Network z Etapu 0, Etap 7 wymaga zakończonych 1 i 2, Etap 8 domyka budżety na podstawie wyników 1–2.
 
 ## Uwagi
 
