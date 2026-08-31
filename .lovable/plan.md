@@ -88,8 +88,8 @@ Zakres: mały `AdminShell` (routing zakładek, layout, uprawnienia) + **10–15 
 Drugi poziom lazy tylko dla wyjątkowo ciężkich funkcji wewnątrz modułu (np. `TemplateDndEditor`/fabric, `TrainingManagement`, edytory CMS).
 Ryzyka: utrata stanu przy przełączaniu zakładek, rozjazd uprawnień moderatora, setki drobnych requestów przy zbyt drobnym podziale, przypadkowe scalenie modułów przez barrel export.
 Kryteria akceptacji:
-- chunk wejściowy `/admin` istotnie mniejszy (cel do potwierdzenia: ≤ 400–450 kB raw vs 2 477 kB),
-- wejście na `/admin` nie pobiera kodu nieotwartych zakładek (potwierdzone w Network),
+- wejście na `/admin` nie pobiera kodu nieotwartych modułów/zakładek (potwierdzone w Network) — **kryterium nadrzędne**,
+- chunk wejściowy `/admin` istotnie mniejszy; wartość 400–450 kB raw (vs 2 477 kB) traktowana jako **cel orientacyjny**, nie twardy próg blokujący etap,
 - liczba requestów przy otwarciu zakładki pozostaje jednocyfrowa,
 - każda zakładka otwiera się bez błędu w console; smoke Users/CMS/Events.
 Metryka przed/po: rozmiar chunku `/admin`, transfer JS przy wejściu, transfer przy otwarciu 3 typowych zakładek.
