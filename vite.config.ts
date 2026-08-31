@@ -38,18 +38,15 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        // Keep manual chunks limited to the matched modules only — shared deps
-        // must not be merged into lib-* chunks (otherwise entry imports them
-        // and the heavy libs get modulepreloaded on every page).
-        onlyExplicitManualChunks: true,
         manualChunks(id) {
-          // Only isolate heavy, on-demand libraries
+          // Only isolate heavy, on-demand libraries that are NOT reachable
+          // from the entry's static import graph. recharts / jspdf /
+          // html2canvas / embla-carousel must NOT be manual-chunked: their
+          // shared deps would be hoisted into the lib chunk, forcing the
+          // entry to import (and modulepreload) them on every page.
           if (id.includes('node_modules/xlsx')) return 'lib-xlsx';
-          if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas') || id.includes('node_modules/html2pdf.js')) return 'lib-pdf';
           if (id.includes('node_modules/fabric')) return 'lib-fabric';
-          if (id.includes('node_modules/recharts')) return 'lib-charts';
           if (id.includes('node_modules/jszip')) return 'lib-zip';
-          if (id.includes('node_modules/embla-carousel')) return 'lib-carousel';
           // Everything else (React, Radix, dnd-kit, Supabase, etc.) — let Vite decide
         },
       },
