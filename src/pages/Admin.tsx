@@ -3126,6 +3126,7 @@ const Admin = () => {
           <div className="p-4 sm:p-6 lg:p-8">
             {/* CMS Tabs - TabsList removed, navigation via sidebar */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Suspense fallback={<div className="flex items-center justify-center py-16 text-sm text-muted-foreground">Ładowanie modułu…</div>}>
 
           <TabsContent value="content">
             {/* Section Visibility Management - Simplified */}
@@ -4915,6 +4916,7 @@ const Admin = () => {
 
 
 
+            </Suspense>
         </Tabs>
       </div>
 
