@@ -3,19 +3,32 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 /**
- * Hook to update user's last_seen_at timestamp every 2 minutes when app is active.
- * Used to determine if user is online for notification delivery.
+ * Keeps `profiles.last_seen_at` fresh for online-status detection.
+ *
+ * Online threshold used across the app (UserStatistics, chat e-mail fallback)
+ * is 5 minutes, so writes are throttled to one every 4 minutes — safely below
+ * the threshold while halving the DB writes vs. the previous 2-minute timer.
+ * Writes only happen while the tab is visible and are skipped entirely when
+ * nothing changed since the last successful update within the throttle window.
  */
+const WRITE_THROTTLE_MS = 4 * 60 * 1000;
+const CHECK_INTERVAL_MS = 60 * 1000;
+
 export const useLastSeenUpdater = () => {
   const { user } = useAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastWriteRef = useRef<number>(0);
 
   useEffect(() => {
     if (!user) return;
 
-    const updateLastSeen = async () => {
-      // Only update when tab is visible
+    let cancelled = false;
+
+    const updateLastSeen = async (force = false) => {
       if (document.hidden) return;
+      const now = Date.now();
+      if (!force && now - lastWriteRef.current < WRITE_THROTTLE_MS) return;
+      lastWriteRef.current = now;
 
       try {
         await supabase
@@ -23,27 +36,23 @@ export const useLastSeenUpdater = () => {
           .update({ last_seen_at: new Date().toISOString() })
           .eq('user_id', user.id);
       } catch (error) {
-        console.warn('[LastSeenUpdater] Failed to update:', error);
+        if (!cancelled) console.warn('[LastSeenUpdater] Failed to update:', error);
       }
     };
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Tab became visible - update immediately
-        updateLastSeen();
-      }
+      // Coming back to the tab: refresh only if the throttle window elapsed
+      if (!document.hidden) updateLastSeen();
     };
 
-    // Initial update
-    updateLastSeen();
+    // Initial write on mount
+    updateLastSeen(true);
 
-    // Update every 2 minutes
-    intervalRef.current = setInterval(updateLastSeen, 2 * 60 * 1000);
-
-    // Also update when tab becomes visible
+    intervalRef.current = setInterval(() => updateLastSeen(), CHECK_INTERVAL_MS);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      cancelled = true;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;

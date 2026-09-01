@@ -1,13 +1,23 @@
 import { useEffect, useRef } from 'react';
 
-const POLL_INTERVAL = 60_000; // 60 seconds
+/**
+ * Fallback version detection.
+ *
+ * The primary mechanism is the Service Worker `updatefound` event registered in
+ * `main.tsx` (it dispatches `swUpdateAvailable`). `/version.json` polling stays
+ * only as a safety net for browsers/sessions without an active SW, so it runs
+ * at a low frequency and is paused while the tab is hidden (Etap 3 — idle network).
+ */
+const POLL_INTERVAL = 5 * 60_000; // 5 minutes (fallback only)
 
 export function useVersionPolling() {
   const localVersion = useRef<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastCheckRef = useRef<number>(0);
 
   useEffect(() => {
     const checkVersion = async () => {
+      lastCheckRef.current = Date.now();
       try {
         const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!res.ok) return;
@@ -43,8 +53,9 @@ export function useVersionPolling() {
           intervalRef.current = null;
         }
       } else {
-        checkVersion(); // immediate check on return
-        intervalRef.current = setInterval(checkVersion, POLL_INTERVAL);
+        // Avoid an extra request when the tab is toggled frequently
+        if (Date.now() - lastCheckRef.current > POLL_INTERVAL) checkVersion();
+        if (!intervalRef.current) intervalRef.current = setInterval(checkVersion, POLL_INTERVAL);
       }
     };
 

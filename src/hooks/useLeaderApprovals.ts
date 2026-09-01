@@ -35,8 +35,10 @@ export function useLeaderApprovals(hasApprovalPermission?: boolean) {
       return (data || []) as PendingLeaderApproval[];
     },
     enabled: !!user && hasApprovalPermission === true,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    staleTime: 60 * 1000,
+    // Etap 3 — idle network: rzadszy polling i pauza przy ukrytej karcie
+    refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 2 * 60 * 1000),
+    refetchIntervalInBackground: false,
     retry: false,
   });
 

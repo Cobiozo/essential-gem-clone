@@ -249,7 +249,9 @@ export const SecurityDashboard: React.FC = () => {
         })),
       };
     },
-    refetchInterval: 30000,
+    // Pause auto-refresh when the tab is hidden (Etap 3 — idle network)
+    refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 30000),
+    refetchIntervalInBackground: false,
   });
 
   if (isLoading) {
