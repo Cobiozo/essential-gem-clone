@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminPresence } from '@/hooks/useAdminPresence';
 import { FloatingAdminPresence } from '@/components/admin/FloatingAdminPresence';
@@ -38,63 +38,65 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
 import { GroupEmailSender } from '@/components/GroupEmailSender';
-import TrainingManagement from '@/components/admin/TrainingManagement';
-import UserStatistics from '@/components/admin/UserStatistics';
-import PlatformStructureView from '@/components/admin/PlatformStructureView';
-import CertificateEditor from '@/components/admin/CertificateEditor';
-import { ReflinksManagement } from '@/components/admin/ReflinksManagement';
-import { KnowledgeResourcesManagement } from '@/components/admin/KnowledgeResourcesManagement';
-import { CookieConsentManagement } from '@/components/admin/CookieConsentManagement';
-import { IntroVideoSettingsPanel } from '@/components/admin/IntroVideoSettingsPanel';
-import { AiCompassManagement } from '@/components/admin/AiCompassManagement';
-import { DailySignalManagement } from '@/components/admin/DailySignalManagement';
-import { ImportantInfoManagement } from '@/components/admin/ImportantInfoManagement';
-import { NewsTickerManagement } from '@/components/admin/NewsTickerManagement';
-import TranslationsManagement from '@/components/admin/TranslationsManagement';
-import { TeamContactsManagement } from '@/components/admin/TeamContactsManagement';
-import { NotificationSystemManagement } from '@/components/admin/NotificationSystemManagement';
-import { ChatPermissionsManagement } from '@/components/admin/ChatPermissionsManagement';
-import EmailTemplatesManagement from '@/components/admin/EmailTemplatesManagement';
-import MaintenanceModeManagement from '@/components/admin/MaintenanceModeManagement';
-import CronJobsManagement from '@/components/admin/CronJobsManagement';
-import GoogleCalendarManagement from '@/components/admin/GoogleCalendarManagement';
-import { SupportSettingsManagement } from '@/components/admin/SupportSettingsManagement';
-import { AppBannersManager } from '@/components/admin/AppBannersManager';
-import { SupportTicketsManagement } from '@/components/admin/SupportTicketsManagement';
-import { DashboardFooterManagement } from '@/components/admin/DashboardFooterManagement';
-import { EventsManagement } from '@/components/admin/EventsManagement';
-import EventRegistrationsManagement from '@/components/admin/EventRegistrationsManagement';
-import { CalculatorManagement } from '@/components/admin/CalculatorManagement';
-import { PaidEventsManagement } from '@/components/admin/paid-events/PaidEventsManagement';
-import { AdminGuestDashboard } from '@/components/admin/AdminGuestDashboard';
-import { PartnerPagesManagement } from '@/components/admin/PartnerPagesManagement';
-import { SpecialistCalculatorManagement } from '@/components/admin/SpecialistCalculatorManagement';
-import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIconsManagement';
-import { SidebarOrderEditor } from '@/components/admin/SidebarOrderEditor';
-import { SystemHealthAlertsPanel } from '@/components/admin/SystemHealthAlertsPanel';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
-import { HtmlPagesManagement } from '@/components/admin/HtmlPagesManagement';
-import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
-import HealthyKnowledgeManagement from '@/components/admin/HealthyKnowledgeManagement';
-import OrganizationTreeManagement from '@/components/admin/OrganizationTreeManagement';
-import { PushNotificationsManagement } from '@/components/admin/PushNotificationsManagement';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
-import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import { AdminPasswordGate, isAdminGateUnlocked, lockAdminGate } from '@/components/admin/AdminPasswordGate';
-import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
-import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
-import { SecurityModule } from '@/components/admin/SecurityModule';
-import { EmailDeliveryDashboard } from '@/components/admin/EmailDeliveryDashboard';
-import { AdminActivityLog } from '@/components/admin/AdminActivityLog';
-import { PureBoxManagement } from '@/components/admin/PureBoxManagement';
-import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
-import { ApiIntegrationsPanel } from '@/components/admin/ApiIntegrationsPanel';
-import MobileBottomNavSettings from '@/components/admin/MobileBottomNavSettings';
-import { ModeratorsManagement } from '@/components/admin/ModeratorsManagement';
-import GuestsManagement from '@/components/admin/GuestsManagement';
-import DeletedAccountsManagement from '@/components/admin/DeletedAccountsManagement';
+import {
+  HtmlPagesManagement,
+  AdminMediaLibrary,
+  ImportantInfoManagement,
+  NewsTickerManagement,
+  DashboardFooterManagement,
+  AppBannersManager,
+  IntroVideoSettingsPanel,
+  SidebarFooterIconsManagement,
+  SidebarOrderEditor,
+  MobileBottomNavSettings,
+  CookieConsentManagement,
+  UserStatistics,
+  PlatformStructureView,
+  OrganizationTreeManagement,
+  ModeratorsManagement,
+  GuestsManagement,
+  DeletedAccountsManagement,
+  AdminGuestDashboard,
+  PlatformTeamsManagement,
+  LeaderPanelManagement,
+  TrainingManagement,
+  CertificateEditor,
+  KnowledgeResourcesManagement,
+  HealthyKnowledgeManagement,
+  PureBoxManagement,
+  EventsManagement,
+  EventRegistrationsManagement,
+  PaidEventsManagement,
+  PartnerPagesManagement,
+  TranslationsManagement,
+  TeamContactsManagement,
+  NotificationSystemManagement,
+  PushNotificationsManagement,
+  ChatPermissionsManagement,
+  EmailTemplatesManagement,
+  EmailDeliveryDashboard,
+  SupportSettingsManagement,
+  SupportTicketsManagement,
+  MaintenanceModeManagement,
+  CronJobsManagement,
+  GoogleCalendarManagement,
+  DataCleanupManagement,
+  SecurityModule,
+  AdminActivityLog,
+  SystemHealthAlertsPanel,
+  ApiIntegrationsPanel,
+  AiProviderManagement,
+  ReflinksManagement,
+  CalculatorManagement,
+  SpecialistCalculatorManagement,
+  AiCompassManagement,
+  DailySignalManagement,
+} from '@/components/admin/lazyAdminModules';
 import { useModeratorAccess } from '@/hooks/useModeratorAccess';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
