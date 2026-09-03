@@ -2,7 +2,7 @@
 
 ## Cel
 
-Wypchnąć pełny kod projektu (1965 plików, ~31 MB) z lokalnego `main` do GitHub repo `sebastiansnopek87-boop/purelifencenter`, gałąź `main`. Bez tworzenia nowych gałęzi. Bez PR-ów. Force-update `main` (bezpieczne — GitHub `main` ma tylko niepowiązany commit README).
+Wypchnąć pełny kod projektu (1965 plików, ~31 MB) z lokalnego `main` do GitHub repo `sebastiansnopek87-boop/purelifecenter`, gałąź `main`. Bez tworzenia nowych gałęzi. Bez PR-ów. Force-update `main` (bezpieczne — GitHub `main` ma tylko niepowiązany commit README).
 
 ## Dlaczego `git push` nie zadziała
 
