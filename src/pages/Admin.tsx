@@ -1983,7 +1983,8 @@ const Admin = () => {
     return { pending, active, blocked, all: users.length };
   }, [users]);
 
-  // Export functions
+  // Etap 2 — eksporty przeniesione do @/components/admin/exports/adminUsersExport
+  // i ładowane dynamicznie dopiero po kliknięciu konkretnego eksportu.
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'admin': return 'Administrator';
@@ -1997,153 +1998,26 @@ const Admin = () => {
     }
   };
 
-  const exportToPDF = async () => {
-    const { default: jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text('Lista Klientów', 20, 20);
-    
-    let yPosition = 40;
-    doc.setFontSize(12);
-    
-    users.forEach((user, index) => {
-      if (yPosition > 270) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.text(`${index + 1}. Email: ${user.email}`, 20, yPosition);
-      doc.text(`   Rola: ${getRoleDisplayName(user.role)}`, 20, yPosition + 10);
-      doc.text(`   Status: ${user.is_active ? 'Aktywny' : 'Nieaktywny'}`, 20, yPosition + 20);
-      doc.text(`   Utworzono: ${new Date(user.created_at).toLocaleDateString('pl-PL')}`, 20, yPosition + 30);
-      yPosition += 45;
-    });
-    
-    doc.save('klienci.pdf');
+  const runUsersExport = async (
+    kind: 'exportUsersToPDF' | 'exportUsersToXLSX' | 'exportUsersToXML' | 'exportUsersToZIP',
+  ) => {
+    try {
+      const mod = await import('@/components/admin/exports/adminUsersExport');
+      await mod[kind](users as any);
+    } catch (error: any) {
+      toast({
+        title: 'Błąd eksportu',
+        description: error?.message || 'Nie udało się wygenerować pliku.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const exportToXLSX = async () => {
-    const XLSX = await import('xlsx');
-    const worksheet = XLSX.utils.json_to_sheet(
-      users.map(user => ({
-        Email: user.email,
-        'Imię': user.first_name || '',
-        'Nazwisko': user.last_name || '',
-        'EQ ID': user.eq_id || '',
-        Rola: getRoleDisplayName(user.role),
-        Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
-        'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
-        'Email potwierdzony': user.email_confirmed_at ? 'Tak' : 'Nie',
-        ID: user.user_id
-      }))
-    );
-    
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Klienci');
-    XLSX.writeFile(workbook, 'klienci.xlsx');
-  };
+  const exportToPDF = () => runUsersExport('exportUsersToPDF');
+  const exportToXLSX = () => runUsersExport('exportUsersToXLSX');
+  const exportToXML = () => runUsersExport('exportUsersToXML');
+  const exportToZIP = () => runUsersExport('exportUsersToZIP');
 
-  const exportToXML = () => {
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<users>\n';
-    
-    users.forEach(user => {
-      xml += '  <user>\n';
-      xml += `    <email>${user.email}</email>\n`;
-      xml += `    <role>${user.role}</role>\n`;
-      xml += `    <is_active>${user.is_active}</is_active>\n`;
-      xml += `    <created_at>${user.created_at}</created_at>\n`;
-      xml += `    <email_confirmed>${user.email_confirmed_at ? 'true' : 'false'}</email_confirmed>\n`;
-      xml += `    <user_id>${user.user_id}</user_id>\n`;
-      xml += '  </user>\n';
-    });
-    
-    xml += '</users>';
-    
-    const blob = new Blob([xml], { type: 'text/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'uzytkownicy.xml';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportToZIP = async () => {
-    const [{ default: JSZip }, { default: jsPDF }, XLSX] = await Promise.all([
-      import('jszip'),
-      import('jspdf'),
-      import('xlsx'),
-    ]);
-    
-    const zip = new JSZip();
-    
-    // Add PDF
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text('Lista Użytkowników', 20, 20);
-    
-    let yPosition = 40;
-    doc.setFontSize(12);
-    
-    users.forEach((user, index) => {
-      if (yPosition > 270) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.text(`${index + 1}. Email: ${user.email}`, 20, yPosition);
-      doc.text(`   Rola: ${user.role === 'admin' ? 'Administrator' : 'Użytkownik'}`, 20, yPosition + 10);
-      doc.text(`   Status: ${user.is_active ? 'Aktywny' : 'Nieaktywny'}`, 20, yPosition + 20);
-      doc.text(`   Utworzono: ${new Date(user.created_at).toLocaleDateString('pl-PL')}`, 20, yPosition + 30);
-      yPosition += 45;
-    });
-    
-    const pdfBlob = doc.output('blob');
-    zip.file('uzytkownicy.pdf', pdfBlob);
-    
-    // Add XLSX
-    const worksheet = XLSX.utils.json_to_sheet(
-      users.map(user => ({
-        Email: user.email,
-        Rola: user.role === 'admin' ? 'Administrator' : 'Użytkownik',
-        Status: user.is_active ? 'Aktywny' : 'Nieaktywny',
-        'Data utworzenia': new Date(user.created_at).toLocaleDateString('pl-PL'),
-        'Email potwierdzony': user.email_confirmed_at ? 'Tak' : 'Nie',
-        ID: user.user_id
-      }))
-    );
-    
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Użytkownicy');
-    const xlsxBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
-    zip.file('uzytkownicy.xlsx', xlsxBuffer);
-    
-    // Add XML
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<users>\n';
-    
-    users.forEach(user => {
-      xml += '  <user>\n';
-      xml += `    <email>${user.email}</email>\n`;
-      xml += `    <role>${user.role}</role>\n`;
-      xml += `    <is_active>${user.is_active}</is_active>\n`;
-      xml += `    <created_at>${user.created_at}</created_at>\n`;
-      xml += `    <email_confirmed>${user.email_confirmed_at ? 'true' : 'false'}</email_confirmed>\n`;
-      xml += `    <user_id>${user.user_id}</user_id>\n`;
-      xml += '  </user>\n';
-    });
-    
-    xml += '</users>';
-    zip.file('uzytkownicy.xml', xml);
-    
-    // Generate and download ZIP
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'uzytkownicy.zip';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   // Load users when switching to users tab
   useEffect(() => {
