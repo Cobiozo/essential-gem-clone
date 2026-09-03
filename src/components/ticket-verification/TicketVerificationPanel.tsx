@@ -12,7 +12,6 @@ import { QrCode, CheckCircle, XCircle, User, Calendar, Ticket, Search, Camera, U
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import * as XLSX from 'xlsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface VerificationResult {
@@ -234,7 +233,7 @@ export const TicketVerificationPanel: React.FC = () => {
 
   const selectedEvent = events.find(e => e.id === selectedEventId);
 
-  const exportAttendees = (fmt: 'xlsx' | 'doc' | 'html') => {
+  const exportAttendees = async (fmt: 'xlsx' | 'doc' | 'html') => {
     if (!filteredOrders.length) return;
     const title = selectedEvent?.title || 'wydarzenie';
     const slug = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -255,6 +254,7 @@ export const TicketVerificationPanel: React.FC = () => {
 
     try {
       if (fmt === 'xlsx') {
+        const XLSX = await import('xlsx');
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
         (ws as any)['!cols'] = [{ wch: 5 }, { wch: 18 }, { wch: 22 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
         const wb = XLSX.utils.book_new();

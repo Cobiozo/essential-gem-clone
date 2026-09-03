@@ -24,20 +24,20 @@ import { useToast } from '@/hooks/use-toast';
 import { convertSupabaseSections, convertSupabaseSection } from '@/lib/typeUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Plus, Trash2, LogOut, Home, Save, ChevronUp, ChevronDown, Palette, Type, Settings2, Users, CheckCircle, Clock, Mail, FileText, Download, SortAsc, UserPlus, Key, BookOpen, Award, Layout, Search, X, FolderOpen, Cookie, Compass, Sparkles, AlertTriangle, Languages, Bell, Menu, MapPin, Globe } from 'lucide-react';
-import { MediaUpload } from '@/components/MediaUpload';
-import { SecureMedia } from '@/components/SecureMedia';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
-import { RichTextEditor } from '@/components/RichTextEditor';
-import { TextEditor } from '@/components/cms/TextEditor';
-import { FontEditor } from '@/components/cms/FontEditor';
-import { ColorSchemeEditor } from '@/components/cms/ColorSchemeEditor';
-import { SectionEditor } from '@/components/cms/SectionEditor';
-import { ItemEditor } from '@/components/cms/ItemEditor';
+// Etap 2 — ciężkie edytory: drugi poziom lazy (patrz lazyAdminEditors.tsx)
+import {
+  MediaUpload,
+  RichTextEditor,
+  TextEditor,
+  ColorSchemeEditor,
+  SectionEditor,
+  LivePreviewEditor,
+  GroupEmailSender,
+} from '@/components/admin/lazyAdminEditors';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import { LivePreviewEditor } from '@/components/dnd/LivePreviewEditor';
-import { GroupEmailSender } from '@/components/GroupEmailSender';
 import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';

@@ -1,19 +1,10 @@
-import * as XLSX from 'xlsx';
-import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  HeadingLevel,
-  AlignmentType,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  BorderStyle,
-  ShadingType,
-} from 'docx';
+// UWAGA (Etap 1 — initial bundle):
+// `xlsx` i `docx` są ładowane WYŁĄCZNIE dynamicznie, wewnątrz funkcji eksportu.
+// Statyczne importy powodowały, że obie biblioteki (~1 MB raw) trafiały do chunku
+// modułu Struktury Platformy, pobieranego zanim użytkownik kliknie eksport.
+import type * as DocxNS from 'docx';
 import { saveAs } from 'file-saver';
+
 
 export interface PlatformProfile {
   user_id: string;
@@ -193,9 +184,11 @@ function flatten(roots: PlatformNode[]): PlatformNode[] {
 
 /* -------------------- EXCEL -------------------- */
 
-export function exportToExcel(roots: PlatformNode[], allNodes: PlatformNode[]) {
+export async function exportToExcel(roots: PlatformNode[], allNodes: PlatformNode[]) {
+  const XLSX = await import('xlsx');
   const summary = summarize(allNodes);
   const wb = XLSX.utils.book_new();
+
   const now = new Date().toLocaleString('pl-PL');
 
   // Summary sheet
@@ -286,34 +279,36 @@ export function exportToExcel(roots: PlatformNode[], allNodes: PlatformNode[]) {
 
 /* -------------------- WORD -------------------- */
 
-const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
-const allBorders = { top: border, bottom: border, left: border, right: border };
+type Docx = typeof DocxNS;
 
-function summaryTable(summary: Summary): Table {
-  const rows: TableRow[] = [
-    new TableRow({
+function summaryTable(d: Docx, summary: Summary): DocxNS.Table {
+  const border = { style: d.BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+  const allBorders = { top: border, bottom: border, left: border, right: border };
+
+  const rows: DocxNS.TableRow[] = [
+    new d.TableRow({
       children: ['Metryka', 'Wartość'].map(
         (t) =>
-          new TableCell({
+          new d.TableCell({
             borders: allBorders,
-            width: { size: 4680, type: WidthType.DXA },
-            shading: { fill: 'EEF2FF', type: ShadingType.CLEAR, color: 'auto' },
+            width: { size: 4680, type: d.WidthType.DXA },
+            shading: { fill: 'EEF2FF', type: d.ShadingType.CLEAR, color: 'auto' },
             margins: { top: 80, bottom: 80, left: 120, right: 120 },
-            children: [new Paragraph({ children: [new TextRun({ text: t, bold: true })] })],
+            children: [new d.Paragraph({ children: [new d.TextRun({ text: t, bold: true })] })],
           }),
       ),
     }),
   ];
   const push = (k: string, v: string | number) =>
     rows.push(
-      new TableRow({
+      new d.TableRow({
         children: [k, String(v)].map(
           (t) =>
-            new TableCell({
+            new d.TableCell({
               borders: allBorders,
-              width: { size: 4680, type: WidthType.DXA },
+              width: { size: 4680, type: d.WidthType.DXA },
               margins: { top: 60, bottom: 60, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun(t)] })],
+              children: [new d.Paragraph({ children: [new d.TextRun(t)] })],
             }),
         ),
       }),
@@ -328,32 +323,32 @@ function summaryTable(summary: Summary): Table {
     .sort((a, b) => b[1] - a[1])
     .forEach(([role, count]) => push(`Rola: ${ROLE_LABELS[role] ?? role}`, count));
 
-  return new Table({
-    width: { size: 9360, type: WidthType.DXA },
+  return new d.Table({
+    width: { size: 9360, type: d.WidthType.DXA },
     columnWidths: [4680, 4680],
     rows,
   });
 }
 
-function nodeParagraph(n: PlatformNode): Paragraph {
+function nodeParagraph(d: Docx, n: PlatformNode): DocxNS.Paragraph {
   const indent = '    '.repeat(n.depth);
   const rolesText = n.roles.map((r) => ROLE_LABELS[r] ?? r).join(', ') || '—';
   const isAdmin = n.roles.includes('admin');
-  return new Paragraph({
+  return new d.Paragraph({
     spacing: { before: 20, after: 20 },
     children: [
-      new TextRun({ text: `${indent}• `, color: '888888' }),
-      new TextRun({
+      new d.TextRun({ text: `${indent}• `, color: '888888' }),
+      new d.TextRun({
         text: formatName(n.profile),
         bold: true,
         color: isAdmin ? 'B91C1C' : '111111',
       }),
-      new TextRun({
+      new d.TextRun({
         text: `  [${rolesText}]`,
         color: '555555',
         size: 18,
       }),
-      new TextRun({
+      new d.TextRun({
         text: `  EQ:${n.profile.eq_id ?? '—'}  Σ${n.downlineCount}`,
         color: '888888',
         size: 18,
@@ -363,20 +358,21 @@ function nodeParagraph(n: PlatformNode): Paragraph {
 }
 
 export async function exportToWord(roots: PlatformNode[], allNodes: PlatformNode[]) {
+  const d = (await import('docx')) as Docx;
   const summary = summarize(allNodes);
   const now = new Date().toLocaleString('pl-PL');
 
-  const treeParagraphs: Paragraph[] = [];
+  const treeParagraphs: DocxNS.Paragraph[] = [];
   const walk = (n: PlatformNode) => {
-    treeParagraphs.push(nodeParagraph(n));
+    treeParagraphs.push(nodeParagraph(d, n));
     n.children.forEach(walk);
   };
   roots.forEach((r) => {
     walk(r);
-    treeParagraphs.push(new Paragraph({ children: [new TextRun('')] }));
+    treeParagraphs.push(new d.Paragraph({ children: [new d.TextRun('')] }));
   });
 
-  const doc = new Document({
+  const doc = new d.Document({
     styles: {
       default: { document: { run: { font: 'Arial', size: 20 } } },
       paragraphStyles: [
@@ -409,28 +405,29 @@ export async function exportToWord(roots: PlatformNode[], allNodes: PlatformNode
           },
         },
         children: [
-          new Paragraph({
-            heading: HeadingLevel.HEADING_1,
-            alignment: AlignmentType.LEFT,
-            children: [new TextRun('Struktura platformy')],
+          new d.Paragraph({
+            heading: d.HeadingLevel.HEADING_1,
+            alignment: d.AlignmentType.LEFT,
+            children: [new d.TextRun('Struktura platformy')],
           }),
-          new Paragraph({
-            children: [new TextRun({ text: `Stan na: ${now}`, color: '666666' })],
+          new d.Paragraph({
+            children: [new d.TextRun({ text: `Stan na: ${now}`, color: '666666' })],
           }),
-          new Paragraph({ children: [new TextRun('')] }),
-          new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Podsumowanie')] }),
-          summaryTable(summary),
-          new Paragraph({ children: [new TextRun('')] }),
-          new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Hierarchia użytkowników')] }),
+          new d.Paragraph({ children: [new d.TextRun('')] }),
+          new d.Paragraph({ heading: d.HeadingLevel.HEADING_2, children: [new d.TextRun('Podsumowanie')] }),
+          summaryTable(d, summary),
+          new d.Paragraph({ children: [new d.TextRun('')] }),
+          new d.Paragraph({ heading: d.HeadingLevel.HEADING_2, children: [new d.TextRun('Hierarchia użytkowników')] }),
           ...treeParagraphs,
         ],
       },
     ],
   });
 
-  const blob = await Packer.toBlob(doc);
+  const blob = await d.Packer.toBlob(doc);
   saveAs(blob, `struktura-platformy-${new Date().toISOString().slice(0, 10)}.docx`);
 }
+
 
 /* -------------------- HTML -------------------- */
 
