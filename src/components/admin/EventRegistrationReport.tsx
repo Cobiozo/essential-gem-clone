@@ -7,7 +7,6 @@ import { Users, UserPlus, CheckCircle, XCircle, Mail, Trophy, Download, BarChart
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format, parseISO, startOfDay } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
 
 interface EventRegistration {
   id: string;
@@ -190,7 +189,8 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
   }, [guestRegistrations]);
 
   // XLSX export
-  const handleExportXLSX = () => {
+  const handleExportXLSX = async () => {
+    const XLSX = await import('xlsx');
     const wb = XLSX.utils.book_new();
 
     // Stats sheet

@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -31,6 +30,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
   const generateExportImage = async (): Promise<string | null> => {
     if (!exportRef.current) return null;
     try {
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(exportRef.current, {
         backgroundColor: '#1a1a2e',
         scale: 2,
@@ -44,6 +44,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
   const generateChartOnlyImage = async (): Promise<string | null> => {
     if (!chartOnlyRef.current) return null;
     try {
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(chartOnlyRef.current, {
         backgroundColor: '#1a1a2e',
         scale: 1,

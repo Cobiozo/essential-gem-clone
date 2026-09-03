@@ -14,6 +14,8 @@ const commsGroup = () => import('./groups/commsGroup');
 const systemGroup = () => import('./groups/systemGroup');
 const toolsGroup = () => import('./groups/toolsGroup');
 
+// Ciężkie moduły (recharts, mapa Leaflet, jsPDF/fabric, DnD) mają WŁASNY chunk —
+// nie są częścią chunku grupy, więc otwarcie innego modułu tej grupy ich nie pobiera.
 const pick = <G extends Record<string, any>, K extends keyof G>(
   loader: () => Promise<G>,
   key: K,
@@ -33,9 +35,9 @@ export const MobileBottomNavSettings = pick(contentGroup, 'MobileBottomNavSettin
 export const CookieConsentManagement = pick(contentGroup, 'CookieConsentManagement');
 
 // --- users / structure ---
-export const UserStatistics = pick(usersGroup, 'UserStatistics');
-export const PlatformStructureView = pick(usersGroup, 'PlatformStructureView');
-export const OrganizationTreeManagement = pick(usersGroup, 'OrganizationTreeManagement');
+export const UserStatistics = lazy(() => import('@/components/admin/UserStatistics'));
+export const PlatformStructureView = lazy(() => import('@/components/admin/PlatformStructureView'));
+export const OrganizationTreeManagement = lazy(() => import('@/components/admin/OrganizationTreeManagement'));
 export const ModeratorsManagement = pick(usersGroup, 'ModeratorsManagement');
 export const GuestsManagement = pick(usersGroup, 'GuestsManagement');
 export const DeletedAccountsManagement = pick(usersGroup, 'DeletedAccountsManagement');
@@ -45,16 +47,16 @@ export const LeaderPanelManagement = pick(usersGroup, 'LeaderPanelManagement');
 
 // --- training / knowledge ---
 export const TrainingManagement = pick(trainingGroup, 'TrainingManagement');
-export const CertificateEditor = pick(trainingGroup, 'CertificateEditor');
+export const CertificateEditor = lazy(() => import('@/components/admin/CertificateEditor'));
 export const KnowledgeResourcesManagement = pick(trainingGroup, 'KnowledgeResourcesManagement');
 export const HealthyKnowledgeManagement = pick(trainingGroup, 'HealthyKnowledgeManagement');
 export const PureBoxManagement = pick(trainingGroup, 'PureBoxManagement');
 
 // --- events ---
 export const EventsManagement = pick(eventsGroup, 'EventsManagement');
-export const EventRegistrationsManagement = pick(eventsGroup, 'EventRegistrationsManagement');
-export const PaidEventsManagement = pick(eventsGroup, 'PaidEventsManagement');
-export const PartnerPagesManagement = pick(eventsGroup, 'PartnerPagesManagement');
+export const EventRegistrationsManagement = lazy(() => import('@/components/admin/EventRegistrationsManagement'));
+export const PaidEventsManagement = lazy(async () => ({ default: (await import('@/components/admin/paid-events/PaidEventsManagement')).PaidEventsManagement }));
+export const PartnerPagesManagement = lazy(async () => ({ default: (await import('@/components/admin/PartnerPagesManagement')).PartnerPagesManagement }));
 
 // --- communication ---
 export const TranslationsManagement = pick(commsGroup, 'TranslationsManagement');
@@ -70,9 +72,9 @@ export const SupportTicketsManagement = pick(commsGroup, 'SupportTicketsManageme
 // --- system ---
 export const MaintenanceModeManagement = pick(systemGroup, 'MaintenanceModeManagement');
 export const CronJobsManagement = pick(systemGroup, 'CronJobsManagement');
-export const GoogleCalendarManagement = pick(systemGroup, 'GoogleCalendarManagement');
+export const GoogleCalendarManagement = lazy(() => import('@/components/admin/GoogleCalendarManagement'));
 export const DataCleanupManagement = pick(systemGroup, 'DataCleanupManagement');
-export const SecurityModule = pick(systemGroup, 'SecurityModule');
+export const SecurityModule = lazy(async () => ({ default: (await import('@/components/admin/SecurityModule')).SecurityModule }));
 export const AdminActivityLog = pick(systemGroup, 'AdminActivityLog');
 export const SystemHealthAlertsPanel = pick(systemGroup, 'SystemHealthAlertsPanel');
 export const ApiIntegrationsPanel = pick(systemGroup, 'ApiIntegrationsPanel');

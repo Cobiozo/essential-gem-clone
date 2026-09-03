@@ -214,7 +214,7 @@ const PlatformStructureView: React.FC = () => {
 
   const doExport = async (kind: 'xlsx' | 'docx' | 'html') => {
     try {
-      if (kind === 'xlsx') exportToExcel(roots, allNodes);
+      if (kind === 'xlsx') await exportToExcel(roots, allNodes);
       else if (kind === 'docx') await exportToWord(roots, allNodes);
       else exportToHtml(roots, allNodes);
     } catch (e: any) {
