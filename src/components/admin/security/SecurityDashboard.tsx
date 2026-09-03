@@ -252,6 +252,10 @@ export const SecurityDashboard: React.FC = () => {
     // Pause auto-refresh when the tab is hidden (Etap 3 — idle network)
     refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 30000),
     refetchIntervalInBackground: false,
+    // Dane odświeżają się już co 30 s — dodatkowe refetche na focus/mount są zbędne
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+
   });
 
   if (isLoading) {
