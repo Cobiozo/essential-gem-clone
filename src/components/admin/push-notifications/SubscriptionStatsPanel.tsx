@@ -144,6 +144,10 @@ export const SubscriptionStatsPanel: React.FC = () => {
     // Refresh every 30 s, but only while the tab is visible (Etap 3 — idle network)
     refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 30000),
     refetchIntervalInBackground: false,
+    // Dane odświeżają się już co 30 s — dodatkowe refetche na focus są zbędne
+    refetchOnWindowFocus: false,
+    staleTime: 30000,
+
   });
 
   const handleCleanupInactive = async () => {
