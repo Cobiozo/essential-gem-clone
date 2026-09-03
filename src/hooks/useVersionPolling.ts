@@ -1,14 +1,20 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Fallback version detection.
+ * Etap 3 — fallback version detection.
  *
- * The primary mechanism is the Service Worker `updatefound` event registered in
- * `main.tsx` (it dispatches `swUpdateAvailable`). `/version.json` polling stays
- * only as a safety net for browsers/sessions without an active SW, so it runs
- * at a low frequency and is paused while the tab is hidden (Etap 3 — idle network).
+ * Podstawowym mechanizmem wykrywania nowej wersji jest Service Worker
+ * (`updatefound` rejestrowany w `main.tsx`, emituje `swUpdateAvailable`).
+ * Ten hook to WYŁĄCZNIE fallback dla sesji/przeglądarek bez działającego SW:
+ *
+ * - jeżeli po krótkim oknie startowym istnieje aktywny, kontrolujący stronę SW,
+ *   polling `/version.json` NIE jest w ogóle uruchamiany,
+ * - w przeciwnym razie odpytujemy co 10 minut,
+ * - polling jest zatrzymywany, gdy karta jest ukryta (`document.hidden`),
+ * - po powrocie do widoczności wykonujemy kontrolę tylko, jeśli minął interwał.
  */
-const POLL_INTERVAL = 5 * 60_000; // 5 minutes (fallback only)
+const POLL_INTERVAL = 10 * 60_000; // 10 minut (tylko fallback)
+const SW_GRACE_MS = 5_000; // czas na przejęcie kontroli przez SW po starcie
 
 export function useVersionPolling() {
   const localVersion = useRef<string | null>(null);
@@ -16,6 +22,8 @@ export function useVersionPolling() {
   const lastCheckRef = useRef<number>(0);
 
   useEffect(() => {
+    let stopped = false;
+
     const checkVersion = async () => {
       lastCheckRef.current = Date.now();
       try {
@@ -30,39 +38,65 @@ export function useVersionPolling() {
         }
 
         if (remote !== localVersion.current) {
-          console.log('[VersionPolling] New version detected:', remote, '(was:', localVersion.current, ')');
-          localVersion.current = remote; // prevent repeated events
+          localVersion.current = remote; // zapobiega powtarzaniu eventu
           window.dispatchEvent(new CustomEvent('appVersionChanged'));
         }
       } catch {
-        // network error — ignore silently
+        // błąd sieci — ignorujemy po cichu
       }
     };
 
-    // Initial check
-    checkVersion();
+    const startPolling = () => {
+      if (stopped || intervalRef.current) return;
+      intervalRef.current = setInterval(() => {
+        if (!document.hidden) checkVersion();
+      }, POLL_INTERVAL);
+    };
 
-    // Start polling
-    intervalRef.current = setInterval(checkVersion, POLL_INTERVAL);
+    const stopPolling = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
 
-    // Pause/resume on visibility change
     const handleVisibility = () => {
       if (document.hidden) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
+        stopPolling();
       } else {
-        // Avoid an extra request when the tab is toggled frequently
         if (Date.now() - lastCheckRef.current > POLL_INTERVAL) checkVersion();
-        if (!intervalRef.current) intervalRef.current = setInterval(checkVersion, POLL_INTERVAL);
+        startPolling();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibility);
+    /** SW aktywny i kontrolujący stronę => fallback niepotrzebny. */
+    const hasWorkingServiceWorker = async () => {
+      if (!('serviceWorker' in navigator)) return false;
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        return !!reg?.active && !!navigator.serviceWorker.controller;
+      } catch {
+        return false;
+      }
+    };
+
+    const init = async () => {
+      // Daj SW chwilę na aktywację/przejęcie kontroli po pierwszym załadowaniu.
+      await new Promise(resolve => setTimeout(resolve, SW_GRACE_MS));
+      if (stopped) return;
+      if (await hasWorkingServiceWorker()) return; // SW = mechanizm podstawowy
+
+      await checkVersion(); // ustala wersję bazową dla fallbacku
+      if (stopped) return;
+      if (!document.hidden) startPolling();
+      document.addEventListener('visibilitychange', handleVisibility);
+    };
+
+    init();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      stopped = true;
+      stopPolling();
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
