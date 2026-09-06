@@ -160,15 +160,26 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       return;
     }
 
+    // Etap 3: polling jest activity-aware — przy braku realnej aktywności
+    // użytkownika przez 15 min przestajemy odpytywać (idle = brak ruchu w sieci).
+    const POLL_INTERVAL_MS = 3 * 60 * 1000;
+    const ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
+    let lastActivity = Date.now();
+    const markActivity = () => { lastActivity = Date.now(); };
+    const activityEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll'];
+    activityEvents.forEach(evt =>
+      window.addEventListener(evt, markActivity, { passive: true } as AddEventListenerOptions),
+    );
+
     const startPolling = () => {
       // Guard: Don't create duplicate intervals
       if (pollingIntervalRef.current) return;
       
       pollingIntervalRef.current = setInterval(() => {
-        if (!document.hidden) {
-          fetchUnreadCount();
-        }
-      }, 60000); // 60 seconds
+        if (document.hidden) return;
+        if (Date.now() - lastActivity > ACTIVITY_WINDOW_MS) return;
+        fetchUnreadCount();
+      }, POLL_INTERVAL_MS);
     };
 
     const stopPolling = () => {
