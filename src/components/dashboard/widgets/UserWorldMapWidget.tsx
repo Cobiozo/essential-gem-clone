@@ -99,7 +99,7 @@ const UserWorldMapWidget: React.FC = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, profile]);
 
   if (settingsLoading || !settings) return null;
   if (!settings.is_enabled) return null;
