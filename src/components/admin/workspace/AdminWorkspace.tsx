@@ -2950,10 +2950,8 @@ const Admin = () => {
     );
   }
 
-  // Password gate – admin oraz moderator muszą potwierdzić hasło przed wejściem do CMS
-  if (hasAnyAdminAccess && !gateUnlocked) {
-    return <AdminPasswordGate onUnlock={() => setGateUnlocked(true)} />;
-  }
+  // Password gate obsługiwany jest przez AdminShell (src/pages/Admin.tsx).
+
 
 
   return (
