@@ -159,6 +159,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   const { user, isPartner, isAdmin, profile } = useAuth();
   const [infoLinkCodes, setInfoLinkCodes] = useState<InfoLinkCode[]>([]);
   const [hkCodes, setHkCodes] = useState<HkOtpCode[]>([]);
+  const lastFetchRef = useRef<number>(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('infolinks');
   const [expandedGuests, setExpandedGuests] = useState<Set<string>>(new Set());
