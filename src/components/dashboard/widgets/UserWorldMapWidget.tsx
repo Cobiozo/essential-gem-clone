@@ -72,10 +72,27 @@ const UserWorldMapWidget: React.FC = () => {
         qc.invalidateQueries({ queryKey: QUERY_KEY });
       }, 1500);
     };
+    // Etap 3: UPDATE profiles wywołany wyłącznie heartbeatem `last_seen_at`
+    // nie zmienia punktów na mapie — ignorujemy go, żeby nie generować
+    // zbędnego RPC get_user_location_points przy każdym zapisie obecności.
+    const LOCATION_FIELDS = ['city', 'country', 'street', 'postal_code', 'first_name', 'last_name'];
+    const scheduleOnLocationChange = (payload: any) => {
+      const next = payload?.new;
+      const prev = payload?.old;
+      if (next && prev && Object.keys(prev).length > 0) {
+        const changed = LOCATION_FIELDS.some(f => next[f] !== prev[f]);
+        if (!changed) return;
+      } else if (next && prev && Object.keys(prev).length === 0) {
+        // brak REPLICA IDENTITY FULL — heurystyka: pomijamy zmiany last_seen_at
+        // tylko wtedy, gdy dotyczą aktualnie zalogowanego użytkownika
+        if (next.last_seen_at && next.user_id === (profile as any)?.user_id) return;
+      }
+      scheduleRefetch();
+    };
     const channel = supabase
       .channel('profiles-map-points')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, scheduleRefetch)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, scheduleRefetch)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, scheduleOnLocationChange)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'profiles' }, scheduleRefetch)
       .subscribe();
     return () => {
