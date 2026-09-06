@@ -24,12 +24,33 @@ const HIDDEN_PREFIXES = [
   '/moja-strona',
 ];
 
+/**
+ * Etap 4 — gate warstwy runtime.
+ *
+ * Dane paska (`mobile_bottom_nav_items`) + kanał realtime są potrzebne WYŁĄCZNIE
+ * zalogowanemu użytkownikowi na mobile, poza trasami publicznymi z listy
+ * HIDDEN_PREFIXES. Wcześniej hook `useMobileBottomNav` był wywoływany zawsze —
+ * także dla anonimowego gościa na `/`, `/auth` czy stronach partnerskich —
+ * generując 1 request REST + 1 subskrypcję realtime na każdej publicznej wizycie.
+ */
 const MobileBottomNav: React.FC = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
+  const { user } = useAuth();
+
+  if (!isMobile) return null;
+  if (!user) return null;
+  if (HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))) return null;
+
+  return <MobileBottomNavInner />;
+};
+
+const MobileBottomNavInner: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const { user, userRole, profile } = useAuth();
+  const { userRole, profile } = useAuth();
   const { items } = useMobileBottomNav();
+
 
   const role = (userRole?.role || (profile as any)?.role) as string | undefined;
 
@@ -44,9 +65,6 @@ const MobileBottomNav: React.FC = () => {
     return false;
   }), [items, role]);
 
-  if (!isMobile) return null;
-  if (!user) return null;
-  if (HIDDEN_PREFIXES.some((p) => location.pathname.startsWith(p))) return null;
   if (visible.length === 0) return null;
 
   return (
