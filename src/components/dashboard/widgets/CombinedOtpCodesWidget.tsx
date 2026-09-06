@@ -265,11 +265,40 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     // Defer non-critical widget load by 1500ms to prioritize above-the-fold content
     const startTimer = setTimeout(() => {
       fetchAllCodes();
+      lastFetchRef.current = Date.now();
     }, 1500);
-    
-    // Polling every 60 seconds (starts after initial deferred fetch)
-    const interval = setInterval(fetchAllCodes, 60000);
-    
+
+    // Etap 3: odświeżanie tylko przy widocznej karcie i realnej aktywności
+    // (kody OTP generuje sam użytkownik — event 'otpCodeGenerated'/'hkOtpCodeGenerated'
+    // odświeża listę natychmiast, więc polling jest jedynie zabezpieczeniem
+    // przed zmianami z innego urządzenia; 5 min w zupełności wystarcza).
+    const POLL_INTERVAL_MS = 5 * 60 * 1000;
+    const ACTIVITY_WINDOW_MS = 15 * 60 * 1000;
+    let lastActivity = Date.now();
+    const markActivity = () => { lastActivity = Date.now(); };
+    const activityEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll'];
+    activityEvents.forEach(evt =>
+      window.addEventListener(evt, markActivity, { passive: true } as AddEventListenerOptions),
+    );
+
+    const refresh = () => {
+      lastFetchRef.current = Date.now();
+      fetchAllCodes();
+    };
+
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      if (Date.now() - lastActivity > ACTIVITY_WINDOW_MS) return;
+      refresh();
+    }, POLL_INTERVAL_MS);
+
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      markActivity();
+      if (Date.now() - lastFetchRef.current > POLL_INTERVAL_MS) refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     // Event listeners for new codes
     const handleInfoLinkCode = () => fetchInfoLinkCodes();
     const handleHkCode = () => fetchHkCodes();
@@ -280,6 +309,8 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     return () => {
       clearTimeout(startTimer);
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      activityEvents.forEach(evt => window.removeEventListener(evt, markActivity));
       window.removeEventListener('otpCodeGenerated', handleInfoLinkCode);
       window.removeEventListener('hkOtpCodeGenerated', handleHkCode);
     };
