@@ -193,6 +193,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       if (document.hidden) {
         stopPolling();
       } else {
+        markActivity();
         // Skip updates when user is actively editing forms
         if (globalEditingStateRef.current) return;
         
@@ -216,6 +217,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      activityEvents.forEach(evt => window.removeEventListener(evt, markActivity));
     };
   }, [user, enableRealtime, fetchUnreadCount]);
 
