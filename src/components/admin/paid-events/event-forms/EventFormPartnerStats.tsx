@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, FileSpreadsheet, MousePointerClick, UserPlus, CheckCircle2, XCircle, ArrowUpDown, Trophy } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
 
 interface Props {
   form: any;
@@ -164,7 +163,8 @@ export const EventFormPartnerStats: React.FC<Props> = ({ form, onBack }) => {
     else { setSortKey(k); setSortAsc(false); }
   };
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
+    const XLSX = await import('xlsx-js-style');
     // Style helpers
     const border = {
       top: { style: 'thin', color: { rgb: 'D1D5DB' } },

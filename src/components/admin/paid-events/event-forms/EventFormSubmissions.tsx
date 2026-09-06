@@ -12,7 +12,6 @@ import { ArrowLeft, CheckCircle2, XCircle, Clock, RotateCcw, Mail, MailCheck, Ma
 import { useToast } from '@/hooks/use-toast';
 import AssignPartnerDialog from './AssignPartnerDialog';
 import EditOrderDialog from './EditOrderDialog';
-import * as XLSX from 'xlsx-js-style';
 
 interface Props {
   form: any;
@@ -502,7 +501,8 @@ export const EventFormSubmissions: React.FC<Props> = ({ form, onBack }) => {
       || (s.phone || '').toLowerCase().includes(q);
   });
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
+    const XLSX = await import('xlsx-js-style');
     const fieldsConfig = (form.fields_config || []) as Array<{ key: string; label: string }>;
 
     // ----- Style helpers -----
