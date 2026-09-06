@@ -42,7 +42,7 @@ import { UserEditDialog } from '@/components/admin/UserEditDialog';
 import { CompactUserCard } from '@/components/admin/CompactUserCard';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
-import { AdminPasswordGate, isAdminGateUnlocked, lockAdminGate } from '@/components/admin/AdminPasswordGate';
+import { isAdminGateUnlocked, lockAdminGate } from '@/components/admin/AdminPasswordGate';
 import {
   HtmlPagesManagement,
   AdminMediaLibrary,
@@ -168,7 +168,7 @@ interface Page {
   visible_to_anonymous: boolean;
 }
 
-const Admin = () => {
+const AdminWorkspace = () => {
   // Helper functions for type conversion
   const convertCellsFromDatabase = (cells: any): ContentCell[] => {
     return parseCellsAsArray(cells);
@@ -5419,4 +5419,4 @@ const Admin = () => {
   );
 };
 
-export default Admin;
+export default AdminWorkspace;
