@@ -6,6 +6,7 @@ import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -119,6 +120,23 @@ const PWAInstallBanner = lazyWithRetry(() =>
 const IntroVideoOverlay = lazyWithRetry(() =>
   import("@/components/intro/IntroVideoOverlay").then(m => ({ default: m.IntroVideoOverlay })));
 const MobileBottomNav = lazyWithRetry(() => import("@/components/layout/MobileBottomNav"));
+
+/**
+ * Etap 4 — bramka montowania mobilnego paska nawigacji.
+ * Sam chunk paska ciągnie pełną przestrzeń nazw `lucide-react` (~110 kB),
+ * dlatego pobieramy go dopiero, gdy realnie może się pojawić:
+ * zalogowany użytkownik na urządzeniu mobilnym.
+ */
+const MobileBottomNavGate: React.FC = () => {
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  if (!user || !isMobile) return null;
+  return (
+    <Suspense fallback={null}>
+      <MobileBottomNav />
+    </Suspense>
+  );
+};
 
 // Lazy load chat widgets - only mount when first opened
 const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget"));
@@ -497,13 +515,13 @@ const AppContent = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
+          <MobileBottomNavGate />
           </ProfileCompletionGuard>
           
           {/* Chat widgets - inside BrowserRouter to access location */}
           <ChatWidgetsWrapper />
           <Suspense fallback={null}>
             <PWAInstallBanner />
-            <MobileBottomNav />
             <IntroVideoOverlay />
           </Suspense>
 
