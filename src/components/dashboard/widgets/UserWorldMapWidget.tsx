@@ -79,16 +79,18 @@ const UserWorldMapWidget: React.FC = () => {
     const scheduleOnLocationChange = (payload: any) => {
       const next = payload?.new;
       const prev = payload?.old;
-      if (next && prev && Object.keys(prev).length > 0) {
-        const changed = LOCATION_FIELDS.some(f => next[f] !== prev[f]);
-        if (!changed) return;
-      } else if (next && prev && Object.keys(prev).length === 0) {
-        // brak REPLICA IDENTITY FULL — heurystyka: pomijamy zmiany last_seen_at
-        // tylko wtedy, gdy dotyczą aktualnie zalogowanego użytkownika
-        if (next.last_seen_at && next.user_id === (profile as any)?.user_id) return;
-      }
+      // Bez REPLICA IDENTITY FULL `old` nie zawiera pól lokalizacji, więc nie da
+      // się stwierdzić realnej zmiany — w takim wypadku NIE odświeżamy mapy.
+      // Zmiany lokalizacji są rzadkie i zostaną pobrane przy kolejnym montażu
+      // widgetu; heartbeat `last_seen_at` nie może generować RPC co 4 minuty.
+      if (!next || !prev) return;
+      const prevHasLocation = LOCATION_FIELDS.some(f => f in prev);
+      if (!prevHasLocation) return;
+      const changed = LOCATION_FIELDS.some(f => next[f] !== prev[f]);
+      if (!changed) return;
       scheduleRefetch();
     };
+
     const channel = supabase
       .channel('profiles-map-points')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, scheduleRefetch)
