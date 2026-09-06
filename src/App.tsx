@@ -3,8 +3,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CookieConsentBanner } from "@/components/cookies/CookieConsentBanner";
-import { ImportantInfoBanner } from "@/components/ImportantInfoBanner";
-import { DailySignalBanner } from "@/components/DailySignalBanner";
 import { ProfileCompletionGuard } from "@/components/profile/ProfileCompletionGuard";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -17,7 +15,6 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { MFAChallenge } from "@/components/auth/MFAChallenge";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
@@ -25,16 +22,11 @@ import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SessionTimerProvider } from "@/contexts/SessionTimerContext";
 import { ChatSidebarProvider } from "@/contexts/ChatSidebarContext";
 import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
-import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
-import MobileBottomNav from '@/components/layout/MobileBottomNav';
 
-import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
-import { IntroVideoOverlay } from "@/components/intro/IntroVideoOverlay";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
-import { BrowserTranslationWarning } from "@/components/i18n/BrowserTranslationWarning";
 
 // Helper function for lazy loading with automatic retry on chunk errors
 // Improved: More retries, cache clearing, loop detection
@@ -100,14 +92,39 @@ function lazyWithRetry<T extends ComponentType<any>>(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Etap 4 — route/runtime shell split.
+// Poniższe moduły były wcześniej importowane statycznie i trafiały do bundla
+// wejściowego, mimo że dotyczą konkretnych warstw runtime:
+//  * HomepageSwitcher  -> tylko trasa "/" (publiczny shell)
+//  * Auth              -> tylko trasa "/auth" (auth shell)
+//  * MFAChallenge      -> tylko bramka MFA po zalogowaniu
+//  * bannery/dialogi   -> tylko dla zalogowanego użytkownika
+//  * MobileBottomNav   -> tylko zalogowany użytkownik na mobile
+// (import "./pages/Index" był całkowicie nieużywany — usunięty).
+const HomepageSwitcher = lazyWithRetry(() => import("./pages/HomepageSwitcher"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const MFAChallenge = lazyWithRetry(() =>
+  import("@/components/auth/MFAChallenge").then(m => ({ default: m.MFAChallenge })));
+const ImportantInfoBanner = lazyWithRetry(() =>
+  import("@/components/ImportantInfoBanner").then(m => ({ default: m.ImportantInfoBanner })));
+const DailySignalBanner = lazyWithRetry(() =>
+  import("@/components/DailySignalBanner").then(m => ({ default: m.DailySignalBanner })));
+const BrowserTranslationWarning = lazyWithRetry(() =>
+  import("@/components/i18n/BrowserTranslationWarning").then(m => ({ default: m.BrowserTranslationWarning })));
+const SupportFormDialog = lazyWithRetry(() =>
+  import("@/components/support").then(m => ({ default: m.SupportFormDialog })));
+const PWAInstallBanner = lazyWithRetry(() =>
+  import("@/components/pwa/PWAInstallBanner").then(m => ({ default: m.PWAInstallBanner })));
+const IntroVideoOverlay = lazyWithRetry(() =>
+  import("@/components/intro/IntroVideoOverlay").then(m => ({ default: m.IntroVideoOverlay })));
+const MobileBottomNav = lazyWithRetry(() => import("@/components/layout/MobileBottomNav"));
+
 // Lazy load chat widgets - only mount when first opened
 const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget"));
 
 // Eager load - critical pages
-import Index from "./pages/Index";
-import HomepageSwitcher from "./pages/HomepageSwitcher";
 const HomepageEditor = lazyWithRetry(() => import("./pages/admin/HomepageEditor"));
-import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 // Lazy load - heavy pages with retry
@@ -253,6 +270,8 @@ const AppContent = () => {
   
   // Support form dialog state
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
+  // Etap 4: montujemy (i pobieramy chunk) dopiero po pierwszym otwarciu
+  const [supportDialogMounted, setSupportDialogMounted] = useState(false);
 
   // Log auth state changes for debugging
   useEffect(() => {
@@ -328,7 +347,10 @@ const AppContent = () => {
 
   // Support form dialog event listener
   useEffect(() => {
-    const handleOpenSupportForm = () => setIsSupportDialogOpen(true);
+    const handleOpenSupportForm = () => {
+      setSupportDialogMounted(true);
+      setIsSupportDialogOpen(true);
+    };
     window.addEventListener('openSupportForm', handleOpenSupportForm);
     return () => window.removeEventListener('openSupportForm', handleOpenSupportForm);
   }, []);
@@ -390,7 +412,9 @@ const AppContent = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <MFAChallenge onVerified={completeMfa} />
+        <Suspense fallback={<LoadingSpinner />}>
+          <MFAChallenge onVerified={completeMfa} />
+        </Suspense>
       </TooltipProvider>
     );
   }
@@ -477,9 +501,11 @@ const AppContent = () => {
           
           {/* Chat widgets - inside BrowserRouter to access location */}
           <ChatWidgetsWrapper />
-          <PWAInstallBanner />
-          <MobileBottomNav />
-          <IntroVideoOverlay />
+          <Suspense fallback={null}>
+            <PWAInstallBanner />
+            <MobileBottomNav />
+            <IntroVideoOverlay />
+          </Suspense>
 
           
         </InactivityHandler>
@@ -496,25 +522,32 @@ const AppContent = () => {
               2. Info Banners sequentially by priority (after Signal dismissed)
               3. No Info Banner can appear before Daily Signal
           */}
-          <BrowserTranslationWarning />
-          {!dailySignalDismissed ? (
-            <DailySignalBanner onDismiss={handleDailySignalDismiss} />
-          ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (
-            <ImportantInfoBanner 
-              key={`info-banner-${loginTrigger}`}
-              onDismiss={handleInfoBannerDismiss}
-              bannerIndex={currentInfoBannerIndex}
-              onComplete={handleInfoBannersComplete}
-            />
-          ) : null}
+          <Suspense fallback={null}>
+            <BrowserTranslationWarning />
+            {!dailySignalDismissed ? (
+              <DailySignalBanner onDismiss={handleDailySignalDismiss} />
+            ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (
+              <ImportantInfoBanner 
+                key={`info-banner-${loginTrigger}`}
+                onDismiss={handleInfoBannerDismiss}
+                bannerIndex={currentInfoBannerIndex}
+                onComplete={handleInfoBannersComplete}
+              />
+            ) : null}
+          </Suspense>
         </>
       )}
       
       {/* Support Form Dialog - available for all users */}
-      <SupportFormDialog 
-        open={isSupportDialogOpen} 
-        onOpenChange={setIsSupportDialogOpen} 
-      />
+      {/* Etap 4: dialog wsparcia ładowany dopiero przy pierwszym otwarciu */}
+      {supportDialogMounted && (
+        <Suspense fallback={null}>
+          <SupportFormDialog 
+            open={isSupportDialogOpen} 
+            onOpenChange={setIsSupportDialogOpen} 
+          />
+        </Suspense>
+      )}
     </TooltipProvider>
   );
 };
