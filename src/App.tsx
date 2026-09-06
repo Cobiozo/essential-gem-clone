@@ -515,11 +515,11 @@ const AppContent = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-          <MobileBottomNavGate />
           </ProfileCompletionGuard>
           
           {/* Chat widgets - inside BrowserRouter to access location */}
           <ChatWidgetsWrapper />
+          <MobileBottomNavGate />
           <Suspense fallback={null}>
             <PWAInstallBanner />
             <IntroVideoOverlay />
