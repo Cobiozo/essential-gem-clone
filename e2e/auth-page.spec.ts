@@ -13,7 +13,7 @@ test("formularz logowania jest widoczny i interaktywny", async ({ page }) => {
   await identifier.fill("test.playwright@example.com");
   await password.fill("NiepoprawneHaslo123!");
   await expect(identifier).toHaveValue("test.playwright@example.com");
-  await expect(page.getByRole("button", { name: /zaloguj/i }).first()).toBeVisible();
+  await expect(page.locator('form button[type="submit"]').first()).toBeVisible();
 });
 
 test("chronione trasy przekierowują niezalogowanego użytkownika", async ({ page }) => {
