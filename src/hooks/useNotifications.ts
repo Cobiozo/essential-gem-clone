@@ -226,7 +226,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel(`user-notifications-${user.id}-${Date.now()}`)
+      .channel(`user-notifications-${user.id}`)
       .on(
         'postgres_changes',
         {
