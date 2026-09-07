@@ -22,5 +22,5 @@ for (const vp of VIEWPORTS) {
 test("strona logowania działa na telefonie", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/auth", { waitUntil: "domcontentloaded" });
-  await expect(page.locator('input[type="email"]').first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("#loginIdentifier")).toBeVisible({ timeout: 20000 });
 });

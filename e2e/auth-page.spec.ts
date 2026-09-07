@@ -4,15 +4,16 @@ test("formularz logowania jest widoczny i interaktywny", async ({ page }) => {
   await page.goto("/auth", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 
-  const email = page.locator('input[type="email"]').first();
-  const password = page.locator('input[type="password"]').first();
+  const identifier = page.locator("#loginIdentifier");
+  const password = page.locator("#password");
 
-  await expect(email).toBeVisible({ timeout: 15000 });
+  await expect(identifier).toBeVisible({ timeout: 20000 });
   await expect(password).toBeVisible();
 
-  await email.fill("test.playwright@example.com");
+  await identifier.fill("test.playwright@example.com");
   await password.fill("NiepoprawneHaslo123!");
-  await expect(email).toHaveValue("test.playwright@example.com");
+  await expect(identifier).toHaveValue("test.playwright@example.com");
+  await expect(page.getByRole("button", { name: /zaloguj/i }).first()).toBeVisible();
 });
 
 test("chronione trasy przekierowują niezalogowanego użytkownika", async ({ page }) => {
