@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+import { withCronLock } from "../_shared/cron-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,7 +169,7 @@ function buildEmailHtml(event: any): { subject: string; html: string } {
   return { subject, html };
 }
 
-serve(async (req) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(
@@ -347,4 +348,6 @@ serve(async (req) => {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
   });
-});
+};
+
+serve(withCronLock("process-event-email-campaigns", cronHandler, corsHeaders, 300));

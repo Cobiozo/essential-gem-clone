@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { warsawLocalToUtc } from "../_shared/timezone-utils.ts";
+import { withCronLock } from "../_shared/cron-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +50,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Maximum execution time (55s to stay under Edge Function 60s limit)
 const MAX_EXECUTION_TIME_MS = 55000;
 
-serve(async (req) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1411,4 +1412,6 @@ serve(async (req) => {
       }
     );
   }
-});
+};
+
+serve(withCronLock("process-pending-notifications", cronHandler, corsHeaders, 300));

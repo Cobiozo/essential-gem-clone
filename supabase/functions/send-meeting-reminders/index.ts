@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { withCronLock } from "../_shared/cron-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -269,7 +270,7 @@ function buildGuestReminderHtml(
     </body></html>`;
 }
 
-serve(async (req) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   console.log('[send-meeting-reminders] Request received');
   
   if (req.method === "OPTIONS") {
@@ -768,4 +769,6 @@ serve(async (req) => {
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
-});
+};
+
+serve(withCronLock("send-meeting-reminders", cronHandler, corsHeaders, 300));
