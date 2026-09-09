@@ -1,5 +1,6 @@
 // Challenge 90-day supervisor — auto-verifies tasks and rolls participant day/streak.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { withCronLock } from "../_shared/cron-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,7 +56,7 @@ function calcCurrentDay(p: Participant, s: Settings): number {
   return day;
 }
 
-Deno.serve(async (req) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const startedAt = Date.now();
   const client = createClient(
@@ -221,7 +222,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+};
+
+Deno.serve(withCronLock("challenge-daily-supervisor", cronHandler, corsHeaders, 300));
 
 async function verifyTask(
   client: ReturnType<typeof createClient>,

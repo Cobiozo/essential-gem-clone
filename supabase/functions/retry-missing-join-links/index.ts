@@ -2,6 +2,7 @@
 // Runs every 2 min. Exponential backoff, cap 30 min. After max_attempts → notify admins.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withCronLock } from "../_shared/cron-lock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +35,7 @@ function resolveOccurrenceLink(event: any, occIso: string | null): { link: strin
   return { link: '', source: 'none' };
 }
 
-serve(async (req: Request) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(
@@ -205,4 +206,6 @@ serve(async (req: Request) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+};
+
+serve(withCronLock("retry-missing-join-links", cronHandler, corsHeaders, 300));
