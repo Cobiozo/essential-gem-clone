@@ -221,48 +221,10 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     };
   }, [user, enableRealtime, fetchUnreadCount]);
 
-  // Realtime subscription - ONLY when enableRealtime is true
-  useEffect(() => {
-    if (!user || !enableRealtime) return;
+  // NOTE (Recovery 3A): usunięto martwą subskrypcję realtime na `user_notifications` —
+  // tabela nie należy do publikacji `supabase_realtime`, więc kanał nigdy nie otrzymywał
+  // zdarzeń. Świeżość danych zapewnia polling + refetch przy otwarciu listy.
 
-    const channel = supabase
-      .channel(`user-notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'user_notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotification = payload.new as UserNotification & { target_role?: string };
-          // Filter by target_role and exclude direct_message
-          if (newNotification.notification_type === 'direct_message') return;
-          if (!newNotification.target_role || newNotification.target_role === currentRole) {
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-            
-            // Play notification sound
-            playNotificationSound();
-            
-            // Show browser notification when tab is in background
-            if (enableBrowserNotifications && document.hidden && permission === 'granted') {
-              showNotification(newNotification.title || 'Nowe powiadomienie', {
-                body: newNotification.message || '',
-                tag: newNotification.id, // Prevent duplicates
-                data: { link: newNotification.link },
-              });
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, currentRole, enableRealtime]);
 
   return {
     notifications,
