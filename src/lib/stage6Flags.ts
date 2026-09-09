@@ -26,3 +26,10 @@ export const STAGE6_NO_CLOCKS = hasFlag('stage6NoClocks');
  * as if there were no authenticated user. Diagnostic only.
  */
 export const STAGE6_NO_UNIFIED_CHAT = hasFlag('stage6NoUnifiedChat');
+
+/**
+ * stage6NoTranslateDetector=1 skips mounting BrowserTranslationWarning entirely,
+ * so useBrowserTranslationDetector never runs (no MutationObserver, no interval).
+ * Diagnostic only.
+ */
+export const STAGE6_NO_TRANSLATE_DETECTOR = hasFlag('stage6NoTranslateDetector');
