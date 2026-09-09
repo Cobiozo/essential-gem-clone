@@ -225,10 +225,13 @@ const InactivityHandler = ({ children }: { children?: React.ReactNode }) => {
   } = useInactivityTimeout({ enabled: !!user, signOut, pathname: location.pathname });
   useLastSeenUpdater();
 
-  const timerValue = { timeRemaining, onRefreshTimer, isProtectedRoute };
-
   return (
-    <SessionTimerProvider value={timerValue}>
+    <SessionTimerProvider
+      timeRemaining={timeRemaining}
+      onRefreshTimer={onRefreshTimer}
+      isProtectedRoute={isProtectedRoute}
+    >
+
       {children}
       {user && (
         <SessionTimeoutDialog
