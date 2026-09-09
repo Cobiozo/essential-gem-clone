@@ -19,3 +19,10 @@ const hasFlag = (name: string): boolean => {
 };
 
 export const STAGE6_NO_CLOCKS = hasFlag('stage6NoClocks');
+
+/**
+ * stage6NoUnifiedChat=1 disables the useUnifiedChat mechanism (fetches, polling,
+ * realtime subscriptions and all resulting state updates) by treating the hook
+ * as if there were no authenticated user. Diagnostic only.
+ */
+export const STAGE6_NO_UNIFIED_CHAT = hasFlag('stage6NoUnifiedChat');
