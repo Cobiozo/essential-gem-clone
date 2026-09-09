@@ -91,9 +91,12 @@ const Dashboard: React.FC = () => {
     >
       <div className="space-y-4 lg:space-y-6">
         {/* Welcome with digital clock - Full width */}
-        <Suspense fallback={<WelcomeWidgetSkeleton />}>
-          <WelcomeWidget />
-        </Suspense>
+        {/* STAGE6 DIAGNOSTIC: ?stage6NoWelcome=1 skips WelcomeWidget for A/B commit measurement */}
+        {!new URLSearchParams(location.search).has('stage6NoWelcome') && (
+          <Suspense fallback={<WelcomeWidgetSkeleton />}>
+            <WelcomeWidget />
+          </Suspense>
+        )}
 
         {/* Webinar Invite Widget - full width */}
         {showWidget('webinarInvite') && (
