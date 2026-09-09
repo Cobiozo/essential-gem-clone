@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { globalEditingStateRef } from '@/contexts/EditingContext';
 import type { UserNotification } from '@/components/team-contacts/types';
 
-import type { UserNotification } from '@/components/team-contacts/types';
 
 interface UseNotificationsOptions {
   enableRealtime?: boolean;
