@@ -18,11 +18,8 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const [loading, setLoading] = useState(true);
   
   const enableRealtime = options?.enableRealtime ?? false;
-  const enableBrowserNotifications = options?.enableBrowserNotifications ?? false;
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Browser notifications hook
-  const { showNotification, permission } = useBrowserNotifications();
+
   const { playNotificationSound } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
