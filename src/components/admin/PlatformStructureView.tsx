@@ -135,7 +135,9 @@ const PlatformStructureView: React.FC = () => {
     const ch = supabase
       .channel('admin-platform-structure')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, schedule)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, schedule)
+      // Recovery 3A: usunięto martwy nasłuch `user_roles` (tabela poza publikacją realtime).
+      // Zmiany ról i tak odświeżają się przez zdarzenia `profiles` oraz staleTime zapytań.
+
       .subscribe();
     return () => {
       if (debRef.current) clearTimeout(debRef.current);

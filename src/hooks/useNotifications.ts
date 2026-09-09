@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { globalEditingStateRef } from '@/contexts/EditingContext';
-import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
-import { useNotificationSound } from '@/hooks/useNotificationSound';
 import type { UserNotification } from '@/components/team-contacts/types';
+
 
 interface UseNotificationsOptions {
   enableRealtime?: boolean;
@@ -19,12 +18,9 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const [loading, setLoading] = useState(true);
   
   const enableRealtime = options?.enableRealtime ?? false;
-  const enableBrowserNotifications = options?.enableBrowserNotifications ?? false;
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Browser notifications hook
-  const { showNotification, permission } = useBrowserNotifications();
-  const { playNotificationSound } = useNotificationSound();
+
+
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -148,17 +144,18 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     fetchNotifications();
   }, [user, fetchNotifications]);
 
-  // Polling for unread count when realtime is disabled (60 second interval)
-  // Pauses when tab is hidden to save resources
+  // Polling for unread count (activity-aware, pauses when tab is hidden).
+  // Cadence bez zmian; nie jest już wyłączany przez `enableRealtime`, bo kanał realtime
+  // dla tej tabeli był martwy (brak publikacji).
   useEffect(() => {
-    if (!user || enableRealtime) {
-      // Clear polling if realtime is enabled or no user
+    if (!user) {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
       return;
     }
+
 
     // Etap 3: polling jest activity-aware — przy braku realnej aktywności
     // użytkownika przez 15 min przestajemy odpytywać (idle = brak ruchu w sieci).
@@ -219,50 +216,17 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       activityEvents.forEach(evt => window.removeEventListener(evt, markActivity));
     };
-  }, [user, enableRealtime, fetchUnreadCount]);
+  }, [user, fetchUnreadCount]);
 
-  // Realtime subscription - ONLY when enableRealtime is true
+  // NOTE (Recovery 3A): usunięto martwą subskrypcję realtime na `user_notifications` —
+  // tabela nie należy do publikacji `supabase_realtime`, więc kanał nigdy nie otrzymywał
+  // zdarzeń. Świeżość zapewnia polling + odświeżenie przy otwarciu listy powiadomień.
   useEffect(() => {
     if (!user || !enableRealtime) return;
+    fetchNotifications();
+  }, [user, enableRealtime, fetchNotifications]);
 
-    const channel = supabase
-      .channel(`user-notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'user_notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotification = payload.new as UserNotification & { target_role?: string };
-          // Filter by target_role and exclude direct_message
-          if (newNotification.notification_type === 'direct_message') return;
-          if (!newNotification.target_role || newNotification.target_role === currentRole) {
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-            
-            // Play notification sound
-            playNotificationSound();
-            
-            // Show browser notification when tab is in background
-            if (enableBrowserNotifications && document.hidden && permission === 'granted') {
-              showNotification(newNotification.title || 'Nowe powiadomienie', {
-                body: newNotification.message || '',
-                tag: newNotification.id, // Prevent duplicates
-                data: { link: newNotification.link },
-              });
-            }
-          }
-        }
-      )
-      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, currentRole, enableRealtime]);
 
   return {
     notifications,
