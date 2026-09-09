@@ -17,6 +17,7 @@ import { WidgetInfoButton } from '../WidgetInfoButton';
 import { NewsTicker } from '@/components/news-ticker';
 import { getCommonTimezones, getTimezoneAbbr } from '@/utils/timezoneHelpers';
 import { getTodayWorldDays } from '@/utils/worldDays';
+import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
@@ -28,7 +29,10 @@ export const WelcomeWidget: React.FC = () => {
 
   // Update time every second - pause when tab is hidden
   useEffect(() => {
+    // STAGE6 DIAGNOSTIC: ?stage6NoClocks=1 disables the 1s clock update only.
+    if (STAGE6_NO_CLOCKS) return;
     let timer: NodeJS.Timeout | null = null;
+    
     
     const startTimer = () => {
       if (timer) clearInterval(timer);
