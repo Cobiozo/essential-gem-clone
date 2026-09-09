@@ -20,7 +20,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   const enableRealtime = options?.enableRealtime ?? false;
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { playNotificationSound } = useNotificationSound();
+
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
