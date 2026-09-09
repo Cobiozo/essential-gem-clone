@@ -34,7 +34,7 @@ function resolveOccurrenceLink(event: any, occIso: string | null): { link: strin
   return { link: '', source: 'none' };
 }
 
-serve(async (req: Request) => {
+const cronHandler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabase = createClient(
