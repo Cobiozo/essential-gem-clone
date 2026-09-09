@@ -545,7 +545,7 @@ const AppContent = () => {
               3. No Info Banner can appear before Daily Signal
           */}
           <Suspense fallback={null}>
-            <BrowserTranslationWarning />
+            {!STAGE6_NO_TRANSLATE_DETECTOR && <BrowserTranslationWarning />}
             {!dailySignalDismissed ? (
               <DailySignalBanner onDismiss={handleDailySignalDismiss} />
             ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (
