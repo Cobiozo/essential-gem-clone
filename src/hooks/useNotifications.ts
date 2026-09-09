@@ -220,11 +220,16 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       activityEvents.forEach(evt => window.removeEventListener(evt, markActivity));
     };
-  }, [user, enableRealtime, fetchUnreadCount]);
+  }, [user, fetchUnreadCount]);
 
   // NOTE (Recovery 3A): usunięto martwą subskrypcję realtime na `user_notifications` —
   // tabela nie należy do publikacji `supabase_realtime`, więc kanał nigdy nie otrzymywał
-  // zdarzeń. Świeżość danych zapewnia polling + refetch przy otwarciu listy.
+  // zdarzeń. Świeżość zapewnia polling + odświeżenie przy otwarciu listy powiadomień.
+  useEffect(() => {
+    if (!user || !enableRealtime) return;
+    fetchNotifications();
+  }, [user, enableRealtime, fetchNotifications]);
+
 
 
   return {
