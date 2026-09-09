@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationTreeSettings } from './useOrganizationTreeSettings';
+import { createProfileRealtimeFilter } from '@/lib/realtime/profileChangeFilter';
 
 export interface OrganizationMember {
   id: string;
@@ -207,6 +208,7 @@ export const useOrganizationTree = () => {
   // Realtime subscription with debounce — stable deps
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const profileFilter = createProfileRealtimeFilter();
 
     const channel = supabase
       .channel('org-tree-profiles-realtime')
@@ -214,12 +216,14 @@ export const useOrganizationTree = () => {
         event: 'UPDATE',
         schema: 'public',
         table: 'profiles',
-      }, () => {
+      }, (payload: any) => {
+        // Recovery 3B: heartbeat `last_seen_at` nie może wywoływać RPC drzewa.
+        if (profileFilter.shouldSkip(payload)) return;
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
           hasFetchedRef.current = false;
           fetchTreeRef.current();
-        }, 2000);
+        }, 5000);
       })
       .on('postgres_changes', {
         event: '*',

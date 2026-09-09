@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { createProfileRealtimeFilter, findCachedProfile } from '@/lib/realtime/profileChangeFilter';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -164,9 +165,17 @@ const UserStatistics: React.FC = () => {
         qc.invalidateQueries({ queryKey: ['user-statistics-profiles'] });
       }, 1500);
     };
+    // Recovery 3B: heartbeat `last_seen_at` nie może wywoływać pełnego refetchu
+    // listy profili. Licznik "online teraz" odświeża się przez staleTime 60 s.
+    const filter = createProfileRealtimeFilter();
+    const scheduleIfRealChange = (payload: any) => {
+      const cached = qc.getQueryData<ProfileRow[]>(['user-statistics-profiles']);
+      if (filter.shouldSkip(payload, findCachedProfile(cached as any, payload))) return;
+      schedule();
+    };
     const ch = supabase
       .channel('admin-user-statistics-profiles')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleIfRealChange)
       .subscribe();
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
