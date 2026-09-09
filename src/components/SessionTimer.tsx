@@ -1,8 +1,8 @@
 import { RefreshCw, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSessionTimeRemaining } from '@/contexts/SessionTimerContext';
 
 interface SessionTimerProps {
-  timeRemaining: number;
   onRefresh: () => void;
   hidden?: boolean;
 }
@@ -14,7 +14,10 @@ const formatTime = (totalSeconds: number): string => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
-const SessionTimer = ({ timeRemaining, onRefresh, hidden }: SessionTimerProps) => {
+const SessionTimer = ({ onRefresh, hidden }: SessionTimerProps) => {
+  // Subscribes to the countdown here (leaf) so ticks do not re-render the app tree.
+  const timeRemaining = useSessionTimeRemaining();
+
   if (hidden) return null;
 
   const isWarning = timeRemaining <= 300; // < 5 min

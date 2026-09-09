@@ -141,10 +141,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         <div className="hidden sm:block">
           {sessionTimer && (
             <SessionTimer
-              timeRemaining={sessionTimer.timeRemaining}
               onRefresh={sessionTimer.onRefreshTimer}
               hidden={sessionTimer.isProtectedRoute}
             />
+
           )}
         </div>
 
