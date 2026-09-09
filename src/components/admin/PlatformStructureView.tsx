@@ -33,6 +33,7 @@ import {
   type PlatformNode,
 } from './exports/platformStructureExport';
 import PlatformUserDetailsDialog from './PlatformUserDetailsDialog';
+import { createProfileRealtimeFilter, findCachedProfile } from '@/lib/realtime/profileChangeFilter';
 
 interface RoleRow { user_id: string; role: string }
 
@@ -132,9 +133,17 @@ const PlatformStructureView: React.FC = () => {
         qc.invalidateQueries({ queryKey: ['platform-structure-roles'] });
       }, 1500);
     };
+    // Recovery 3B: pomijamy wyłącznie zdarzenia, w których jedyną zmianą jest
+    // `last_seen_at`; realna zmiana profilu nadal odświeża strukturę i role.
+    const filter = createProfileRealtimeFilter();
+    const scheduleIfRealChange = (payload: any) => {
+      const cached = qc.getQueryData<PlatformProfile[]>(['platform-structure-profiles']);
+      if (filter.shouldSkip(payload, findCachedProfile(cached as any, payload))) return;
+      schedule();
+    };
     const ch = supabase
       .channel('admin-platform-structure')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, schedule)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, scheduleIfRealChange)
       // Recovery 3A: usunięto martwy nasłuch `user_roles` (tabela poza publikacją realtime).
       // Zmiany ról i tak odświeżają się przez zdarzenia `profiles` oraz staleTime zapytań.
 
