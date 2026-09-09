@@ -148,17 +148,18 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
     fetchNotifications();
   }, [user, fetchNotifications]);
 
-  // Polling for unread count when realtime is disabled (60 second interval)
-  // Pauses when tab is hidden to save resources
+  // Polling for unread count (activity-aware, pauses when tab is hidden).
+  // Cadence bez zmian; nie jest już wyłączany przez `enableRealtime`, bo kanał realtime
+  // dla tej tabeli był martwy (brak publikacji).
   useEffect(() => {
-    if (!user || enableRealtime) {
-      // Clear polling if realtime is enabled or no user
+    if (!user) {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
       return;
     }
+
 
     // Etap 3: polling jest activity-aware — przy braku realnej aktywności
     // użytkownika przez 15 min przestajemy odpytywać (idle = brak ruchu w sieci).
