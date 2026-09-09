@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { globalEditingStateRef } from '@/contexts/EditingContext';
-import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
-import { useNotificationSound } from '@/hooks/useNotificationSound';
+import type { UserNotification } from '@/components/team-contacts/types';
+
 import type { UserNotification } from '@/components/team-contacts/types';
 
 interface UseNotificationsOptions {
