@@ -1,7 +1,12 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+
+type Listener = () => void;
 
 interface SessionTimerContextValue {
-  timeRemaining: number;
+  /** Stable getter for the current countdown (seconds). Does NOT trigger re-renders. */
+  getTimeRemaining: () => number;
+  /** Subscribe to countdown ticks. Used by leaf components only. */
+  subscribeTimeRemaining: (listener: Listener) => () => void;
   onRefreshTimer: () => void;
   isProtectedRoute: boolean;
 }
@@ -9,16 +14,53 @@ interface SessionTimerContextValue {
 const SessionTimerContext = createContext<SessionTimerContextValue | null>(null);
 
 export const SessionTimerProvider: React.FC<{
-  value: SessionTimerContextValue;
+  timeRemaining: number;
+  onRefreshTimer: () => void;
+  isProtectedRoute: boolean;
   children: React.ReactNode;
-}> = ({ value, children }) => (
-  <SessionTimerContext.Provider value={value}>
-    {children}
-  </SessionTimerContext.Provider>
-);
+}> = ({ timeRemaining, onRefreshTimer, isProtectedRoute, children }) => {
+  const timeRef = useRef(timeRemaining);
+  const listenersRef = useRef<Set<Listener>>(new Set());
 
+  // Keep the ref in sync and notify only subscribed leaf components.
+  useEffect(() => {
+    timeRef.current = timeRemaining;
+    listenersRef.current.forEach(l => l());
+  }, [timeRemaining]);
+
+  const getTimeRemaining = useCallback(() => timeRef.current, []);
+  const subscribeTimeRemaining = useCallback((listener: Listener) => {
+    listenersRef.current.add(listener);
+    return () => {
+      listenersRef.current.delete(listener);
+    };
+  }, []);
+
+  // Value is stable across countdown ticks — it only changes when the reset
+  // callback identity or the protected-route flag changes.
+  const value = useMemo<SessionTimerContextValue>(
+    () => ({ getTimeRemaining, subscribeTimeRemaining, onRefreshTimer, isProtectedRoute }),
+    [getTimeRemaining, subscribeTimeRemaining, onRefreshTimer, isProtectedRoute]
+  );
+
+  return (
+    <SessionTimerContext.Provider value={value}>
+      {children}
+    </SessionTimerContext.Provider>
+  );
+};
+
+/** Stable API: reset function + protected-route flag. Never re-renders on ticks. */
 export const useSessionTimer = () => {
   const ctx = useContext(SessionTimerContext);
   if (!ctx) return null;
   return ctx;
+};
+
+/** Subscribes to the 1s countdown. Use ONLY in leaf components that display it. */
+export const useSessionTimeRemaining = (): number => {
+  const ctx = useContext(SessionTimerContext);
+  const subscribe = ctx?.subscribeTimeRemaining ?? (() => () => {});
+  const getSnapshot = ctx?.getTimeRemaining ?? (() => 0);
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
