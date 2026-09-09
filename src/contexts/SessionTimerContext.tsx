@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
 
 type Listener = () => void;
 
@@ -60,7 +61,10 @@ export const useSessionTimer = () => {
 /** Subscribes to the 1s countdown. Use ONLY in leaf components that display it. */
 export const useSessionTimeRemaining = (): number => {
   const ctx = useContext(SessionTimerContext);
-  const subscribe = ctx?.subscribeTimeRemaining ?? (() => () => {});
+  // STAGE6 DIAGNOSTIC: ?stage6NoClocks=1 stops the countdown subscription only.
+  const subscribe = STAGE6_NO_CLOCKS
+    ? (() => () => {})
+    : ctx?.subscribeTimeRemaining ?? (() => () => {});
   const getSnapshot = ctx?.getTimeRemaining ?? (() => 0);
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
