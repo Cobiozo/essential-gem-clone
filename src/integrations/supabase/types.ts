@@ -3038,6 +3038,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_job_locks: {
+        Row: {
+          expires_at: string
+          job_name: string
+          locked_at: string
+          run_id: string
+        }
+        Insert: {
+          expires_at: string
+          job_name: string
+          locked_at?: string
+          run_id: string
+        }
+        Update: {
+          expires_at?: string
+          job_name?: string
+          locked_at?: string
+          run_id?: string
+        }
+        Relationships: []
+      }
       cron_job_logs: {
         Row: {
           completed_at: string | null
@@ -3071,6 +3092,39 @@ export type Database = {
           processed_count?: number | null
           started_at?: string | null
           status?: string | null
+        }
+        Relationships: []
+      }
+      cron_job_run_stats: {
+        Row: {
+          duration_ms: number | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          job_name: string
+          run_id: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name: string
+          run_id?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          duration_ms?: number | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_name?: string
+          run_id?: string | null
+          started_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -12345,6 +12399,15 @@ export type Database = {
         }
         Returns: Json
       }
+      release_cron_lock: {
+        Args: {
+          _error_message?: string
+          _job_name: string
+          _run_id: string
+          _status?: string
+        }
+        Returns: undefined
+      }
       reset_all_active_reflinks: { Args: never; Returns: Json }
       resolve_guest_invite: {
         Args: { _token: string }
@@ -12382,6 +12445,10 @@ export type Database = {
           _ref_code?: string
         }
         Returns: Json
+      }
+      try_acquire_cron_lock: {
+        Args: { _job_name: string; _ttl_seconds?: number }
+        Returns: string
       }
       update_cron_schedule: {
         Args: { p_interval_minutes: number; p_job_name: string }
