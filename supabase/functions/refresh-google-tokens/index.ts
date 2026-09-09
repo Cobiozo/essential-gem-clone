@@ -163,4 +163,6 @@ const cronHandler = async (req: Request): Promise<Response> => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+};
+
+Deno.serve(withCronLock('refresh-google-tokens', cronHandler, corsHeaders, 300));
