@@ -297,6 +297,7 @@ const stopTracing = (reason: 'auto-stop' | 'report') => {
     w.__PURE_STAGE6_UPDATE_STATUS = {
       ...(w.__PURE_STAGE6_UPDATE_STATUS || {}),
       active: false,
+      asyncInstrumentation: false,
       stoppedReason: reason,
       stoppedAt: new Date().toISOString(),
     };
@@ -321,7 +322,7 @@ const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
     ? phaseFor(callerStack, stat.kind)
     : currentContext
       ? { phase: currentContext.phase, secondary: false }
-      : stat.secondaryCount > 0
+      : stat.count > 0 && stat.secondaryCount === stat.count
         ? { phase: 'COMMIT_PHASE' as const, secondary: true }
         : stat.kind === 'useSyncExternalStore'
           ? { phase: 'EXTERNAL_STORE' as const, secondary: false }
@@ -869,6 +870,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
     w.__PURE_STAGE6_UPDATE_STATUS = {
       ...(w.__PURE_STAGE6_UPDATE_STATUS || {}),
       active: dispatcherOk && commitsOk,
+      asyncInstrumentation: asyncOk,
       stoppedReason: null,
       stoppedAt: null,
     };
