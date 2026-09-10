@@ -71,6 +71,7 @@ interface SourceStat {
   initialValue: string | null;
   valueSamples: string[];
   callerStacks: string[];
+  stackCaptureCount: number;
   count: number;
   primaryCount: number;
   secondaryCount: number;
@@ -230,7 +231,7 @@ const createStat = (kind: HookKind, initial: unknown, subscribeName: string | nu
     id: nextSourceId++, generation, kind, owner, fiberPath, hookStack,
     hookIndex: shouldCapture ? nextHookIndex(frames) : null,
     initialValue: shouldCapture ? preview(initial) : null,
-    valueSamples: [], callerStacks: [], count: 0, primaryCount: 0,
+    valueSamples: [], callerStacks: [], stackCaptureCount: 0, count: 0, primaryCount: 0,
     secondaryCount: 0, firstRootCauseCommits: 0, correlatedCommits: 0,
     firstAt: 0, lastAt: 0, phases: {}, asyncSources: new Map(),
     supabaseSignals: new Set(), provider: providerFrom(`${owner}\n${fiberPath || ''}`),
@@ -272,6 +273,7 @@ const enrollAfterReset = (stat: SourceStat) => {
   stat.generation = generation;
   stat.valueSamples = [];
   stat.callerStacks = [];
+  stat.stackCaptureCount = 0;
   stat.count = 0;
   stat.primaryCount = 0;
   stat.secondaryCount = 0;
@@ -312,9 +314,18 @@ const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
   const timestamp = now();
   if (!isTracingActive(timestamp)) return;
   enrollAfterReset(stat);
-  const canCaptureStack = stat.callerStacks.length < STACK_SAMPLES;
+  const canCaptureStack = stat.stackCaptureCount < STACK_SAMPLES;
   const callerStack = canCaptureStack ? (forceStack || stackText()) : '';
-  const classification = phaseFor(callerStack, stat.kind);
+  if (canCaptureStack) stat.stackCaptureCount += 1;
+  const classification = callerStack
+    ? phaseFor(callerStack, stat.kind)
+    : currentContext
+      ? { phase: currentContext.phase, secondary: false }
+      : stat.secondaryCount > 0
+        ? { phase: 'COMMIT_PHASE' as const, secondary: true }
+        : stat.kind === 'useSyncExternalStore'
+          ? { phase: 'EXTERNAL_STORE' as const, secondary: false }
+          : { phase: 'BEFORE_RENDER' as const, secondary: false };
   const asyncSource = currentContext?.asyncSource || null;
 
   if (stat.count === 0) stat.firstAt = timestamp;
