@@ -226,11 +226,29 @@ const buildReport = () => {
 
 export const installStage6UpdateTracer = (React: unknown) => {
   if (typeof window === 'undefined') return;
-  if ((window as any).__PURE_STAGE6_UPDATE_REPORT) return;
+  const w = window as any;
+  if (w.__PURE_STAGE6_UPDATE_REPORT) return;
 
   startedAt = now();
-  const dispatcherOk = installDispatcherHook(React);
-  const commitsOk = installCommitCounter();
+
+  // Assign the console API FIRST so it exists even if hook installation throws.
+  w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = true;
+  w.__PURE_STAGE6_UPDATE_STATUS = { installedAt: new Date().toISOString(), dispatcherHook: false, commitHook: false };
+
+  let dispatcherOk = false;
+  let commitsOk = false;
+  try {
+    dispatcherOk = installDispatcherHook(React);
+  } catch {
+    dispatcherOk = false;
+  }
+  try {
+    commitsOk = installCommitCounter();
+  } catch {
+    commitsOk = false;
+  }
+  w.__PURE_STAGE6_UPDATE_STATUS.dispatcherHook = dispatcherOk;
+  w.__PURE_STAGE6_UPDATE_STATUS.commitHook = commitsOk;
 
   (window as any).__PURE_STAGE6_UPDATE_REPORT = () => {
     stopped = true;
