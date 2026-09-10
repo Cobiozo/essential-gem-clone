@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { hydrateCacheFromLocalStorageSync, loadTranslationsCache } from "./hooks/useTranslations";
+import { STAGE6_TRACE_UPDATES } from "./lib/stage6Flags";
+import { installStage6UpdateTracer } from "./lib/stage6UpdateTracer";
+
+// STAGE6 DIAGNOSTIC: ?stage6TraceUpdates=1 installs a temporary update tracer.
+if (STAGE6_TRACE_UPDATES) installStage6UpdateTracer(React);
 
 // Hydrate translations synchronously from localStorage BEFORE React renders.
 // This eliminates the flash of raw keys (e.g. "auth.signIn") on every page load.
