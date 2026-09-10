@@ -226,30 +226,62 @@ const buildReport = () => {
 
 export const installStage6UpdateTracer = (React: unknown) => {
   if (typeof window === 'undefined') return;
-  if ((window as any).__PURE_STAGE6_UPDATE_REPORT) return;
+  const w = window as any;
+  if (w.__PURE_STAGE6_UPDATE_REPORT) return;
 
   startedAt = now();
-  const dispatcherOk = installDispatcherHook(React);
-  const commitsOk = installCommitCounter();
 
-  (window as any).__PURE_STAGE6_UPDATE_REPORT = () => {
+  // Assign the console API FIRST so it exists even if hook installation throws.
+  w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = true;
+  w.__PURE_STAGE6_UPDATE_STATUS = { installedAt: new Date().toISOString(), dispatcherHook: false, commitHook: false };
+
+  let dispatcherOk = false;
+  let commitsOk = false;
+  try {
+    dispatcherOk = installDispatcherHook(React);
+  } catch {
+    dispatcherOk = false;
+  }
+  try {
+    commitsOk = installCommitCounter();
+  } catch {
+    commitsOk = false;
+  }
+  w.__PURE_STAGE6_UPDATE_STATUS.dispatcherHook = dispatcherOk;
+  w.__PURE_STAGE6_UPDATE_STATUS.commitHook = commitsOk;
+
+  // NOTE: production build strips direct `console.*` calls (esbuild drop),
+  // so log through window.console to keep diagnostic output visible.
+  const log = (...a: unknown[]) => {
+    try {
+      w.console?.log(...a);
+    } catch {
+      /* noop */
+    }
+  };
+
+  w.__PURE_STAGE6_UPDATE_REPORT = () => {
     stopped = true;
     const report = { dispatcherHook: dispatcherOk, commitHook: commitsOk, ...buildReport() };
-    (window as any).__PURE_STAGE6_LAST_UPDATE_REPORT = report;
-    console.log('[stage6] update report', report);
-    console.table(report.topSources);
+    w.__PURE_STAGE6_LAST_UPDATE_REPORT = report;
+    log('[stage6] update report', report);
+    try {
+      w.console?.table(report.topSources);
+    } catch {
+      /* noop */
+    }
     return report;
   };
 
-  (window as any).__PURE_STAGE6_UPDATE_RESET = () => {
+  w.__PURE_STAGE6_UPDATE_RESET = () => {
     stats.clear();
     commitTimes = [];
     startedAt = now();
     stopped = false;
-    console.log('[stage6] tracer reset');
+    log('[stage6] tracer reset');
   };
 
-  console.log(
+  log(
     `[stage6] update tracer active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
       'Wait ~120 s idle, then call __PURE_STAGE6_UPDATE_REPORT().',
   );

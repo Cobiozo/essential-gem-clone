@@ -7,7 +7,13 @@ import { STAGE6_TRACE_UPDATES } from "./lib/stage6Flags";
 import { installStage6UpdateTracer } from "./lib/stage6UpdateTracer";
 
 // STAGE6 DIAGNOSTIC: ?stage6TraceUpdates=1 installs a temporary update tracer.
-if (STAGE6_TRACE_UPDATES) installStage6UpdateTracer(React);
+if (STAGE6_TRACE_UPDATES) {
+  try {
+    installStage6UpdateTracer(React);
+  } catch (e) {
+    (window as unknown as Record<string, unknown>).__PURE_STAGE6_UPDATE_TRACER_ERROR = String(e);
+  }
+}
 
 // Hydrate translations synchronously from localStorage BEFORE React renders.
 // This eliminates the flash of raw keys (e.g. "auth.signIn") on every page load.

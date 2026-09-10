@@ -39,4 +39,23 @@ export const STAGE6_NO_TRANSLATE_DETECTOR = hasFlag('stage6NoTranslateDetector')
  * hooks dispatcher and counts setState/dispatch/store notifications, plus a
  * commit counter). Diagnostic only; nothing runs without the flag.
  */
-export const STAGE6_TRACE_UPDATES = hasFlag('stage6TraceUpdates');
+/**
+ * The tracer flag is sticky for the session: the dashboard route can redirect
+ * (auth / guards) and drop the query string before main.tsx logic is observed
+ * by the user, so once seen we persist it in sessionStorage.
+ */
+const hasStickyFlag = (name: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  const key = `__${name}`;
+  try {
+    if (hasFlag(name)) {
+      window.sessionStorage.setItem(key, '1');
+      return true;
+    }
+    return window.sessionStorage.getItem(key) === '1';
+  } catch {
+    return hasFlag(name);
+  }
+};
+
+export const STAGE6_TRACE_UPDATES = hasStickyFlag('stage6TraceUpdates');
