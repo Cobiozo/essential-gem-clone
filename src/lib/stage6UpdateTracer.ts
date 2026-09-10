@@ -241,7 +241,7 @@ const createStat = (kind: HookKind, initial: unknown, subscribeName: string | nu
   return stat;
 };
 
-const SECONDARY_RE = /safelyAttachRef|commitAttachRef|commitLayoutEffectOnFiber|composeRefs|setTrigger|setValueNode|SlotClone|@radix-ui\/react-(?:slot|compose-refs)/i;
+const SECONDARY_RE = /safelyAttachRef|commitAttachRef|composeRefs|setTrigger|setValueNode|SlotClone|@radix-ui\/react-(?:slot|compose-refs)/i;
 const SUPABASE_PATTERNS: Array<[RegExp, string]> = [
   [/supabase|postgrest|realtime/i, 'Supabase/realtime'],
   [/\.rpc\(|functions\.invoke|edge.?function/i, 'RPC/Edge Function'],
@@ -285,15 +285,35 @@ const enrollAfterReset = (stat: SourceStat) => {
   stats.push(stat);
 };
 
-const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
-  if (stopped) return;
-  const timestamp = now();
-  if (timestamp - startedAt > AUTO_STOP_MS) {
-    stopped = true;
-    return;
+const stopTracing = (reason: 'auto-stop' | 'report') => {
+  if (stopped && reason === 'auto-stop') return;
+  stopped = true;
+  disableAsyncInstrumentation();
+  if (typeof window !== 'undefined') {
+    const w = window as any;
+    w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = false;
+    w.__PURE_STAGE6_UPDATE_STATUS = {
+      ...(w.__PURE_STAGE6_UPDATE_STATUS || {}),
+      active: false,
+      stoppedReason: reason,
+      stoppedAt: new Date().toISOString(),
+    };
   }
+};
+
+const isTracingActive = (timestamp = now()): boolean => {
+  if (stopped) return false;
+  if (timestamp - startedAt < AUTO_STOP_MS) return true;
+  stopTracing('auto-stop');
+  return false;
+};
+
+const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
+  const timestamp = now();
+  if (!isTracingActive(timestamp)) return;
   enrollAfterReset(stat);
-  const callerStack = forceStack || stackText();
+  const canCaptureStack = stat.callerStacks.length < STACK_SAMPLES;
+  const callerStack = canCaptureStack ? (forceStack || stackText()) : '';
   const classification = phaseFor(callerStack, stat.kind);
   const asyncSource = currentContext?.asyncSource || null;
 
@@ -304,7 +324,7 @@ const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
   if (classification.secondary) stat.secondaryCount += 1;
   else stat.primaryCount += 1;
   if (args.length && stat.valueSamples.length < STACK_SAMPLES) stat.valueSamples.push(preview(args[0]));
-  if (stat.callerStacks.length < STACK_SAMPLES && !stat.callerStacks.includes(callerStack)) stat.callerStacks.push(callerStack);
+  if (callerStack && !stat.callerStacks.includes(callerStack)) stat.callerStacks.push(callerStack);
   if (asyncSource) {
     asyncSource.dispatches += 1;
     stat.asyncSources.set(asyncSource.id, (stat.asyncSources.get(asyncSource.id) || 0) + 1);
@@ -315,7 +335,7 @@ const record = (stat: SourceStat, args: unknown[], forceStack?: string) => {
     id: nextDispatchId++, at: timestamp, sourceId: stat.id,
     phase: classification.phase, secondary: classification.secondary,
     asyncSourceId: asyncSource?.id || null,
-    stackSample: stat.callerStacks.length <= STACK_SAMPLES ? callerStack : null,
+    stackSample: callerStack || null,
     consumed: false,
   };
   pendingDispatches.push(dispatch);
@@ -471,7 +491,7 @@ function getAsyncSource(kind: AsyncKind, label: string, delayMs: number | null, 
 }
 
 const runAsyncCallback = <T>(source: AsyncSource, callback: () => T): T => {
-  if (stopped) return callback();
+  if (!isTracingActive()) return callback();
   source.callbacks += 1;
   const timestamp = now();
   if (!source.firstCallbackAt) source.firstCallbackAt = timestamp;
@@ -586,8 +606,8 @@ const installCommitCounter = (): boolean => {
   if (!hook) return false;
   const original = hook.onCommitFiberRoot;
   hook.onCommitFiberRoot = function (this: unknown, ...args: unknown[]) {
-    if (!stopped && commits.length < MAX_COMMITS) {
-      const timestamp = now();
+    const timestamp = now();
+    if (isTracingActive(timestamp) && commits.length < MAX_COMMITS) {
       const lowerBound = Math.max(lastCommitAt, timestamp - CORRELATION_WINDOW_MS);
       const eligible = pendingDispatches.filter(dispatch =>
         !dispatch.consumed && !dispatch.secondary && dispatch.at > lowerBound && dispatch.at <= timestamp,
@@ -803,8 +823,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
   const log = (...args: unknown[]) => { try { w.console?.log(...args); } catch { /* noop */ } };
 
   const reportApi = () => {
-    stopped = true;
-    disableAsyncInstrumentation();
+    stopTracing('report');
     const report = { dispatcherHook: dispatcherOk, commitHook: commitsOk, asyncInstrumentation: asyncOk, ...buildReport() };
     w.__PURE_STAGE6_LAST_UPDATE_REPORT = report;
     log('[stage6] FIRST_DISPATCH report', report);
@@ -835,6 +854,13 @@ export const installStage6UpdateTracer = (React: unknown) => {
     lastCommitAt = 0;
     stopped = false;
     asyncOk = installAsyncInstrumentation();
+    w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = dispatcherOk && commitsOk;
+    w.__PURE_STAGE6_UPDATE_STATUS = {
+      ...(w.__PURE_STAGE6_UPDATE_STATUS || {}),
+      active: dispatcherOk && commitsOk,
+      stoppedReason: null,
+      stoppedAt: null,
+    };
     log('[stage6] FIRST_DISPATCH tracer reset');
     return true;
   };
@@ -857,6 +883,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
     version: VERSION, installedAt: new Date().toISOString(),
     dispatcherHook: dispatcherOk, commitHook: commitsOk, asyncInstrumentation: asyncOk,
     correlationWindowMs: CORRELATION_WINDOW_MS, burstGapMs: BURST_GAP_MS,
+    active: dispatcherOk && commitsOk, stoppedReason: null, stoppedAt: null,
   };
   w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = dispatcherOk && commitsOk;
   log('[stage6] FIRST_DISPATCH tracer v5 active. RESET, wait 120–180 s idle, then REPORT and STACKS(10).');
