@@ -4,7 +4,7 @@
  * Activated exclusively via ?stage6TraceUpdates=1. Without the flag nothing in
  * this module runs and no React internals are touched (zero runtime overhead).
  *
- * v3 — SOURCE IDENTIFICATION:
+ * v4 — SOURCE IDENTIFICATION / GUARANTEED CONSOLE API:
  *  - every hook instance is keyed by its (stable) setter/dispatch identity in a
  *    WeakMap, so counters accumulate per hook instance, not per stack string,
  *  - on first sight of a hook instance (budgeted, see CAPTURE_LIMIT) we capture:
@@ -58,6 +58,13 @@ interface SourceStat {
   lastAt: number;
 }
 
+interface SourceLocation {
+  frame: string;
+  url: string;
+  line: number;
+  column: number;
+}
+
 let nextId = 1;
 let generation = 0;
 const stats: SourceStat[] = [];
@@ -84,6 +91,22 @@ const cleanStack = (raw: string): string[] =>
     .slice(1)
     .map(l => l.trim())
     .filter(l => l && !l.includes('stage6UpdateTracer'));
+
+const sourceLocations = (stack: string | null): SourceLocation[] => {
+  if (!stack) return [];
+  const locations: SourceLocation[] = [];
+  for (const frame of stack.split('\n')) {
+    const match = frame.match(/((?:https?:\/\/|\/)[^\s()]+):(\d+):(\d+)\)?$/);
+    if (!match) continue;
+    locations.push({
+      frame,
+      url: match[1],
+      line: Number(match[2]),
+      column: Number(match[3]),
+    });
+  }
+  return locations;
+};
 
 const preview = (v: unknown): string => {
   try {
@@ -368,13 +391,17 @@ const buildStacks = (n: number) =>
     .filter(s => s.count > 0)
     .slice(0, n)
     .map(s => ({
+      setterIdentity: `stage6-setter-${s.id}`,
       id: s.id,
       kind: s.kind,
+      owner: s.owner,
       updates: s.count,
       hookIndex: s.hookIndex,
       fiberPath: s.fiberPath,
       initialValue: s.initialValue,
       valueSamples: s.valueSamples,
+      hookSourceLocations: sourceLocations(s.hookStack),
+      setterSourceLocations: sourceLocations(s.callerStack),
       hookStack: s.hookStack,
       callerStack: s.callerStack,
     }));
@@ -382,28 +409,20 @@ const buildStacks = (n: number) =>
 export const installStage6UpdateTracer = (React: unknown) => {
   if (typeof window === 'undefined') return;
   const w = window as any;
-  if (w.__PURE_STAGE6_UPDATE_REPORT) return;
+  if (w.__PURE_STAGE6_UPDATE_TRACER_VERSION === 4) return;
 
   startedAt = now();
 
-  // Assign the console API FIRST so it exists even if hook installation throws.
-  w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = true;
-  w.__PURE_STAGE6_UPDATE_STATUS = { installedAt: new Date().toISOString(), dispatcherHook: false, commitHook: false };
-
   let dispatcherOk = false;
   let commitsOk = false;
-  try {
-    dispatcherOk = installDispatcherHook(React);
-  } catch {
-    dispatcherOk = false;
-  }
-  try {
-    commitsOk = installCommitCounter();
-  } catch {
-    commitsOk = false;
-  }
-  w.__PURE_STAGE6_UPDATE_STATUS.dispatcherHook = dispatcherOk;
-  w.__PURE_STAGE6_UPDATE_STATUS.commitHook = commitsOk;
+  w.__PURE_STAGE6_UPDATE_TRACER_VERSION = 4;
+  w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = false;
+  w.__PURE_STAGE6_UPDATE_STATUS = {
+    version: 4,
+    installedAt: new Date().toISOString(),
+    dispatcherHook: false,
+    commitHook: false,
+  };
 
   // NOTE: production build strips direct `console.*` calls (esbuild drop),
   // so log through window.console to keep diagnostic output visible.
@@ -415,7 +434,9 @@ export const installStage6UpdateTracer = (React: unknown) => {
     }
   };
 
-  w.__PURE_STAGE6_UPDATE_REPORT = () => {
+  // Install all console entry points atomically BEFORE touching React internals.
+  // This also replaces an incomplete API left by an older cached diagnostic build.
+  const reportApi = () => {
     stopped = true;
     const report = { dispatcherHook: dispatcherOk, commitHook: commitsOk, ...buildReport() };
     w.__PURE_STAGE6_LAST_UPDATE_REPORT = report;
@@ -428,13 +449,18 @@ export const installStage6UpdateTracer = (React: unknown) => {
     return report;
   };
 
-  w.__PURE_STAGE6_UPDATE_STACKS = (n = 5) => {
-    const data = buildStacks(n);
+  const stacksApi = (requested = 5) => {
+    const parsed = Number(requested);
+    const limit = Number.isFinite(parsed) ? Math.max(1, Math.min(25, Math.floor(parsed))) : 5;
+    const data = buildStacks(limit);
     w.__PURE_STAGE6_LAST_UPDATE_STACKS = data;
     for (const s of data) {
       log(
-        `[stage6] #${s.id} ${s.kind} updates=${s.updates} hookIndex=${s.hookIndex} fiber=${s.fiberPath}\n` +
+        `[stage6] ${s.setterIdentity} ${s.kind} owner=${s.owner} updates=${s.updates} hookIndex=${s.hookIndex}\n` +
+          `fiber=${s.fiberPath}\n` +
           `initial=${s.initialValue} samples=${JSON.stringify(s.valueSamples)}\n` +
+          `hook locations=${JSON.stringify(s.hookSourceLocations)}\n` +
+          `setter locations=${JSON.stringify(s.setterSourceLocations)}\n` +
           `--- hook call site (render frame) ---\n${s.hookStack}\n` +
           `--- first setter caller ---\n${s.callerStack}`,
       );
@@ -442,7 +468,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
     return data;
   };
 
-  w.__PURE_STAGE6_UPDATE_RESET = () => {
+  const resetApi = () => {
     stats.length = 0;
     generation += 1;
     captured = 0;
@@ -452,8 +478,29 @@ export const installStage6UpdateTracer = (React: unknown) => {
     log('[stage6] tracer reset');
   };
 
+  Object.assign(w, {
+    __PURE_STAGE6_UPDATE_REPORT: reportApi,
+    __PURE_STAGE6_UPDATE_STACKS: stacksApi,
+    __PURE_STAGE6_UPDATE_RESET: resetApi,
+  });
+
+  try {
+    dispatcherOk = installDispatcherHook(React);
+  } catch (error) {
+    w.__PURE_STAGE6_UPDATE_TRACER_ERROR = `dispatcher: ${String(error)}`;
+  }
+  try {
+    commitsOk = installCommitCounter();
+  } catch (error) {
+    const prior = w.__PURE_STAGE6_UPDATE_TRACER_ERROR;
+    w.__PURE_STAGE6_UPDATE_TRACER_ERROR = `${prior ? `${prior}; ` : ''}commits: ${String(error)}`;
+  }
+  w.__PURE_STAGE6_UPDATE_STATUS.dispatcherHook = dispatcherOk;
+  w.__PURE_STAGE6_UPDATE_STATUS.commitHook = commitsOk;
+  w.__PURE_STAGE6_UPDATE_TRACER_ACTIVE = dispatcherOk;
+
   log(
-    `[stage6] update tracer v3 active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
+    `[stage6] update tracer v4 active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
       'Wait ~120 s idle, then call __PURE_STAGE6_UPDATE_REPORT() and __PURE_STAGE6_UPDATE_STACKS(5).',
   );
 };
