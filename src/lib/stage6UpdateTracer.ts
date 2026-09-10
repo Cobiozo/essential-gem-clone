@@ -606,7 +606,8 @@ const installCommitCounter = (): boolean => {
         if (stat) stat.firstRootCauseCommits += 1;
       }
       const root = args[1] as { current?: { actualDuration?: unknown } } | undefined;
-      const duration = typeof root?.current?.actualDuration === 'number' ? root.current.actualDuration : null;
+      const measuredDuration = root?.current?.actualDuration;
+      const duration = typeof measuredDuration === 'number' ? measuredDuration : null;
       commits.push({
         id: commits.length + 1,
         rootId: root && typeof root === 'object' ? rootIdFor(root) : 0,
