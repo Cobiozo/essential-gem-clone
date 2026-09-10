@@ -824,7 +824,12 @@ export const installStage6UpdateTracer = (React: unknown) => {
     captured = 0;
     pendingDispatches.length = 0;
     commits.length = 0;
-    asyncSources.clear();
+    for (const source of asyncSources.values()) {
+      source.callbacks = 0;
+      source.dispatches = 0;
+      source.firstCallbackAt = 0;
+      source.lastCallbackAt = 0;
+    }
     startedAt = now();
     lastCommitAt = 0;
     stopped = false;
