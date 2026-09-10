@@ -39,6 +39,7 @@ type SourceKind = 'useState' | 'useReducer' | 'useSyncExternalStore';
 
 interface SourceStat {
   id: number;
+  gen: number;
   kind: SourceKind;
   /** Short one-line owner (best-effort component/frame). */
   owner: string;
@@ -58,6 +59,7 @@ interface SourceStat {
 }
 
 let nextId = 1;
+let generation = 0;
 const stats: SourceStat[] = [];
 const holders = new WeakMap<object, SourceStat & { wrapped?: unknown }>();
 let captured = 0;
@@ -157,6 +159,7 @@ const createStat = (kind: SourceKind, initial: unknown): SourceStat => {
   }
   const stat: SourceStat = {
     id: nextId++,
+    gen: generation,
     kind,
     owner: frames.slice(0, 3).join(' <- ') || `${kind}@uncaptured`,
     fiberPath: withCapture ? fiberPathFromOwner() : null,
@@ -176,6 +179,14 @@ const createStat = (kind: SourceKind, initial: unknown): SourceStat => {
 const record = (stat: SourceStat, args: unknown[]) => {
   if (stopped) return;
   const t = now();
+  if (stat.gen !== generation) {
+    // survived a RESET: re-enroll with fresh counters
+    stat.gen = generation;
+    stat.count = 0;
+    stat.valueSamples = [];
+    stat.callerStack = null;
+    stats.push(stat);
+  }
   if (t - startedAt > AUTO_STOP_MS) {
     stopped = true;
     return;
@@ -433,7 +444,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
 
   w.__PURE_STAGE6_UPDATE_RESET = () => {
     stats.length = 0;
-    nextId = 1;
+    generation += 1;
     captured = 0;
     commitTimes = [];
     startedAt = now();
