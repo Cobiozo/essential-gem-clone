@@ -33,3 +33,10 @@ export const STAGE6_NO_UNIFIED_CHAT = hasFlag('stage6NoUnifiedChat');
  * Diagnostic only.
  */
 export const STAGE6_NO_TRANSLATE_DETECTOR = hasFlag('stage6NoTranslateDetector');
+
+/**
+ * stage6TraceUpdates=1 installs a temporary state-update tracer (wraps the React
+ * hooks dispatcher and counts setState/dispatch/store notifications, plus a
+ * commit counter). Diagnostic only; nothing runs without the flag.
+ */
+export const STAGE6_TRACE_UPDATES = hasFlag('stage6TraceUpdates');
