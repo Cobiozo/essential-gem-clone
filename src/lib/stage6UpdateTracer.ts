@@ -605,7 +605,7 @@ const installCommitCounter = (): boolean => {
         const stat = sourceById.get(firstDispatch.sourceId);
         if (stat) stat.firstRootCauseCommits += 1;
       }
-      const root = args[1];
+      const root = args[1] as { current?: { actualDuration?: unknown } } | undefined;
       const duration = typeof root?.current?.actualDuration === 'number' ? root.current.actualDuration : null;
       commits.push({
         id: commits.length + 1,
