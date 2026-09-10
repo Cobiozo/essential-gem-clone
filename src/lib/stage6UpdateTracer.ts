@@ -471,6 +471,7 @@ function getAsyncSource(kind: AsyncKind, label: string, delayMs: number | null, 
 }
 
 const runAsyncCallback = <T>(source: AsyncSource, callback: () => T): T => {
+  if (stopped) return callback();
   source.callbacks += 1;
   const timestamp = now();
   if (!source.firstCallbackAt) source.firstCallbackAt = timestamp;
@@ -484,23 +485,23 @@ const installAsyncInstrumentation = (): boolean => {
   const w = window as any;
   if (restores.length) return true;
   try {
-    const originalSetTimeout = w.setTimeout.bind(w);
-    const originalSetInterval = w.setInterval.bind(w);
-    const originalRaf = typeof w.requestAnimationFrame === 'function' ? w.requestAnimationFrame.bind(w) : null;
+    const originalSetTimeout = w.setTimeout;
+    const originalSetInterval = w.setInterval;
+    const originalRaf = typeof w.requestAnimationFrame === 'function' ? w.requestAnimationFrame : null;
     w.setTimeout = (callback: TimerHandler, delay?: number, ...args: unknown[]) => {
-      if (typeof callback !== 'function') return originalSetTimeout(callback, delay, ...args);
+      if (typeof callback !== 'function') return originalSetTimeout.call(w, callback, delay, ...args);
       const source = getAsyncSource('setTimeout', callback.name || '(anonymous)', Number(delay) || 0, stackText());
-      return originalSetTimeout(() => runAsyncCallback(source, () => callback(...args)), delay);
+      return originalSetTimeout.call(w, () => runAsyncCallback(source, () => callback(...args)), delay);
     };
     w.setInterval = (callback: TimerHandler, delay?: number, ...args: unknown[]) => {
-      if (typeof callback !== 'function') return originalSetInterval(callback, delay, ...args);
+      if (typeof callback !== 'function') return originalSetInterval.call(w, callback, delay, ...args);
       const source = getAsyncSource('setInterval', callback.name || '(anonymous)', Number(delay) || 0, stackText());
-      return originalSetInterval(() => runAsyncCallback(source, () => callback(...args)), delay);
+      return originalSetInterval.call(w, () => runAsyncCallback(source, () => callback(...args)), delay);
     };
     if (originalRaf) {
       w.requestAnimationFrame = (callback: FrameRequestCallback) => {
         const source = getAsyncSource('requestAnimationFrame', callback.name || '(anonymous)', null, stackText());
-        return originalRaf((timestamp: number) => runAsyncCallback(source, () => callback(timestamp)));
+        return originalRaf.call(w, (timestamp: number) => runAsyncCallback(source, () => callback(timestamp)));
       };
     }
     restores.push(() => {
