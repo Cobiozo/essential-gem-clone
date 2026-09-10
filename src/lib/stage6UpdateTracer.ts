@@ -250,24 +250,38 @@ export const installStage6UpdateTracer = (React: unknown) => {
   w.__PURE_STAGE6_UPDATE_STATUS.dispatcherHook = dispatcherOk;
   w.__PURE_STAGE6_UPDATE_STATUS.commitHook = commitsOk;
 
-  (window as any).__PURE_STAGE6_UPDATE_REPORT = () => {
+  // NOTE: production build strips direct `console.*` calls (esbuild drop),
+  // so log through window.console to keep diagnostic output visible.
+  const log = (...a: unknown[]) => {
+    try {
+      w.console?.log(...a);
+    } catch {
+      /* noop */
+    }
+  };
+
+  w.__PURE_STAGE6_UPDATE_REPORT = () => {
     stopped = true;
     const report = { dispatcherHook: dispatcherOk, commitHook: commitsOk, ...buildReport() };
-    (window as any).__PURE_STAGE6_LAST_UPDATE_REPORT = report;
-    console.log('[stage6] update report', report);
-    console.table(report.topSources);
+    w.__PURE_STAGE6_LAST_UPDATE_REPORT = report;
+    log('[stage6] update report', report);
+    try {
+      w.console?.table(report.topSources);
+    } catch {
+      /* noop */
+    }
     return report;
   };
 
-  (window as any).__PURE_STAGE6_UPDATE_RESET = () => {
+  w.__PURE_STAGE6_UPDATE_RESET = () => {
     stats.clear();
     commitTimes = [];
     startedAt = now();
     stopped = false;
-    console.log('[stage6] tracer reset');
+    log('[stage6] tracer reset');
   };
 
-  console.log(
+  log(
     `[stage6] update tracer active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
       'Wait ~120 s idle, then call __PURE_STAGE6_UPDATE_REPORT().',
   );
