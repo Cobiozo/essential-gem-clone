@@ -4,79 +4,215 @@
  * Activated exclusively via ?stage6TraceUpdates=1. Without the flag nothing in
  * this module runs and no React internals are touched (zero runtime overhead).
  *
- * What it does:
- *  - wraps the React hooks dispatcher (useState / useReducer /
- *    useSyncExternalStore) so that every setState / dispatch / store
- *    notification increments an aggregated counter,
- *  - attributes each counter to an "owner" derived once from a captured stack
- *    (first invocation only — the hot path is a single ++),
- *  - counts commits via onCommitFiberRoot WITHOUT any fiber walk,
- *  - groups commits into bursts (gap < 100 ms).
+ * v3 — SOURCE IDENTIFICATION:
+ *  - every hook instance is keyed by its (stable) setter/dispatch identity in a
+ *    WeakMap, so counters accumulate per hook instance, not per stack string,
+ *  - on first sight of a hook instance (budgeted, see CAPTURE_LIMIT) we capture:
+ *      * the FULL stack of the hook call site (component render frame),
+ *      * the owner fiber chain (component -> parents) via ReactCurrentOwner,
+ *      * an approximate hook index (order of hooks within the same render frame),
+ *      * a preview of the initial state value,
+ *  - on the FIRST setter invocation we capture the FULL call stack of the caller
+ *    (the timer / effect / subscription that triggers the update) plus previews
+ *    of the first few values written.
+ *
+ * Hot path stays a single counter increment — no fiber walk, no per-update stack.
  *
  * Numbers are APPROXIMATE: React may batch several updates into one commit or
- * bail out entirely, and production names are minified.
+ * bail out entirely, and production names/locations are minified (map the
+ * file:line offsets against the build sourcemap to resolve them).
  *
  * Console API:
- *   __PURE_STAGE6_UPDATE_REPORT()  -> aggregated report (also stops after 180 s)
- *   __PURE_STAGE6_UPDATE_RESET()   -> clears counters, restarts the window
+ *   __PURE_STAGE6_UPDATE_REPORT()   -> aggregated report (also stops collection)
+ *   __PURE_STAGE6_UPDATE_STACKS(n)  -> full stacks for the top n sources
+ *   __PURE_STAGE6_UPDATE_RESET()    -> clears counters, restarts the window
  */
 
 const AUTO_STOP_MS = 180_000;
 const BURST_GAP_MS = 100;
+/** Max hook instances for which we capture full stacks (mount-time cost only). */
+const CAPTURE_LIMIT = 6000;
+/** Max sampled value previews per source. */
+const VALUE_SAMPLES = 3;
 
 type SourceKind = 'useState' | 'useReducer' | 'useSyncExternalStore';
 
 interface SourceStat {
-  key: string;
+  id: number;
+  gen: number;
   kind: SourceKind;
+  /** Short one-line owner (best-effort component/frame). */
   owner: string;
+  /** Component name chain from the fiber tree, if resolvable. */
+  fiberPath: string | null;
+  /** Full stack captured where the hook itself was called (render frame). */
+  hookStack: string | null;
+  /** Full stack captured at the first setter/dispatch invocation. */
+  callerStack: string | null;
+  /** Approximate index of this hook inside its component. */
+  hookIndex: number | null;
+  initialValue: string | null;
+  valueSamples: string[];
   count: number;
   firstAt: number;
   lastAt: number;
 }
 
-const stats = new Map<string, SourceStat>();
+let nextId = 1;
+let generation = 0;
+const stats: SourceStat[] = [];
+const holders = new WeakMap<object, SourceStat & { wrapped?: unknown }>();
+let captured = 0;
 let commitTimes: number[] = [];
 let startedAt = 0;
 let stopped = false;
+let reactInternals: any = null;
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-/** Trim a captured stack down to the first frames that are not this module. */
-const ownerFromStack = (kind: SourceKind): string => {
-  let raw = '';
+const rawStack = (): string => {
   try {
-    raw = new Error().stack || '';
+    return new Error().stack || '';
   } catch {
-    return `${kind}@unknown`;
+    return '';
   }
-  const frames = raw
+};
+
+const cleanStack = (raw: string): string[] =>
+  raw
     .split('\n')
     .slice(1)
     .map(l => l.trim())
     .filter(l => l && !l.includes('stage6UpdateTracer'));
-  return frames.slice(0, 4).join(' <- ') || `${kind}@unknown`;
+
+const preview = (v: unknown): string => {
+  try {
+    if (v === null) return 'null';
+    if (v === undefined) return 'undefined';
+    const t = typeof v;
+    if (t === 'function') return `function ${(v as { name?: string }).name || '(anon)'}`;
+    if (t === 'object') {
+      const ctor = (v as object).constructor?.name || 'Object';
+      if (v instanceof Date) return `Date(${v.toISOString()})`;
+      if (Array.isArray(v)) return `Array(${v.length})`;
+      let json = '';
+      try {
+        json = JSON.stringify(v) || '';
+      } catch {
+        json = '';
+      }
+      return `${ctor} ${json.slice(0, 160)}`;
+    }
+    return `${t}: ${String(v).slice(0, 160)}`;
+  } catch {
+    return '(unreadable)';
+  }
 };
 
-const record = (kind: SourceKind, holder: { k?: string }) => {
+/** Best-effort component chain from the fiber currently rendering. */
+const fiberPathFromOwner = (): string | null => {
+  try {
+    const owner = reactInternals?.ReactCurrentOwner?.current;
+    if (!owner) return null;
+    const names: string[] = [];
+    let f: any = owner;
+    let depth = 0;
+    while (f && depth < 8) {
+      const t = f.type ?? f.elementType;
+      const n =
+        (typeof t === 'string' && t) ||
+        t?.displayName ||
+        t?.name ||
+        t?.render?.displayName ||
+        t?.render?.name ||
+        null;
+      if (n) names.push(n);
+      f = f.return;
+      depth += 1;
+    }
+    return names.length ? names.join(' < ') : null;
+  } catch {
+    return null;
+  }
+};
+
+// --- approximate hook index (same render frame => consecutive hooks) ---
+let lastFrameKey = '';
+let hookSeq = 0;
+const nextHookIndex = (frames: string[]): number => {
+  const key = frames[1] || frames[0] || '';
+  if (key === lastFrameKey) {
+    hookSeq += 1;
+  } else {
+    lastFrameKey = key;
+    hookSeq = 0;
+  }
+  return hookSeq;
+};
+
+const createStat = (kind: SourceKind, initial: unknown): SourceStat => {
+  const withCapture = captured < CAPTURE_LIMIT;
+  let frames: string[] = [];
+  if (withCapture) {
+    captured += 1;
+    frames = cleanStack(rawStack());
+  }
+  const stat: SourceStat = {
+    id: nextId++,
+    gen: generation,
+    kind,
+    owner: frames.slice(0, 3).join(' <- ') || `${kind}@uncaptured`,
+    fiberPath: withCapture ? fiberPathFromOwner() : null,
+    hookStack: withCapture ? frames.join('\n') : null,
+    callerStack: null,
+    hookIndex: withCapture ? nextHookIndex(frames) : null,
+    initialValue: withCapture ? preview(initial) : null,
+    valueSamples: [],
+    count: 0,
+    firstAt: 0,
+    lastAt: 0,
+  };
+  stats.push(stat);
+  return stat;
+};
+
+const record = (stat: SourceStat, args: unknown[]) => {
   if (stopped) return;
   const t = now();
+  if (stat.gen !== generation) {
+    // survived a RESET: re-enroll with fresh counters
+    stat.gen = generation;
+    stat.count = 0;
+    stat.valueSamples = [];
+    stat.callerStack = null;
+    stats.push(stat);
+  }
   if (t - startedAt > AUTO_STOP_MS) {
     stopped = true;
     return;
   }
-  let key = holder.k;
-  if (!key) {
-    key = `${kind} | ${ownerFromStack(kind)}`;
-    holder.k = key;
+  if (stat.count === 0) {
+    stat.firstAt = t;
+    stat.callerStack = cleanStack(rawStack()).join('\n');
   }
-  const existing = stats.get(key);
-  if (existing) {
-    existing.count += 1;
-    existing.lastAt = t;
-  } else {
-    stats.set(key, { key, kind, owner: key.slice(key.indexOf('|') + 2), count: 1, firstAt: t, lastAt: t });
+  if (stat.valueSamples.length < VALUE_SAMPLES && args.length) {
+    stat.valueSamples.push(preview(args[0]));
   }
+  stat.count += 1;
+  stat.lastAt = t;
+};
+
+const wrapDispatchLike = (kind: SourceKind, original: any, initial: unknown) => {
+  const existing = holders.get(original);
+  if (existing) return existing.wrapped;
+  const stat = createStat(kind, initial);
+  const wrapped: any = (...a: unknown[]) => {
+    record(stat, a);
+    return original(...a);
+  };
+  wrapped.__stage6 = true;
+  holders.set(original, Object.assign(stat, { wrapped }) as any);
+  return wrapped;
 };
 
 const wrapDispatcher = (dispatcher: any) => {
@@ -89,13 +225,7 @@ const wrapDispatcher = (dispatcher: any) => {
       const res = origUseState.apply(this, args);
       const setter = res[1];
       if (typeof setter === 'function' && !setter.__stage6) {
-        const holder: { k?: string } = {};
-        const wrapped: any = (...a: unknown[]) => {
-          record('useState', holder);
-          return setter(...a);
-        };
-        wrapped.__stage6 = true;
-        return [res[0], wrapped];
+        return [res[0], wrapDispatchLike('useState', setter, res[0])];
       }
       return res;
     };
@@ -106,13 +236,7 @@ const wrapDispatcher = (dispatcher: any) => {
       const res = origUseReducer.apply(this, args);
       const dispatch = res[1];
       if (typeof dispatch === 'function' && !dispatch.__stage6) {
-        const holder: { k?: string } = {};
-        const wrapped: any = (...a: unknown[]) => {
-          record('useReducer', holder);
-          return dispatch(...a);
-        };
-        wrapped.__stage6 = true;
-        return [res[0], wrapped];
+        return [res[0], wrapDispatchLike('useReducer', dispatch, res[0])];
       }
       return res;
     };
@@ -120,10 +244,15 @@ const wrapDispatcher = (dispatcher: any) => {
 
   if (typeof origUseSyncExternalStore === 'function') {
     dispatcher.useSyncExternalStore = function (this: unknown, subscribe: any, ...rest: unknown[]) {
-      const holder: { k?: string } = {};
+      let stat = holders.get(subscribe) as SourceStat | undefined;
+      if (!stat) {
+        stat = createStat('useSyncExternalStore', undefined);
+        holders.set(subscribe, stat as any);
+      }
+      const target = stat;
       const wrappedSubscribe = (onStoreChange: () => void) =>
         subscribe(() => {
-          record('useSyncExternalStore', holder);
+          record(target, []);
           onStoreChange();
         });
       return origUseSyncExternalStore.call(this, wrappedSubscribe, ...(rest as []));
@@ -138,6 +267,7 @@ const installDispatcherHook = (React: any): boolean => {
   const internals =
     React?.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ??
     React?.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+  reactInternals = internals ?? null;
   const holder = internals?.ReactCurrentDispatcher ?? internals;
   if (!holder || !('current' in holder)) return false;
 
@@ -186,10 +316,12 @@ const installCommitCounter = () => {
   return true;
 };
 
+const sorted = () => [...stats].sort((a, b) => b.count - a.count);
+
 const buildReport = () => {
   const elapsedMs = Math.min(now() - startedAt, AUTO_STOP_MS);
   const minutes = elapsedMs / 60000;
-  const sources = Array.from(stats.values()).sort((a, b) => b.count - a.count);
+  const sources = sorted().filter(s => s.count > 0);
   const totalUpdates = sources.reduce((s, x) => s + x.count, 0);
 
   const bursts: Array<{ startAt: number; commits: number; durationMs: number }> = [];
@@ -207,22 +339,45 @@ const buildReport = () => {
 
   return {
     approximate: true,
-    note: 'Counts are setState/dispatch/store-notification calls, not commits. React may batch or bail out. Names may be minified.',
+    note: 'Counts are setState/dispatch/store-notification calls, not commits. Names/locations are minified — map file:line against the build sourcemap.',
     elapsedSeconds: Math.round(elapsedMs / 1000),
     totalUpdates,
     updatesPerMinute: minutes > 0 ? Math.round(totalUpdates / minutes) : 0,
     totalCommits: commitTimes.length,
     commitsPerMinute: minutes > 0 ? Math.round(commitTimes.length / minutes) : 0,
     topSources: sources.slice(0, 25).map(s => ({
+      id: s.id,
       kind: s.kind,
       owner: s.owner,
+      fiberPath: s.fiberPath,
+      hookIndex: s.hookIndex,
+      initialValue: s.initialValue,
+      valueSamples: s.valueSamples,
       updates: s.count,
       updatesPerMinute: minutes > 0 ? Math.round(s.count / minutes) : 0,
       sharePct: totalUpdates ? Math.round((s.count / totalUpdates) * 1000) / 10 : 0,
+      hookStackHead: s.hookStack ? s.hookStack.split('\n').slice(0, 6).join(' | ') : null,
+      callerStackHead: s.callerStack ? s.callerStack.split('\n').slice(0, 6).join(' | ') : null,
     })),
     topBursts: bursts.sort((a, b) => b.commits - a.commits).slice(0, 15),
   };
 };
+
+const buildStacks = (n: number) =>
+  sorted()
+    .filter(s => s.count > 0)
+    .slice(0, n)
+    .map(s => ({
+      id: s.id,
+      kind: s.kind,
+      updates: s.count,
+      hookIndex: s.hookIndex,
+      fiberPath: s.fiberPath,
+      initialValue: s.initialValue,
+      valueSamples: s.valueSamples,
+      hookStack: s.hookStack,
+      callerStack: s.callerStack,
+    }));
 
 export const installStage6UpdateTracer = (React: unknown) => {
   if (typeof window === 'undefined') return;
@@ -273,8 +428,24 @@ export const installStage6UpdateTracer = (React: unknown) => {
     return report;
   };
 
+  w.__PURE_STAGE6_UPDATE_STACKS = (n = 5) => {
+    const data = buildStacks(n);
+    w.__PURE_STAGE6_LAST_UPDATE_STACKS = data;
+    for (const s of data) {
+      log(
+        `[stage6] #${s.id} ${s.kind} updates=${s.updates} hookIndex=${s.hookIndex} fiber=${s.fiberPath}\n` +
+          `initial=${s.initialValue} samples=${JSON.stringify(s.valueSamples)}\n` +
+          `--- hook call site (render frame) ---\n${s.hookStack}\n` +
+          `--- first setter caller ---\n${s.callerStack}`,
+      );
+    }
+    return data;
+  };
+
   w.__PURE_STAGE6_UPDATE_RESET = () => {
-    stats.clear();
+    stats.length = 0;
+    generation += 1;
+    captured = 0;
     commitTimes = [];
     startedAt = now();
     stopped = false;
@@ -282,7 +453,7 @@ export const installStage6UpdateTracer = (React: unknown) => {
   };
 
   log(
-    `[stage6] update tracer active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
-      'Wait ~120 s idle, then call __PURE_STAGE6_UPDATE_REPORT().',
+    `[stage6] update tracer v3 active (dispatcher=${dispatcherOk}, commits=${commitsOk}). ` +
+      'Wait ~120 s idle, then call __PURE_STAGE6_UPDATE_REPORT() and __PURE_STAGE6_UPDATE_STACKS(5).',
   );
 };
