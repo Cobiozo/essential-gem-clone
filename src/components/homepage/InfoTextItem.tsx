@@ -1,5 +1,5 @@
 import React from 'react';
-import * as LucideIcons from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { CMSItem } from '@/types/cms';
 import { useTheme } from '@/components/ThemeProvider';
 import { isProblematicColor, sanitizeHtmlForDarkMode } from '@/lib/colorUtils';
@@ -9,7 +9,7 @@ interface InfoTextItemProps {
 }
 
 export const InfoTextItem: React.FC<InfoTextItemProps> = ({ item }) => {
-  const IconComponent = item.icon ? (LucideIcons as any)[item.icon] : null;
+  const IconComponent = item.icon ? resolveIcon(item.icon) : null;
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 

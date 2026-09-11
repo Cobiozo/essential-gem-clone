@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { CMSItem } from '@/types/cms';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { icons } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 
 interface ToggleContainerElementProps {
   item: CMSItem;
@@ -34,7 +34,7 @@ export const ToggleContainerElement: React.FC<ToggleContainerElementProps> = ({
   }, []);
 
   // Get icon component
-  const IconComponent = (icons as any)[buttonIcon] || ChevronDown;
+  const IconComponent = resolveIcon(buttonIcon, ChevronDown)!;
 
   const positionClasses = {
     left: 'justify-start',

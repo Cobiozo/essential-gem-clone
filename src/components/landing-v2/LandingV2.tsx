@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import * as LucideIcons from 'lucide-react';
-import { ArrowRight, Play, Check, ImagePlus } from 'lucide-react';
+import { ArrowRight, Play, Check, ImagePlus, Sparkles } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { useHomepageV2Content } from '@/hooks/useHomepageConfig';
 import type { HomepageV2Content, EditElementType, ElementStyle, CtaConfig } from '@/types/homepageV2';
 import { EditProvider, E, useEdit } from './editor/EditContext';
@@ -85,7 +85,7 @@ const INK = '#111111';
 const SURFACE = '#FBF8F3';
 
 function LucideIcon({ name, className, strokeWidth = 1.5, style }: { name: string; className?: string; strokeWidth?: number; style?: React.CSSProperties }) {
-  const Comp = (LucideIcons as any)[name] || LucideIcons.Sparkles;
+  const Comp = resolveIcon(name, Sparkles)!;
   return <Comp className={className} strokeWidth={strokeWidth} style={style} />;
 }
 

@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import * as Icons from 'lucide-react';
+import { resolveIcon as resolveIconByName } from '@/lib/icons/resolveIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
+import { X, Info, ExternalLink } from 'lucide-react';
 import { matchBanner, computeMissingFields } from './bannerMatching';
 
 export type AppBanner = {
@@ -61,8 +61,7 @@ function variantClasses(b: Pick<AppBanner, 'severity' | 'style_variant'>) {
 }
 
 function resolveIcon(name: string): React.ComponentType<{ className?: string }> {
-  const Icon = (Icons as any)[name];
-  return Icon || Icons.Info;
+  return resolveIconByName(name, Info)!;
 }
 
 function isExternal(url: string) {
@@ -114,7 +113,7 @@ export const BannerCard: React.FC<BannerCardProps> = ({ banner, missing = [], on
           <div>
             <Button size="sm" onClick={handleCta} className="mt-1 gap-1">
               {banner.button_label}
-              {isExternal(banner.target_url) && <Icons.ExternalLink className="h-3 w-3" />}
+              {isExternal(banner.target_url) && <ExternalLink className="h-3 w-3" />}
             </Button>
           </div>
         )}

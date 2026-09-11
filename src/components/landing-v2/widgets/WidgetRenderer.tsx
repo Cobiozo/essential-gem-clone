@@ -1,5 +1,6 @@
 import React from 'react';
-import * as LucideIcons from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { Link } from 'react-router-dom';
 import type { Widget } from '@/types/homepageV2';
 import { E } from '../editor/EditContext';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 function LucideIcon({ name, className }: { name: string; className?: string }) {
-  const Comp = (LucideIcons as any)[name] || LucideIcons.Sparkles;
+  const Comp = resolveIcon(name, Sparkles)!;
   return <Comp className={className} strokeWidth={1.5} />;
 }
 
