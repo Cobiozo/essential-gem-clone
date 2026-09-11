@@ -89,22 +89,15 @@ function lazyWithRetry<T extends ComponentType<any>>(
           throw error;
         }
 
-        // Istniejące zabezpieczenie przed pętlą reloadów.
-        const lastReload = sessionStorage.getItem('chunk_error_reload');
-        const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
-        const now = Date.now();
-
-        if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
+        // Jedyne zabezpieczenie przed pętlą reloadów (trwałe między reloadami).
+        if (!registerReloadAttempt()) {
           console.error('[LazyLoad] Reload loop detected, stopping auto-reload');
-          sessionStorage.removeItem('chunk_reload_count');
           throw new Error('CHUNK_LOAD_LOOP');
         }
 
-        sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
-        sessionStorage.setItem('chunk_error_reload', now.toString());
-
         console.log('[LazyLoad] New version confirmed, reloading...');
         window.location.reload();
+
 
         // Placeholder na czas przeładowania (zapobiega React Error #306).
         const PlaceholderComponent = () => {
