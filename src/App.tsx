@@ -29,6 +29,8 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
+import { registerReloadAttempt, recentReloads, lastReloadAt } from "@/lib/chunkReloadGuard";
+
 
 // Etap 7 — kontrakt ładowania tras:
 // 1 retry -> version check -> reload TYLKO gdy potwierdzono nową wersję -> ErrorBoundary.
@@ -89,22 +91,15 @@ function lazyWithRetry<T extends ComponentType<any>>(
           throw error;
         }
 
-        // Istniejące zabezpieczenie przed pętlą reloadów.
-        const lastReload = sessionStorage.getItem('chunk_error_reload');
-        const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
-        const now = Date.now();
-
-        if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
+        // Jedyne zabezpieczenie przed pętlą reloadów (trwałe między reloadami).
+        if (!registerReloadAttempt()) {
           console.error('[LazyLoad] Reload loop detected, stopping auto-reload');
-          sessionStorage.removeItem('chunk_reload_count');
           throw new Error('CHUNK_LOAD_LOOP');
         }
 
-        sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
-        sessionStorage.setItem('chunk_error_reload', now.toString());
-
         console.log('[LazyLoad] New version confirmed, reloading...');
         window.location.reload();
+
 
         // Placeholder na czas przeładowania (zapobiega React Error #306).
         const PlaceholderComponent = () => {
@@ -327,42 +322,32 @@ const AppContent = () => {
     console.log('[App] Auth state:', { user: !!user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners });
   }, [user, isFreshLogin, loginTrigger, rolesReady, shouldShowBanners]);
 
-  // Show toast after automatic chunk error reload
+  // Show toast after automatic chunk error reload (znaczników NIE kasujemy —
+  // muszą przetrwać reload; wygasają samoczynnie po 60 s).
   useEffect(() => {
-    const chunkReload = sessionStorage.getItem('chunk_error_reload');
-    const reloadCount = sessionStorage.getItem('chunk_reload_count');
-    
-    if (chunkReload) {
-      const reloadTime = parseInt(chunkReload);
-      const now = Date.now();
-      
-      // If reload was recent (< 5s ago), show appropriate message
-      if (now - reloadTime < 5000) {
-        const count = parseInt(reloadCount || '1');
-        
-        if (count >= 2) {
-          // Multiple reloads - show cache clearing hint
-          toast({
-            title: 'Problem z ładowaniem',
-            description: 'Jeśli problem się powtarza, wyczyść cache przeglądarki (Ctrl+Shift+Delete) i odśwież stronę.',
-            variant: 'destructive',
-            duration: 10000,
-          });
-        } else {
-          toast({
-            title: 'Aplikacja została zaktualizowana',
-            description: 'Strona została automatycznie odświeżona aby załadować nową wersję.',
-          });
-        }
+    const now = Date.now();
+    const reloadTime = lastReloadAt(now);
+    if (!reloadTime) return;
+
+    if (now - reloadTime < 5000) {
+      const count = recentReloads(now).length;
+
+      if (count >= 2) {
+        toast({
+          title: 'Problem z ładowaniem',
+          description: 'Jeśli problem się powtarza, wyczyść cache przeglądarki (Ctrl+Shift+Delete) i odśwież stronę.',
+          variant: 'destructive',
+          duration: 10000,
+        });
+      } else {
+        toast({
+          title: 'Aplikacja została zaktualizowana',
+          description: 'Strona została automatycznie odświeżona aby załadować nową wersję.',
+        });
       }
-      
-      sessionStorage.removeItem('chunk_error_reload');
-      // Reset reload counter after 60 seconds of successful operation
-      setTimeout(() => {
-        sessionStorage.removeItem('chunk_reload_count');
-      }, 60000);
     }
   }, []);
+
 
   // Set shouldShowBanners when both user and isFreshLogin are true
   useEffect(() => {

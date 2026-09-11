@@ -118,37 +118,19 @@ export class ErrorBoundary extends Component<Props, State> {
       return;
     }
     
-    // Auto-reload on chunk load errors (after new deployments)
+    // Etap 7: ErrorBoundary NIE wykonuje własnego automatycznego reloadu.
+    // Jedynym mechanizmem obsługi chunk errorów jest lazyWithRetry
+    // (1 retry -> version check -> maks. 1 reload w limicie 2/60 s).
     if (isChunkLoadError(error)) {
-      console.log('[ErrorBoundary] Chunk load error detected, checking for auto-reload...');
-      
-      const lastReload = sessionStorage.getItem('chunk_error_reload');
-      const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
-      const now = Date.now();
-      
-      // If already reloaded 2+ times within 60 seconds - show error UI instead
-      if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
-        console.error('[ErrorBoundary] Reload loop detected, showing manual action UI');
-        sessionStorage.removeItem('chunk_reload_count');
-        this.setState({ 
-          hasError: true,
-          error: new Error('Wykryto problem z ładowaniem aplikacji. Proszę wyczyścić cache przeglądarki (Ctrl+Shift+Delete) i odświeżyć stronę.'),
-          errorInfo
-        });
-        return;
-      }
-      
-      // Proceed with auto-reload
-      if (!lastReload || now - parseInt(lastReload) > 30000) {
-        console.log('[ErrorBoundary] Auto-reloading to fetch new chunks...');
-        sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
-        sessionStorage.setItem('chunk_error_reload', now.toString());
-        window.location.reload();
-        return;
-      } else {
-        console.warn('[ErrorBoundary] Recent reload detected, showing error UI instead');
-      }
+      console.warn('[ErrorBoundary] Chunk load error — brak auto-reloadu (obsługa w lazyWithRetry)');
+      this.setState({
+        hasError: true,
+        error: new Error('Nie udało się załadować części aplikacji. Odśwież stronę ręcznie lub spróbuj ponownie.'),
+        errorInfo
+      });
+      return;
     }
+
     
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
