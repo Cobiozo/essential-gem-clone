@@ -126,15 +126,12 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
     if (!enabled) return;
 
     // Tick interval to update timeRemaining display
-    // STAGE6 DIAGNOSTIC: ?stage6NoClocks=1 disables ONLY this display tick.
-    // Session timeout, activity reset, dialog and auto-logout stay unchanged.
-    if (!STAGE6_NO_CLOCKS) {
-      tickIntervalRef.current = setInterval(() => {
-        const elapsed = Date.now() - lastActivityRef.current;
-        const remaining = Math.max(0, Math.floor((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
-        setTimeRemaining(remaining);
-      }, 1000);
-    }
+    tickIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      const remaining = Math.max(0, Math.floor((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+      setTimeRemaining(remaining);
+    }, 1000);
+
 
     const activityEvents = [
       'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'wheel',
