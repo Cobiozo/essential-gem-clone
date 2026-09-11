@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { ContentCell, CMSItem } from '@/types/cms';
 import { CollapsibleSection } from './CollapsibleSection';
 import { isExternalUrl, openUrl } from '@/lib/urlUtils';
-import * as icons from 'lucide-react';
-import { ChevronRight, ChevronDown, Circle } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
+import { ChevronRight, ChevronDown, Circle, Star, Download, Clipboard, Image as ImageIcon } from 'lucide-react';
 import { CarouselElement } from './elements/CarouselElement';
 import { AccordionElement } from './elements/AccordionElement';
 import { CounterElement } from './elements/CounterElement';
@@ -376,7 +376,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                     case 'divider':
                       return <Separator key={subCell.id} className="my-2" />;
                     case 'icon':
-                      const SubIcon = (icons as any)[subCell.content] || icons.Star;
+                      const SubIcon = resolveIcon(subCell.content, Star);
                       return (
                         <div key={subCell.id} className={subAlignmentClass}>
                           <SubIcon className="w-6 h-6 text-primary" />
@@ -491,7 +491,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                   : '';
                 
                 // Ikona
-                const BtnCellIcon = cell.icon ? (icons as any)[cell.icon] : null;
+                const BtnCellIcon = cell.icon ? resolveIcon(cell.icon) : null;
                 const iconSize = cell.icon_size || 16;
                 const iconSpacing = cell.icon_spacing || 8;
                 
@@ -649,7 +649,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
                 );
               
               case 'icon':
-                const CellIcon = (icons as any)[cell.content] || icons.Star;
+                const CellIcon = resolveIcon(cell.content, Star);
                 const iconAlignment = cell.alignment || 'left';
                 const iconAlignClass = iconAlignment === 'center' ? 'flex justify-center w-full' 
                   : iconAlignment === 'right' ? 'flex justify-end w-full'
@@ -680,7 +680,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const level = headingCell?.level || 2;
       const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
       const headingStyles = applyItemStyles(item);
-      const HeadingIcon = item.icon ? (icons as any)[item.icon] : null;
+      const HeadingIcon = item.icon ? resolveIcon(item.icon) : null;
       
       if (!headingCell?.content && !item.title && isEditMode) {
         return (
@@ -728,7 +728,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'text':
       const textCell = (item.cells as any[])?.[0];
       const textStyles = applyItemStyles(item);
-      const TextIcon = item.icon ? (icons as any)[item.icon] : null;
+      const TextIcon = item.icon ? resolveIcon(item.icon) : null;
       
       if (!textCell?.content && !item.description && isEditMode) {
         return (
@@ -923,7 +923,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
     case 'icon-field':
       const iconCell = (item.cells as any[])?.[0];
       const iconName = iconCell?.icon || iconCell?.content || item.icon || 'Star';
-      const IconComp = (icons as any)[iconName];
+      const IconComp = resolveIcon(iconName);
       
       if (!IconComp && isEditMode) {
         return (
@@ -1133,7 +1133,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       return (
         <div className="space-y-2">
           {listItems.map((listItem: any, idx: number) => {
-            const ListIcon = (icons as any)[listItem.icon] || Circle;
+            const ListIcon = resolveIcon(listItem.icon, Circle);
             return (
               <div key={idx} className="flex items-start gap-2">
                 <ListIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -1195,7 +1195,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const buttonCell = (item.cells as any[])?.[0];
       const buttonUrl = buttonCell?.url || item.url;
       const buttonStyles = applyItemStyles(item);
-      const ButtonIcon = item.icon ? (icons as any)[item.icon] : null;
+      const ButtonIcon = item.icon ? resolveIcon(item.icon) : null;
       const iconPosition = (item as any).icon_position || 'before';
       
       if (!buttonCell?.content && !item.title && isEditMode) {
@@ -1269,7 +1269,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const fileUrl = fileCell?.externalUrl || fileCell?.url || item.url;
       const fileName = fileCell?.fileName || 'Plik';
       const fileOpenMode = fileCell?.openMode || 'download';
-      const FileIcon = item.icon ? (icons as any)[item.icon] : (icons as any).Download;
+      const FileIcon = item.icon ? resolveIcon(item.icon) : Download;
       const fileIconPosition = (item as any).icon_position || 'before';
       
       if (!fileUrl && isEditMode) {
@@ -1332,7 +1332,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
       const copyCell = (item.cells as any[])?.[0];
       const copyStyles = applyItemStyles(item);
       const clipboardContent = copyCell?.clipboard_content || item.description || '';
-      const CopyIcon = item.icon ? (icons as any)[item.icon] : (icons as any).Clipboard;
+      const CopyIcon = item.icon ? resolveIcon(item.icon) : Clipboard;
       
       if (!clipboardContent && isEditMode) {
         return (
@@ -1476,7 +1476,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
         return (
           <div className="border border-dashed border-muted-foreground/30 rounded p-6 text-center bg-muted/20">
             <div className="flex flex-col items-center gap-2">
-              <icons.Image className="w-8 h-8 text-muted-foreground/50" />
+              <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
               <p className="text-xs text-muted-foreground">Obrazek z linkiem</p>
               <p className="text-[10px] text-muted-foreground/70">Kliknij aby dodać obrazek</p>
             </div>
@@ -1535,7 +1535,7 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
 
     default:
       // Get icon component if specified
-      const IconComponent = item.icon ? (icons as any)[item.icon] : null;
+      const IconComponent = item.icon ? resolveIcon(item.icon) : null;
       
       // Parse title and description styles
       const titleStyle = item.title_formatting ? JSON.parse(JSON.stringify(item.title_formatting)) : {};

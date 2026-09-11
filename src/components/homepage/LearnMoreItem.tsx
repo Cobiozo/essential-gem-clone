@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
-import { ChevronDown, icons } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { CMSItem, ContentCell } from '@/types/cms';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/components/ThemeProvider';
@@ -15,7 +16,7 @@ interface LearnMoreItemProps {
 
 // Dynamic icon component
 const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
-  const IconComponent = icons[name as keyof typeof icons];
+  const IconComponent = resolveIcon(name);
   if (!IconComponent) return null;
   return <IconComponent className={className} />;
 };
@@ -195,7 +196,7 @@ export const LearnMoreItem: React.FC<LearnMoreItemProps> = ({ item, itemIndex, i
           }
           
           // Ikona
-          const BtnIcon = cell.icon ? (icons as any)[cell.icon] : null;
+          const BtnIcon = cell.icon ? resolveIcon(cell.icon) : null;
           const btnIconSize = cell.icon_size || 16;
           const btnIconSpacing = cell.icon_spacing || 8;
           

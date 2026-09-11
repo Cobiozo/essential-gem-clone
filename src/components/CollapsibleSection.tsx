@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronUp, ChevronDown, Share2, icons } from 'lucide-react';
+import { ChevronUp, ChevronDown, Share2 } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -249,7 +250,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
 
   // Get Lucide icon component
   const IconComponent = sectionStyle?.show_icon && sectionStyle?.icon_name ? 
-    (icons as any)[sectionStyle.icon_name] : null;
+    resolveIcon(sectionStyle.icon_name) : null;
 
   // Build hover styles
   const hoverStyles = sectionStyle ? {

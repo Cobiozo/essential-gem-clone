@@ -54,8 +54,8 @@ import {
   FileText,
   Crown,
   Trophy,
-  icons as LucideIcons,
 } from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UserProfileCard } from './UserProfileCard';
@@ -404,7 +404,7 @@ export const DashboardSidebar: React.FC = () => {
     .map(page => {
       // Try to get Lucide icon by name, fallback to FileText
       const IconComponent = page.sidebar_icon 
-        ? (LucideIcons as Record<string, React.ElementType>)[page.sidebar_icon] || FileText
+        ? resolveIcon(page.sidebar_icon, FileText) as React.ElementType
         : FileText;
       
       return {
@@ -862,7 +862,7 @@ export const DashboardSidebar: React.FC = () => {
                 
                 // Use icon from database, fallback to platform detection
                 const IconComponent = link.icon_name 
-                  ? (LucideIcons as Record<string, React.ElementType>)[link.icon_name] || ExternalLink
+                  ? resolveIcon(link.icon_name, ExternalLink) as React.ElementType
                   : platformIcons[detectPlatform(link.title, link.url)] || ExternalLink;
                 
                 return (

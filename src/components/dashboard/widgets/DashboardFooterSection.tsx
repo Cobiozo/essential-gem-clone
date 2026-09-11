@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Heart, Users, Check, Mail, HelpCircle } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { resolveIcon } from '@/lib/icons/resolveIcon';
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,7 +34,7 @@ interface DashboardFooterSettings {
 
 // Dynamic icon renderer
 const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
-  const Icon = (LucideIcons as any)[name] || LucideIcons.HelpCircle;
+  const Icon = resolveIcon(name, HelpCircle)!;
   return <Icon className={className} />;
 };
 
