@@ -29,8 +29,6 @@ export const WelcomeWidget: React.FC = () => {
 
   // Update time every second - pause when tab is hidden
   useEffect(() => {
-    // STAGE6 DIAGNOSTIC: ?stage6NoClocks=1 disables the 1s clock update only.
-    if (STAGE6_NO_CLOCKS) return;
     let timer: NodeJS.Timeout | null = null;
     
     
