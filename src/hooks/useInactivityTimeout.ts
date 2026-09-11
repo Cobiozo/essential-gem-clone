@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
+
 
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
 const DIALOG_COUNTDOWN_S = 60; // 60 seconds to react
