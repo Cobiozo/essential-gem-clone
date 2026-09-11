@@ -17,7 +17,7 @@ import { WidgetInfoButton } from '../WidgetInfoButton';
 import { NewsTicker } from '@/components/news-ticker';
 import { getCommonTimezones, getTimezoneAbbr } from '@/utils/timezoneHelpers';
 import { getTodayWorldDays } from '@/utils/worldDays';
-import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
+
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
