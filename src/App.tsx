@@ -24,7 +24,7 @@ import { SessionTimerProvider } from "@/contexts/SessionTimerContext";
 import { ChatSidebarProvider } from "@/contexts/ChatSidebarContext";
 import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
-import { STAGE6_NO_TRANSLATE_DETECTOR } from "@/lib/stage6Flags";
+
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
@@ -545,7 +545,7 @@ const AppContent = () => {
               3. No Info Banner can appear before Daily Signal
           */}
           <Suspense fallback={null}>
-            {!STAGE6_NO_TRANSLATE_DETECTOR && <BrowserTranslationWarning />}
+            <BrowserTranslationWarning />
             {!dailySignalDismissed ? (
               <DailySignalBanner onDismiss={handleDailySignalDismiss} />
             ) : readyForInfoBanners && !infoBannersComplete && rolesReady ? (

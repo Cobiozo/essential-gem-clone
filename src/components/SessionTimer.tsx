@@ -1,7 +1,7 @@
 import { RefreshCw, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionTimeRemaining } from '@/contexts/SessionTimerContext';
-import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
+
 
 interface SessionTimerProps {
   onRefresh: () => void;
@@ -20,21 +20,8 @@ const SessionTimer = ({ onRefresh, hidden }: SessionTimerProps) => {
   const timeRemaining = useSessionTimeRemaining();
 
   if (hidden) return null;
-  // STAGE6 DIAGNOSTIC: ?stage6NoClocks=1 hides the 1s countdown display only.
-  if (STAGE6_NO_CLOCKS) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-        <button
-          onClick={onRefresh}
-          className="rounded p-0.5 transition-colors hover:bg-accent"
-          title="Odśwież timer sesji"
-        >
-          <RefreshCw className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-        </button>
-      </div>
-    );
-  }
+
+
 
   const isWarning = timeRemaining <= 300; // < 5 min
   const isCritical = timeRemaining <= 60;  // < 1 min
