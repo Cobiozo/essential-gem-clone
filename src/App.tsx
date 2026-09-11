@@ -30,69 +30,96 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 import { useVersionPolling } from "@/hooks/useVersionPolling";
 
-// Helper function for lazy loading with automatic retry on chunk errors
-// Improved: More retries, cache clearing, loop detection
+// Etap 7 — kontrakt ładowania tras:
+// 1 retry -> version check -> reload TYLKO gdy potwierdzono nową wersję -> ErrorBoundary.
+// Brak cache purge, brak hard reloadu z ?v=timestamp.
+
+// Ustawiane przez istniejące mechanizmy wersjonowania (SW `updatefound` w main.tsx
+// oraz fallback `/version.json` w useVersionPolling).
+let versionChangeDetected = false;
+if (typeof window !== 'undefined') {
+  const markVersionChanged = () => { versionChangeDetected = true; };
+  window.addEventListener('swUpdateAvailable', markVersionChanged);
+  window.addEventListener('appVersionChanged', markVersionChanged);
+}
+
+/** Potwierdza zmianę wersji, korzystając wyłącznie z istniejących mechanizmów. */
+async function hasConfirmedNewVersion(): Promise<boolean> {
+  if (versionChangeDetected) return true;
+
+  // Service Worker: czekający/instalujący worker == nowy deploy.
+  try {
+    const reg = window.__swRegistration ?? (await navigator.serviceWorker?.getRegistration());
+    if (reg?.waiting || reg?.installing) return true;
+  } catch {
+    // brak SW — sprawdzamy fallback poniżej
+  }
+
+  // Fallback: ten sam endpoint co useVersionPolling, porównanie z zapamiętaną wersją.
+  try {
+    const known = sessionStorage.getItem('app_version_known');
+    if (!known) return false;
+    const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return typeof data?.version === 'string' && data.version !== known;
+  } catch {
+    return false;
+  }
+}
+
 function lazyWithRetry<T extends ComponentType<any>>(
-  importFn: () => Promise<{ default: T }>,
-  retries = 4
+  importFn: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> {
   return lazy(async () => {
-    for (let i = 0; i < retries; i++) {
+    try {
+      return await importFn();
+    } catch (firstError) {
+      console.warn('[LazyLoad] Import failed, retrying once:', firstError);
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
       try {
         return await importFn();
       } catch (error) {
-        console.warn(`[LazyLoad] Attempt ${i + 1}/${retries} failed:`, error);
-        
-        if (i === retries - 1) {
-          // Before reload - try to clear browser cache
-          if ('caches' in window) {
-            try {
-              const cacheNames = await caches.keys();
-              await Promise.all(cacheNames.map(name => caches.delete(name)));
-              console.log('[LazyLoad] Browser cache cleared');
-            } catch (e) {
-              console.warn('[LazyLoad] Failed to clear cache:', e);
-            }
-          }
-          
-          // Check for reload loop (prevent infinite reloads)
-          const lastReload = sessionStorage.getItem('chunk_error_reload');
-          const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
-          const now = Date.now();
-          
-          // If already reloaded 2+ times within 60 seconds - stop and show error
-          if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
-            console.error('[LazyLoad] Reload loop detected, stopping auto-reload');
-            sessionStorage.removeItem('chunk_reload_count');
-            throw new Error('CHUNK_LOAD_LOOP');
-          }
-          
-          // Increment reload counter and trigger reload
-          sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
-          sessionStorage.setItem('chunk_error_reload', now.toString());
-          
-          // Hard reload with cache-busting query param
-          console.log('[LazyLoad] All retries failed, hard reloading...');
-          window.location.href = window.location.pathname + '?v=' + now;
-          
-          // Return a valid placeholder component to prevent React Error #306
-          const PlaceholderComponent = () => {
-            return React.createElement('div', { 
-              className: 'min-h-screen bg-background flex items-center justify-center'
-            }, React.createElement('div', {
-              className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-primary'
-            }));
-          };
-          return { default: PlaceholderComponent as unknown as T };
+        console.warn('[LazyLoad] Retry failed:', error);
+
+        const newVersion = await hasConfirmedNewVersion();
+        if (!newVersion) {
+          // Brak potwierdzonej zmiany wersji => bez automatycznego reloadu.
+          throw error;
         }
-        
-        // Wait longer between retries (2.5s for mobile networks)
-        await new Promise(resolve => setTimeout(resolve, 2500));
+
+        // Istniejące zabezpieczenie przed pętlą reloadów.
+        const lastReload = sessionStorage.getItem('chunk_error_reload');
+        const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0');
+        const now = Date.now();
+
+        if (reloadCount >= 2 && lastReload && now - parseInt(lastReload) < 60000) {
+          console.error('[LazyLoad] Reload loop detected, stopping auto-reload');
+          sessionStorage.removeItem('chunk_reload_count');
+          throw new Error('CHUNK_LOAD_LOOP');
+        }
+
+        sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
+        sessionStorage.setItem('chunk_error_reload', now.toString());
+
+        console.log('[LazyLoad] New version confirmed, reloading...');
+        window.location.reload();
+
+        // Placeholder na czas przeładowania (zapobiega React Error #306).
+        const PlaceholderComponent = () => {
+          return React.createElement('div', {
+            className: 'min-h-screen bg-background flex items-center justify-center'
+          }, React.createElement('div', {
+            className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-primary'
+          }));
+        };
+        return { default: PlaceholderComponent as unknown as T };
       }
     }
-    throw new Error('Failed to load module after retries');
   });
 }
+
 
 // ---------------------------------------------------------------------------
 // Etap 4 — route/runtime shell split.
