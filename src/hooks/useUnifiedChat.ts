@@ -5,7 +5,7 @@ import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
 import { toast } from 'sonner';
 import { checkRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
-import { STAGE6_NO_UNIFIED_CHAT } from '@/lib/stage6Flags';
+
 
 export interface UnifiedChannel {
   id: string;
