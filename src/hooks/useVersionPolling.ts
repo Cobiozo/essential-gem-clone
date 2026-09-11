@@ -32,6 +32,9 @@ export function useVersionPolling() {
         const data = await res.json();
         const remote = data.version as string;
 
+        // Zapamiętana wersja jest współdzielona z lazyWithRetry (Etap 7).
+        try { sessionStorage.setItem('app_version_known', remote); } catch { /* ignore */ }
+
         if (!localVersion.current) {
           localVersion.current = remote;
           return;
