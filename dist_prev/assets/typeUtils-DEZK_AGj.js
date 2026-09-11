@@ -1,1 +1,0 @@
-const o=t=>({...t,section_type:t.section_type==="row"?"row":"section",row_column_count:t.row_column_count||1,row_layout_type:t.row_layout_type==="custom"?"custom":"equal",width_type:t.width_type!==void 0?t.width_type:"full",height_type:t.height_type!==void 0?t.height_type:"auto",custom_width:t.custom_width,custom_height:t.custom_height}),_=t=>t.map(o);export{o as a,_ as c};

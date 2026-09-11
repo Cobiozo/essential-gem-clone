@@ -1,1 +1,0 @@
-import{u as r}from"./useQuery-f1qy8TFo.js";import{b as n,s as t}from"./index-CMZW6EEl.js";function u(){const{user:e}=n();return r({queryKey:["challenge-access",e==null?void 0:e.id],enabled:!!(e!=null&&e.id),staleTime:6e4,queryFn:async()=>{if(!(e!=null&&e.id))return!1;const{data:a,error:s}=await t.rpc("has_challenge_access",{_uid:e.id});return s?!1:!!a}})}export{u};
