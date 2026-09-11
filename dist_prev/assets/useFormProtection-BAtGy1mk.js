@@ -1,0 +1,1 @@
+import{bo as s,r}from"./index-CMZW6EEl.js";const a=e=>{const{setEditing:t}=s();r.useEffect(()=>{if(e)return t(!0),()=>t(!1)},[e,t])},i=(...e)=>{const{setEditing:t}=s(),o=e.some(Boolean);r.useEffect(()=>{if(o)return t(!0),()=>t(!1)},[o,t])};export{i as a,a as u};

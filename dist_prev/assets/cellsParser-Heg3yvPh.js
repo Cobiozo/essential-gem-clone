@@ -1,0 +1,1 @@
+const e=r=>{if(!r)return[];if(Array.isArray(r))return r;if(typeof r=="string")try{return JSON.parse(r)}catch{return[]}return typeof r=="object"?r:[]},n=r=>{const t=e(r);return Array.isArray(t)?t:typeof t=="object"&&t!==null?[t]:[]};export{e as a,n as p};

@@ -1,0 +1,1 @@
+function o(i){const e=(i.split("?")[0].split("#")[0].split(".").pop()||"").toLowerCase();return e==="webm"?"video/webm":e==="ogv"||e==="ogg"?"video/ogg":e==="mov"?"video/quicktime":"video/mp4"}export{o as v};
