@@ -1,7 +1,7 @@
 import { RefreshCw, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionTimeRemaining } from '@/contexts/SessionTimerContext';
-import { STAGE6_NO_CLOCKS } from '@/lib/stage6Flags';
+
 
 interface SessionTimerProps {
   onRefresh: () => void;
