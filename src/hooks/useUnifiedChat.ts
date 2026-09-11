@@ -59,10 +59,8 @@ interface UseUnifiedChatOptions {
 }
 
 export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
-  const { user: authUser, userRole, profile } = useAuth();
-  // STAGE6 DIAGNOSTIC: ?stage6NoUnifiedChat=1 neutralizes this hook (no fetches,
-  // no polling, no realtime, no state updates). Without the flag: unchanged.
-  const user = STAGE6_NO_UNIFIED_CHAT ? null : authUser;
+  const { user, userRole, profile } = useAuth();
+
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
