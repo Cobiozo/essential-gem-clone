@@ -153,6 +153,7 @@ const NewsHubPostPage: React.FC = () => {
               }
             }}
           />
+          </Suspense>
         </>
       )}
     </div>
