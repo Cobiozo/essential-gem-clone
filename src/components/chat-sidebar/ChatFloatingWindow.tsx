@@ -77,7 +77,7 @@ export const ChatFloatingWindow = () => {
       </div>
 
       {/* Content */}
-      {!isMinimized && <ChatPanelContent />}
+      {!isMinimized && <LazyChatPanelContent />}
     </div>
   );
 

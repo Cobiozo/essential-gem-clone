@@ -30,7 +30,7 @@ export const ChatDockedPanel = () => {
               </Button>
             </div>
           </div>
-          <ChatPanelContent />
+          <LazyChatPanelContent />
         </>
       )}
     </div>
