@@ -2,7 +2,7 @@ import { MessageSquare, X, PictureInPicture2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
-import { ChatPanelContent } from './ChatPanelContent';
+import { LazyChatPanelContent } from './lazyChatPanel';
 
 export const ChatDockedPanel = () => {
   const { isDocked, close, openFloating } = useChatSidebar();
