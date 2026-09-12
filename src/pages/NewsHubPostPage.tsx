@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, Navigate, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Pencil, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { incrementPostView } from '@/hooks/useNewsHub';
 import { PostContent } from '@/components/news-hub/PostContent';
-import { PostInlineEditor } from '@/components/news-hub/PostInlineEditor';
+const PostInlineEditor = lazy(() =>
+  import('@/components/news-hub/PostInlineEditor').then((m) => ({ default: m.PostInlineEditor }))
+);
 import { useNewsHubSettings, isCommentsEnabledForPost } from '@/hooks/useNewsHubSettings';
 import type { NewsHubPost } from '@/types/newsHub';
 
@@ -131,6 +133,7 @@ const NewsHubPostPage: React.FC = () => {
       {editing && (
         <>
           <style>{`@media (min-width: 768px) { body { padding-right: 480px; } }`}</style>
+          <Suspense fallback={null}>
           <PostInlineEditor
             post={post}
             draft={draft}
