@@ -4,7 +4,7 @@ import { MessageSquare, X, Minus, Maximize2, PanelRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
-import { ChatPanelContent } from './ChatPanelContent';
+import { LazyChatPanelContent } from './lazyChatPanel';
 
 export const ChatFloatingWindow = () => {
   const { isFloating, close, openDocked, floatingPosition, setFloatingPosition, isMinimized, setMinimized } = useChatSidebar();
@@ -77,7 +77,7 @@ export const ChatFloatingWindow = () => {
       </div>
 
       {/* Content */}
-      {!isMinimized && <ChatPanelContent />}
+      {!isMinimized && <LazyChatPanelContent />}
     </div>
   );
 
