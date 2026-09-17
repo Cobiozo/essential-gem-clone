@@ -2087,7 +2087,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={(signedUrl || '').includes('purelifecenter.pl') ? 'auto' : 'metadata'}
+              preload="metadata"
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
@@ -2232,7 +2232,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={isIOSDevice() ? 'metadata' : ((signedUrl || '').includes('purelifecenter.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy)}
+              preload={isIOSDevice() ? 'metadata' : bufferConfigRef.current.preloadStrategy}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
