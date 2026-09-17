@@ -192,6 +192,7 @@ export const DashboardSidebar: React.FC = () => {
     admin: tf('tooltip.admin', 'Panel administracyjny - zarządzanie systemem'),
     'individual-meetings-setup': tf('tooltip.individualMeetingsSetup', 'Zarządzaj spotkaniami indywidualnymi'),
     'leader-panel': tf('tooltip.leaderPanel', 'Panel Lidera — narzędzia i statystyki Twojej struktury'),
+    'tools': tf('tooltip.tools', 'Narzędzia — AI Kompas i Kody HK'),
   };
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
@@ -741,6 +742,12 @@ export const DashboardSidebar: React.FC = () => {
     }
     if (subItem.id === 'leader-main') {
       return location.pathname === '/leader';
+    }
+    if (subItem.id === 'ai-compass') {
+      return location.pathname === '/ai-compass';
+    }
+    if (subItem.id === 'kody-hk') {
+      return location.pathname === '/kody-hk';
     }
     return false;
   };
