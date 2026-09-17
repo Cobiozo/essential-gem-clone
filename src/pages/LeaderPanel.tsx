@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   TreePine, UserCheck, Users, Pencil,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
   Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio, Trophy, Video,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
@@ -69,6 +71,102 @@ const LEADER_NAV_GROUPS: Array<{ id: LeaderNavGroupId; label: string }> = [
   { id: 'communication', label: 'Komunikacja zespołu' },
   { id: 'tools', label: 'Narzędzia lidera' },
 ];
+
+type LeaderNavigationProps = {
+  groupedTabs: Array<{ id: LeaderNavGroupId; label: string; tabs: LeaderTab[] }>;
+  availableTabs: LeaderTab[];
+  initialTab: string;
+  renderTabContent: (tabId: string) => React.ReactNode;
+};
+
+const LeaderNavigation: React.FC<LeaderNavigationProps> = ({
+  groupedTabs,
+  availableTabs,
+  initialTab,
+  renderTabContent,
+}) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const initialGroup = availableTabs.find(tab => tab.id === initialTab)?.group ?? groupedTabs[0]?.id ?? '';
+  const [openGroup, setOpenGroup] = useState(initialGroup);
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start xl:gap-8">
+        <nav aria-label="Funkcje Panelu Lidera" className="min-w-0 lg:sticky lg:top-4">
+          <Accordion
+            type="single"
+            collapsible
+            value={openGroup}
+            onValueChange={setOpenGroup}
+            className="overflow-hidden rounded-md border bg-card/50 motion-reduce:[&_[data-state]]:animate-none motion-reduce:[&_[data-state]]:transition-none"
+          >
+            {groupedTabs.map(group => {
+              const groupIsActive = group.tabs.some(tab => tab.id === activeTab);
+
+              return (
+                <AccordionItem key={group.id} value={group.id} className="border-border/70 last:border-b-0">
+                  <AccordionTrigger
+                    className={`min-h-14 gap-3 px-4 py-3 text-left hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[state=open]:bg-muted/60 [&>svg]:h-5 [&>svg]:w-5 ${groupIsActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="min-w-0 flex-1 text-sm leading-5">{group.label}</span>
+                      <Badge
+                        variant={groupIsActive ? 'default' : 'secondary'}
+                        className="h-6 min-w-6 justify-center px-1.5"
+                        aria-label={`${group.tabs.length} ${group.tabs.length === 1 ? 'pozycja' : 'pozycji'}`}
+                      >
+                        {group.tabs.length}
+                      </Badge>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-2 pb-2 pt-1">
+                    <TabsList
+                      aria-label={group.label}
+                      className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0 text-foreground"
+                    >
+                      {group.tabs.map(tab => (
+                        <TabsTrigger
+                          key={tab.id}
+                          value={tab.id}
+                          onClick={() => setOpenGroup(group.id)}
+                          className="group relative min-h-12 w-full justify-start gap-3 whitespace-normal rounded-md px-3 py-2.5 text-left data-[state=active]:bg-primary data-[state=active]:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                        >
+                          <tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 flex-1 text-sm font-medium leading-5">{tab.label}</span>
+                          {tab.badge > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-auto h-5 min-w-5 justify-center px-1 text-xs"
+                              aria-label={`${tab.badge} oczekujących`}
+                            >
+                              {tab.badge}
+                            </Badge>
+                          )}
+                          <ChevronRight
+                            className="h-4 w-4 shrink-0 opacity-60 transition-transform group-data-[state=active]:translate-x-0.5 motion-reduce:transition-none"
+                            aria-hidden="true"
+                          />
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </nav>
+
+        <div className="min-w-0">
+          {availableTabs.map(tab => (
+            <TabsContent key={tab.id} value={tab.id} className="mt-0 min-w-0 focus-visible:outline-none">
+              {renderTabContent(tab.id)}
+            </TabsContent>
+          ))}
+        </div>
+      </div>
+    </Tabs>
+  );
+};
 
 const LeaderPanel: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -241,21 +339,25 @@ const LeaderPanel: React.FC = () => {
 
   return (
     <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
-      <div className="container mx-auto px-4 py-6 max-w-5xl">
+      <div className="container mx-auto max-w-6xl px-0 py-2 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] sm:px-2 sm:py-4 lg:px-4 lg:py-6 lg:pb-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <Crown className="h-6 w-6 text-primary" />
+        <div className="mb-5 flex items-start gap-3 sm:mb-6">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <Crown className="h-5 w-5 text-primary" aria-hidden="true" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">Panel Lidera</h1>
-            <p className="text-muted-foreground text-sm">Narzędzia i statystyki Twojej struktury</p>
+            <h1 className="text-2xl font-bold leading-tight sm:text-3xl">Panel Lidera</h1>
+            <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+              Zarządzaj zespołem, rozwojem i komunikacją w jednym miejscu.
+            </p>
           </div>
         </div>
 
         {/* My Team Card */}
         {teamData && (
-          <Card className="mb-6">
-            <CardContent className="py-4 flex items-center gap-4 flex-wrap">
-              <Users className="h-5 w-5 text-primary" />
+          <Card className="mb-5 sm:mb-6">
+            <CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+              <Users className="h-5 w-5 text-primary" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">Mój zespół:</span>
@@ -271,7 +373,7 @@ const LeaderPanel: React.FC = () => {
                   setEditNameOpen(true);
                 }}
               >
-                <Pencil className="h-3 w-3 mr-1" />
+                <Pencil className="mr-1 h-3 w-3" />
                 Edytuj nazwę
               </Button>
             </CardContent>
@@ -307,36 +409,12 @@ const LeaderPanel: React.FC = () => {
         {availableTabs.length === 1 ? (
           renderTabContent(availableTabs[0].id)
         ) : (
-          <Tabs defaultValue={resolvedDefaultTab}>
-            <TabsList className="mb-6 h-auto w-full flex-wrap items-stretch justify-start gap-3 bg-transparent p-0 text-foreground">
-              {groupedTabs.map(group => (
-                <div key={group.id} className="w-full rounded-md border bg-muted/30 p-2 sm:w-[calc(50%-0.375rem)] lg:min-w-0 lg:flex-1">
-                  <div className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
-                    {group.label}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {group.tabs.map(tab => (
-                      <TabsTrigger key={tab.id} value={tab.id} className="relative w-full justify-start gap-2 whitespace-normal text-left">
-                        <tab.icon className="h-4 w-4 shrink-0" />
-                        <span className="min-w-0 flex-1">{tab.label}</span>
-                        {tab.badge > 0 && (
-                          <Badge variant="default" className="ml-auto h-5 min-w-[20px] px-1 text-xs">
-                            {tab.badge}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </TabsList>
-
-            {availableTabs.map(tab => (
-              <TabsContent key={tab.id} value={tab.id}>
-                {renderTabContent(tab.id)}
-              </TabsContent>
-            ))}
-          </Tabs>
+          <LeaderNavigation
+            groupedTabs={groupedTabs}
+            availableTabs={availableTabs}
+            initialTab={resolvedDefaultTab}
+            renderTabContent={renderTabContent}
+          />
         )}
       </div>
     </DashboardLayout>
