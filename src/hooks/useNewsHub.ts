@@ -88,6 +88,7 @@ export function slugify(text: string): string {
 
 // Próg powyżej którego plik leci przez Express /upload (multer) zamiast Supabase Storage.
 import { STORAGE_CONFIG } from '@/lib/storageConfig';
+import { toCanonicalMediaUrl } from '@/lib/mediaUrl';
 
 const SERVER_UPLOAD_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
