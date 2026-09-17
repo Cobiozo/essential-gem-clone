@@ -19,7 +19,7 @@ function vimeoId(url: string): string | null {
 }
 
 function deriveThumbnail(url: string, poster?: string | null): string | null {
-  if (poster) return poster;
+  if (poster) return resolveMediaUrl(poster) || null;
   const yt = youTubeId(url);
   if (yt) return `https://img.youtube.com/vi/${yt}/hqdefault.jpg`;
   // Vimeo nie ma publicznego, prostego thumbnaila — zostawiamy null (placeholder).
