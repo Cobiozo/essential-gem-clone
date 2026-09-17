@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NewsHubVideoPlayer } from './NewsHubVideoPlayer';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 interface LazyVideoPlayerProps {
   url: string;
@@ -53,7 +54,7 @@ export const LazyVideoPlayer: React.FC<LazyVideoPlayerProps> = ({ url, poster, c
     } else if (isVimeo) {
       targets.push('https://player.vimeo.com', 'https://f.vimeocdn.com');
     } else {
-      const o = originOf(url);
+      const o = originOf(resolveMediaUrl(url));
       if (o) targets.push(o);
     }
     if (targets.length === 0) return;
