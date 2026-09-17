@@ -416,8 +416,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Home link */}
+        {/* R2.2-B — grupa 1: Pulpit administratora (szybkie wejścia) */}
         <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="px-2 text-sidebar-foreground/70">
+              {getLabel('adminDashboard')}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
