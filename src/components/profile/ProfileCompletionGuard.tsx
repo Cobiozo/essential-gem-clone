@@ -5,6 +5,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { ApprovalStatusBanner } from './ApprovalStatusBanner';
+import { RESERVED_ROUTE_SEGMENTS } from '@/config/navigation';
 
 interface ProfileCompletionGuardProps {
   children: React.ReactNode;
@@ -59,12 +60,8 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   // Public list of paid events
   const isPublicPaidEventsList = location.pathname === '/paid-events' || location.pathname === '/paid-events/';
 
-  const KNOWN_APP_ROUTES = [
-    '/auth', '/admin', '/dashboard', '/my-account', '/training',
-    '/knowledge', '/messages', '/calculator', '/paid-events',
-    '/events', '/e', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
-    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview', '/auto-webinar', '/a-w', '/skills-assessment', '/moja-strona', '/moje-testy', '/aktualnosci', '/checkout', '/ticket', '/zaproszenie', '/konto-usuniete', '/wyzwanie-90'
-  ];
+  // R2.0 — jedna wspólna lista segmentów zastrzeżonych (src/config/navigation.ts).
+  const KNOWN_APP_ROUTES = RESERVED_ROUTE_SEGMENTS;
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
   const isKnownRoute = KNOWN_APP_ROUTES.some(r =>
     location.pathname === r || location.pathname.startsWith(r + '/')

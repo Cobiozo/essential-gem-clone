@@ -30,13 +30,14 @@ export const APP_LOCATIONS: AppLocation[] = [
   { label: 'Akademia', path: '/training', iconName: 'GraduationCap', group: 'Wiedza' },
   { label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza', iconName: 'BookOpen', group: 'Wiedza' },
   { label: 'Centrum wiedzy', path: '/knowledge', iconName: 'Library', group: 'Wiedza' },
-  { label: 'AI Kompas', path: '/my-account?tab=ai-compass', iconName: 'Compass', group: 'Wiedza' },
+  { label: 'AI Kompas', path: '/ai-compass', iconName: 'Compass', group: 'Wiedza' },
+  { label: 'Kody HK', path: '/kody-hk', iconName: 'Key', group: 'Wiedza' },
 
   // Zespół
-  { label: 'Mój zespół', path: '/my-account?tab=team-contacts', iconName: 'Users', group: 'Zespół' },
-  { label: 'Struktura', path: '/my-account?tab=team-contacts&subTab=structure', iconName: 'Network', group: 'Zespół' },
+  { label: 'Mój zespół', path: '/contacts', iconName: 'Users', group: 'Zespół' },
+  { label: 'Struktura', path: '/contacts?subTab=structure', iconName: 'Network', group: 'Zespół' },
   { label: 'Panel lidera', path: '/leader', iconName: 'Crown', group: 'Zespół' },
-  { label: 'Reflinki', path: '/my-account?tab=reflinks', iconName: 'Link', group: 'Zespół' },
+  { label: 'Reflinki', path: '/reflinki', iconName: 'Link', group: 'Zespół' },
 
   // Narzędzia
   { label: 'PureBox / Omega Base', path: '/omega-base', iconName: 'Heart', group: 'Narzędzia' },

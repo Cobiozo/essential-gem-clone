@@ -193,6 +193,11 @@ const HealthyKnowledge = lazyWithRetry(() => import("./pages/HealthyKnowledge"))
 const HealthyKnowledgePlayer = lazyWithRetry(() => import("./pages/HealthyKnowledgePlayer"));
 const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKnowledgePublicPage"));
 const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
+// R2.0 etap 2 — kanoniczne trasy IA (nakładki na istniejące komponenty)
+const ContactsPage = lazyWithRetry(() => import("./pages/ContactsPage"));
+const AiCompassPage = lazyWithRetry(() => import("./pages/AiCompassPage"));
+const HkCodesPage = lazyWithRetry(() => import("./pages/HkCodesPage"));
+const ReflinksPage = lazyWithRetry(() => import("./pages/ReflinksPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
 const TicketVerificationPage = lazyWithRetry(() => import("./pages/TicketVerificationPage"));
@@ -495,6 +500,11 @@ const AppContent = () => {
                 <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
                 <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
+                {/* R2.0 etap 2 — kanoniczne trasy IA */}
+                <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/ai-compass" element={<AiCompassPage />} />
+                <Route path="/kody-hk" element={<HkCodesPage />} />
+                <Route path="/reflinki" element={<ReflinksPage />} />
                 <Route path="/paid-events" element={<PaidEventsListPage />} />
                 <Route path="/weryfikacja-biletow" element={<TicketVerificationPage />} />
                 <Route path="/events/:slug" element={<PaidEventPage />} />

@@ -52,6 +52,7 @@ import MyHkCodesHistory from '@/components/healthy-knowledge/MyHkCodesHistory';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
+import { LEGACY_ACCOUNT_TAB_ROUTES } from '@/config/navigation';
 
 // Preferences Tab Component
 const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> = ({ userId, t }) => {
@@ -156,6 +157,20 @@ const MyAccount = () => {
     }
   }, [profile]);
   
+  // R2.0 etap 3 — trwałe przekierowanie legacy `?tab=` na adresy kanoniczne.
+  // Zakładki w koncie pozostają działające (wejście przejściowe);
+  // pozostałe parametry (np. subTab) są zachowane.
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const tabParam = urlParams.get('tab');
+    if (!tabParam) return;
+    const canonical = LEGACY_ACCOUNT_TAB_ROUTES[tabParam];
+    if (!canonical) return;
+    urlParams.delete('tab');
+    const rest = urlParams.toString();
+    navigate(`${canonical}${rest ? `?${rest}` : ''}`, { replace: true });
+  }, [location.search, navigate]);
+
   // Handle URL tab parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
