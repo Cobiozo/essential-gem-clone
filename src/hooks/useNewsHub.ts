@@ -162,6 +162,13 @@ export async function uploadNewsHubFile(
   const isVideoByMime = (file.type || '').toLowerCase().startsWith('video/');
   const isVideo = options.kind === 'video' || isVideoByExt || isVideoByMime;
 
+  // Ostrzeżenie o kompatybilności z iPhone/Safari — nie blokujemy uploadu, ale informujemy admina.
+  if (isVideo && !['mp4', 'm4v'].includes(ext)) {
+    options.onWarning?.(
+      `Format .${ext || '?'} może nie odtworzyć się na iPhone/Safari. Zalecany plik: MP4 (H.264 + AAC).`
+    );
+  }
+
   // Dla wideo wymuszamy folder 'media' (mapowany na 'training-media')
   const effectiveFolder: NewsHubFolderKey = isVideo ? 'media' : folder;
   const kind = isVideo ? 'video' : (options.kind || inferKind(effectiveFolder, file));

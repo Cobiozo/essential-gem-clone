@@ -19,6 +19,7 @@ import {
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
 import { videoMime } from '@/lib/videoMime';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 
 interface NoteMarker {
   id: string;
@@ -67,7 +68,7 @@ const extractYouTubeId = (url: string): string | null => {
 };
 
 export const SecureMedia: React.FC<SecureMediaProps> = ({
-  mediaUrl,
+  mediaUrl: rawMediaUrl,
   mediaType,
   altText,
   className,
@@ -84,6 +85,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   onVideoEnded,
   allowedPlaybackRates = [1]
 }) => {
+  // Normalizacja adresu pliku: martwa domena purelife.info.pl -> purelifecenter.pl,
+  // ścieżki względne /uploads/... -> absolutny host serwera plików.
+  const mediaUrl = resolveMediaUrl(rawMediaUrl);
+
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
   
