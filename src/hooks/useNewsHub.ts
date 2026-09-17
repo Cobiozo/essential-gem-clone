@@ -88,6 +88,7 @@ export function slugify(text: string): string {
 
 // Próg powyżej którego plik leci przez Express /upload (multer) zamiast Supabase Storage.
 import { STORAGE_CONFIG } from '@/lib/storageConfig';
+import { toCanonicalMediaUrl } from '@/lib/mediaUrl';
 
 const SERVER_UPLOAD_THRESHOLD_BYTES = 2 * 1024 * 1024;
 
@@ -180,8 +181,9 @@ export async function uploadNewsHubFile(
   // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
   if (isVideo || file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
     const res = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
-    // Preferujemy ścieżkę względną — działa niezależnie od domeny i omija CORS.
-    const preferredUrl = res.relativePath || res.url;
+    // Do weryfikacji używamy najpierw ścieżki względnej (same-origin, bez CORS),
+    // ale ZAPISUJEMY zawsze kanoniczny absolutny URL serwera plików.
+    const preferredUrl = toCanonicalMediaUrl(res.relativePath || res.publicUrl || res.url);
     const candidates = [res.relativePath, res.publicUrl, res.url].filter(Boolean) as string[];
 
     const verr = await verifyUploadedUrl(candidates, kind);
