@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -176,14 +176,12 @@ const LeaderPanel: React.FC = () => {
     ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0, group: 'tools' as const }] : []),
   ];
 
-  const groupedTabs = useMemo(() => (
-    LEADER_NAV_GROUPS
-      .map(group => ({
-        ...group,
-        tabs: availableTabs.filter(tab => tab.group === group.id),
-      }))
-      .filter(group => group.tabs.length > 0)
-  ), [availableTabs]);
+  const groupedTabs = LEADER_NAV_GROUPS
+    .map(group => ({
+      ...group,
+      tabs: availableTabs.filter(tab => tab.group === group.id),
+    }))
+    .filter(group => group.tabs.length > 0);
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
 
