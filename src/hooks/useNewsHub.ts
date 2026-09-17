@@ -180,8 +180,9 @@ export async function uploadNewsHubFile(
   // NIE-WIDEO: duże pliki przez /upload, małe na Supabase
   if (isVideo || file.size > SERVER_UPLOAD_THRESHOLD_BYTES) {
     const res = await uploadWithMulter(file, SERVER_UPLOAD_FOLDERS[effectiveFolder], options.onProgress);
-    // Preferujemy ścieżkę względną — działa niezależnie od domeny i omija CORS.
-    const preferredUrl = res.relativePath || res.url;
+    // Do weryfikacji używamy najpierw ścieżki względnej (same-origin, bez CORS),
+    // ale ZAPISUJEMY zawsze kanoniczny absolutny URL serwera plików.
+    const preferredUrl = toCanonicalMediaUrl(res.relativePath || res.publicUrl || res.url);
     const candidates = [res.relativePath, res.publicUrl, res.url].filter(Boolean) as string[];
 
     const verr = await verifyUploadedUrl(candidates, kind);
