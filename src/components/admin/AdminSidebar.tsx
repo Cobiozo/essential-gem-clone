@@ -68,6 +68,7 @@ import {
   Smartphone,
   Video as VideoIcon,
   ListOrdered,
+  Wallet,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -295,6 +296,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     guests: 'Goście PLC',
     deletedAccounts: 'Usunięte konta',
     homepageV2: 'Strona główna V1/V2',
+    payments: 'Płatności',
+    newsHub: 'Aktualności (Centrum)',
+    challenge90: 'Wyzwanie 90',
   };
 
   const getLabel = (key: string): string => {
