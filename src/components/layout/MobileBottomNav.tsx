@@ -6,7 +6,7 @@ import { useMobileBottomNav } from '@/hooks/useMobileBottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
-// Paths where the bottom nav should NOT appear (public/guest flows, fullscreen pages)
+// Paths where the bottom nav should NOT appear (public/guest flows, fullscreen pages, admin panel)
 const HIDDEN_PREFIXES = [
   '/auth',
   '/reset-password',
@@ -22,6 +22,7 @@ const HIDDEN_PREFIXES = [
   '/page/',
   '/html/',
   '/moja-strona',
+  '/admin',
 ];
 
 /**
