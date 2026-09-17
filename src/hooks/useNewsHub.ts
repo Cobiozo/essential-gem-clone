@@ -301,7 +301,8 @@ function uploadWithMulter(file: File, folder: string, onProgress?: (pct: number)
       let data: any;
       try { data = JSON.parse(xhr.responseText); } catch { reject(new Error('Nieprawidłowa odpowiedź serwera')); return; }
       if (xhr.status < 200 || xhr.status >= 300 || !data?.success) {
-        reject(new Error(data?.error || `Upload nieudany (status ${xhr.status})`));
+        // Serwer w `message` opisuje konkretną przyczynę (np. wymagany format wideo) — pokazujemy ją adminowi.
+        reject(new Error(data?.message || data?.error || `Upload nieudany (status ${xhr.status})`));
         return;
       }
       const publicUrl: string = typeof data.url === 'string' ? data.url : (typeof data.publicUrl === 'string' ? data.publicUrl : '');

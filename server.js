@@ -36,7 +36,22 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
-const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelifecenter.pl';
+// Martwe domeny, które nie istnieją już w DNS — nigdy nie wolno budować z nich URL-i plików.
+const DEAD_MEDIA_HOSTS = ['purelife.info.pl', 'www.purelife.info.pl'];
+const CANONICAL_MEDIA_ORIGIN = 'https://purelifecenter.pl';
+
+function sanitizeMediaOrigin(value) {
+  if (!value) return CANONICAL_MEDIA_ORIGIN;
+  try {
+    const parsed = new URL(value);
+    if (DEAD_MEDIA_HOSTS.includes(parsed.hostname.toLowerCase())) return CANONICAL_MEDIA_ORIGIN;
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return CANONICAL_MEDIA_ORIGIN;
+  }
+}
+
+const PRODUCTION_DOMAIN = sanitizeMediaOrigin(process.env.PRODUCTION_DOMAIN);
 
 // Shutdown state for graceful termination
 let isShuttingDown = false;
@@ -183,14 +198,62 @@ function isVideoUpload(filePath, mimetype = '') {
   return mimetype.toLowerCase().startsWith('video/') || VIDEO_EXTENSIONS.has(path.extname(filePath).toLowerCase());
 }
 
+function hasBinary(bin) {
+  const r = spawnSync(bin, ['-version'], { encoding: 'utf8' });
+  return !r.error && r.status === 0;
+}
+
+const FFPROBE_AVAILABLE = hasBinary('ffprobe');
+const FFMPEG_AVAILABLE = hasBinary('ffmpeg');
+// Awaryjny wyłącznik: pozwala opublikować plik bez weryfikacji technicznej (domyślnie WYŁĄCZONY).
+const ALLOW_UNVERIFIED_VIDEO = process.env.ALLOW_UNVERIFIED_VIDEO === '1';
+
+/**
+ * Czy `moov` (indeks pliku) jest przed `mdat` — warunek progresywnego odtwarzania
+ * (faststart). Czytamy wyłącznie nagłówki boxów, nie cały plik.
+ */
+function hasFaststart(filePath) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const total = fs.fstatSync(fd).size;
+    const header = Buffer.alloc(16);
+    let offset = 0;
+    for (let i = 0; i < 64 && offset + 8 < total; i++) {
+      const read = fs.readSync(fd, header, 0, 16, offset);
+      if (read < 8) break;
+      let size = header.readUInt32BE(0);
+      const type = header.toString('latin1', 4, 8);
+      if (size === 1) {
+        if (read < 16) break;
+        size = Number(header.readBigUInt64BE(8));
+      } else if (size === 0) {
+        size = total - offset;
+      }
+      if (type === 'moov') return true;
+      if (type === 'mdat') return false;
+      if (size < 8) break;
+      offset += size;
+    }
+    return false;
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch {} }
+  }
+}
+
 function inspectVideo(filePath) {
+  if (!FFPROBE_AVAILABLE) {
+    return { available: false, error: 'ffprobe not installed on this server' };
+  }
+
   const probe = spawnSync('ffprobe', [
     '-v', 'error',
-    '-select_streams', 'v:0',
-    '-show_entries', 'stream=codec_name,profile,pix_fmt,codec_tag_string',
+    '-show_entries', 'stream=codec_type,codec_name,profile,pix_fmt,codec_tag_string:format=format_name',
     '-of', 'json',
     filePath,
-  ], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  ], { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
 
   if (probe.error || probe.status !== 0) {
     return { available: false, error: probe.error?.message || probe.stderr || 'ffprobe failed' };
@@ -198,17 +261,53 @@ function inspectVideo(filePath) {
 
   try {
     const parsed = JSON.parse(probe.stdout || '{}');
-    const stream = parsed.streams?.[0] || {};
-    return { available: true, stream };
+    const streams = parsed.streams || [];
+    const stream = streams.find((s) => s.codec_type === 'video') || {};
+    const audio = streams.find((s) => s.codec_type === 'audio') || null;
+    const formatName = String(parsed.format?.format_name || '').toLowerCase();
+    return {
+      available: true,
+      stream,
+      audio,
+      formatName,
+      faststart: hasFaststart(filePath),
+    };
   } catch (error) {
     return { available: false, error: error.message };
   }
 }
 
-function isIphoneSafeVideo(stream) {
+/** Jedyny akceptowany standard: MP4 + H.264 + yuv420p + AAC (audio opcjonalne). */
+function isIphoneSafeVideo(stream, audio, formatName, ext) {
   const codec = String(stream.codec_name || '').toLowerCase();
   const pixFmt = String(stream.pix_fmt || '').toLowerCase();
-  return codec === 'h264' && (!pixFmt || pixFmt === 'yuv420p');
+  const audioCodec = audio ? String(audio.codec_name || '').toLowerCase() : null;
+  const containerOk = ext === '.mp4' && (!formatName || formatName.includes('mp4'));
+  return (
+    containerOk &&
+    codec === 'h264' &&
+    (!pixFmt || pixFmt === 'yuv420p') &&
+    (audioCodec === null || audioCodec === 'aac')
+  );
+}
+
+/** Remux bez re-enkodowania: przenosi `moov` na początek pliku. */
+function remuxFaststart(inputPath) {
+  const parsed = path.parse(inputPath);
+  const outputPath = path.join(parsed.dir, `${parsed.name}-fs.mp4`);
+  const result = spawnSync('ffmpeg', [
+    '-y', '-hide_banner', '-loglevel', 'error',
+    '-i', inputPath,
+    '-c', 'copy',
+    '-movflags', '+faststart',
+    outputPath,
+  ], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
+
+  if (result.error || result.status !== 0 || !fs.existsSync(outputPath)) {
+    try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+    return { success: false, error: result.error?.message || result.stderr || 'ffmpeg remux failed' };
+  }
+  return { success: true, outputPath };
 }
 
 function transcodeToIphoneSafeMp4(inputPath) {
@@ -453,6 +552,12 @@ app.get('/health', (req, res) => {
     activeConnections: activeConnections.size,
     pid: process.pid,
     isShuttingDown,
+    media: {
+      origin: PRODUCTION_DOMAIN,
+      ffprobe: FFPROBE_AVAILABLE,
+      ffmpeg: FFMPEG_AVAILABLE,
+      allowUnverifiedVideo: ALLOW_UNVERIFIED_VIDEO,
+    },
   });
 });
 
@@ -547,19 +652,48 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
       const videoInfo = inspectVideo(req.file.path);
       const ext = path.extname(req.file.path).toLowerCase();
       const stream = videoInfo.stream || {};
-      const needsTranscode = videoInfo.available && (!isIphoneSafeVideo(stream) || ext !== '.mp4');
 
-      if (needsTranscode) {
-        console.log(`🎬 Transcoding video for iPhone/Safari compatibility: ${req.file.filename} (${stream.codec_name || 'unknown'} / ${stream.pix_fmt || 'unknown'})`);
-        const converted = transcodeToIphoneSafeMp4(req.file.path);
+      // Bez ffprobe nie da się stwierdzić, co naprawdę jest w pliku — nie publikujemy go.
+      if (!videoInfo.available && !ALLOW_UNVERIFIED_VIDEO) {
+        console.error('❌ Video verification unavailable:', videoInfo.error);
+        try { fs.unlinkSync(req.file.path); } catch {}
+        return res.status(422).json({
+          success: false,
+          error: 'Video verification unavailable',
+          message: 'Nie można zweryfikować pliku wideo na serwerze (brak ffprobe). Film nie został opublikowany.',
+        });
+      }
+
+      const safe = videoInfo.available && isIphoneSafeVideo(stream, videoInfo.audio, videoInfo.formatName, ext);
+      const needsTranscode = videoInfo.available && !safe;
+      const needsRemux = videoInfo.available && safe && !videoInfo.faststart;
+
+      if ((needsTranscode || needsRemux) && !FFMPEG_AVAILABLE) {
+        console.error('❌ ffmpeg missing — cannot normalize uploaded video');
+        try { fs.unlinkSync(req.file.path); } catch {}
+        return res.status(422).json({
+          success: false,
+          error: 'Video conversion unavailable',
+          message: 'Film nie może zostać opublikowany. Wymagany format: MP4 / H.264 / AAC / yuv420p / faststart. Serwer nie ma narzędzia do konwersji (ffmpeg).',
+        });
+      }
+
+      if (needsTranscode || needsRemux) {
+        const mode = needsRemux ? 'remux (+faststart)' : 'transcode';
+        console.log(`🎬 Video ${mode}: ${req.file.filename} (${stream.codec_name || 'unknown'} / ${stream.pix_fmt || 'unknown'} / audio ${videoInfo.audio?.codec_name || 'none'} / faststart ${videoInfo.faststart})`);
+        const converted = needsRemux ? remuxFaststart(req.file.path) : transcodeToIphoneSafeMp4(req.file.path);
 
         if (!converted.success) {
-          console.error('❌ Video transcode failed:', converted.error);
+          console.error('❌ Video conversion failed:', converted.error);
           try { fs.unlinkSync(req.file.path); } catch {}
+          const codec = String(stream.codec_name || '').toLowerCase();
+          const hint = ['hevc', 'vp9', 'av1', 'vp8'].includes(codec)
+            ? ` Wykryto ${codec.toUpperCase()} — przekonwertuj materiał do H.264.`
+            : '';
           return res.status(422).json({
             success: false,
             error: 'Video conversion failed',
-            message: 'Nie udało się przekonwertować wideo do formatu zgodnego z iPhone/Safari. Wgraj MP4 H.264 + AAC.',
+            message: `Film nie może zostać opublikowany. Wymagany format: MP4 / H.264 / AAC / yuv420p / faststart.${hint}`,
           });
         }
 
@@ -569,9 +703,24 @@ app.post('/upload', requireUploadAuth, (req, res, next) => {
         req.file.mimetype = 'video/mp4';
         finalFilePath = converted.outputPath;
         onDiskSize = fs.statSync(converted.outputPath).size;
-        console.log(`✅ Video converted to iPhone-safe MP4: ${req.file.filename} (${(onDiskSize / 1024 / 1024).toFixed(2)} MB)`);
+
+        // Kontrola po konwersji — publikujemy tylko plik, który faktycznie spełnia standard.
+        const after = inspectVideo(finalFilePath);
+        const afterOk = after.available
+          ? isIphoneSafeVideo(after.stream || {}, after.audio, after.formatName, '.mp4') && after.faststart
+          : ALLOW_UNVERIFIED_VIDEO;
+        if (!afterOk) {
+          console.error('❌ Converted file still does not meet the standard:', after.error || 'faststart/codec check failed');
+          try { fs.unlinkSync(finalFilePath); } catch {}
+          return res.status(422).json({
+            success: false,
+            error: 'Video still invalid after conversion',
+            message: 'Film nie może zostać opublikowany. Po konwersji plik nadal nie spełnia standardu MP4 / H.264 / AAC / yuv420p / faststart.',
+          });
+        }
+        console.log(`✅ Video published as iPhone-safe MP4: ${req.file.filename} (${(onDiskSize / 1024 / 1024).toFixed(2)} MB)`);
       } else if (!videoInfo.available) {
-        console.warn('⚠️ Could not inspect uploaded video codec; serving original file:', videoInfo.error);
+        console.warn('⚠️ ALLOW_UNVERIFIED_VIDEO=1 — publishing unverified video:', videoInfo.error);
       }
     }
 
