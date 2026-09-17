@@ -69,6 +69,7 @@ import {
   Video as VideoIcon,
   ListOrdered,
   Wallet,
+  Link2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
@@ -124,6 +125,9 @@ interface NavItem {
   labelKey: string; // key in SIDEBAR_LABELS
   icon: React.ElementType;
   path?: string;
+  // R2.3-D — gdy obecny, używany zamiast `value` do sprawdzenia dostępu moderatora.
+  // Pozwala dziedziczyć istniejący klucz uprawnień (np. "settings") bez tworzenia nowego.
+  permissionKey?: string;
 }
 
 interface NavCategory {
@@ -223,6 +227,7 @@ const navCategories: NavCategory[] = [
     icon: Wrench,
     items: [
       { value: 'payments', labelKey: 'payments', icon: Wallet, path: '/admin/payments' },
+      { value: 'admin-reflinks', labelKey: 'adminReflinks', icon: Link2, permissionKey: 'settings' },
       { value: 'purebox', labelKey: 'purebox', icon: Sparkles },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
@@ -315,6 +320,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     deletedAccounts: 'Usunięte konta',
     homepageV2: 'Strona główna V1/V2',
     payments: 'Płatności',
+    adminReflinks: 'Reflinki',
     newsHub: 'Aktualności (Centrum)',
     challenge90: 'Wyzwanie 90',
   };
@@ -336,7 +342,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         items: cat.items.filter((item) => {
           if (item.value === 'moderators' || item.value === 'guests' || item.value === 'deleted-accounts') return isAdmin;
           if (isAdmin) return true;
-          return can(item.value);
+          return can(item.permissionKey ?? item.value);
         }),
       }))
       .filter((cat) => cat.items.length > 0);
