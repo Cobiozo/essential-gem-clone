@@ -1,7 +1,8 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   TreePine, UserCheck, Users, Pencil,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
   Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio, Trophy, Video,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
@@ -69,6 +71,99 @@ const LEADER_NAV_GROUPS: Array<{ id: LeaderNavGroupId; label: string }> = [
   { id: 'communication', label: 'Komunikacja zespołu' },
   { id: 'tools', label: 'Narzędzia lidera' },
 ];
+
+type LeaderNavigationProps = {
+  groupedTabs: Array<{ id: LeaderNavGroupId; label: string; tabs: LeaderTab[] }>;
+  availableTabs: LeaderTab[];
+  initialTab: string;
+  renderTabContent: (tabId: string) => React.ReactNode;
+};
+
+const LeaderNavigation: React.FC<LeaderNavigationProps> = ({
+  groupedTabs,
+  availableTabs,
+  initialTab,
+  renderTabContent,
+}) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const initialGroup = availableTabs.find(tab => tab.id === initialTab)?.group ?? groupedTabs[0]?.id ?? '';
+  const [openGroup, setOpenGroup] = useState(initialGroup);
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start xl:gap-8">
+        <nav aria-label="Funkcje Panelu Lidera" className="min-w-0 lg:sticky lg:top-4">
+          <Accordion
+            type="single"
+            collapsible
+            value={openGroup}
+            onValueChange={setOpenGroup}
+            className="overflow-hidden rounded-md border bg-card/50"
+          >
+            {groupedTabs.map(group => {
+              const groupIsActive = group.tabs.some(tab => tab.id === activeTab);
+
+              return (
+                <AccordionItem key={group.id} value={group.id} className="border-border/70 last:border-b-0">
+                  <AccordionTrigger
+                    className={`min-h-14 gap-3 px-4 py-3 text-left hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[state=open]:bg-muted/60 [&>svg]:h-5 [&>svg]:w-5 ${groupIsActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-3">
+                      <span className="min-w-0 flex-1 text-sm leading-5">{group.label}</span>
+                      <Badge
+                        variant={groupIsActive ? 'default' : 'secondary'}
+                        className="h-6 min-w-6 justify-center px-1.5"
+                        aria-label={`${group.tabs.length} ${group.tabs.length === 1 ? 'pozycja' : 'pozycji'}`}
+                      >
+                        {group.tabs.length}
+                      </Badge>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-2 pb-2 pt-1">
+                    <div className="flex flex-col gap-1">
+                      {group.tabs.map(tab => (
+                        <TabsTrigger
+                          key={tab.id}
+                          value={tab.id}
+                          onClick={() => setOpenGroup(group.id)}
+                          className="group relative min-h-12 w-full justify-start gap-3 whitespace-normal rounded-md px-3 py-2.5 text-left data-[state=active]:bg-primary data-[state=active]:text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                        >
+                          <tab.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 flex-1 text-sm font-medium leading-5">{tab.label}</span>
+                          {tab.badge > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-auto h-5 min-w-5 justify-center px-1 text-xs"
+                              aria-label={`${tab.badge} oczekujących`}
+                            >
+                              {tab.badge}
+                            </Badge>
+                          )}
+                          <ChevronRight
+                            className="h-4 w-4 shrink-0 opacity-60 transition-transform group-data-[state=active]:translate-x-0.5 motion-reduce:transition-none"
+                            aria-hidden="true"
+                          />
+                        </TabsTrigger>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </nav>
+
+        <div className="min-w-0">
+          {availableTabs.map(tab => (
+            <TabsContent key={tab.id} value={tab.id} className="mt-0 min-w-0 focus-visible:outline-none">
+              {renderTabContent(tab.id)}
+            </TabsContent>
+          ))}
+        </div>
+      </div>
+    </Tabs>
+  );
+};
 
 const LeaderPanel: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
