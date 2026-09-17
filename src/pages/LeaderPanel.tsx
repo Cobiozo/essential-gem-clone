@@ -308,9 +308,9 @@ const LeaderPanel: React.FC = () => {
           renderTabContent(availableTabs[0].id)
         ) : (
           <Tabs defaultValue={resolvedDefaultTab}>
-            <TabsList className="mb-6 grid h-auto w-full grid-cols-1 items-stretch justify-start gap-3 bg-transparent p-0 text-foreground sm:grid-cols-2 lg:grid-cols-5">
+            <TabsList className="mb-6 h-auto w-full flex-wrap items-stretch justify-start gap-3 bg-transparent p-0 text-foreground">
               {groupedTabs.map(group => (
-                <div key={group.id} className="rounded-md border bg-muted/30 p-2">
+                <div key={group.id} className="w-full rounded-md border bg-muted/30 p-2 sm:w-[calc(50%-0.375rem)] lg:min-w-0 lg:flex-1">
                   <div className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
                     {group.label}
                   </div>
