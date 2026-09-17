@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { Tabs, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -98,7 +98,7 @@ const LeaderNavigation: React.FC<LeaderNavigationProps> = ({
             collapsible
             value={openGroup}
             onValueChange={setOpenGroup}
-            className="overflow-hidden rounded-md border bg-card/50"
+            className="overflow-hidden rounded-md border bg-card/50 motion-reduce:[&_[data-state]]:animate-none motion-reduce:[&_[data-state]]:transition-none"
           >
             {groupedTabs.map(group => {
               const groupIsActive = group.tabs.some(tab => tab.id === activeTab);
@@ -120,7 +120,10 @@ const LeaderNavigation: React.FC<LeaderNavigationProps> = ({
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="px-2 pb-2 pt-1">
-                    <div className="flex flex-col gap-1">
+                    <TabsList
+                      aria-label={group.label}
+                      className="flex h-auto w-full flex-col items-stretch gap-1 bg-transparent p-0 text-foreground"
+                    >
                       {group.tabs.map(tab => (
                         <TabsTrigger
                           key={tab.id}
@@ -145,7 +148,7 @@ const LeaderNavigation: React.FC<LeaderNavigationProps> = ({
                           />
                         </TabsTrigger>
                       ))}
-                    </div>
+                    </TabsList>
                   </AccordionContent>
                 </AccordionItem>
               );
