@@ -271,9 +271,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
   const hardcodedLabels: Record<string, string> = {
-    siteAndAppearance: 'Strona i wygląd',
-    trainingAndKnowledge: 'Szkolenia i wiedza',
-    eventsAndTools: 'Wydarzenia i narzędzia',
+    // R2.2-B — etykiety 8 grup docelowej architektury informacji
+    adminDashboard: 'Pulpit administratora',
+    peopleAndAccess: 'Ludzie i dostępy',
+    contentAndAppearance: 'Treść i wygląd',
+    learning: 'Nauka',
+    eventsCategory: 'Wydarzenia',
+    communication: 'Komunikacja',
+    toolsAndSales: 'Narzędzia i sprzedaż',
+    system: 'System',
+    mediaLibrary: 'Biblioteka mediów',
+    mobileBottomNav: 'Dolny pasek mobilny',
     colorsAndThemes: 'Kolory i motywy',
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
