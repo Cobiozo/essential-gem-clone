@@ -46,3 +46,31 @@ export function resolveMediaUrl(url?: string | null): string {
     return value;
   }
 }
+
+/**
+ * Wersja używana przy ZAPISIE adresu do bazy: zawsze zwraca pełny, kanoniczny
+ * URL (nigdy względnego `/uploads/...` ani martwej domeny), więc rekord nie
+ * zależy od domeny przeglądarki, na której wykonano upload.
+ */
+export function toCanonicalMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  const value = url.trim();
+  if (!value) return '';
+  if (value.startsWith('data:') || value.startsWith('blob:')) return value;
+
+  if (value.startsWith('/uploads/')) return `${MEDIA_ORIGIN}${value}`;
+
+  if (!/^https?:\/\//i.test(value)) return value;
+
+  try {
+    const parsed = new URL(value);
+    if (LEGACY_MEDIA_HOSTS.includes(parsed.hostname.toLowerCase())) {
+      parsed.protocol = 'https:';
+      parsed.hostname = MEDIA_HOST;
+      return parsed.toString();
+    }
+    return value;
+  } catch {
+    return value;
+  }
+}
