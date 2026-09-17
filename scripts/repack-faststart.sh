@@ -1,30 +1,43 @@
 #!/usr/bin/env bash
-# Przepakowanie istniejących filmów do faststart (moov na początku pliku).
-# Uruchamiać NA SERWERZE PLIKÓW (Cyberfolks), w katalogu z nagraniami.
+# R2.5-C — bezpieczne przepakowanie filmow do faststart (moov na poczatku pliku).
+# Dziala WYLACZNIE na plikach z manifestu (scripts/faststart-manifest.txt).
+# Bez re-enkodowania: ffmpeg -c copy -movflags +faststart (jakosc bez zmian).
 #
-#   bash scripts/repack-faststart.sh /home/.../uploads/training-media          # tryb raportu
-#   bash scripts/repack-faststart.sh /home/.../uploads/training-media --apply  # przepakowanie
+# Uruchamiac NA SERWERZE PLIKOW (Cyberfolks):
+#   bash repack-faststart.sh /home/.../uploads/training-media faststart-manifest.txt            # DRY-RUN (domyslny)
+#   bash repack-faststart.sh /home/.../uploads/training-media faststart-manifest.txt --apply    # wykonanie
 #
-# Bez re-enkodowania (-c copy) — jakość i rozmiar pozostają bez zmian.
+# Bezpieczenstwo:
+#   - nie skanuje katalogu, przetwarza tylko nazwy z manifestu,
+#   - pomija pliki ktore juz maja faststart (mozna uruchamiac wielokrotnie),
+#   - wynik zapisuje do pliku tymczasowego .repack.tmp.mp4,
+#   - weryfikuje wynik przez ffprobe (mp4 + h264 + aac + yuv420p + faststart) PRZED podmiana,
+#   - oryginal kopiuje do podkatalogu _faststart_backup/ i podmienia atomowo (mv w tym samym FS),
+#   - loguje kazdy plik do repack-faststart.log (OK/SKIP/FAIL) — log sluzy tez do wznowienia.
 set -euo pipefail
 
 DIR="${1:?Podaj katalog z plikami wideo}"
-APPLY="${2:-}"
+MANIFEST="${2:?Podaj plik manifestu z nazwami plikow}"
+APPLY="${3:-}"
 
-command -v ffmpeg >/dev/null || { echo "Brak ffmpeg na serwerze"; exit 1; }
+command -v ffmpeg  >/dev/null || { echo "Brak ffmpeg na serwerze";  exit 1; }
 command -v ffprobe >/dev/null || { echo "Brak ffprobe na serwerze"; exit 1; }
+command -v python3 >/dev/null || { echo "Brak python3 na serwerze"; exit 1; }
 
-needs_faststart() {
-  # moov po mdat => brak faststart
-  local order
-  order="$(ffprobe -v error -show_entries "format=format_name" -of csv=p=0 "$1" >/dev/null 2>&1 && \
-    python3 - "$1" <<'PY'
-import struct, sys
+[ -d "$DIR" ] || { echo "Brak katalogu: $DIR"; exit 1; }
+[ -f "$MANIFEST" ] || { echo "Brak manifestu: $MANIFEST"; exit 1; }
+
+BACKUP_DIR="$DIR/_faststart_backup"
+LOG="$DIR/repack-faststart.log"
+
+has_faststart() {
+  python3 - "$1" <<'PY'
+import os, struct, sys
 p = sys.argv[1]
+total = os.path.getsize(p)
+res = 'needs'
 with open(p, 'rb') as f:
     off = 0
-    import os
-    total = os.path.getsize(p)
     for _ in range(64):
         f.seek(off)
         h = f.read(16)
@@ -37,37 +50,95 @@ with open(p, 'rb') as f:
         elif size == 0:
             size = total - off
         if t == 'moov':
-            print('ok'); break
+            res = 'ok'; break
         if t == 'mdat':
-            print('needs'); break
+            res = 'needs'; break
         if size < 8:
             break
         off += size
-    else:
-        print('needs')
+print(res)
 PY
-  )"
-  [ "$order" = "needs" ]
 }
 
-count=0
-fixed=0
-while IFS= read -r -d '' f; do
-  if needs_faststart "$f"; then
-    count=$((count + 1))
-    echo "BRAK FASTSTART: $f"
-    if [ "$APPLY" = "--apply" ]; then
-      tmp="${f%.*}.faststart.mp4"
-      if ffmpeg -y -hide_banner -loglevel error -i "$f" -c copy -movflags +faststart "$tmp"; then
-        mv -f "$tmp" "$f"
-        fixed=$((fixed + 1))
-        echo "  -> przepakowano"
-      else
-        rm -f "$tmp"
-        echo "  -> BŁĄD, plik pozostawiony bez zmian"
-      fi
-    fi
-  fi
-done < <(find "$DIR" -maxdepth 1 -type f \( -iname '*.mp4' -o -iname '*.m4v' -o -iname '*.mov' \) -print0)
+probe() { # probe <plik> -> "container|vcodec|acodec|pixfmt"
+  local fmt v a pix
+  fmt="$(ffprobe -v error -show_entries format=format_name -of csv=p=0 "$1" || echo '')"
+  v="$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$1" || echo '')"
+  a="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$1" || echo '')"
+  pix="$(ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of csv=p=0 "$1" || echo '')"
+  echo "${fmt}|${v}|${a}|${pix}"
+}
 
-echo "Pliki bez faststart: $count, przepakowane: $fixed"
+is_standard() { # "container|vcodec|acodec|pixfmt"
+  case "$1" in
+    *mp4*\|h264\|aac\|yuv420p) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+total=0; todo=0; skipped=0; fixed=0; failed=0; notstd=0; missing=0; bytes=0
+DRY=1; [ "$APPLY" = "--apply" ] && DRY=0
+[ "$DRY" = "1" ] && echo "=== TRYB DRY-RUN — zadnych zmian na dysku ===" || echo "=== TRYB APPLY ==="
+
+if [ "$DRY" = "0" ]; then
+  mkdir -p "$BACKUP_DIR"
+  touch "$LOG"
+fi
+
+while IFS= read -r name; do
+  [ -z "$name" ] && continue
+  case "$name" in \#*) continue ;; esac
+  total=$((total + 1))
+  f="$DIR/$name"
+
+  if [ ! -f "$f" ]; then
+    echo "MISSING  $name"; missing=$((missing + 1)); continue
+  fi
+  if [ "$(has_faststart "$f")" = "ok" ]; then
+    echo "SKIP     $name (ma juz faststart)"; skipped=$((skipped + 1)); continue
+  fi
+
+  info="$(probe "$f")"
+  if ! is_standard "$info"; then
+    echo "NIE-STD  $name ($info) — wymaga decyzji / re-enkodowania, pomijam"
+    notstd=$((notstd + 1)); continue
+  fi
+
+  size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+  todo=$((todo + 1)); bytes=$((bytes + size))
+
+  if [ "$DRY" = "1" ]; then
+    echo "PLAN     $name ($info, $((size / 1048576)) MB) -> ffmpeg -c copy -movflags +faststart"
+    continue
+  fi
+
+  tmp="$f.repack.tmp.mp4"
+  rm -f "$tmp"
+  if ! ffmpeg -y -hide_banner -loglevel error -i "$f" -c copy -movflags +faststart "$tmp"; then
+    rm -f "$tmp"; echo "FAIL     $name (ffmpeg)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+  fi
+  out="$(probe "$tmp")"
+  if ! is_standard "$out" || [ "$(has_faststart "$tmp")" != "ok" ]; then
+    rm -f "$tmp"; echo "FAIL     $name (weryfikacja: $out)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+  fi
+  osize=$(stat -c%s "$tmp" 2>/dev/null || stat -f%z "$tmp")
+  if [ "$osize" -lt $((size / 2)) ]; then
+    rm -f "$tmp"; echo "FAIL     $name (podejrzany rozmiar wyniku: $osize < $size)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+  fi
+
+  cp -p "$f" "$BACKUP_DIR/$name"
+  mv -f "$tmp" "$f"          # atomowy rename w obrebie tego samego systemu plikow
+  echo "OK       $name ($out, faststart)" | tee -a "$LOG"
+  fixed=$((fixed + 1))
+done < "$MANIFEST"
+
+echo "----"
+echo "Z manifestu: $total | brak na dysku: $missing | juz faststart: $skipped | niestandardowe: $notstd"
+if [ "$DRY" = "1" ]; then
+  echo "Do przepakowania: $todo, laczny rozmiar: $((bytes / 1048576)) MB"
+  echo "Wymagane wolne miejsce: ~$((bytes / 1048576)) MB (kopie zapasowe) + ~$((bytes / 1048576 / 10)) MB zapasu na plik tymczasowy"
+  echo "Przewidywany wynik: kazdy plik MP4/h264/aac/yuv420p z moov na poczatku, rozmiar praktycznie bez zmian."
+  echo "Uruchom ponownie z --apply aby wykonac."
+else
+  echo "Przepakowane: $fixed | bledy: $failed | kopie: $BACKUP_DIR | log: $LOG"
+fi
