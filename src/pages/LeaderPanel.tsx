@@ -336,21 +336,25 @@ const LeaderPanel: React.FC = () => {
 
   return (
     <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
-      <div className="container mx-auto px-4 py-6 max-w-5xl">
+      <div className="container mx-auto max-w-6xl px-0 py-2 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] sm:px-2 sm:py-4 lg:px-4 lg:py-6 lg:pb-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <Crown className="h-6 w-6 text-primary" />
+        <div className="mb-5 flex items-start gap-3 sm:mb-6">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <Crown className="h-5 w-5 text-primary" aria-hidden="true" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">Panel Lidera</h1>
-            <p className="text-muted-foreground text-sm">Narzędzia i statystyki Twojej struktury</p>
+            <h1 className="text-2xl font-bold leading-tight sm:text-3xl">Panel Lidera</h1>
+            <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">
+              Zarządzaj zespołem, rozwojem i komunikacją w jednym miejscu.
+            </p>
           </div>
         </div>
 
         {/* My Team Card */}
         {teamData && (
-          <Card className="mb-6">
-            <CardContent className="py-4 flex items-center gap-4 flex-wrap">
-              <Users className="h-5 w-5 text-primary" />
+          <Card className="mb-5 sm:mb-6">
+            <CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+              <Users className="h-5 w-5 text-primary" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm">Mój zespół:</span>
@@ -366,7 +370,7 @@ const LeaderPanel: React.FC = () => {
                   setEditNameOpen(true);
                 }}
               >
-                <Pencil className="h-3 w-3 mr-1" />
+                <Pencil className="mr-1 h-3 w-3" />
                 Edytuj nazwę
               </Button>
             </CardContent>
@@ -402,36 +406,12 @@ const LeaderPanel: React.FC = () => {
         {availableTabs.length === 1 ? (
           renderTabContent(availableTabs[0].id)
         ) : (
-          <Tabs defaultValue={resolvedDefaultTab}>
-            <TabsList className="mb-6 h-auto w-full flex-wrap items-stretch justify-start gap-3 bg-transparent p-0 text-foreground">
-              {groupedTabs.map(group => (
-                <div key={group.id} className="w-full rounded-md border bg-muted/30 p-2 sm:w-[calc(50%-0.375rem)] lg:min-w-0 lg:flex-1">
-                  <div className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
-                    {group.label}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    {group.tabs.map(tab => (
-                      <TabsTrigger key={tab.id} value={tab.id} className="relative w-full justify-start gap-2 whitespace-normal text-left">
-                        <tab.icon className="h-4 w-4 shrink-0" />
-                        <span className="min-w-0 flex-1">{tab.label}</span>
-                        {tab.badge > 0 && (
-                          <Badge variant="default" className="ml-auto h-5 min-w-[20px] px-1 text-xs">
-                            {tab.badge}
-                          </Badge>
-                        )}
-                      </TabsTrigger>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </TabsList>
-
-            {availableTabs.map(tab => (
-              <TabsContent key={tab.id} value={tab.id}>
-                {renderTabContent(tab.id)}
-              </TabsContent>
-            ))}
-          </Tabs>
+          <LeaderNavigation
+            groupedTabs={groupedTabs}
+            availableTabs={availableTabs}
+            initialTab={resolvedDefaultTab}
+            renderTabContent={renderTabContent}
+          />
         )}
       </div>
     </DashboardLayout>
