@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 import { supabase } from '@/integrations/supabase/client';
+import { toCanonicalMediaUrl } from '@/lib/mediaUrl';
 
 export type UploadStage = 'idle' | 'transferring' | 'processing' | 'verifying' | 'done';
 
