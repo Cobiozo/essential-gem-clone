@@ -406,7 +406,7 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
 
           const isRecipientAdmin = recipientRole?.role === 'admin';
           const notificationLink = isRecipientAdmin 
-            ? '/admin?tab=pure-contacts'
+            ? '/messages'
             : '/my-account?tab=private-chats';
 
           await supabase.from('user_notifications').insert({
