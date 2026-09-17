@@ -16,9 +16,10 @@ import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSe
 import { TeamTrainingProgressView } from '@/components/training/TeamTrainingProgressView';
 import {
   CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound,
-  TreePine, UserCheck, Users, Pencil, ShieldX,
+  TreePine, UserCheck, Users, Pencil,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
   Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio, Trophy, Video,
+  type LucideIcon,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
@@ -50,6 +51,24 @@ const LazyFallback = () => (
     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
   </div>
 );
+
+type LeaderNavGroupId = 'team' | 'growth' | 'events' | 'communication' | 'tools';
+
+type LeaderTab = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  badge: number;
+  group: LeaderNavGroupId;
+};
+
+const LEADER_NAV_GROUPS: Array<{ id: LeaderNavGroupId; label: string }> = [
+  { id: 'team', label: 'Mój zespół' },
+  { id: 'growth', label: 'Rozwój zespołu' },
+  { id: 'events', label: 'Wydarzenia zespołu' },
+  { id: 'communication', label: 'Komunikacja zespołu' },
+  { id: 'tools', label: 'Narzędzia lidera' },
+];
 
 const LeaderPanel: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -126,33 +145,43 @@ const LeaderPanel: React.FC = () => {
     );
   }
 
-  // Build available tabs dynamically
-  const availableTabs = [
-    ...(hasOrgTree ? [{ id: 'org-tree', label: 'Moja struktura', icon: TreePine, badge: 0 }] : []),
-    ...(hasTeamProgress ? [{ id: 'training', label: 'Szkolenia zespołu', icon: GraduationCap, badge: 0 }] : []),
-    ...(hasMeetings ? [{ id: 'meetings', label: 'Spotkania indywidualne', icon: CalendarDays, badge: 0 }] : []),
-    ...(hasApprovalPermission ? [{ id: 'approvals', label: 'Zatwierdzenia', icon: UserCheck, badge: pendingCount }] : []),
-    ...(hasInfluencerCalc ? [{ id: 'calc-inf', label: 'Kalk. Influencerów', icon: Calculator, badge: 0 }] : []),
-    ...(hasSpecialistCalc ? [{ id: 'calc-spec', label: 'Kalk. Specjalistów', icon: UserRound, badge: 0 }] : []),
-    // New delegated tabs
-    ...(hasTeamEvents ? [{ id: 'team-events', label: 'Wydarzenia', icon: CalendarPlus, badge: 0 }] : []),
-    ...(hasEventRegistrations ? [{ id: 'event-regs', label: 'Rejestracje', icon: ClipboardList, badge: 0 }] : []),
-    ...(hasTeamTrainingMgmt ? [{ id: 'training-mgmt', label: 'Zarz. szkoleniami', icon: BookOpenCheck, badge: 0 }] : []),
-    ...(hasKnowledgeBase ? [{ id: 'knowledge', label: 'Baza wiedzy', icon: Library, badge: 0 }] : []),
-    ...(hasTeamNotifications ? [{ id: 'notifications', label: 'Powiadomienia', icon: Bell, badge: 0 }] : []),
-    ...(hasTeamEmails ? [{ id: 'emails', label: 'Emaile', icon: Mail, badge: 0 }] : []),
-    ...(hasTeamPush ? [{ id: 'push', label: 'Push', icon: Smartphone, badge: 0 }] : []),
-    ...((hasTeamContacts || hasTeamContactsMgmt) ? [{ id: 'contacts', label: 'Kontakty', icon: Contact, badge: 0 }] : []),
-    ...(hasDailySignal ? [{ id: 'daily-signal', label: 'Sygnał Dnia', icon: Sun, badge: 0 }] : []),
-    ...(hasImportantInfo ? [{ id: 'important-info', label: 'Ważne info', icon: Info, badge: 0 }] : []),
-    ...(hasTeamReflinks ? [{ id: 'reflinks', label: 'Reflinki', icon: Link, badge: 0 }] : []),
-    ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0 }] : []),
-    ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
-    ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0 }] : []),
-    ...(hasAutoWebinarAccess ? [{ id: 'auto-webinar', label: 'Auto-Webinary', icon: Radio, badge: 0 }] : []),
-    ...(hasChallengeAccessMgmt ? [{ id: 'challenge-access', label: 'Wyzwanie 90', icon: Trophy, badge: 0 }] : []),
-    { id: 'zoom-links', label: 'Linki Zoom', icon: Video, badge: 0 },
+  // Build available tabs dynamically. IDs are existing activeTab values and must stay stable.
+  const availableTabs: LeaderTab[] = [
+    ...(hasOrgTree ? [{ id: 'org-tree', label: 'Moja struktura', icon: TreePine, badge: 0, group: 'team' as const }] : []),
+    ...((hasTeamContacts || hasTeamContactsMgmt) ? [{ id: 'contacts', label: 'Kontakty', icon: Contact, badge: 0, group: 'team' as const }] : []),
+    ...(hasApprovalPermission ? [{ id: 'approvals', label: 'Zatwierdzenia', icon: UserCheck, badge: pendingCount, group: 'team' as const }] : []),
+    ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0, group: 'team' as const }] : []),
+
+    ...(hasTeamProgress ? [{ id: 'training', label: 'Szkolenia zespołu', icon: GraduationCap, badge: 0, group: 'growth' as const }] : []),
+    ...(hasTeamTrainingMgmt ? [{ id: 'training-mgmt', label: 'Zarz. szkoleniami', icon: BookOpenCheck, badge: 0, group: 'growth' as const }] : []),
+    ...(hasKnowledgeBase ? [{ id: 'knowledge', label: 'Baza wiedzy', icon: Library, badge: 0, group: 'growth' as const }] : []),
+    ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0, group: 'growth' as const }] : []),
+    ...(hasAutoWebinarAccess ? [{ id: 'auto-webinar', label: 'Auto-Webinary', icon: Radio, badge: 0, group: 'growth' as const }] : []),
+    ...(hasChallengeAccessMgmt ? [{ id: 'challenge-access', label: 'Wyzwanie 90', icon: Trophy, badge: 0, group: 'growth' as const }] : []),
+
+    ...(hasMeetings ? [{ id: 'meetings', label: 'Spotkania indywidualne', icon: CalendarDays, badge: 0, group: 'events' as const }] : []),
+    ...(hasTeamEvents ? [{ id: 'team-events', label: 'Wydarzenia', icon: CalendarPlus, badge: 0, group: 'events' as const }] : []),
+    ...(hasEventRegistrations ? [{ id: 'event-regs', label: 'Rejestracje', icon: ClipboardList, badge: 0, group: 'events' as const }] : []),
+    { id: 'zoom-links', label: 'Linki Zoom', icon: Video, badge: 0, group: 'events' as const },
+
+    ...(hasTeamNotifications ? [{ id: 'notifications', label: 'Powiadomienia', icon: Bell, badge: 0, group: 'communication' as const }] : []),
+    ...(hasTeamEmails ? [{ id: 'emails', label: 'Emaile', icon: Mail, badge: 0, group: 'communication' as const }] : []),
+    ...(hasTeamPush ? [{ id: 'push', label: 'Push', icon: Smartphone, badge: 0, group: 'communication' as const }] : []),
+    ...(hasDailySignal ? [{ id: 'daily-signal', label: 'Sygnał Dnia', icon: Sun, badge: 0, group: 'communication' as const }] : []),
+    ...(hasImportantInfo ? [{ id: 'important-info', label: 'Ważne info', icon: Info, badge: 0, group: 'communication' as const }] : []),
+
+    ...(hasInfluencerCalc ? [{ id: 'calc-inf', label: 'Kalk. Influencerów', icon: Calculator, badge: 0, group: 'tools' as const }] : []),
+    ...(hasSpecialistCalc ? [{ id: 'calc-spec', label: 'Kalk. Specjalistów', icon: UserRound, badge: 0, group: 'tools' as const }] : []),
+    ...(hasTeamReflinks ? [{ id: 'reflinks', label: 'Reflinki', icon: Link, badge: 0, group: 'tools' as const }] : []),
+    ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0, group: 'tools' as const }] : []),
   ];
+
+  const groupedTabs = LEADER_NAV_GROUPS
+    .map(group => ({
+      ...group,
+      tabs: availableTabs.filter(tab => tab.group === group.id),
+    }))
+    .filter(group => group.tabs.length > 0);
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
 
@@ -279,17 +308,26 @@ const LeaderPanel: React.FC = () => {
           renderTabContent(availableTabs[0].id)
         ) : (
           <Tabs defaultValue={resolvedDefaultTab}>
-            <TabsList className="mb-6 flex-wrap h-auto gap-1">
-              {availableTabs.map(tab => (
-                <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2 relative">
-                  <tab.icon className="h-4 w-4" />
-                  {tab.label}
-                  {tab.badge > 0 && (
-                    <Badge variant="default" className="ml-1 h-5 min-w-[20px] px-1 text-xs">
-                      {tab.badge}
-                    </Badge>
-                  )}
-                </TabsTrigger>
+            <TabsList className="mb-6 h-auto w-full flex-wrap items-stretch justify-start gap-3 bg-transparent p-0 text-foreground">
+              {groupedTabs.map(group => (
+                <div key={group.id} className="w-full rounded-md border bg-muted/30 p-2 sm:w-[calc(50%-0.375rem)] lg:min-w-0 lg:flex-1">
+                  <div className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
+                    {group.label}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    {group.tabs.map(tab => (
+                      <TabsTrigger key={tab.id} value={tab.id} className="relative w-full justify-start gap-2 whitespace-normal text-left">
+                        <tab.icon className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0 flex-1">{tab.label}</span>
+                        {tab.badge > 0 && (
+                          <Badge variant="default" className="ml-auto h-5 min-w-[20px] px-1 text-xs">
+                            {tab.badge}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                    ))}
+                  </div>
+                </div>
               ))}
             </TabsList>
 
