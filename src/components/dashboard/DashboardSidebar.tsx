@@ -450,12 +450,13 @@ export const DashboardSidebar: React.FC = () => {
       labelKey: 'dashboard.menu.pureContacts',
       hasSubmenu: true,
       submenuItems: [
-        { id: 'private-contacts', labelKey: 'dashboard.menu.privateContacts', path: '/my-account?tab=team-contacts&subTab=private', icon: Contact },
-        { id: 'team-contacts', labelKey: 'dashboard.menu.teamContacts', path: '/my-account?tab=team-contacts&subTab=team', icon: Users },
-        { id: 'search-specialist', labelKey: 'dashboard.menu.searchSpecialist', path: '/my-account?tab=team-contacts&subTab=search', icon: Search },
+        { id: 'private-contacts', labelKey: 'dashboard.menu.privateContacts', path: '/contacts?subTab=private', icon: Contact },
+        { id: 'team-contacts', labelKey: 'dashboard.menu.teamContacts', path: '/contacts?subTab=team', icon: Users },
+        { id: 'search-specialist', labelKey: 'dashboard.menu.searchSpecialist', path: '/contacts?subTab=search', icon: Search },
       ],
       visibleFor: ['partner', 'specjalista', 'admin']
     },
+    { id: 'messages', icon: MessageCircle, labelKey: 'Wiadomości', path: '/messages' },
     { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/aktualnosci' },
     { 
       id: 'events', 
@@ -479,8 +480,7 @@ export const DashboardSidebar: React.FC = () => {
       id: 'reflinks', 
       icon: Link2, 
       labelKey: 'dashboard.pureLinki', 
-      path: '/my-account', 
-      tab: 'reflinks',
+      path: '/reflinki',
     },
     ...(hasPartnerPageAccess ? [{
       id: 'moja-strona',
