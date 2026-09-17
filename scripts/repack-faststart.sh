@@ -133,7 +133,7 @@ while IFS= read -r name; do
 
   if ! is_standard "$info"; then
     echo "NIE-STD  $name ($info) — wymaga decyzji / re-enkodowania, pomijam"
-    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "re-enkodowanie (decyzja recznа)" "POMINIETY (niezgodny ze standardem)"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "re-enkodowanie (decyzja reczna)" "POMINIETY (niezgodny ze standardem)"
     notstd=$((notstd + 1)); continue
   fi
 
