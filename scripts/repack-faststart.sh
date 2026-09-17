@@ -149,30 +149,51 @@ while IFS= read -r name; do
   tmp="$f.repack.tmp.mp4"
   rm -f "$tmp"
   if ! ffmpeg -y -hide_banner -loglevel error -i "$f" -c copy -movflags +faststart "$tmp"; then
-    rm -f "$tmp"; echo "FAIL     $name (ffmpeg)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+    rm -f "$tmp"; echo "FAIL     $name (ffmpeg)" | tee -a "$LOG"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "-c copy -movflags +faststart" "BLAD: ffmpeg"
+    failed=$((failed + 1)); continue
   fi
   out="$(probe "$tmp")"
   if ! is_standard "$out" || [ "$(has_faststart "$tmp")" != "ok" ]; then
-    rm -f "$tmp"; echo "FAIL     $name (weryfikacja: $out)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+    rm -f "$tmp"; echo "FAIL     $name (weryfikacja: $out)" | tee -a "$LOG"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "-c copy -movflags +faststart" "BLAD: weryfikacja wyniku ($out)"
+    failed=$((failed + 1)); continue
   fi
   osize=$(stat -c%s "$tmp" 2>/dev/null || stat -f%z "$tmp")
   if [ "$osize" -lt $((size / 2)) ]; then
-    rm -f "$tmp"; echo "FAIL     $name (podejrzany rozmiar wyniku: $osize < $size)" | tee -a "$LOG"; failed=$((failed + 1)); continue
+    rm -f "$tmp"; echo "FAIL     $name (podejrzany rozmiar wyniku: $osize < $size)" | tee -a "$LOG"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "-c copy -movflags +faststart" "BLAD: podejrzany rozmiar wyniku"
+    failed=$((failed + 1)); continue
   fi
 
   cp -p "$f" "$BACKUP_DIR/$name"
   mv -f "$tmp" "$f"          # atomowy rename w obrebie tego samego systemu plikow
   echo "OK       $name ($out, faststart)" | tee -a "$LOG"
+  row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "TAK (po operacji)" "-c copy -movflags +faststart" "OK"
   fixed=$((fixed + 1))
 done < "$MANIFEST"
 
+echo
+echo "| Plik | Rozmiar | H.264 | AAC | yuv420p | Faststart | Operacja | Status |"
+echo "|---|---:|---|---|---|---|---|---|"
+cat "$ROWS"
+echo
+
+FREE_KB="$(df -Pk "$DIR" | awk 'NR==2 {print $4}')"
+NEED_MB=$(( bytes / 1048576 + bytes / 10485760 ))
+FREE_MB=$(( FREE_KB / 1024 ))
+
 echo "----"
 echo "Z manifestu: $total | brak na dysku: $missing | juz faststart: $skipped | niestandardowe: $notstd"
+echo "Wolne miejsce w $DIR: ${FREE_MB} MB | wymagane: ~${NEED_MB} MB (kopie zapasowe + plik tymczasowy)"
+if [ "$NEED_MB" -gt "$FREE_MB" ]; then
+  echo "UWAGA: za malo wolnego miejsca — uruchom operacje partiami (podziel manifest)."
+fi
 if [ "$DRY" = "1" ]; then
   echo "Do przepakowania: $todo, laczny rozmiar: $((bytes / 1048576)) MB"
-  echo "Wymagane wolne miejsce: ~$((bytes / 1048576)) MB (kopie zapasowe) + ~$((bytes / 1048576 / 10)) MB zapasu na plik tymczasowy"
   echo "Przewidywany wynik: kazdy plik MP4/h264/aac/yuv420p z moov na poczatku, rozmiar praktycznie bez zmian."
   echo "Uruchom ponownie z --apply aby wykonac."
 else
   echo "Przepakowane: $fixed | bledy: $failed | kopie: $BACKUP_DIR | log: $LOG"
 fi
+
