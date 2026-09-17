@@ -54,6 +54,8 @@ import {
   FileText,
   Crown,
   Trophy,
+  Compass,
+  Wrench,
 } from 'lucide-react';
 import { resolveIcon } from '@/lib/icons/resolveIcon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -415,6 +417,22 @@ export const DashboardSidebar: React.FC = () => {
       };
     });
 
+  // Narzędzia submenu (AI Kompas + Kody HK) — visibility mirrors MyAccount tabs
+  const toolsSubmenuItems: SubMenuItem[] = [
+    ...(aiCompassVisible && !isGuest ? [{
+      id: 'ai-compass',
+      labelKey: 'AI Kompas',
+      path: '/ai-compass',
+      icon: Compass,
+    }] : []),
+    ...((isPartner || isAdmin) && !isGuest ? [{
+      id: 'kody-hk',
+      labelKey: 'Kody HK',
+      path: '/kody-hk',
+      icon: Heart,
+    }] : []),
+  ];
+
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
     // Leader Panel - single link, visible when partner has any leader feature enabled
@@ -487,6 +505,14 @@ export const DashboardSidebar: React.FC = () => {
       icon: Globe,
       labelKey: 'Moja Strona-Biznes Partner',
       path: '/moja-strona',
+    }] : []) as MenuItem[],
+    // Narzędzia group — only shown when at least one tool is visible
+    ...(toolsSubmenuItems.length > 0 ? [{
+      id: 'tools',
+      icon: Wrench,
+      labelKey: 'Narzędzia',
+      hasSubmenu: true,
+      submenuItems: toolsSubmenuItems,
     }] : []) as MenuItem[],
     { 
       id: 'infolinks', 
