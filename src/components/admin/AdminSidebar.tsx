@@ -195,6 +195,10 @@ const navCategories: NavCategory[] = [
       { value: 'partner-pages', labelKey: 'partnerPages', icon: Globe },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
       { value: 'purebox', labelKey: 'purebox', icon: Sparkles },
+      // R2.0 — moduły posiadające własną trasę, dotąd bez wejścia w menu
+      { value: 'payments', labelKey: 'payments', icon: Wallet, path: '/admin/payments' },
+      { value: 'news-hub', labelKey: 'newsHub', icon: Newspaper, path: '/admin/news-hub' },
+      { value: 'challenge-90', labelKey: 'challenge90', icon: Trophy, path: '/admin/wyzwanie-90' },
     ],
   },
   {

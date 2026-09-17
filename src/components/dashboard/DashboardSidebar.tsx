@@ -456,7 +456,7 @@ export const DashboardSidebar: React.FC = () => {
       ],
       visibleFor: ['partner', 'specjalista', 'admin']
     },
-    { id: 'messages', icon: MessageCircle, labelKey: 'Wiadomości', path: '/messages' },
+    { id: 'messages', icon: MessageSquare, labelKey: 'Wiadomości', path: '/messages' },
     { id: 'news', icon: Newspaper, labelKey: 'dashboard.menu.news', path: '/aktualnosci' },
     { 
       id: 'events', 
