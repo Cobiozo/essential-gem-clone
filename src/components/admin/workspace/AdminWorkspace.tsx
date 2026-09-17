@@ -3854,13 +3854,15 @@ const AdminWorkspace = () => {
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Reflinks Management */}
-              <div className="mb-8">
-                <ReflinksManagement onEditingStateChange={setIsEditingMode} />
-              </div>
-              
             </TabsContent>
+
+          {/* R2.3-D — Reflinki wydzielone z zakładki "settings" do własnej zakładki.
+              Dostęp nadal sterowany kluczem uprawnień "settings" (AdminSidebar). */}
+          <TabsContent value="admin-reflinks">
+            <div className="mb-8">
+              <ReflinksManagement onEditingStateChange={setIsEditingMode} />
+            </div>
+          </TabsContent>
 
           <TabsContent value="account">
             <Card>
