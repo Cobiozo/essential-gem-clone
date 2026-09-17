@@ -5,6 +5,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { ApprovalStatusBanner } from './ApprovalStatusBanner';
+import { RESERVED_ROUTE_SEGMENTS } from '@/config/navigation';
 
 interface ProfileCompletionGuardProps {
   children: React.ReactNode;
