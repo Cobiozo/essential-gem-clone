@@ -93,7 +93,6 @@ export const NewsHubVideoPlayer: React.FC<NewsHubVideoPlayerProps> = ({ url, cla
         controls
         preload={preload}
         playsInline
-        // eslint-disable-next-line jsx-a11y/media-has-caption
         autoPlay={autoPlay}
         poster={posterSrc}
         className="h-full w-full object-contain"
