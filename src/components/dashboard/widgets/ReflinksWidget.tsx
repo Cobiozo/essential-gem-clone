@@ -117,7 +117,7 @@ export const ReflinksWidget: React.FC = () => {
           <Widget3DIcon icon={Link2} variant="gold-bronze" size="md" />
           {t('dashboard.pureLinki')}
         </CardTitle>
-        <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=reflinks')} className="text-xs">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/reflinki')} className="text-xs">
           {t('dashboard.manage')}
           <ArrowRight className="h-3 w-3 ml-1" />
         </Button>
@@ -135,7 +135,7 @@ export const ReflinksWidget: React.FC = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => navigate('/my-account?tab=reflinks')}
+              onClick={() => navigate('/reflinki')}
             >
               {t('dashboard.generateInAccount')}
             </Button>

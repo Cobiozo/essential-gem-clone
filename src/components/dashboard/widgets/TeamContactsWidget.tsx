@@ -110,14 +110,14 @@ export const TeamContactsWidget: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => navigate('/my-account?tab=team-contacts&subTab=structure')} 
+                onClick={() => navigate('/contacts?subTab=structure')} 
                 className="text-xs"
               >
                 <Network className="h-3 w-3 mr-1" />
                 Struktura
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=team-contacts')} className="text-xs">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/contacts')} className="text-xs">
               {t('dashboard.manage')}
               <ArrowRight className="h-3 w-3 ml-1" />
             </Button>
@@ -227,7 +227,7 @@ export const TeamContactsWidget: React.FC = () => {
             </Button>
             <Button onClick={() => {
               setSelectedContact(null);
-              navigate('/my-account?tab=team-contacts');
+              navigate('/contacts');
             }}>
               {t('dashboard.viewAllContacts')}
             </Button>
