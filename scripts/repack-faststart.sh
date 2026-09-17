@@ -85,32 +85,66 @@ if [ "$DRY" = "0" ]; then
   touch "$LOG"
 fi
 
+ROWS="$(mktemp)"
+trap 'rm -f "$ROWS"' EXIT
+
+row() { # row <plik> <rozmiar> <h264> <aac> <yuv420p> <faststart> <operacja> <status>
+  printf '| %s | %s | %s | %s | %s | %s | %s | %s |\n' "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" >> "$ROWS"
+}
+
+human() { [ -z "${1:-}" ] && { echo "-"; return; }; echo "$(( $1 / 1048576 )) MB"; }
+
 while IFS= read -r name; do
   [ -z "$name" ] && continue
   case "$name" in \#*) continue ;; esac
   total=$((total + 1))
+
+  # Twarda walidacja nazwy: tylko plik z manifestu, zadnych sciezek ani wyjscia poza katalog.
+  case "$name" in
+    */*|*'..'*)
+      echo "ODRZUCONO  $name (nazwa zawiera sciezke — dozwolone tylko nazwy plikow z manifestu)"
+      row "$name" "-" "-" "-" "-" "-" "brak" "ODRZUCONY (niedozwolona nazwa)"
+      failed=$((failed + 1)); continue ;;
+  esac
+
   f="$DIR/$name"
 
   if [ ! -f "$f" ]; then
-    echo "MISSING  $name"; missing=$((missing + 1)); continue
-  fi
-  if [ "$(has_faststart "$f")" = "ok" ]; then
-    echo "SKIP     $name (ma juz faststart)"; skipped=$((skipped + 1)); continue
-  fi
-
-  info="$(probe "$f")"
-  if ! is_standard "$info"; then
-    echo "NIE-STD  $name ($info) — wymaga decyzji / re-enkodowania, pomijam"
-    notstd=$((notstd + 1)); continue
+    echo "MISSING  $name"
+    row "$name" "-" "-" "-" "-" "-" "brak" "BRAK PLIKU NA DYSKU"
+    missing=$((missing + 1)); continue
   fi
 
   size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+
+  if [ "$(has_faststart "$f")" = "ok" ]; then
+    echo "SKIP     $name (ma juz faststart)"
+    row "$name" "$(human "$size")" "-" "-" "-" "TAK" "brak" "POMINIETY (juz faststart)"
+    skipped=$((skipped + 1)); continue
+  fi
+
+  info="$(probe "$f")"
+  icont="${info%%|*}"; rest="${info#*|}"
+  iv="${rest%%|*}"; rest="${rest#*|}"
+  ia="${rest%%|*}"; ipix="${rest##*|}"
+  [ "$iv" = "h264" ] && ch264="TAK" || ch264="NIE ($iv)"
+  [ "$ia" = "aac" ] && caac="TAK" || caac="NIE ($ia)"
+  [ "$ipix" = "yuv420p" ] && cpix="TAK" || cpix="NIE ($ipix)"
+
+  if ! is_standard "$info"; then
+    echo "NIE-STD  $name ($info) — wymaga decyzji / re-enkodowania, pomijam"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "re-enkodowanie (decyzja recznа)" "POMINIETY (niezgodny ze standardem)"
+    notstd=$((notstd + 1)); continue
+  fi
+
   todo=$((todo + 1)); bytes=$((bytes + size))
 
   if [ "$DRY" = "1" ]; then
     echo "PLAN     $name ($info, $((size / 1048576)) MB) -> ffmpeg -c copy -movflags +faststart"
+    row "$name" "$(human "$size")" "$ch264" "$caac" "$cpix" "NIE" "-c copy -movflags +faststart" "DO PRZEPAKOWANIA"
     continue
   fi
+
 
   tmp="$f.repack.tmp.mp4"
   rm -f "$tmp"
