@@ -134,10 +134,32 @@ interface NavCategory {
   defaultOpen?: boolean;
 }
 
+// R2.2-B — 8 grup docelowej architektury informacji.
+// Grupa 1 "Pulpit administratora" to blok szybkich wejść renderowany nad listą
+// kategorii (Strona główna, Centrum aktualności, Wyzwanie 90-dniowe).
+// UWAGA: `value` jest jednocześnie kluczem moderator_permissions.modules —
+// wartości, ścieżki i ikony pozostają nietknięte, zmienia się wyłącznie grupowanie.
 const navCategories: NavCategory[] = [
   {
-    id: 'site',
-    labelKey: 'siteAndAppearance',
+    id: 'people',
+    labelKey: 'peopleAndAccess',
+    icon: Users,
+    items: [
+      { value: 'users', labelKey: 'users', icon: Users },
+      { value: 'user-stats', labelKey: 'userStats', icon: Activity },
+      { value: 'account', labelKey: 'account', icon: UserCircle },
+      { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
+      { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
+      { value: 'moderators', labelKey: 'moderators', icon: Shield },
+      { value: 'guests', labelKey: 'guests', icon: Users },
+      { value: 'deleted-accounts', labelKey: 'deletedAccounts', icon: Trash2 },
+      { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
+      { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
+    ],
+  },
+  {
+    id: 'content',
+    labelKey: 'contentAndAppearance',
     icon: LayoutDashboard,
     items: [
       { value: 'content', labelKey: 'main', icon: Settings2 },
@@ -150,56 +172,33 @@ const navCategories: NavCategory[] = [
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
       { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
       { value: 'sidebar-order', labelKey: 'sidebarOrder', icon: ListOrdered },
+      { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
+      { value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
+      { value: 'intro-video', labelKey: 'introVideo', icon: VideoIcon },
+      { value: 'news-hub', labelKey: 'newsHub', icon: Newspaper, path: '/admin/news-hub' },
     ],
   },
   {
-    id: 'users',
-    labelKey: 'usersCategory',
-    icon: Users,
-    items: [
-      { value: 'users', labelKey: 'users', icon: Users },
-      { value: 'user-stats', labelKey: 'userStats', icon: Activity },
-      { value: 'account', labelKey: 'account', icon: UserCircle },
-      { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
-      { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
-      { value: 'moderators', labelKey: 'moderators', icon: Shield },
-      { value: 'guests', labelKey: 'guests', icon: Users },
-      { value: 'deleted-accounts', labelKey: 'deletedAccounts', icon: Trash2 },
-    ],
-  },
-  {
-    id: 'training',
-    labelKey: 'trainingAndKnowledge',
+    id: 'learning',
+    labelKey: 'learning',
     icon: BookOpen,
     items: [
       { value: 'training', labelKey: 'trainings', icon: BookOpen },
       { value: 'certificates', labelKey: 'certificates', icon: Award },
       { value: 'knowledge', labelKey: 'resources', icon: FolderOpen },
       { value: 'healthy-knowledge', labelKey: 'healthyKnowledge', icon: Heart },
-      { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
+      { value: 'challenge-90', labelKey: 'challenge90', icon: Trophy, path: '/admin/wyzwanie-90' },
     ],
   },
   {
-    id: 'events-tools',
-    labelKey: 'eventsAndTools',
+    id: 'events',
+    labelKey: 'eventsCategory',
     icon: CalendarDays,
     items: [
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'event-registrations', labelKey: 'eventRegistrations', icon: UserPlus },
       { value: 'paid-events', labelKey: 'paidEvents', icon: Ticket },
       { value: 'meeting-guests', labelKey: 'meetingGuests', icon: UserPlus },
-      { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
-      { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
-      { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
-      { value: 'calculator', labelKey: 'calculator', icon: Calculator },
-      { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
-      { value: 'partner-pages', labelKey: 'partnerPages', icon: Globe },
-      { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
-      { value: 'purebox', labelKey: 'purebox', icon: Sparkles },
-      // R2.0 — moduły posiadające własną trasę, dotąd bez wejścia w menu
-      { value: 'payments', labelKey: 'payments', icon: Wallet, path: '/admin/payments' },
-      { value: 'news-hub', labelKey: 'newsHub', icon: Newspaper, path: '/admin/news-hub' },
-      { value: 'challenge-90', labelKey: 'challenge90', icon: Trophy, path: '/admin/wyzwanie-90' },
     ],
   },
   {
@@ -207,35 +206,46 @@ const navCategories: NavCategory[] = [
     labelKey: 'communication',
     icon: Mail,
     items: [
-      { value: 'translations', labelKey: 'translations', icon: Languages },
-      { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
-      { value: 'chat-permissions', labelKey: 'chatPermissions', icon: MessageSquare },
       { value: 'notifications', labelKey: 'notifications', icon: Bell },
       { value: 'push-notifications', labelKey: 'pushNotifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
       { value: 'email-delivery', labelKey: 'emailDelivery', icon: Mail },
+      { value: 'chat-permissions', labelKey: 'chatPermissions', icon: MessageSquare },
       { value: 'support', labelKey: 'support', icon: HelpCircle },
-      { value: 'cookies', labelKey: 'cookies', icon: Cookie },
+      { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
+      { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
+      { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
+    ],
+  },
+  {
+    id: 'tools-sales',
+    labelKey: 'toolsAndSales',
+    icon: Wrench,
+    items: [
+      { value: 'payments', labelKey: 'payments', icon: Wallet, path: '/admin/payments' },
+      { value: 'purebox', labelKey: 'purebox', icon: Sparkles },
+      { value: 'calculator', labelKey: 'calculator', icon: Calculator },
+      { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
+      { value: 'partner-pages', labelKey: 'partnerPages', icon: Globe },
+      { value: 'ai-compass', labelKey: 'compass', icon: Compass },
     ],
   },
   {
     id: 'system',
     labelKey: 'system',
-    icon: Wrench,
+    icon: Settings2,
     items: [
       { value: 'system-health', labelKey: 'systemHealth', icon: AlertTriangle },
       { value: 'activity-log', labelKey: 'activityLog', icon: Clock },
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
-      { value: 'ai-compass', labelKey: 'compass', icon: Compass },
-      { value: 'ai-provider', labelKey: 'aiProvider', icon: Sparkles },
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
       { value: 'security', labelKey: 'security', icon: Shield },
       { value: 'api-integrations', labelKey: 'apiIntegrations', icon: Plug },
-      { value: 'mobile-bottom-nav', labelKey: 'mobileBottomNav', icon: Smartphone },
-      { value: 'intro-video', labelKey: 'introVideo', icon: VideoIcon },
-
+      { value: 'ai-provider', labelKey: 'aiProvider', icon: Sparkles },
+      { value: 'translations', labelKey: 'translations', icon: Languages },
+      { value: 'cookies', labelKey: 'cookies', icon: Cookie },
     ],
   },
 ];
@@ -261,9 +271,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
   const hardcodedLabels: Record<string, string> = {
-    siteAndAppearance: 'Strona i wygląd',
-    trainingAndKnowledge: 'Szkolenia i wiedza',
-    eventsAndTools: 'Wydarzenia i narzędzia',
+    // R2.2-B — etykiety 8 grup docelowej architektury informacji
+    adminDashboard: 'Pulpit administratora',
+    peopleAndAccess: 'Ludzie i dostępy',
+    contentAndAppearance: 'Treść i wygląd',
+    learning: 'Nauka',
+    eventsCategory: 'Wydarzenia',
+    communication: 'Komunikacja',
+    toolsAndSales: 'Narzędzia i sprzedaż',
+    system: 'System',
+    mediaLibrary: 'Biblioteka mediów',
+    mobileBottomNav: 'Dolny pasek mobilny',
     colorsAndThemes: 'Kolory i motywy',
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
@@ -398,8 +416,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Home link */}
+        {/* R2.2-B — grupa 1: Pulpit administratora (szybkie wejścia) */}
         <SidebarGroup>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="px-2 text-sidebar-foreground/70">
+              {getLabel('adminDashboard')}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
