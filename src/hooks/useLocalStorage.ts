@@ -304,7 +304,8 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
             ? data.url
             : (typeof data.publicUrl === 'string' ? data.publicUrl : '');
           const relativePath = getUploadRelativePath(data.relativePath) || getUploadRelativePath(publicUrl);
-          const preferredUrl = relativePath || publicUrl;
+          // Zapisujemy zawsze kanoniczny absolutny URL serwera plików.
+          const preferredUrl = toCanonicalMediaUrl(relativePath || publicUrl);
 
           if (!preferredUrl) {
             reject(new Error('Serwer nie zwrócił prawidłowego URL wgranego pliku.'));
