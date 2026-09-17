@@ -500,6 +500,11 @@ const AppContent = () => {
                 <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
                 <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
+                {/* R2.0 etap 2 — kanoniczne trasy IA */}
+                <Route path="/contacts" element={<ContactsPage />} />
+                <Route path="/ai-compass" element={<AiCompassPage />} />
+                <Route path="/kody-hk" element={<HkCodesPage />} />
+                <Route path="/reflinki" element={<ReflinksPage />} />
                 <Route path="/paid-events" element={<PaidEventsListPage />} />
                 <Route path="/weryfikacja-biletow" element={<TicketVerificationPage />} />
                 <Route path="/events/:slug" element={<PaidEventPage />} />
