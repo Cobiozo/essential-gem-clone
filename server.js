@@ -488,9 +488,47 @@ app.get('/uploads/training-media/:filename', (req, res) => {
   const range = req.headers.range;
   
   if (range) {
-    const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    // Only a single "bytes=" range is supported; anything else is unsatisfiable.
+    const match = /^bytes=(\d*)-(\d*)$/.exec(String(range).trim());
+    let start = NaN;
+    let end = NaN;
+
+    if (match) {
+      const rawStart = match[1];
+      const rawEnd = match[2];
+      if (rawStart === '' && rawEnd !== '') {
+        // Suffix range: last N bytes
+        const suffix = parseInt(rawEnd, 10);
+        if (suffix > 0) {
+          start = Math.max(fileSize - suffix, 0);
+          end = fileSize - 1;
+        }
+      } else if (rawStart !== '') {
+        start = parseInt(rawStart, 10);
+        end = rawEnd !== '' ? parseInt(rawEnd, 10) : fileSize - 1;
+        if (end > fileSize - 1) end = fileSize - 1;
+      }
+    }
+
+    const invalid =
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      start < 0 ||
+      start > end ||
+      start >= fileSize;
+
+    if (invalid) {
+      console.warn(`📹 Invalid Range for ${req.params.filename}: "${range}" (size ${fileSize})`);
+      res.writeHead(416, {
+        'Content-Range': `bytes */${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store'
+      });
+      res.end();
+      return;
+    }
+
     const chunksize = (end - start) + 1;
     
     console.log(`📹 Streaming ${req.params.filename}: bytes ${start}-${end}/${fileSize}`);
