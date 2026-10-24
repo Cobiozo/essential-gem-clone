@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useCookieConsent } from '@/hooks/useCookieConsent';
 import { CookiePreferenceCenter } from './CookiePreferenceCenter';
 import { cn } from '@/lib/utils';
+import { DEFAULT_COLORS } from '@/types/cookies';
 
 export function CookieConsentBanner() {
   const {
@@ -41,7 +42,8 @@ export function CookieConsentBanner() {
     return null;
   }
 
-  const colors = bannerSettings.colors;
+  // Defense in depth for stale settings already held by a mounted component.
+  const colors = { ...DEFAULT_COLORS, ...(bannerSettings.colors ?? {}) };
 
   const getPositionClasses = () => {
     const { layout_type, position } = bannerSettings;

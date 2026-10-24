@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { DEFAULT_COLORS } from '@/types/cookies';
 import type { CookieBannerSettings, CookieCategory } from '@/types/cookies';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +30,7 @@ export function CookiePreferenceCenter({
     return initial;
   });
 
-  const colors = bannerSettings.colors;
+  const colors = { ...DEFAULT_COLORS, ...(bannerSettings.colors ?? {}) };
   const type = bannerSettings.preference_center_type;
 
   const getContainerClasses = () => {

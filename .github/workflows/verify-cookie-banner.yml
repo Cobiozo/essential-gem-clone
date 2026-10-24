@@ -1,0 +1,36 @@
+name: Verify cookie banner defaults
+on:
+  pull_request:
+    paths:
+      - "src/hooks/useCookieConsent.ts"
+      - "src/components/cookies/CookieConsentBanner.tsx"
+      - "src/components/cookies/CookiePreferenceCenter.tsx"
+      - "src/types/cookies.ts"
+      - ".github/workflows/verify-cookie-banner.yml"
+permissions:
+  contents: read
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund --legacy-peer-deps
+        # The existing package-lock is out of sync with package.json; do not change it in this safety fix.
+      - name: TypeScript check (existing unrelated project errors reported separately)
+        shell: bash
+        run: |
+          npx tsc -p tsconfig.app.json --noEmit --pretty false > /tmp/pure-types.log 2>&1 || true
+          if grep -E '^src/(hooks/useCookieConsent\.ts|components/cookies/(CookieConsentBanner|CookiePreferenceCenter)\.tsx)\([0-9]+' /tmp/pure-types.log; then
+            echo "::error::Changed cookie components contain TypeScript errors"
+            exit 1
+          fi
+          count=$(grep -c 'error TS' /tmp/pure-types.log || true)
+          echo "::warning::Project has $count existing TypeScript errors outside changed cookie files"
+      - name: Production build
+        run: npm run build
