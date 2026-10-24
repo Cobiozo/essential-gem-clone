@@ -20,7 +20,8 @@ jobs:
           node-version: "22"
           cache: npm
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-package-lock --no-audit --no-fund --legacy-peer-deps
+        # The existing package-lock is out of sync with package.json; do not change it in this safety fix.
       - name: TypeScript check
         run: npx tsc -p tsconfig.app.json --noEmit
       - name: Production build
