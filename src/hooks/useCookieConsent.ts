@@ -1,6 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { DEFAULT_COLORS, DARK_COLORS } from '@/types/cookies';
 import type { CookieConsentSettings, CookieBannerSettings, CookieCategory, CookieBannerColors } from '@/types/cookies';
+
+/** Older API rows and session caches can omit or partially serialize colors. */
+function normalizeBannerColors(raw: unknown, theme?: string): CookieBannerColors {
+  const defaults = theme === 'dark' ? DARK_COLORS : DEFAULT_COLORS;
+  let parsed: unknown = raw;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { parsed = null; }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...defaults };
+  const result: CookieBannerColors = { ...defaults };
+  for (const key of Object.keys(defaults) as Array<keyof CookieBannerColors>) {
+    const value = (parsed as Record<string, unknown>)[key];
+    if (typeof value === 'string' && value.trim()) result[key] = value;
+  }
+  return result;
+}
+
+function normalizeBannerSettings(raw: unknown): CookieBannerSettings | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const value = raw as CookieBannerSettings;
+  return { ...value, colors: normalizeBannerColors(value.colors, value.theme) };
+}
 
 const VISITOR_ID_KEY = 'cookie_visitor_id';
 const CONSENT_KEY = 'cookie_consents';
@@ -37,7 +60,7 @@ function getCachedData(): { settings: CookieConsentSettings | null; banner: Cook
 
     return {
       settings: settings ? JSON.parse(settings) : null,
-      banner: banner ? JSON.parse(banner) : null,
+      banner: banner ? normalizeBannerSettings(JSON.parse(banner)) : null,
       categories: categories ? JSON.parse(categories) : [],
       isFresh,
     };
@@ -114,11 +137,7 @@ export function useCookieConsent() {
         const newCategories = (categoriesRes.data as CookieCategory[]) || [];
 
         if (bannerRes.data) {
-          const data = bannerRes.data;
-          newBanner = {
-            ...data,
-            colors: (typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors) as CookieBannerColors,
-          } as CookieBannerSettings;
+          newBanner = normalizeBannerSettings(bannerRes.data);
         }
 
         if (newSettings) setSettings(newSettings);
